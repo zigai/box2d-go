@@ -1,0 +1,98 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.arch }}${{ matrix.goamd64 && format(' {0}', matrix.goamd64) || '' }}, ${{ matrix.precision }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    env:
+      GOAMD64: ${{ matrix.goamd64 || 'v1' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-latest, precision: float, tags: "" }
+          - { arch: amd64, runner: ubuntu-latest, precision: double, tags: box2d_double }
+          - { arch: amd64, goamd64: v3, runner: ubuntu-latest, precision: float, tags: "" }
+          - { arch: amd64, goamd64: v3, runner: ubuntu-latest, precision: double, tags: box2d_double }
+          - { arch: arm64, runner: ubuntu-24.04-arm, precision: float, tags: "" }
+          - { arch: arm64, runner: ubuntu-24.04-arm, precision: double, tags: box2d_double }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check architecture
+        run: test "$(go env GOARCH)" = "${{ matrix.arch }}"
+      - name: go vet
+        run: go vet -tags "${{ matrix.tags }}" ./...
+      - name: go test
+        run: go test -tags "${{ matrix.tags }}" ./...
+      - name: go test -race
+        run: go test -race -tags "${{ matrix.tags }}" ./...
+
+  test-wasm:
+    name: test (wasm, ${{ matrix.precision }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOS: js
+      GOARCH: wasm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { precision: float, tags: "" }
+          - { precision: double, tags: box2d_double }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: go vet
+        run: go vet -tags "${{ matrix.tags }}" ./...
+      - name: go test
+        run: go test -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" -tags "${{ matrix.tags }}" ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: internal/lint/go.sum
+      - uses: extractions/setup-just@v4
+      - run: just lint
+
+  skips:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: extractions/setup-just@v4
+      - name: Count unported skips
+        run: just skips | tee -a "$GITHUB_STEP_SUMMARY"

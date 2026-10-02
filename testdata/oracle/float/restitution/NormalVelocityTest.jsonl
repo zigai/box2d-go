@@ -1,0 +1,13 @@
+{"k":"transforms/steps","t":"bytes","v":"18da05bebb28bcb2d45b684b46a3f7e4"}
+{"k":"transforms/full","t":"bytes","v":""}
+{"k":"steps","t":"bytes","v":"38e7ea63b300b3397c0402fa6113e7b8"}
+{"k":"MeasureFirstTouchNormalVelocity/return","t":"f32","v":"00000000"}
+{"k":"transforms/steps","t":"bytes","v":"18da05bebb28bcb2d45b684b46a3f7e4"}
+{"k":"transforms/full","t":"bytes","v":""}
+{"k":"steps","t":"bytes","v":"38e7ea63b300b3397c7722a7daf0fe5c"}
+{"k":"MeasureFirstTouchNormalVelocity/return","t":"f32","v":"c0a00000"}
+{"k":"check/734/value0","t":"f32","v":"00000000"}
+{"k":"check/734/value1","t":"f32","v":"c0a00000"}
+{"k":"check/734","t":"bool","v":"0"}
+{"k":"check/739","t":"bool","v":"0"}
+{"k":"NormalVelocityTest/return","t":"i32","v":"00000000"}

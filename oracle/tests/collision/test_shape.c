@@ -1,0 +1,278 @@
+// SPDX-FileCopyrightText: 2023 Erin Catto
+// SPDX-License-Identifier: MIT
+
+#include "test_macros.h"
+
+#include "box2d/collision.h"
+#include "box2d/math_functions.h"
+
+#include <float.h>
+
+static b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+static b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+static b2Polygon box;
+static b2Segment segment = { { 0.0f, 1.0f }, { 0.0f, -1.0f } };
+
+#define N 4
+
+static int ShapeMassTest( void )
+{
+	ORACLE_OPEN( "shape/ShapeMassTest" );
+	{
+		b2MassData md = b2ComputeCircleMass( &circle, 1.0f );
+		ORACLE_F32( "shape:23/value0", md.mass );
+		ORACLE_F32( "shape:23", md.mass - B2_PI );
+		ENSURE_SMALL( md.mass - B2_PI, FLT_EPSILON );
+		ORACLE_F32( "shape:24/value0", md.center.x );
+		ORACLE_F32( "shape:24/value1", md.center.y );
+		ORACLE_BOOL( "shape:24", md.center.x == 1.0f && md.center.y == 0.0f );
+		ENSURE( md.center.x == 1.0f && md.center.y == 0.0f );
+		ORACLE_F32( "shape:25/value0", md.rotationalInertia );
+		ORACLE_F32( "shape:25", md.rotationalInertia - 0.5f * B2_PI );
+		ENSURE_SMALL( md.rotationalInertia - 0.5f * B2_PI, FLT_EPSILON );
+	}
+
+	{
+		float radius = capsule.radius;
+		float length = b2Distance( capsule.center1, capsule.center2 );
+
+		b2MassData md = b2ComputeCapsuleMass( &capsule, 1.0f );
+
+		// Box that full contains capsule
+		b2Polygon r = b2MakeBox( radius + 0.5f * length, radius );
+		b2MassData mdUpper = b2ComputePolygonMass( &r, 1.0f );
+
+		// Approximate capsule using convex hull
+		b2Vec2 points[2 * N];
+		float d = B2_PI / ( N - 1.0f );
+		float angle = -0.5f * B2_PI;
+		for ( int i = 0; i < N; ++i )
+		{
+			points[i].x = 1.0f + radius * cosf( angle );
+			points[i].y = radius * sinf( angle );
+			angle += d;
+		}
+
+		angle = 0.5f * B2_PI;
+		for ( int i = N; i < 2 * N; ++i )
+		{
+			points[i].x = -1.0f + radius * cosf( angle );
+			points[i].y = radius * sinf( angle );
+			angle += d;
+		}
+
+		b2Hull hull = b2ComputeHull( points, 2 * N );
+		b2Polygon ac = b2MakePolygon( &hull, 0.0f );
+		b2MassData mdLower = b2ComputePolygonMass( &ac, 1.0f );
+
+		ORACLE_F32( "shape:60/value0", mdLower.mass );
+		ORACLE_F32( "shape:60/value1", md.mass );
+		ORACLE_F32( "shape:60/value2", mdUpper.mass );
+		ORACLE_BOOL( "shape:60", mdLower.mass < md.mass && md.mass < mdUpper.mass );
+		ENSURE( mdLower.mass < md.mass && md.mass < mdUpper.mass );
+		ORACLE_F32( "shape:62/value0", mdLower.rotationalInertia );
+		ORACLE_F32( "shape:62/value1", md.rotationalInertia );
+		ORACLE_F32( "shape:62/value2", mdUpper.rotationalInertia );
+		ORACLE_BOOL( "shape:62", mdLower.rotationalInertia < md.rotationalInertia && md.rotationalInertia < mdUpper.rotationalInertia );
+		ENSURE( mdLower.rotationalInertia < md.rotationalInertia && md.rotationalInertia < mdUpper.rotationalInertia );
+	}
+
+	{
+		b2MassData md = b2ComputePolygonMass( &box, 1.0f );
+		ORACLE_F32( "shape:67/value0", md.mass );
+		ORACLE_F32( "shape:67", md.mass - 4.0f );
+		ENSURE_SMALL( md.mass - 4.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:68/value0", md.center.x );
+		ORACLE_F32( "shape:68", md.center.x );
+		ENSURE_SMALL( md.center.x, FLT_EPSILON );
+		ORACLE_F32( "shape:69/value0", md.center.y );
+		ORACLE_F32( "shape:69", md.center.y );
+		ENSURE_SMALL( md.center.y, FLT_EPSILON );
+		ORACLE_F32( "shape:70/value0", md.rotationalInertia );
+		ORACLE_F32( "shape:70", md.rotationalInertia - 8.0f / 3.0f );
+		ENSURE_SMALL( md.rotationalInertia - 8.0f / 3.0f, 2.0f * FLT_EPSILON );
+	}
+
+	{
+		b2Vec2 offset = {0.4f, -0.7f};
+		b2Polygon b1 = b2MakeBox( 0.25f, 0.5f );
+		b2Polygon b2 = b2MakeOffsetBox( 0.25f, 0.5f, offset, b2Rot_identity );
+
+		b2MassData m1 = b2ComputePolygonMass( &b1, 1.0f );
+		b2MassData m2 = b2ComputePolygonMass( &b2, 1.0f );
+		
+		ORACLE_F32( "shape:80/value0", m1.mass );
+		ORACLE_F32( "shape:80/value1", m2.mass );
+		ORACLE_F32( "shape:80", m1.mass - m2.mass );
+		ENSURE_SMALL( m1.mass - m2.mass, FLT_EPSILON );
+		ORACLE_F32( "shape:82/value0", m1.rotationalInertia );
+		ORACLE_F32( "shape:82/value1", m2.rotationalInertia );
+		ORACLE_F32( "shape:82", m1.rotationalInertia - m2.rotationalInertia );
+		ENSURE_SMALL( m1.rotationalInertia - m2.rotationalInertia, FLT_EPSILON );
+		ORACLE_F32( "shape:83/value0", m2.center.x );
+		ORACLE_F32( "shape:83/value1", offset.x );
+		ORACLE_F32( "shape:83", m2.center.x - offset.x );
+		ENSURE_SMALL( m2.center.x - offset.x, FLT_EPSILON );
+		ORACLE_F32( "shape:84/value0", m2.center.y );
+		ORACLE_F32( "shape:84/value1", offset.y );
+		ORACLE_F32( "shape:84", m2.center.y - offset.y );
+		ENSURE_SMALL( m2.center.y - offset.y, FLT_EPSILON );
+	}
+
+	ORACLE_CLOSE();
+	return 0;
+}
+
+static int ShapeAABBTest( void )
+{
+	ORACLE_OPEN( "shape/ShapeAABBTest" );
+	{
+		b2AABB b = b2ComputeCircleAABB( &circle, b2WorldTransform_identity );
+		ORACLE_F32( "shape:96/value0", b.lowerBound.x );
+		ORACLE_F32( "shape:96", b.lowerBound.x );
+		ENSURE_SMALL( b.lowerBound.x, FLT_EPSILON );
+		ORACLE_F32( "shape:97/value0", b.lowerBound.y );
+		ORACLE_F32( "shape:97", b.lowerBound.y + 1.0f );
+		ENSURE_SMALL( b.lowerBound.y + 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:98/value0", b.upperBound.x );
+		ORACLE_F32( "shape:98", b.upperBound.x - 2.0f );
+		ENSURE_SMALL( b.upperBound.x - 2.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:99/value0", b.upperBound.y );
+		ORACLE_F32( "shape:99", b.upperBound.y - 1.0f );
+		ENSURE_SMALL( b.upperBound.y - 1.0f, FLT_EPSILON );
+	}
+
+	{
+		b2AABB b = b2ComputePolygonAABB( &box, b2WorldTransform_identity );
+		ORACLE_F32( "shape:104/value0", b.lowerBound.x );
+		ORACLE_F32( "shape:104", b.lowerBound.x + 1.0f );
+		ENSURE_SMALL( b.lowerBound.x + 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:105/value0", b.lowerBound.y );
+		ORACLE_F32( "shape:105", b.lowerBound.y + 1.0f );
+		ENSURE_SMALL( b.lowerBound.y + 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:106/value0", b.upperBound.x );
+		ORACLE_F32( "shape:106", b.upperBound.x - 1.0f );
+		ENSURE_SMALL( b.upperBound.x - 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:107/value0", b.upperBound.y );
+		ORACLE_F32( "shape:107", b.upperBound.y - 1.0f );
+		ENSURE_SMALL( b.upperBound.y - 1.0f, FLT_EPSILON );
+	}
+
+	{
+		b2AABB b = b2ComputeSegmentAABB( &segment, b2WorldTransform_identity );
+		ORACLE_F32( "shape:112/value0", b.lowerBound.x );
+		ORACLE_F32( "shape:112", b.lowerBound.x );
+		ENSURE_SMALL( b.lowerBound.x, FLT_EPSILON );
+		ORACLE_F32( "shape:113/value0", b.lowerBound.y );
+		ORACLE_F32( "shape:113", b.lowerBound.y + 1.0f );
+		ENSURE_SMALL( b.lowerBound.y + 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:114/value0", b.upperBound.x );
+		ORACLE_F32( "shape:114", b.upperBound.x );
+		ENSURE_SMALL( b.upperBound.x, FLT_EPSILON );
+		ORACLE_F32( "shape:115/value0", b.upperBound.y );
+		ORACLE_F32( "shape:115", b.upperBound.y - 1.0f );
+		ENSURE_SMALL( b.upperBound.y - 1.0f, FLT_EPSILON );
+	}
+
+	ORACLE_CLOSE();
+	return 0;
+}
+
+static int PointInShapeTest( void )
+{
+	ORACLE_OPEN( "shape/PointInShapeTest" );
+	b2Vec2 p1 = { 0.5f, 0.5f };
+	b2Vec2 p2 = { 4.0f, -4.0f };
+
+	{
+		bool hit;
+		hit = b2PointInCircle(&circle,  p1 );
+		ORACLE_BOOL( "shape:131", hit == true );
+		ENSURE( hit == true );
+		hit = b2PointInCircle( &circle, p2 );
+		ORACLE_BOOL( "shape:133", hit == false );
+		ENSURE( hit == false );
+	}
+
+	{
+		bool hit;
+		hit = b2PointInPolygon( &box,  p1);
+		ORACLE_BOOL( "shape:139", hit == true );
+		ENSURE( hit == true );
+		hit = b2PointInPolygon(&box,  p2);
+		ORACLE_BOOL( "shape:141", hit == false );
+		ENSURE( hit == false );
+	}
+
+	ORACLE_CLOSE();
+	return 0;
+}
+
+static int RayCastShapeTest( void )
+{
+	ORACLE_OPEN( "shape/RayCastShapeTest" );
+	b2RayCastInput input = { { -4.0f, 0.0f }, { 8.0f, 0.0f }, 1.0f };
+
+	{
+		b2CastOutput output = b2RayCastCircle( &circle, & input );
+		ORACLE_BOOL( "shape:155/value0", output.hit );
+		ORACLE_BOOL( "shape:155", output.hit );
+		ENSURE( output.hit );
+		ORACLE_F32( "shape:156/value0", output.normal.x );
+		ORACLE_F32( "shape:156", output.normal.x + 1.0f );
+		ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:157/value0", output.normal.y );
+		ORACLE_F32( "shape:157", output.normal.y );
+		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
+		ORACLE_F32( "shape:158/value0", output.fraction );
+		ORACLE_F32( "shape:158", output.fraction - 0.5f );
+		ENSURE_SMALL( output.fraction - 0.5f, FLT_EPSILON );
+	}
+
+	{
+		b2CastOutput output = b2RayCastPolygon( &box, & input);
+		ORACLE_BOOL( "shape:163/value0", output.hit );
+		ORACLE_BOOL( "shape:163", output.hit );
+		ENSURE( output.hit );
+		ORACLE_F32( "shape:164/value0", output.normal.x );
+		ORACLE_F32( "shape:164", output.normal.x + 1.0f );
+		ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:165/value0", output.normal.y );
+		ORACLE_F32( "shape:165", output.normal.y );
+		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
+		ORACLE_F32( "shape:166/value0", output.fraction );
+		ORACLE_F32( "shape:166", output.fraction - 3.0f / 8.0f );
+		ENSURE_SMALL( output.fraction - 3.0f / 8.0f, FLT_EPSILON );
+	}
+
+	{
+		b2CastOutput output = b2RayCastSegment( &segment, &input, true );
+		ORACLE_BOOL( "shape:171/value0", output.hit );
+		ORACLE_BOOL( "shape:171", output.hit );
+		ENSURE( output.hit );
+		ORACLE_F32( "shape:172/value0", output.normal.x );
+		ORACLE_F32( "shape:172", output.normal.x + 1.0f );
+		ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
+		ORACLE_F32( "shape:173/value0", output.normal.y );
+		ORACLE_F32( "shape:173", output.normal.y );
+		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
+		ORACLE_F32( "shape:174/value0", output.fraction );
+		ORACLE_F32( "shape:174", output.fraction - 0.5f );
+		ENSURE_SMALL( output.fraction - 0.5f, FLT_EPSILON );
+	}
+
+	ORACLE_CLOSE();
+	return 0;
+}
+
+int ShapeTest( void )
+{
+	box = b2MakeBox( 1.0f, 1.0f );
+
+	RUN_SUBTEST( ShapeMassTest );
+	RUN_SUBTEST( ShapeAABBTest );
+	RUN_SUBTEST( PointInShapeTest );
+	RUN_SUBTEST( RayCastShapeTest );
+
+	return 0;
+}

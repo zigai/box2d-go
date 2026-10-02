@@ -106,6 +106,8 @@ type taskContext struct {
 type world struct {
 	broadPhase                   broadPhase
 	constraintGraph              constraintGraph
+	solverWideScratch            []contactConstraintWide
+	solverOverflowScratch        []contactConstraint
 	bodyIDPool                   idPool
 	bodies                       []body
 	solverSetIDPool              idPool
@@ -368,9 +370,14 @@ func CreateWorld(def *WorldDef) World {
 		w.workerCount = min(def.WorkerCount, MaxWorkers)
 		w.enqueueTaskFcn = def.EnqueueTask
 	} else {
-		// Serial fallback
 		w.workerCount = max(1, min(def.WorkerCount, MaxWorkers))
-		w.enqueueTaskFcn = defaultAddTaskFcn
+		if w.workerCount > 1 {
+			w.scheduler = createScheduler(w.workerCount)
+			w.enqueueTaskFcn = func(task func()) func() { return schedulerEnqueueTask(task, w.scheduler) }
+		} else {
+			// Serial fallback
+			w.enqueueTaskFcn = defaultAddTaskFcn
+		}
 	}
 	createWorkerContexts(w)
 	w.debugBodySet = createBitSet(256)

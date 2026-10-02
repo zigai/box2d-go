@@ -10,7 +10,7 @@ import (
 
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"github.com/zigai/box2d/internal/scenes"
 )
 
@@ -34,36 +34,44 @@ func inputSingleMultithreading(t *testing.T, r *oracle.Reader, trace *inputTrans
 	}
 	worldID.Destroy()
 	r.I32("check.49", int32(data.SleepStep))
-	porttest.Ensure(t, data.SleepStep == scenes.ExpectedSleepStep)
+	if !(data.SleepStep == scenes.ExpectedSleepStep) {
+		t.Fatal("condition false")
+	}
 	r.U32("check.50", data.Hash)
-	porttest.Ensure(t, data.Hash == scenes.ExpectedHash)
+	if !(data.Hash == scenes.ExpectedHash) {
+		t.Fatal("condition false")
+	}
 	scenes.DestroyFallingHinges(&data)
 	return 0
 }
 
 func TestDeterminism(t *testing.T) {
-	defer porttest.Guard(t)
+
 	// Test multithreaded determinism.
 	t.Run("MultithreadingTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/determinism/MultithreadingTest")
 		trace := inputTransformTrace{}
 		for run := 0; run < 3; run++ {
 			for workerCount := 1; workerCount < 16; workerCount += 2 {
 				result := inputSingleMultithreading(t, r, &trace, workerCount)
 				r.Bool("check.65", result == 0)
-				porttest.Ensure(t, result == 0)
+				if !(result == 0) {
+					t.Fatal("condition false")
+				}
 			}
 			for workerCount := 32; workerCount >= 0; workerCount -= 5 {
 				result := inputSingleMultithreading(t, r, &trace, workerCount)
 				r.Bool("check.71", result == 0)
-				porttest.Ensure(t, result == 0)
+				if !(result == 0) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 	})
 	// Test determinism using the built-in scheduler (no external task system).
 	t.Run("BuiltInSchedulerTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/determinism/BuiltInSchedulerTest")
 		trace := inputTransformTrace{}
 		for workerCount := 2; workerCount <= 8; workerCount += 2 {
@@ -85,15 +93,19 @@ func TestDeterminism(t *testing.T) {
 			}
 			worldID.Destroy()
 			r.I32("check.111", int32(data.SleepStep))
-			porttest.Ensure(t, data.SleepStep == scenes.ExpectedSleepStep)
+			if !(data.SleepStep == scenes.ExpectedSleepStep) {
+				t.Fatal("condition false")
+			}
 			r.U32("check.112", data.Hash)
-			porttest.Ensure(t, data.Hash == scenes.ExpectedHash)
+			if !(data.Hash == scenes.ExpectedHash) {
+				t.Fatal("condition false")
+			}
 			scenes.DestroyFallingHinges(&data)
 		}
 	})
 	// Test cross-platform determinism.
 	t.Run("CrossPlatformTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/determinism/CrossPlatformTest")
 		trace := inputTransformTrace{}
 		worldDef := box2d.DefaultWorldDef()
@@ -109,9 +121,13 @@ func TestDeterminism(t *testing.T) {
 			trace.read(r, worldID, fmt.Sprintf("w%d.s%d", worldDef.WorkerCount, data.StepCount), data.StepCount%60 == 0)
 		}
 		r.I32("check.145", int32(data.SleepStep))
-		porttest.Ensure(t, data.SleepStep == scenes.ExpectedSleepStep)
+		if !(data.SleepStep == scenes.ExpectedSleepStep) {
+			t.Fatal("condition false")
+		}
 		r.U32("check.146", data.Hash)
-		porttest.Ensure(t, data.Hash == scenes.ExpectedHash)
+		if !(data.Hash == scenes.ExpectedHash) {
+			t.Fatal("condition false")
+		}
 		scenes.DestroyFallingHinges(&data)
 		worldID.Destroy()
 	})

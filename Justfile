@@ -32,3 +32,6 @@ skips:
 
 oracle:
     ./oracle/build.sh
+
+oracle-bench:
+    ORACLE_BENCH_ONLY=1 ./oracle/build.sh

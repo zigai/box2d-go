@@ -19,7 +19,7 @@ import (
 
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"github.com/zigai/box2d/internal/scenes"
 )
 
@@ -34,29 +34,39 @@ func isolateSceneRandomSeed(t *testing.T) {
 }
 
 func TestSceneRandomSeedIsolation(t *testing.T) {
-	defer porttest.Guard(t)
+
 	seed := sceneRandomSeed
 	t.Cleanup(func() { sceneRandomSeed = seed })
 	var first uint32
 	for i := 0; i < 2; i++ {
 		sceneRandomSeed = uint32(17 + i)
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			isolateSceneRandomSeed(t)
-			porttest.Ensure(t, sceneRandomSeed == 12345)
+			if !(sceneRandomSeed == 12345) {
+				t.Fatal("condition false")
+			}
 			bits := math.Float32bits(scenes.RandomFloatRange(-0.5, 0.5))
 			if i == 0 {
 				first = bits
 			} else {
-				porttest.Ensure(t, bits == first)
+				if !(bits == first) {
+					t.Fatal("condition false")
+				}
 			}
 		})
-		porttest.Ensure(t, sceneRandomSeed == uint32(17+i))
+		if !(sceneRandomSeed == uint32(17+i)) {
+			t.Fatal("condition false")
+		}
 	}
 }
 
-func TestScenes(t *testing.T) {
-	defer porttest.Guard(t)
+func TestScenes(t *testing.T) { testScenes(t, 0) }
+
+func TestParallelScenes(t *testing.T) { testScenes(t, 4) }
+
+func testScenes(t *testing.T, workers int) {
+
 	cases := []struct {
 		name    string
 		create  func(box2d.World)
@@ -81,8 +91,9 @@ func TestScenes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			def := box2d.DefaultWorldDef()
+			def.WorkerCount = workers
 			world := box2d.CreateWorld(&def)
 			defer world.Destroy()
 			if tc.destroy != nil {
@@ -126,8 +137,9 @@ func TestScenes(t *testing.T) {
 		})
 	}
 	t.Run("FallingHinges", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		def := box2d.DefaultWorldDef()
+		def.WorkerCount = workers
 		world := box2d.CreateWorld(&def)
 		defer world.Destroy()
 		data := scenes.CreateFallingHinges(world)
@@ -148,9 +160,10 @@ func TestScenes(t *testing.T) {
 		r.Bytes("full", packSceneBundle(actual, sceneWidth()))
 	})
 	t.Run("Human", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		isolateSceneRandomSeed(t)
 		def := box2d.DefaultWorldDef()
+		def.WorkerCount = workers
 		world := box2d.CreateWorld(&def)
 		defer world.Destroy()
 		var human scenes.Human
@@ -192,7 +205,9 @@ func TestScenes(t *testing.T) {
 				}
 				r.I32(fmt.Sprintf("%d.torsoShapes", step), count)
 				r.Bool(fmt.Sprintf("%d.sensor", step), enabled)
-				porttest.Ensure(t, count == 1 && enabled == (step == 140))
+				if !(count == 1 && enabled == (step == 140)) {
+					t.Fatal("condition false")
+				}
 			}
 			world.Step(float32(1)/float32(60), 4)
 			checkScene(t, r, full, actual, world, step)
@@ -640,10 +655,10 @@ func readSceneFull(t *testing.T, name string) map[int][]byte {
 }
 
 func TestSceneCodec(t *testing.T) {
-	defer porttest.Guard(t)
+
 	for _, width := range []int{4, 8} {
 		t.Run(fmt.Sprint(width), func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			states := make(map[int][]byte)
 			stride := 2*width + 12
 			for k, step := range sceneSteps {
@@ -753,11 +768,11 @@ func sceneHash(state []byte, width int) uint64 {
 }
 
 func TestSceneFixtureInventory(t *testing.T) {
-	defer porttest.Guard(t)
+
 	names := []string{"JointGrid", "LargePyramid", "ManyPyramids", "Rain", "Spinner", "Smash", "Tumbler", "Washer", "Junkyard", "Sleep", "Compounds", "Queries", "TreeCast", "TileWorld", "FallingHinges", "Human"}
 	for _, config := range []string{"float", "double"} {
 		t.Run(config, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			width := 4
 			if config == "double" {
 				width = 8
@@ -765,7 +780,7 @@ func TestSceneFixtureInventory(t *testing.T) {
 			benchmarks := int64(0)
 			for index, name := range names {
 				t.Run(name, func(t *testing.T) {
-					defer porttest.Guard(t)
+
 					records, packed, full := readSceneRecords(t, config, name)
 					if !bytes.Equal(packSceneBundle(full, width), packed) {
 						t.Fatal("C/Go deterministic encoding mismatch")
@@ -935,10 +950,10 @@ func TestSceneFixtureInventory(t *testing.T) {
 }
 
 func TestSceneHelperFixtureInventory(t *testing.T) {
-	defer porttest.Guard(t)
+
 	for _, config := range []string{"float", "double"} {
 		t.Run(config, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/Helpers.jsonl")
 			if err != nil {
 				t.Fatal(err)

@@ -1,0 +1,62 @@
+name: benchmarks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GOMAXPROCS: 2
+      GOFLAGS: -p=2
+      GOWORK: 'off'
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+      BENCH_OUT: /tmp/box2d-bench
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: extractions/setup-just@v4
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@v0.0.0-20260908200009-22c9c6c9d4da
+      - name: Build pinned scalar C benchmarks
+        run: just oracle-bench
+      - name: Measure scenes
+        run: |
+          cpus=$(awk '
+            /^Cpus_allowed_list:/ {
+              n = split($2, ranges, ",")
+              for (i = 1; i <= n && count < 2; i++) {
+                split(ranges[i], ends, "-")
+                last = ends[2] == "" ? ends[1] : ends[2]
+                for (cpu = ends[1]; cpu <= last && count < 2; cpu++)
+                  chosen[++count] = cpu
+              }
+            }
+            END {
+              if (count != 2) {
+                print "benchmarks: at least two allowed CPUs are required" > "/dev/stderr"
+                exit 1
+              }
+              printf "%s,%s\n", chosen[1], chosen[2]
+            }' /proc/self/status)
+          taskset -c "$cpus" ./bench/run.sh
+      - name: Report comparison
+        run: cat "$BENCH_OUT"/benchstat-*.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: box2d-benchmarks
+          path: /tmp/box2d-bench/

@@ -60,3 +60,13 @@ endforeach()
 foreach(path IN LISTS ORACLE_TESTS)
 	oracle_program(tests "${path}")
 endforeach()
+
+add_executable(bench_scenes bench/scenes.c)
+target_include_directories(bench_scenes PRIVATE "${BOX2D_UPSTREAM_DIR}/include")
+target_compile_definitions(bench_scenes PRIVATE ${ORACLE_SIMD_DEFINITIONS})
+target_link_libraries(bench_scenes PRIVATE shared box2d)
+set_target_properties(bench_scenes PROPERTIES
+	C_STANDARD 17
+	C_STANDARD_REQUIRED YES
+	C_EXTENSIONS NO
+	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bench")

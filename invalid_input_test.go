@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"math"
 	"testing"
 )
@@ -30,9 +30,9 @@ func inputReadBodyStep(r *oracle.Reader, trace *inputTransformTrace, worldID box
 }
 
 func TestInvalidInput(t *testing.T) {
-	defer porttest.Guard(t)
+
 	t.Run("WorldInputTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/invalid_input/WorldInputTest")
 		trace := inputTransformTrace{}
 		restore := box2d.InputSaveInputHooks()
@@ -49,7 +49,9 @@ func TestInvalidInput(t *testing.T) {
 			before := logCount
 			call()
 			r.I32(kind, int32(logCount-before))
-			porttest.Ensure(t, logCount == before+want)
+			if !(logCount == before+want) {
+				t.Fatal("condition false")
+			}
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
@@ -91,38 +93,50 @@ func TestInvalidInput(t *testing.T) {
 		{
 			ok := worldID.Gravity().X == gravity.X && worldID.Gravity().Y == gravity.Y
 			r.Bool("check.115", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := worldID.RestitutionThreshold() == restitutionThreshold
 			r.Bool("check.116", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := worldID.HitEventThreshold() == hitEventThreshold
 			r.Bool("check.117", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := worldID.ContactRecycleDistance() == recycleDistance
 			r.Bool("check.118", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := worldID.MaximumLinearSpeed() == maximumLinearSpeed
 			r.Bool("check.119", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := worldID.RestitutionIterations() == restitutionIterations
 			r.Bool("check.120", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		worldID.Destroy()
 	})
 	t.Run("BodyInputTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/invalid_input/BodyInputTest")
 		trace := inputTransformTrace{}
 		restore := box2d.InputSaveInputHooks()
@@ -139,7 +153,9 @@ func TestInvalidInput(t *testing.T) {
 			before := logCount
 			call()
 			r.I32(kind, int32(logCount-before))
-			porttest.Ensure(t, logCount == before+want)
+			if !(logCount == before+want) {
+				t.Fatal("condition false")
+			}
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
@@ -203,13 +219,15 @@ func TestInvalidInput(t *testing.T) {
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.188", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		worldID.Destroy()
 	})
 	t.Run("ShapeInputTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/invalid_input/ShapeInputTest")
 		trace := inputTransformTrace{}
 		restore := box2d.InputSaveInputHooks()
@@ -226,7 +244,9 @@ func TestInvalidInput(t *testing.T) {
 			before := logCount
 			call()
 			r.I32(kind, int32(logCount-before))
-			porttest.Ensure(t, logCount == before+want)
+			if !(logCount == before+want) {
+				t.Fatal("condition false")
+			}
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
@@ -291,43 +311,57 @@ func TestInvalidInput(t *testing.T) {
 		{
 			ok := shapeID.Type() == box2d.PolygonShape
 			r.Bool("check.257", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := box2d.IsValidAABB(shapeID.AABB())
 			r.Bool("check.258", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := box2d.IsValidAABB(worldID.Bounds())
 			r.Bool("check.259", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := shapeID.Density() == density
 			r.Bool("check.260", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := shapeID.Friction() == 0.4 && friction == friction
 			r.Bool("check.261", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := shapeID.Restitution() == restitution
 			r.Bool("check.262", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.263", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		worldID.Destroy()
 	})
 	t.Run("JointInputTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/invalid_input/JointInputTest")
 		trace := inputTransformTrace{}
 		restore := box2d.InputSaveInputHooks()
@@ -344,7 +378,9 @@ func TestInvalidInput(t *testing.T) {
 			before := logCount
 			call()
 			r.I32(kind, int32(logCount-before))
-			porttest.Ensure(t, logCount == before+want)
+			if !(logCount == before+want) {
+				t.Fatal("condition false")
+			}
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
@@ -399,23 +435,29 @@ func TestInvalidInput(t *testing.T) {
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.322", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := box2d.IsValidVec2(jointID.ConstraintForce())
 			r.Bool("check.323", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := box2d.IsValidFloat(jointID.ConstraintTorque())
 			r.Bool("check.324", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		worldID.Destroy()
 	})
 	t.Run("CreateInputTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/invalid_input/CreateInputTest")
 		trace := inputTransformTrace{}
 		restore := box2d.InputSaveInputHooks()
@@ -432,7 +474,9 @@ func TestInvalidInput(t *testing.T) {
 			before := logCount
 			call()
 			r.I32(kind, int32(logCount-before))
-			porttest.Ensure(t, logCount == before+want)
+			if !(logCount == before+want) {
+				t.Fatal("condition false")
+			}
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
@@ -458,7 +502,9 @@ func TestInvalidInput(t *testing.T) {
 			{
 				ok := badWorldID.IsValid() == false
 				r.Bool("check.353", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badBodyDef := box2d.DefaultBodyDef()
@@ -466,7 +512,9 @@ func TestInvalidInput(t *testing.T) {
 			{
 				ok := worldID.CreateBody(&badBodyDef).IsValid() == false
 				r.I32("check.357", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badShapeDef := box2d.DefaultShapeDef()
@@ -474,28 +522,36 @@ func TestInvalidInput(t *testing.T) {
 			{
 				ok := bodyID.CreatePolygonShape(&badShapeDef, &box).IsValid() == false
 				r.I32("check.361", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badCircle := box2d.Circle{Center: badVec, Radius: 1.0}
 			{
 				ok := bodyID.CreateCircleShape(&shapeDef, &badCircle).IsValid() == false
 				r.I32("check.364", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badCapsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: bad}
 			{
 				ok := bodyID.CreateCapsuleShape(&shapeDef, &badCapsule).IsValid() == false
 				r.I32("check.367", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badSegment := box2d.Segment{Point1: badVec, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
 			{
 				ok := bodyID.CreateSegmentShape(&shapeDef, &badSegment).IsValid() == false
 				r.I32("check.370", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badPolygon := box
@@ -503,7 +559,9 @@ func TestInvalidInput(t *testing.T) {
 			{
 				ok := bodyID.CreatePolygonShape(&shapeDef, &badPolygon).IsValid() == false
 				r.I32("check.374", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			chainPoints := []box2d.Vec2{box2d.Vec2{X: -4.0, Y: 0.0}, box2d.Vec2{X: 0.0, Y: 0.0}, box2d.Vec2{X: 4.0, Y: 0.0}, box2d.Vec2{X: 8.0, Y: 0.0}}
@@ -518,7 +576,9 @@ func TestInvalidInput(t *testing.T) {
 			{
 				ok := bodyID.CreateChain(&badChainDef).IsValid() == false
 				r.I32("check.385", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badJointDef := box2d.DefaultRevoluteJointDef()
@@ -528,7 +588,9 @@ func TestInvalidInput(t *testing.T) {
 			{
 				ok := worldID.CreateRevoluteJoint(&badJointDef).IsValid() == false
 				r.I32("check.391", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			badExplosionDef := box2d.DefaultExplosionDef()
@@ -546,18 +608,22 @@ func TestInvalidInput(t *testing.T) {
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.405", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := box2d.IsValidAABB(worldID.Bounds())
 			r.Bool("check.406", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		worldID.Destroy()
 	})
 	t.Run("RecordReplayTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/invalid_input/RecordReplayTest")
 		trace := inputTransformTrace{}
 		restore := box2d.InputSaveInputHooks()
@@ -574,7 +640,9 @@ func TestInvalidInput(t *testing.T) {
 			before := logCount
 			call()
 			r.I32(kind, int32(logCount-before))
-			porttest.Ensure(t, logCount == before+want)
+			if !(logCount == before+want) {
+				t.Fatal("condition false")
+			}
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
@@ -614,7 +682,9 @@ func TestInvalidInput(t *testing.T) {
 			{
 				ok := bodyID.CreatePolygonShape(&badShapeDef, &box).IsValid() == false
 				r.I32("check.449", int32(logCount))
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			bodyID.ApplyForceToCenter(box2d.Vec2{X: 0.0, Y: 1.0}, true)
@@ -625,7 +695,9 @@ func TestInvalidInput(t *testing.T) {
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.455", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		worldID.StopRecording()
@@ -636,17 +708,23 @@ func TestInvalidInput(t *testing.T) {
 		{
 			ok := size > 0
 			r.Bool("check.462", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := box2d.ValidateReplay(data, 0)
 			r.I32("check.463", int32(logCount))
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := box2d.ValidateReplay(data, 4)
 			r.I32("check.464", int32(logCount))
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		endRejectCount()

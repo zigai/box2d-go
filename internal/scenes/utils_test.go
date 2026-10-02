@@ -8,16 +8,17 @@ import (
 	"testing"
 
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func TestRandomHelpers(t *testing.T) {
-	defer porttest.Guard(t)
+
 	seed := gRandomSeed
 	t.Cleanup(func() { gRandomSeed = seed })
 	gRandomSeed = randSeed
 	var r *oracle.Reader
-	porttest.Ensure(t, GetNumberOfCores() > 0)
+	if !(GetNumberOfCores() > 0) {
+		t.Fatal("condition false")
+	}
 	for step := 0; step < 300; step++ {
 		integer := RandomInt()
 		integerRange := RandomIntRange(-7, 13)

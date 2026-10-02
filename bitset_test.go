@@ -8,11 +8,10 @@ import (
 	"testing"
 
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func TestBitset(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "bitset/BitSetTest")
 	const count = 169
 	bitSet := createBitSet(count)
@@ -30,7 +29,9 @@ func TestBitset(t *testing.T) {
 	}
 	for i := int32(0); i < count; i++ {
 		value := getBit(&bitSet, uint32(i))
-		porttest.Ensure(t, value == values[i])
+		if !(value == values[i]) {
+			t.Fatal("condition false")
+		}
 		r.Bool(fmt.Sprintf("bit/%d", i), value)
 	}
 	destroyBitSet(&bitSet)

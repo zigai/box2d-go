@@ -6,12 +6,10 @@ package box2d
 import (
 	"math"
 	"testing"
-
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func TestVectorProductRounding(t *testing.T) {
-	defer porttest.Guard(t)
+
 	cases := []struct {
 		name string
 		a, b [2]uint32
@@ -23,7 +21,7 @@ func TestVectorProductRounding(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			a := Vec2{math.Float32frombits(tc.a[0]), math.Float32frombits(tc.a[1])}
 			b := Vec2{math.Float32frombits(tc.b[0]), math.Float32frombits(tc.b[1])}
 			s := math.Float32frombits(tc.s)

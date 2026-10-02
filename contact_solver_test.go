@@ -6,12 +6,10 @@ package box2d
 import (
 	"math"
 	"testing"
-
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func TestContactSolverWideArithmetic(t *testing.T) {
-	defer porttest.Guard(t)
+
 	a := setW(1, -2, 3, -4)
 	b := setW(2, 4, -6, -8)
 	cases := []struct {
@@ -40,7 +38,7 @@ func TestContactSolverWideArithmetic(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			if c.got != c.want {
 				t.Fatalf("got %+v, want %+v", c.got, c.want)
 			}
@@ -71,7 +69,7 @@ func TestContactSolverWideArithmetic(t *testing.T) {
 }
 
 func TestContactSolverGatherScatter(t *testing.T) {
-	defer porttest.Guard(t)
+
 	states := []bodyState{
 		{linearVelocity: Vec2{1, 2}, angularVelocity: 3, flags: dynamicFlag, deltaPosition: Vec2{4, 5}, deltaRotation: Rot{C: 6, S: 7}},
 		{linearVelocity: Vec2{8, 9}, angularVelocity: 10, deltaPosition: Vec2{11, 12}, deltaRotation: Rot{C: 13, S: 14}},
@@ -116,14 +114,14 @@ func solverContext() (*stepContext, *contactConstraint, *contactConstraintWide) 
 }
 
 func TestContactSolverPhases(t *testing.T) {
-	defer porttest.Guard(t)
+
 	for _, wide := range []bool{false, true} {
 		name := "overflow"
 		if wide {
 			name = "wide"
 		}
 		t.Run(name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			ctx, c, cw := solverContext()
 			block := solverBlock{count: 1}
 			if wide {
@@ -175,14 +173,14 @@ func TestContactSolverPhases(t *testing.T) {
 }
 
 func TestContactSolverWarmStartAndPush(t *testing.T) {
-	defer porttest.Guard(t)
+
 	for _, wide := range []bool{false, true} {
 		name := "overflow"
 		if wide {
 			name = "wide"
 		}
 		t.Run(name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			ctx, c, cw := solverContext()
 			block := solverBlock{count: 1}
 			c.points[0].normalImpulse = 2
@@ -226,7 +224,7 @@ func TestContactSolverWarmStartAndPush(t *testing.T) {
 }
 
 func TestContactSolverStoreImpulses(t *testing.T) {
-	defer porttest.Guard(t)
+
 	ctx, c, cw := solverContext()
 	for i := range ctx.world.taskContexts {
 		ctx.world.taskContexts[i].hitEventBitSet = createBitSet(128)
@@ -259,14 +257,14 @@ func TestContactSolverStoreImpulses(t *testing.T) {
 }
 
 func TestContactSolverPrepare(t *testing.T) {
-	defer porttest.Guard(t)
+
 	for _, wide := range []bool{false, true} {
 		name := "overflow"
 		if wide {
 			name = "wide"
 		}
 		t.Run(name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			ctx, c, cw := solverContext()
 			ctx.world.enableWarmStarting = true
 			ctx.world.bodies = []body{{setIndex: staticSet, localIndex: 0}, {setIndex: awakeSet, localIndex: 0}}
@@ -297,7 +295,7 @@ func TestContactSolverPrepare(t *testing.T) {
 }
 
 func TestContactSolverTwoPointWarmStart(t *testing.T) {
-	defer porttest.Guard(t)
+
 	ctx, c, _ := solverContext()
 	ctx.states[0].linearVelocity = Vec2{}
 	ctx.states[0].angularVelocity = 0

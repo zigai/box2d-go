@@ -19,7 +19,6 @@ func rounded(a, b, c float32, v Vec2, s []float32) float32 {
 }
 
 func notFusable(a, b, c float32, x, y, z float64, i, j, n int) {
-	// A product that does not feed an addition or subtraction.
 	_ = a * b
 	_ = a * b * c
 	_ = a * b / c
@@ -29,11 +28,9 @@ func notFusable(a, b, c float32, x, y, z float64, i, j, n int) {
 	c *= a + b
 	c /= a * b
 
-	// Constant expressions are exact at compile time.
 	_ = k*k + a
 	_ = a + k*2
 
-	// Integers and float64 are outside this analyzer.
 	_ = i*j + n
 	n += i * j
 	_ = x*y + z

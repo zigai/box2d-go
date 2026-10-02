@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -188,57 +188,77 @@ func snapshotStepUntilSleep(r *oracle.Reader, worldId World) int {
 	return maxSteps
 }
 func TestSnapshot(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "snapshot/SnapshotTest")
 	snapPath := filepath.Join(t.TempDir(), "test_snapshot_midstream.b2rec")
 	worldAId := snapshotBuildScene(t, 1, nil)
 	snapshotStepUntilSleep(r, worldAId)
 	worldA := getWorldFromId(worldAId)
-	porttest.Ensure(t, len(worldA.solverSets) > 3)
+	if !(len(worldA.solverSets) > 3) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L247", len(worldA.solverSets) > 3)
 	r.I32("L247/value0", int32(len(worldA.solverSets)))
-	porttest.Ensure(t, worldA.broadPhase.trees[StaticBody].pairFreeList != int32(nullIndex))
+	if !(worldA.broadPhase.trees[StaticBody].pairFreeList != int32(nullIndex)) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L250", worldA.broadPhase.trees[StaticBody].pairFreeList != int32(nullIndex))
 	r.I32("L250/value0", int32(worldA.broadPhase.trees[StaticBody].pairFreeList))
 	r.I32("L250/value1", int32(nullIndex))
 	buf := recBuffer{}
 	serializeWorld(worldA, &buf)
-	porttest.Ensure(t, buf.size > 0)
+	if !(buf.size > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L255", buf.size > 0)
 	worldBId, err := CreateWorldFromSnapshot(buf.data, 1)
 	BTWorldCleanup(t, worldBId)
-	porttest.Ensure(t, err == nil && worldBId.IsValid())
+	if !(err == nil && worldBId.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L259", worldBId.IsValid())
 	worldB := getWorldFromId(worldBId)
 	hashA0 := hashWorldState(worldA)
 	r.U64("L264/value", hashA0)
 	hashB0 := hashWorldState(worldB)
 	r.U64("L265/value", hashB0)
-	porttest.Ensure(t, hashA0 == hashB0)
+	if !(hashA0 == hashB0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L266", hashA0 == hashB0)
 	deepA0 := hashWorldStateDeep(worldA)
 	r.U64("L268/value", deepA0)
 	deepB0 := hashWorldStateDeep(worldB)
 	r.U64("L269/value", deepB0)
-	porttest.Ensure(t, deepA0 == deepB0)
+	if !(deepA0 == deepB0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L270", deepA0 == deepB0)
 	for treeType := 0; treeType < int(BodyTypeCount); treeType++ {
 		treeA := &worldA.broadPhase.trees[treeType]
 		treeB := &worldB.broadPhase.trees[treeType]
-		porttest.Ensure(t, treeA.nodeEnd == treeB.nodeEnd)
+		if !(treeA.nodeEnd == treeB.nodeEnd) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L278", treeA.nodeEnd == treeB.nodeEnd)
 		r.I32("L278/value0", int32(treeA.nodeEnd))
 		r.I32("L278/value1", int32(treeB.nodeEnd))
-		porttest.Ensure(t, treeA.pairFreeList == treeB.pairFreeList)
+		if !(treeA.pairFreeList == treeB.pairFreeList) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L279", treeA.pairFreeList == treeB.pairFreeList)
 		r.I32("L279/value0", int32(treeA.pairFreeList))
 		r.I32("L279/value1", int32(treeB.pairFreeList))
 		for pair := treeA.pairFreeList; pair != int32(nullIndex); pair = treeA.parents[pair] {
-			porttest.Ensure(t, treeA.parents[pair] == treeB.parents[pair])
+			if !(treeA.parents[pair] == treeB.parents[pair]) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L283", treeA.parents[pair] == treeB.parents[pair])
 			r.I32("L283/value0", int32(treeA.parents[pair]))
 			r.I32("L283/value1", int32(treeB.parents[pair]))
-			porttest.Ensure(t, treeA.parents[pair+1] == treeB.parents[pair+1])
+			if !(treeA.parents[pair+1] == treeB.parents[pair+1]) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L284", treeA.parents[pair+1] == treeB.parents[pair+1])
 			r.I32("L284/value0", int32(treeA.parents[pair+1]))
 			r.I32("L284/value1", int32(treeB.parents[pair+1]))
@@ -257,7 +277,9 @@ func TestSnapshot(t *testing.T) {
 		r.U64("L297/value", sB)
 		if sA != sB {
 			r.Bool("L302", false)
-			porttest.Ensure(t, false)
+			if !(false) {
+				t.Fatal("condition false")
+			}
 		}
 		dA := hashWorldStateDeep(worldA)
 		r.U64("L305/value", dA)
@@ -265,7 +287,9 @@ func TestSnapshot(t *testing.T) {
 		r.U64("L306/value", dB)
 		if dA != dB {
 			r.Bool("L311", false)
-			porttest.Ensure(t, false)
+			if !(false) {
+				t.Fatal("condition false")
+			}
 		}
 	}
 	recBufFree(&buf)
@@ -273,15 +297,21 @@ func TestSnapshot(t *testing.T) {
 	serializeWorld(worldA, &buf)
 	worldA1Id, err := CreateWorldFromSnapshot(buf.data, 1)
 	BTWorldCleanup(t, worldA1Id)
-	porttest.Ensure(t, err == nil && worldA1Id.IsValid())
+	if !(err == nil && worldA1Id.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L322", worldA1Id.IsValid())
 	worldA1 := getWorldFromId(worldA1Id)
 	worldCId, err := CreateWorldFromSnapshot(buf.data, 4)
 	BTWorldCleanup(t, worldCId)
-	porttest.Ensure(t, err == nil && worldCId.IsValid())
+	if !(err == nil && worldCId.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L326", worldCId.IsValid())
 	worldC := getWorldFromId(worldCId)
-	porttest.Ensure(t, hashWorldState(worldA1) == hashWorldState(worldC))
+	if !(hashWorldState(worldA1) == hashWorldState(worldC)) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L329", hashWorldState(worldA1) == hashWorldState(worldC))
 	for step := 0; step < 120; step++ {
 		worldA1Id.Step(dt, subSteps)
@@ -294,7 +324,9 @@ func TestSnapshot(t *testing.T) {
 		r.U64("L337/value", sC)
 		if sA1 != sC {
 			r.Bool("L342", false)
-			porttest.Ensure(t, false)
+			if !(false) {
+				t.Fatal("condition false")
+			}
 		}
 	}
 	var ids snapshotSnapshotIDs
@@ -303,11 +335,15 @@ func TestSnapshot(t *testing.T) {
 	rWorld := getWorldFromId(rId)
 	image := rId.Snapshot()
 	imageSize := len(image)
-	porttest.Ensure(t, imageSize > 0)
+	if !(imageSize > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L354", imageSize > 0)
 	image = rId.Snapshot()
 	written := len(image)
-	porttest.Ensure(t, written == imageSize)
+	if !(written == imageSize) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L357", written == imageSize)
 	snapHash := hashWorldStateDeep(rWorld)
 	r.U64("L359/value", snapHash)
@@ -321,34 +357,58 @@ func TestSnapshot(t *testing.T) {
 		rId.Step(dt, subSteps)
 		snapshotTransformTrace(r, rId, fmt.Sprintf("L370/step/%d", step), step)
 	}
-	porttest.Ensure(t, hashWorldStateDeep(rWorld) != snapHash)
+	if !(hashWorldStateDeep(rWorld) != snapHash) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L372", hashWorldStateDeep(rWorld) != snapHash)
-	porttest.Ensure(t, rId.Restore(image) == nil)
+	if !(rId.Restore(image) == nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L374", true)
-	porttest.Ensure(t, hashWorldStateDeep(rWorld) == snapHash)
+	if !(hashWorldStateDeep(rWorld) == snapHash) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L377", hashWorldStateDeep(rWorld) == snapHash)
-	porttest.Ensure(t, rId.IsValid())
+	if !(rId.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L380", rId.IsValid())
-	porttest.Ensure(t, ids.body.IsValid())
+	if !(ids.body.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L381", ids.body.IsValid())
-	porttest.Ensure(t, ids.shape.IsValid())
+	if !(ids.shape.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L382", ids.shape.IsValid())
-	porttest.Ensure(t, ids.joint.IsValid())
+	if !(ids.joint.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L383", ids.joint.IsValid())
-	porttest.Ensure(t, ids.chain.IsValid())
+	if !(ids.chain.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L384", ids.chain.IsValid())
-	porttest.Ensure(t, postBody.IsValid() == false)
+	if !(postBody.IsValid() == false) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L387", postBody.IsValid() == false)
 	preBadHash := hashWorldStateDeep(rWorld)
 	r.U64("L390/value", preBadHash)
-	porttest.Ensure(t, rId.Restore(nil) != nil)
+	if !(rId.Restore(nil) != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L391", true)
 	corrupt := make([]byte, imageSize)
 	copy(corrupt, image)
 	corrupt[0] ^= 0xFF
-	porttest.Ensure(t, rId.Restore(corrupt) != nil)
+	if !(rId.Restore(corrupt) != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L395", true)
-	porttest.Ensure(t, hashWorldStateDeep(rWorld) == preBadHash)
+	if !(hashWorldStateDeep(rWorld) == preBadHash) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L396", hashWorldStateDeep(rWorld) == preBadHash)
 	staticTree := &rWorld.broadPhase.trees[StaticBody]
 	treeHead := int32(staticTree.nodeEnd)
@@ -363,39 +423,57 @@ func TestSnapshot(t *testing.T) {
 			break
 		}
 	}
-	porttest.Ensure(t, treeOffset >= 0)
+	if !(treeOffset >= 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L416", treeOffset >= 0)
 	greedy := make([]byte, imageSize)
 	copy(greedy, image)
 	hugeCapacity := 2147483647 / 64
 	binary.LittleEndian.PutUint32(greedy[treeOffset+4:], uint32(hugeCapacity))
-	porttest.Ensure(t, rId.Restore(greedy) == nil)
+	if !(rId.Restore(greedy) == nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L422", true)
-	porttest.Ensure(t, hashWorldStateDeep(rWorld) == snapHash)
+	if !(hashWorldStateDeep(rWorld) == snapHash) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L423", hashWorldStateDeep(rWorld) == snapHash)
-	porttest.Ensure(t, staticTree.nodeCapacity <= 2*staticTree.nodeEnd)
+	if !(staticTree.nodeCapacity <= 2*staticTree.nodeEnd) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L424", staticTree.nodeCapacity <= 2*staticTree.nodeEnd)
 	r.I32("L424/value0", int32(staticTree.nodeCapacity))
 	r.I32("L424/value1", int32(2*staticTree.nodeEnd))
 	for i := 0; i < 3; i++ {
-		porttest.Ensure(t, rId.Restore(image) == nil)
+		if !(rId.Restore(image) == nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L430", true)
 	}
-	porttest.Ensure(t, hashWorldStateDeep(rWorld) == snapHash)
+	if !(hashWorldStateDeep(rWorld) == snapHash) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L432", hashWorldStateDeep(rWorld) == snapHash)
 	def4 := DefaultWorldDef()
 	def4.WorkerCount = 4
 	sId := CreateWorld(&def4)
 	BTWorldCleanup(t, sId)
-	porttest.Ensure(t, sId.Restore(image) == nil)
+	if !(sId.Restore(image) == nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L439", true)
 	sWorld := getWorldFromId(sId)
 	freshId, err := CreateWorldFromSnapshot(image, 1)
 	BTWorldCleanup(t, freshId)
-	porttest.Ensure(t, err == nil && freshId.IsValid())
+	if !(err == nil && freshId.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L443", freshId.IsValid())
 	freshWorld := getWorldFromId(freshId)
-	porttest.Ensure(t, hashWorldState(sWorld) == hashWorldState(freshWorld))
+	if !(hashWorldState(sWorld) == hashWorldState(freshWorld)) {
+		t.Fatal("condition false")
+	}
 	r.Bool("L446", hashWorldState(sWorld) == hashWorldState(freshWorld))
 	for step := 0; step < 120; step++ {
 		sId.Step(dt, subSteps)
@@ -404,7 +482,9 @@ func TestSnapshot(t *testing.T) {
 		snapshotTransformTrace(r, freshId, fmt.Sprintf("L450/step/%d", step), step)
 		if hashWorldState(sWorld) != hashWorldState(freshWorld) {
 			r.Bool("L454", false)
-			porttest.Ensure(t, false)
+			if !(false) {
+				t.Fatal("condition false")
+			}
 		}
 	}
 	{
@@ -423,21 +503,33 @@ func TestSnapshot(t *testing.T) {
 		wId.Destroy()
 		recData := rec.Data()
 		recSize := rec.Size()
-		porttest.Ensure(t, ValidateReplay(recData[:recSize], 0))
+		if !(ValidateReplay(recData[:recSize], 0)) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L483", true)
-		porttest.Ensure(t, ValidateReplay(recData[:recSize], 4))
+		if !(ValidateReplay(recData[:recSize], 4)) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L484", true)
-		porttest.Ensure(t, rec.SaveToFile(snapPath) == nil)
+		if !(rec.SaveToFile(snapPath) == nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L487", true)
 		loaded, err := LoadRecordingFromFile(snapPath)
-		porttest.Ensure(t, err == nil && loaded != nil)
+		if !(err == nil && loaded != nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L489", loaded != nil)
-		porttest.Ensure(t, ValidateReplay(loaded.Data(), 0))
+		if !(ValidateReplay(loaded.Data(), 0)) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L490", true)
 		loaded.Destroy()
 		player, err := CreateReplay(recData, 0)
 		destroyPlayer := BTReplayCleanup(t, player)
-		porttest.Ensure(t, err == nil && player != nil)
+		if !(err == nil && player != nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L495", player != nil)
 		pid0 := player.WorldID()
 		frames := 0
@@ -445,17 +537,25 @@ func TestSnapshot(t *testing.T) {
 			frames += 1
 			snapshotTransformTrace(r, player.WorldID(), fmt.Sprintf("L501/step/%d", frames), frames-1)
 		}
-		porttest.Ensure(t, frames == 60)
+		if !(frames == 60) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L503", frames == 60)
 		r.I32("L503/value0", int32(frames))
 		r.I32("L503/value0", int32(frames))
-		porttest.Ensure(t, player.HasDiverged() == false)
+		if !(player.HasDiverged() == false) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L504", player.HasDiverged() == false)
 		player.Restart()
 		pid1 := player.WorldID()
-		porttest.Ensure(t, pid0.index1 == pid1.index1 && pid0.generation == pid1.generation)
+		if !(pid0.index1 == pid1.index1 && pid0.generation == pid1.generation) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L508", pid0.index1 == pid1.index1 && pid0.generation == pid1.generation)
-		porttest.Ensure(t, player.Frame() == 0)
+		if !(player.Frame() == 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L509", player.Frame() == 0)
 		r.I32("L509/value0", int32(player.Frame()))
 		r.I32("L509/value0", int32(player.Frame()))
@@ -464,11 +564,15 @@ func TestSnapshot(t *testing.T) {
 			frames2 += 1
 			snapshotTransformTrace(r, player.WorldID(), fmt.Sprintf("L514/step/%d", frames2), frames2-1)
 		}
-		porttest.Ensure(t, frames2 == 60)
+		if !(frames2 == 60) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L516", frames2 == 60)
 		r.I32("L516/value0", int32(frames2))
 		r.I32("L516/value0", int32(frames2))
-		porttest.Ensure(t, player.HasDiverged() == false)
+		if !(player.HasDiverged() == false) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L517", player.HasDiverged() == false)
 		destroyPlayer()
 		rec.Destroy()
@@ -490,7 +594,9 @@ func TestSnapshot(t *testing.T) {
 		}
 		cId, err := CreateWorldFromSnapshot(snap, 1)
 		BTWorldCleanup(t, cId)
-		porttest.Ensure(t, err == nil && cId.IsValid())
+		if !(err == nil && cId.IsValid()) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L552", cId.IsValid())
 		clone := getWorldFromId(cId)
 		for step := 0; step < tailSteps; step++ {
@@ -498,7 +604,9 @@ func TestSnapshot(t *testing.T) {
 			snapshotTransformTrace(r, cId, fmt.Sprintf("L556/step/%d", step), step)
 			if realTail[step] != hashWorldState(clone) {
 				r.Bool("L560", false)
-				porttest.Ensure(t, false)
+				if !(false) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 		wId.Destroy()
@@ -526,7 +634,9 @@ func TestSnapshot(t *testing.T) {
 		wId.Destroy()
 		player, err := CreateReplay(rec.Data(), 0)
 		destroyPlayer := BTReplayCleanup(t, player)
-		porttest.Ensure(t, err == nil && player != nil)
+		if !(err == nil && player != nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L595", player != nil)
 		pid0 := player.WorldID()
 		for i := 0; i < 5; i++ {
@@ -535,9 +645,13 @@ func TestSnapshot(t *testing.T) {
 		}
 		player.Restart()
 		pid1 := player.WorldID()
-		porttest.Ensure(t, pid0.index1 == pid1.index1 && pid0.generation == pid1.generation)
+		if !(pid0.index1 == pid1.index1 && pid0.generation == pid1.generation) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L603", pid0.index1 == pid1.index1 && pid0.generation == pid1.generation)
-		porttest.Ensure(t, player.Frame() == 0)
+		if !(player.Frame() == 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L604", player.Frame() == 0)
 		r.I32("L604/value0", int32(player.Frame()))
 		r.I32("L604/value0", int32(player.Frame()))
@@ -569,19 +683,29 @@ func TestSnapshot(t *testing.T) {
 			wId.Step(dt, subSteps)
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L637/step/%d", step), step)
 		}
-		porttest.Ensure(t, wId.StateHash() == hashWorldStateDeep(w))
+		if !(wId.StateHash() == hashWorldStateDeep(w)) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L641", wId.StateHash() == hashWorldStateDeep(w))
 		snap := wId.Snapshot()
 		box.Disable()
-		porttest.Ensure(t, len(w.contactEndEvents[w.endEventArrayIndex]) >= 1)
+		if !(len(w.contactEndEvents[w.endEventArrayIndex]) >= 1) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L650", len(w.contactEndEvents[w.endEventArrayIndex]) >= 1)
 		r.I32("L650/value0", int32(len(w.contactEndEvents[w.endEventArrayIndex])))
-		porttest.Ensure(t, wId.Restore(snap) == nil)
+		if !(wId.Restore(snap) == nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L652", true)
-		porttest.Ensure(t, len(w.contactEndEvents[0]) == 0)
+		if !(len(w.contactEndEvents[0]) == 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L655", len(w.contactEndEvents[0]) == 0)
 		r.I32("L655/value0", int32(len(w.contactEndEvents[0])))
-		porttest.Ensure(t, len(w.contactEndEvents[1]) == 0)
+		if !(len(w.contactEndEvents[1]) == 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L656", len(w.contactEndEvents[1]) == 0)
 		r.I32("L656/value0", int32(len(w.contactEndEvents[1])))
 		wId.Step(dt, subSteps)
@@ -590,7 +714,9 @@ func TestSnapshot(t *testing.T) {
 		for range wId.ContactEndEvents() {
 			endCount++
 		}
-		porttest.Ensure(t, endCount == 0)
+		if !(endCount == 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L661", endCount == 0)
 		r.I32("L661/value0", int32(endCount))
 		r.I32("L661/value0", int32(endCount))

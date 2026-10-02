@@ -6,20 +6,20 @@ package box2d
 import (
 	"fmt"
 	"testing"
-
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func TestThread(t *testing.T) {
-	defer porttest.Guard(t)
+
 	t.Run("SemaphoreCreateDestroyTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := createSemaphore(0)
-		porttest.Ensure(t, s != nil)
+		if !(s != nil) {
+			t.Fatal("condition false")
+		}
 		destroySemaphore(s)
 	})
 	t.Run("SemaphoreSignalWaitTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		sem := createSemaphore(0)
 		value := 0
 		worker := createThread(func() {
@@ -27,12 +27,14 @@ func TestThread(t *testing.T) {
 			signalSemaphore(sem)
 		}, "sem test")
 		waitSemaphore(sem)
-		porttest.Ensure(t, value == 99)
+		if !(value == 99) {
+			t.Fatal("condition false")
+		}
 		joinThread(worker)
 		destroySemaphore(sem)
 	})
 	t.Run("SemaphoreInitialCountTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := createSemaphore(3)
 		waitSemaphore(s)
 		waitSemaphore(s)
@@ -42,7 +44,7 @@ func TestThread(t *testing.T) {
 		destroySemaphore(s)
 	})
 	t.Run("ThreadCreateJoinTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		sem := createSemaphore(0)
 		value := 0
 		worker := createThread(func() {
@@ -50,11 +52,13 @@ func TestThread(t *testing.T) {
 			signalSemaphore(sem)
 		}, "join test")
 		joinThread(worker)
-		porttest.Ensure(t, value == 99)
+		if !(value == 99) {
+			t.Fatal("condition false")
+		}
 		destroySemaphore(sem)
 	})
 	t.Run("ThreadMultipleTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		mutex := createMutex()
 		sum := 0
 		const threadCount = 4
@@ -71,7 +75,9 @@ func TestThread(t *testing.T) {
 		for i := 0; i < threadCount; i++ {
 			joinThread(threads[i])
 		}
-		porttest.Ensure(t, sum == threadCount*1000)
+		if !(sum == threadCount*1000) {
+			t.Fatal("condition false")
+		}
 		destroyMutex(mutex)
 	})
 }

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"github.com/zigai/box2d/internal/scenes"
 	"math"
 	"os"
@@ -75,7 +75,7 @@ func recordingReplaySafetyFactor(player *box2d.Replay, name string) float32 {
 }
 
 func TestRecording(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "recording/RecordingTest")
 	trace := newRecordingTrace(t, "RecordingTest")
 	recPath := filepath.Join(t.TempDir(), "recording_test.b2rec")
@@ -86,7 +86,9 @@ func TestRecording(t *testing.T) {
 
 	worldID := box2d.CreateWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldID)
-	porttest.Ensure(t, worldID.IsValid())
+	if !(worldID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 165", worldID.IsValid())
 
 	rec := box2d.CreateRecording(0)
@@ -95,13 +97,17 @@ func TestRecording(t *testing.T) {
 	groundDef := box2d.DefaultBodyDef()
 	groundDef.Position = box2d.Pos{X: 0.0, Y: -10.0}
 	groundID := worldID.CreateBody(&groundDef)
-	porttest.Ensure(t, groundID.IsValid())
+	if !(groundID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 175", groundID.IsValid())
 
 	groundShapeDef := box2d.DefaultShapeDef()
 	groundCircle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 10.0}
 	groundShapeID := groundID.CreateCircleShape(&groundShapeDef, &groundCircle)
-	porttest.Ensure(t, groundShapeID.IsValid())
+	if !(groundShapeID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 180", groundShapeID.IsValid())
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -109,21 +115,27 @@ func TestRecording(t *testing.T) {
 	bodyDef.Position = box2d.Pos{X: 0.0, Y: 4.0}
 	bodyDef.Name = "testBodyWithLongName"
 	bodyID := worldID.CreateBody(&bodyDef)
-	porttest.Ensure(t, bodyID.IsValid())
+	if !(bodyID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 189", bodyID.IsValid())
 
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Density = 1.0
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 	shapeID := bodyID.CreateCircleShape(&shapeDef, &circle)
-	porttest.Ensure(t, shapeID.IsValid())
+	if !(shapeID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 195", shapeID.IsValid())
 
 	box := box2d.MakeBox(0.25, 0.25)
 	boxDef := box2d.DefaultShapeDef()
 	boxDef.Density = 2.0
 	boxShapeID := bodyID.CreatePolygonShape(&boxDef, &box)
-	porttest.Ensure(t, boxShapeID.IsValid())
+	if !(boxShapeID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 202", boxShapeID.IsValid())
 
 	capsuleBodyDef := box2d.DefaultBodyDef()
@@ -134,18 +146,24 @@ func TestRecording(t *testing.T) {
 	capsuleDef := box2d.DefaultShapeDef()
 	capsuleDef.Density = 1.0
 	capsuleShapeID := capsuleBodyID.CreateCapsuleShape(&capsuleDef, &capsule)
-	porttest.Ensure(t, capsuleShapeID.IsValid())
+	if !(capsuleShapeID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 213", capsuleShapeID.IsValid())
 
 	segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
 	segmentDef := box2d.DefaultShapeDef()
 	segmentShapeID := groundID.CreateSegmentShape(&segmentDef, &segment)
-	porttest.Ensure(t, segmentShapeID.IsValid())
+	if !(segmentShapeID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 219", segmentShapeID.IsValid())
 
 	chainSeg := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -1.0, Y: 1.0}, Point2: box2d.Vec2{X: 1.0, Y: 1.0}}, Ghost2: box2d.Vec2{X: 2.0, Y: 1.0}, ChainID: -1}
 	chainSegShapeID := groundID.CreateChainSegmentShape(&segmentDef, &chainSeg)
-	porttest.Ensure(t, chainSegShapeID.IsValid())
+	if !(chainSegShapeID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 224", chainSegShapeID.IsValid())
 
 	boxShapeID.SetFriction(0.3)
@@ -195,7 +213,9 @@ func TestRecording(t *testing.T) {
 	fastDef.SafetyFactor = 0.1
 	fastDef.Name = "fastBody"
 	fastID := worldID.CreateBody(&fastDef)
-	porttest.Ensure(t, fastID.SafetyFactor() == 0.1)
+	if !(fastID.SafetyFactor() == 0.1) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 281", fastID.SafetyFactor() == 0.1)
 	r.F32("value 281", fastID.SafetyFactor())
 	fastBox := box2d.MakeSquare(0.5)
@@ -248,7 +268,9 @@ func TestRecording(t *testing.T) {
 	chainDef.MaterialCount = 1
 	chainDef.IsLoop = false
 	chainID := chainBodyID.CreateChain(&chainDef)
-	porttest.Ensure(t, chainID.IsValid())
+	if !(chainID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 335", chainID.IsValid())
 
 	chainSurface := box2d.DefaultSurfaceMaterial()
@@ -277,7 +299,9 @@ func TestRecording(t *testing.T) {
 	revDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.5, Y: 0.0}
 	revDef.Base.LocalFrameB.P = box2d.Vec2{X: -0.5, Y: 0.0}
 	revID := worldID.CreateRevoluteJoint(&revDef)
-	porttest.Ensure(t, revID.IsValid())
+	if !(revID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 367", revID.IsValid())
 	revID.EnableLimit(true)
 	revID.SetLimits(-1.0, 1.0)
@@ -367,7 +391,9 @@ func TestRecording(t *testing.T) {
 	filterDef.Base.BodyIDA = jb[6]
 	filterDef.Base.BodyIDB = jb[7]
 	filterID := worldID.CreateFilterJoint(&filterDef)
-	porttest.Ensure(t, filterID.IsValid())
+	if !(filterID.IsValid()) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 462", filterID.IsValid())
 
 	tmpJointDef := box2d.DefaultDistanceJointDef()
@@ -422,13 +448,19 @@ func TestRecording(t *testing.T) {
 
 	recData := rec.Data()
 	recSize := rec.Size()
-	porttest.Ensure(t, recSize > 0)
+	if !(recSize > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 522", recSize > 0)
 	check525 := box2d.ValidateReplay(recData, 0)
-	porttest.Ensure(t, check525)
+	if !(check525) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 525", check525)
 	check528 := box2d.ValidateReplay(recData, 4)
-	porttest.Ensure(t, check528)
+	if !(check528) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 528", check528)
 
 	{
@@ -440,33 +472,51 @@ func TestRecording(t *testing.T) {
 		patched[11] = 0x12
 		patched[16] = 0x34
 		check540 := box2d.ValidateReplay(patched, 0)
-		porttest.Ensure(t, check540)
+		if !(check540) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 540", check540)
 
 	}
 
 	check545 := rec.SaveToFile(recPath) == nil
-	porttest.Ensure(t, check545)
+	if !(check545) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 545", check545)
 	loaded, err := box2d.LoadRecordingFromFile(recPath)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, loaded != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(loaded != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 547", loaded != nil)
-	porttest.Ensure(t, loaded.Size() == recSize)
+	if !(loaded.Size() == recSize) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 548", loaded.Size() == recSize)
 	check549 := box2d.ValidateReplay(loaded.Data(), 0)
-	porttest.Ensure(t, check549)
+	if !(check549) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 549", check549)
 	check550 := box2d.ValidateReplay(loaded.Data(), 4)
-	porttest.Ensure(t, check550)
+	if !(check550) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 550", check550)
 	loaded.Destroy()
 
 	{
 		player, err := box2d.CreateReplay(recData, 0)
 		destroyPlayer := box2d.BTReplayCleanup(t, player)
-		porttest.Ensure(t, err == nil)
-		porttest.Ensure(t, player != nil)
+		if !(err == nil) {
+			t.Fatal("condition false")
+		}
+		if !(player != nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 557", player != nil)
 
 		recBounds := player.Info().Bounds
@@ -474,11 +524,17 @@ func TestRecording(t *testing.T) {
 		r.Vec2("bounds lower", recBounds.LowerBound.X, recBounds.LowerBound.Y)
 		r.Vec2("bounds upper", recBounds.UpperBound.X, recBounds.UpperBound.Y)
 		r.Vec2("bounds extents", recExtents.X, recExtents.Y)
-		porttest.Ensure(t, recExtents.X > 0.0 && recExtents.Y > 0.0)
+		if !(recExtents.X > 0.0 && recExtents.Y > 0.0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 563", recExtents.X > 0.0 && recExtents.Y > 0.0)
-		porttest.Ensure(t, recBounds.LowerBound.X <= -20.0 && recBounds.UpperBound.X >= 20.0)
+		if !(recBounds.LowerBound.X <= -20.0 && recBounds.UpperBound.X >= 20.0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 564", recBounds.LowerBound.X <= -20.0 && recBounds.UpperBound.X >= 20.0)
-		porttest.Ensure(t, recBounds.LowerBound.Y <= -20.0)
+		if !(recBounds.LowerBound.Y <= -20.0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 565", recBounds.LowerBound.Y <= -20.0)
 
 		dd := box2d.DefaultDebugDraw()
@@ -496,24 +552,38 @@ func TestRecording(t *testing.T) {
 			}
 			frames += 1
 		}
-		porttest.Ensure(t, frames == 60)
+		if !(frames == 60) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 584", frames == 60)
 		r.I32("value 584", int32(frames))
-		porttest.Ensure(t, player.Frame() == 60)
+		if !(player.Frame() == 60) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 585", player.Frame() == 60)
 		r.I32("value 585", int32(player.Frame()))
-		porttest.Ensure(t, player.IsAtEnd())
+		if !(player.IsAtEnd()) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 586", player.IsAtEnd())
-		porttest.Ensure(t, player.HasDiverged() == false)
+		if !(player.HasDiverged() == false) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 587", player.HasDiverged() == false)
-		porttest.Ensure(t, player.WorldID().IsValid())
+		if !(player.WorldID().IsValid()) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 591", player.WorldID().IsValid())
 
 		player.Restart()
-		porttest.Ensure(t, player.Frame() == 0)
+		if !(player.Frame() == 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 595", player.Frame() == 0)
 		r.I32("value 595", int32(player.Frame()))
-		porttest.Ensure(t, player.IsAtEnd() == false)
+		if !(player.IsAtEnd() == false) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 596", player.IsAtEnd() == false)
 
 		frames2 := 0
@@ -521,10 +591,14 @@ func TestRecording(t *testing.T) {
 			trace.Check(t, r, player.WorldID(), "step 600", player.Frame())
 			frames2 += 1
 		}
-		porttest.Ensure(t, frames2 == 60)
+		if !(frames2 == 60) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 603", frames2 == 60)
 		r.I32("value 603", int32(frames2))
-		porttest.Ensure(t, player.HasDiverged() == false)
+		if !(player.HasDiverged() == false) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 604", player.HasDiverged() == false)
 
 		destroyPlayer()
@@ -533,24 +607,36 @@ func TestRecording(t *testing.T) {
 	{
 		player, err := box2d.CreateReplay(recData, 0)
 		destroyPlayer := box2d.BTReplayCleanup(t, player)
-		porttest.Ensure(t, err == nil)
-		porttest.Ensure(t, player != nil)
+		if !(err == nil) {
+			t.Fatal("condition false")
+		}
+		if !(player != nil) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 613", player != nil)
 		check616 := player.StepFrame()
-		porttest.Ensure(t, check616)
+		if !(check616) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 616", check616)
 		trace.Check(t, r, player.WorldID(), "step 616", player.Frame())
-		porttest.Ensure(t, recordingReplaySafetyFactor(player, "fastBody") == 0.1)
+		if !(recordingReplaySafetyFactor(player, "fastBody") == 0.1) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 617", recordingReplaySafetyFactor(player, "fastBody") == 0.1)
 		r.F32("value 617", recordingReplaySafetyFactor(player, "fastBody"))
-		porttest.Ensure(t, recordingReplaySafetyFactor(player, "dropBody") == 0.25)
+		if !(recordingReplaySafetyFactor(player, "dropBody") == 0.25) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 618", recordingReplaySafetyFactor(player, "dropBody") == 0.25)
 		r.F32("value 618", recordingReplaySafetyFactor(player, "dropBody"))
 
 		for player.StepFrame() {
 			trace.Check(t, r, player.WorldID(), "step 622", player.Frame())
 		}
-		porttest.Ensure(t, recordingReplaySafetyFactor(player, "fastBody") == 0.4)
+		if !(recordingReplaySafetyFactor(player, "fastBody") == 0.4) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 624", recordingReplaySafetyFactor(player, "fastBody") == 0.4)
 		r.F32("value 624", recordingReplaySafetyFactor(player, "fastBody"))
 
@@ -558,12 +644,14 @@ func TestRecording(t *testing.T) {
 	}
 
 	rec.Destroy()
-	porttest.Ensure(t, os.Remove(recPath) == nil)
+	if !(os.Remove(recPath) == nil) {
+		t.Fatal("condition false")
+	}
 	return
 }
 
 func TestRecordingOutliner(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "recording/RecordingOutlinerTest")
 	trace := newRecordingTrace(t, "RecordingOutlinerTest")
 	worldDef := box2d.DefaultWorldDef()
@@ -604,26 +692,38 @@ func TestRecordingOutliner(t *testing.T) {
 
 	recData := rec.Data()
 	recSize := rec.Size()
-	porttest.Ensure(t, recSize > 0)
+	if !(recSize > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 678", recSize > 0)
 
 	player, err := box2d.CreateReplay(recData, 0)
 	destroyPlayer := box2d.BTReplayCleanup(t, player)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, player != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(player != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 681", player != nil)
 
 	replayWorldID := player.WorldID()
 	seedCount := player.BodyCount()
-	porttest.Ensure(t, seedCount == expectedBodies)
+	if !(seedCount == expectedBodies) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 687", seedCount == expectedBodies)
 	r.I32("value 687", int32(seedCount))
-	porttest.Ensure(t, seedCount == replayWorldID.Counters().BodyCount)
+	if !(seedCount == replayWorldID.Counters().BodyCount) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 688", seedCount == replayWorldID.Counters().BodyCount)
 	r.I32("value 688", int32(seedCount))
 
 	for ord := 0; ord < seedCount; ord++ {
-		porttest.Ensure(t, player.BodyID(ord).IsValid())
+		if !(player.BodyID(ord).IsValid()) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 693", player.BodyID(ord).IsValid())
 	}
 
@@ -632,7 +732,9 @@ func TestRecordingOutliner(t *testing.T) {
 	}
 
 	player.Restart()
-	porttest.Ensure(t, player.BodyCount() == seedCount)
+	if !(player.BodyCount() == seedCount) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 702", player.BodyCount() == seedCount)
 	r.I32("value 702", int32(player.BodyCount()))
 
@@ -649,34 +751,50 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 
 	ref, err := box2d.CreateReplay(recData, workerCount)
 	destroyRef := box2d.BTReplayCleanup(t, ref)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, ref != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(ref != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 725", ref != nil)
 	frameCount := ref.Info().FrameCount
-	porttest.Ensure(t, frameCount > 0)
+	if !(frameCount > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 727", frameCount > 0)
 
 	refHash := make([]uint64, frameCount+1)
-	porttest.Ensure(t, refHash != nil)
+	if !(refHash != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 730", refHash != nil)
 	refHash[0] = recordingReplayDeepHash(ref)
 	r.U64("reference seed/hash", refHash[0])
 	trace.Check(t, r, ref.WorldID(), "reference seed", 0)
 	for f := 1; f <= frameCount; f++ {
 		check734 := ref.StepFrame()
-		porttest.Ensure(t, check734)
+		if !(check734) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 734", check734)
 		trace.Check(t, r, ref.WorldID(), "step 734", ref.Frame())
 		refHash[f] = recordingReplayDeepHash(ref)
 	}
-	porttest.Ensure(t, ref.HasDiverged() == false)
+	if !(ref.HasDiverged() == false) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 737", ref.HasDiverged() == false)
 	destroyRef()
 
 	player, err := box2d.CreateReplay(recData, workerCount)
 	destroyPlayer := box2d.BTReplayCleanup(t, player)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, player != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(player != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 743", player != nil)
 	if budgetBytes > 0 {
 		player.SetKeyframePolicy(uint(budgetBytes), minInterval)
@@ -684,7 +802,9 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 	for player.StepFrame() {
 		trace.Check(t, r, player.WorldID(), "step 749", player.Frame())
 	}
-	porttest.Ensure(t, player.Frame() == frameCount)
+	if !(player.Frame() == frameCount) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 751", player.Frame() == frameCount)
 	r.I32("value 751", int32(player.Frame()))
 
@@ -695,10 +815,14 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 			target = frameCount
 		}
 		player.SeekFrame(target)
-		porttest.Ensure(t, player.Frame() == target)
+		if !(player.Frame() == target) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 764", player.Frame() == target)
 		r.I32("value 764", int32(player.Frame()))
-		porttest.Ensure(t, player.HasDiverged() == false)
+		if !(player.HasDiverged() == false) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 765", player.HasDiverged() == false)
 		got := recordingReplayDeepHash(player)
 		r.U64(fmt.Sprintf("seek 766/%d/hash", target), got)
@@ -718,7 +842,7 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 }
 
 func TestRecordingKeyframe(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "recording/RecordingKeyframeTest")
 	trace := newRecordingTrace(t, "RecordingKeyframeTest")
 	worldDef := box2d.DefaultWorldDef()
@@ -757,30 +881,46 @@ func TestRecordingKeyframe(t *testing.T) {
 
 	recData := rec.Data()
 	recSize := rec.Size()
-	porttest.Ensure(t, recSize > 0)
+	if !(recSize > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 827", recSize > 0)
 
 	probe, err := box2d.CreateReplay(recData, 0)
 	destroyProbe := box2d.BTReplayCleanup(t, probe)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, probe != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(probe != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 832", probe != nil)
 	snapSize := len(probe.WorldID().Snapshot())
 	destroyProbe()
-	porttest.Ensure(t, snapSize > 0)
+	if !(snapSize > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 835", snapSize > 0)
 	tightBudget := 6 * snapSize
 	check840 := recordingCheckKeyframeSeek(t, r, trace, recData, recSize, 0, 0, 0) == 0
-	porttest.Ensure(t, check840)
+	if !(check840) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 840", check840)
 	check841 := recordingCheckKeyframeSeek(t, r, trace, recData, recSize, 4, 0, 0) == 0
-	porttest.Ensure(t, check841)
+	if !(check841) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 841", check841)
 	check842 := recordingCheckKeyframeSeek(t, r, trace, recData, recSize, 0, tightBudget, 8) == 0
-	porttest.Ensure(t, check842)
+	if !(check842) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 842", check842)
 	check843 := recordingCheckKeyframeSeek(t, r, trace, recData, recSize, 4, tightBudget, 8) == 0
-	porttest.Ensure(t, check843)
+	if !(check843) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 843", check843)
 
 	rec.Destroy()
@@ -857,34 +997,50 @@ func recordingRecordScene(t *testing.T, r *oracle.Reader, trace *recordingTrace,
 func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte, recSize, workerCount, budgetBytes, minInterval int) int {
 	ref, err := box2d.CreateReplay(recData, workerCount)
 	destroyRef := box2d.BTReplayCleanup(t, ref)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, ref != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(ref != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 948", ref != nil)
 	frameCount := ref.Info().FrameCount
-	porttest.Ensure(t, frameCount > 0)
+	if !(frameCount > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 950", frameCount > 0)
 
 	refHash := make([]uint64, frameCount+1)
-	porttest.Ensure(t, refHash != nil)
+	if !(refHash != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 953", refHash != nil)
 	refHash[0] = recordingReplayDeepHash(ref)
 	r.U64("reference seed/hash", refHash[0])
 	trace.Check(t, r, ref.WorldID(), "reference seed", 0)
 	for f := 1; f <= frameCount; f++ {
 		check957 := ref.StepFrame()
-		porttest.Ensure(t, check957)
+		if !(check957) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 957", check957)
 		trace.Check(t, r, ref.WorldID(), "step 957", ref.Frame())
 		refHash[f] = recordingReplayDeepHash(ref)
 	}
-	porttest.Ensure(t, ref.HasDiverged() == false)
+	if !(ref.HasDiverged() == false) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 960", ref.HasDiverged() == false)
 	destroyRef()
 
 	player, err := box2d.CreateReplay(recData, workerCount)
 	destroyPlayer := box2d.BTReplayCleanup(t, player)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, player != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(player != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 964", player != nil)
 	if budgetBytes > 0 {
 		player.SetKeyframePolicy(uint(budgetBytes), minInterval)
@@ -895,7 +1051,9 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 
 	for target := frameCount; target >= 0; target-- {
 		player.SeekFrame(target)
-		porttest.Ensure(t, player.Frame() == target)
+		if !(player.Frame() == target) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 976", player.Frame() == target)
 		r.I32("value 976", int32(player.Frame()))
 		got := recordingReplayDeepHash(player)
@@ -924,45 +1082,59 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 func recordingScrubRecording(t *testing.T, r *oracle.Reader, trace *recordingTrace, rec *box2d.Recording, workerCount int) int {
 	recData := rec.Data()
 	recSize := rec.Size()
-	porttest.Ensure(t, recSize > 0)
+	if !(recSize > 0) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 1003", recSize > 0)
 
 	probe, err := box2d.CreateReplay(recData, 0)
 	destroyProbe := box2d.BTReplayCleanup(t, probe)
-	porttest.Ensure(t, err == nil)
-	porttest.Ensure(t, probe != nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
+	if !(probe != nil) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 1006", probe != nil)
 	snapSize := len(probe.WorldID().Snapshot())
 	destroyProbe()
 	tightBudget := 4 * snapSize
 	check1011 := recordingCheckScrubAllFrames(t, r, trace, recData, recSize, workerCount, tightBudget, 8) == 0
-	porttest.Ensure(t, check1011)
+	if !(check1011) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 1011", check1011)
 	check1012 := recordingCheckScrubAllFrames(t, r, trace, recData, recSize, workerCount, 0, 0) == 0
-	porttest.Ensure(t, check1012)
+	if !(check1012) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 1012", check1012)
 	return 0
 }
 
 func TestRecordingScrub(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "recording/RecordingScrubTest")
 	trace := newRecordingTrace(t, "RecordingScrubTest")
 	rec := recordingRecordScene(t, r, trace, recordingBuildPyramidScene, 1, 80)
 	check1023 := recordingScrubRecording(t, r, trace, rec, 1) == 0
-	porttest.Ensure(t, check1023)
+	if !(check1023) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 1023", check1023)
 	rec.Destroy()
 	return
 }
 
 func TestRecordingQueryScrub(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "recording/RecordingQueryScrubTest")
 	trace := newRecordingTrace(t, "RecordingQueryScrubTest")
 	rec := recordingRecordSceneEx(t, r, trace, recordingBuildPyramidScene, 1, 80, true)
 	check1034 := recordingScrubRecording(t, r, trace, rec, 1) == 0
-	porttest.Ensure(t, check1034)
+	if !(check1034) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 1034", check1034)
 	rec.Destroy()
 	return
@@ -995,7 +1167,9 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 	result := 0
 	for rep := 0; rep < reps && result == 0; rep++ {
 		check1091 := cloneID.Restore(image) == nil
-		porttest.Ensure(t, check1091)
+		if !(check1091) {
+			t.Fatal("condition false")
+		}
 		r.Bool("check 1091", check1091)
 		for s := 0; s < restepCount; s++ {
 			cloneID.Step(dt, subSteps)
@@ -1018,11 +1192,13 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 }
 
 func TestReStepRace(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "recording/ReStepRaceTest")
 	trace := newRecordingTrace(t, "ReStepRaceTest")
 	check1123 := recordingRestepRaceStress(t, r, trace, scenes.CreateJunkyard, "junkyard", 2, 150, 50, 16) == 0
-	porttest.Ensure(t, check1123)
+	if !(check1123) {
+		t.Fatal("condition false")
+	}
 	r.Bool("check 1123", check1123)
 	return
 }
@@ -1055,7 +1231,9 @@ func newRecordingTrace(t *testing.T, name string) *recordingTrace {
 		config = "double"
 	}
 	data, err := os.ReadFile(filepath.Join("testdata", "oracle", config, "recording", name+".jsonl"))
-	porttest.Ensure(t, err == nil)
+	if !(err == nil) {
+		t.Fatal("condition false")
+	}
 	trace := &recordingTrace{}
 	for _, line := range bytes.Split(data, []byte{'\n'}) {
 		if len(line) == 0 {
@@ -1066,14 +1244,20 @@ func newRecordingTrace(t *testing.T, name string) *recordingTrace {
 			Type  string `json:"t"`
 			Value string `json:"v"`
 		}
-		porttest.Ensure(t, json.Unmarshal(line, &record) == nil)
+		if !(json.Unmarshal(line, &record) == nil) {
+			t.Fatal("condition false")
+		}
 		if strings.HasSuffix(record.Key, "/state/ref") {
 			reference, err := strconv.ParseInt(record.Value, 16, 32)
-			porttest.Ensure(t, err == nil && reference >= 0 && int(reference) <= len(trace.packets))
+			if !(err == nil && reference >= 0 && int(reference) <= len(trace.packets)) {
+				t.Fatal("condition false")
+			}
 			trace.expected = append(trace.expected, recordingTraceRecord{key: record.Key, reference: int(reference)})
 		} else if strings.HasSuffix(record.Key, "/state/packed") {
 			packet, err := hex.DecodeString(record.Value)
-			porttest.Ensure(t, err == nil)
+			if !(err == nil) {
+				t.Fatal("condition false")
+			}
 			trace.packets = append(trace.packets, packet)
 		} else if record.Type == "u64" && strings.HasSuffix(record.Key, "/xf") {
 			trace.hashes++
@@ -1083,16 +1267,20 @@ func newRecordingTrace(t *testing.T, name string) *recordingTrace {
 			latest := &trace.expected[len(trace.expected)-1]
 			if strings.TrimSuffix(latest.key, "/state/ref")+"/xf" == record.Key {
 				hash, err := strconv.ParseUint(record.Value, 16, 64)
-				porttest.Ensure(t, err == nil)
+				if !(err == nil) {
+					t.Fatal("condition false")
+				}
 				latest.hash = hash
 				latest.hashSeen = true
 			}
 		}
 	}
 	t.Cleanup(func() {
-		defer porttest.Guard(t)
+
 		if trace.started && !t.Skipped() && !t.Failed() {
-			porttest.Ensure(t, trace.next == len(trace.expected))
+			if !(trace.next == len(trace.expected)) {
+				t.Fatal("condition false")
+			}
 		}
 	})
 	return trace
@@ -1253,17 +1441,27 @@ func (trace *recordingTrace) Check(t *testing.T, r *oracle.Reader, world box2d.W
 	transforms := box2d.RecordingBodyTransforms(world)
 	if frame%60 == 0 {
 		key := fmt.Sprintf("%s/%d/state/ref", prefix, frame)
-		porttest.Ensure(t, trace.next < len(trace.expected))
+		if !(trace.next < len(trace.expected)) {
+			t.Fatal("condition false")
+		}
 		expected := trace.expected[trace.next]
 		trace.next++
-		porttest.Ensure(t, expected.key == key && expected.reference < len(trace.packets))
+		if !(expected.key == key && expected.reference < len(trace.packets)) {
+			t.Fatal("condition false")
+		}
 		wantRaw, err := recordingDecompress(trace.packets[expected.reference])
-		porttest.Ensure(t, err == nil)
+		if !(err == nil) {
+			t.Fatal("condition false")
+		}
 		want, err := recordingUnpackTransforms(wantRaw)
-		porttest.Ensure(t, err == nil)
+		if !(err == nil) {
+			t.Fatal("condition false")
+		}
 		raw := recordingPackTransforms(transforms)
 		got, err := recordingUnpackTransforms(raw)
-		porttest.Ensure(t, err == nil)
+		if !(err == nil) {
+			t.Fatal("condition false")
+		}
 		if len(want) != len(got) {
 			t.Fatalf("%s: body count: oracle %d, Go %d", key, len(want), len(got))
 		}
@@ -1297,7 +1495,7 @@ func (trace *recordingTrace) Check(t *testing.T, r *oracle.Reader, world box2d.W
 }
 
 func TestRecordingTransformPacking(t *testing.T) {
-	defer porttest.Guard(t)
+
 	transforms := []box2d.RecordingBodyTransform{
 		{Index: 0, Transform: box2d.WorldTransform{P: box2d.Pos{X: -1, Y: 2}, Q: box2d.Rot{C: 1}}},
 		{Index: 4, Transform: box2d.WorldTransform{P: box2d.Pos{X: 3, Y: -4}, Q: box2d.Rot{C: -1, S: math.Float32frombits(1 << 31)}}},
@@ -1307,43 +1505,69 @@ func TestRecordingTransformPacking(t *testing.T) {
 	}
 	raw := recordingPackTransforms(transforms)
 	packed := recordingCompress(raw)
-	porttest.Ensure(t, len(packed) < len(raw))
+	if !(len(packed) < len(raw)) {
+		t.Fatal("condition false")
+	}
 	decoded, err := recordingDecompress(packed)
-	porttest.Ensure(t, err == nil && bytes.Equal(raw, decoded))
+	if !(err == nil && bytes.Equal(raw, decoded)) {
+		t.Fatal("condition false")
+	}
 	bits, err := recordingUnpackTransforms(decoded)
-	porttest.Ensure(t, err == nil && len(bits) == len(transforms))
-	porttest.Ensure(t, bits[0].index == 0 && bits[1].index == 4 && bits[1].bits[3] == 1<<31)
+	if !(err == nil && len(bits) == len(transforms)) {
+		t.Fatal("condition false")
+	}
+	if !(bits[0].index == 0 && bits[1].index == 4 && bits[1].bits[3] == 1<<31) {
+		t.Fatal("condition false")
+	}
 	for _, invalid := range [][]byte{{0}, {128}, {128, 0, 0}, {128, 1, 0}} {
 		_, err := recordingDecompress(invalid)
-		porttest.Ensure(t, err != nil)
+		if !(err != nil) {
+			t.Fatal("condition false")
+		}
 	}
 	for _, invalid := range [][]byte{{}, {1}, {4}, {4, 1}, {4, 0, 0}} {
 		_, err := recordingUnpackTransforms(invalid)
-		porttest.Ensure(t, err != nil)
+		if !(err != nil) {
+			t.Fatal("condition false")
+		}
 	}
 	for _, name := range []string{"RecordingTest", "RecordingOutlinerTest", "RecordingKeyframeTest", "RecordingScrubTest", "RecordingQueryScrubTest", "ReStepRaceTest"} {
 		t.Run(name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			trace := newRecordingTrace(t, name)
-			porttest.Ensure(t, trace.hashes > 0)
+			if !(trace.hashes > 0) {
+				t.Fatal("condition false")
+			}
 			if name != "RecordingOutlinerTest" {
-				porttest.Ensure(t, len(trace.expected) > 0 && len(trace.packets) > 0)
+				if !(len(trace.expected) > 0 && len(trace.packets) > 0) {
+					t.Fatal("condition false")
+				}
 			}
 			for index, packet := range trace.packets {
 				raw, err := recordingDecompress(packet)
-				porttest.Ensure(t, err == nil)
-				porttest.Ensure(t, bytes.Equal(packet, recordingCompress(raw)))
+				if !(err == nil) {
+					t.Fatal("condition false")
+				}
+				if !(bytes.Equal(packet, recordingCompress(raw))) {
+					t.Fatal("condition false")
+				}
 				_, err = recordingUnpackTransforms(raw)
 				if err != nil {
 					t.Fatalf("packet %d: %v", index, err)
 				}
 			}
 			for _, record := range trace.expected {
-				porttest.Ensure(t, record.hashSeen)
+				if !(record.hashSeen) {
+					t.Fatal("condition false")
+				}
 				raw, err := recordingDecompress(trace.packets[record.reference])
-				porttest.Ensure(t, err == nil)
+				if !(err == nil) {
+					t.Fatal("condition false")
+				}
 				bodies, err := recordingUnpackTransforms(raw)
-				porttest.Ensure(t, err == nil)
+				if !(err == nil) {
+					t.Fatal("condition false")
+				}
 				hash := oracle.HashInit
 				for _, body := range bodies {
 					for component, bits := range body.bits {

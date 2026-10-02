@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 const restitutionTimeStep float32 = 1.0 / 60.0
@@ -24,15 +23,17 @@ const restitutionRestitutionIterations = 4
 const restitutionImpactSpeed float32 = 5.0
 
 func TestBTWorldCleanupSkipped(t *testing.T) {
-	defer porttest.Guard(t)
+
 	var ids [2]World
 	t.Run("skip", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		def := DefaultWorldDef()
 		for i := range ids {
 			ids[i] = CreateWorld(&def)
 			BTWorldCleanup(t, ids[i])
-			porttest.Ensure(t, ids[i].IsValid())
+			if !(ids[i].IsValid()) {
+				t.Fatal("condition false")
+			}
 		}
 		t.SkipNow()
 	})
@@ -44,24 +45,34 @@ func TestBTWorldCleanupSkipped(t *testing.T) {
 }
 
 func TestBTWorldCleanupExplicitDestroy(t *testing.T) {
-	defer porttest.Guard(t)
+
 	var replacement World
 	t.Run("destroy and recycle", func(child *testing.T) {
-		defer porttest.Guard(child)
+
 		def := DefaultWorldDef()
 		id := CreateWorld(&def)
 		BTWorldCleanup(child, id)
-		porttest.Ensure(child, id.IsValid())
+		if !(id.IsValid()) {
+			child.Fatal("condition false")
+		}
 		id.Destroy()
-		porttest.Ensure(child, !id.IsValid())
+		if !(!id.IsValid()) {
+			child.Fatal("condition false")
+		}
 		replacement = CreateWorld(&def)
 		BTWorldCleanup(t, replacement)
-		porttest.Ensure(child, replacement.IsValid())
-		porttest.Ensure(child, replacement.index1 == id.index1)
+		if !(replacement.IsValid()) {
+			child.Fatal("condition false")
+		}
+		if !(replacement.index1 == id.index1) {
+			child.Fatal("condition false")
+		}
 	})
-	porttest.Ensure(t, replacement.IsValid())
+	if !(replacement.IsValid()) {
+		t.Fatal("condition false")
+	}
 	t.Run("null", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		BTWorldCleanup(t, World{})
 	})
 }
@@ -473,7 +484,9 @@ func restitutionSingleBoxTest(r *restitutionOracle) int {
 
 	r.F32("SingleBoxTest/firstSpin", firstSpin)
 	r.Bool("check/568", (apexCount == len(apexes)))
-	porttest.Ensure(r.t, (apexCount == len(apexes)))
+	if !(apexCount == len(apexes)) {
+		r.t.Fatal("condition false")
+	}
 	var failed int = 0
 	r.Bool("check/572", (firstSpin > float32(0.01)))
 	if firstSpin > float32(0.01) {
@@ -563,9 +576,13 @@ func restitutionRestingTest(r *restitutionOracle) int {
 	r.F32("RestingTest/drift", drift)
 	r.F32("RestingTest/peakSpeed", peakSpeed)
 	r.Bool("check/679", (drift < float32(0.01)))
-	porttest.Ensure(r.t, (drift < float32(0.01)))
+	if !(drift < float32(0.01)) {
+		r.t.Fatal("condition false")
+	}
 	r.Bool("check/680", (peakSpeed < float32(0.05)))
-	porttest.Ensure(r.t, (peakSpeed < float32(0.05)))
+	if !(peakSpeed < float32(0.05)) {
+		r.t.Fatal("condition false")
+	}
 	r.I32("RestingTest/return", int32(0))
 	return 0
 }
@@ -1011,9 +1028,13 @@ func restitutionWorkerParityTest(r *restitutionOracle) int {
 	var hash1 uint64 = restitutionRunWorkerScene(r, 1)
 	var hash4 uint64 = restitutionRunWorkerScene(r, 4)
 	r.Bool("check/1272", (hash0 == hash1))
-	porttest.Ensure(r.t, (hash0 == hash1))
+	if !(hash0 == hash1) {
+		r.t.Fatal("condition false")
+	}
 	r.Bool("check/1273", (hash0 == hash4))
-	porttest.Ensure(r.t, (hash0 == hash4))
+	if !(hash0 == hash4) {
+		r.t.Fatal("condition false")
+	}
 	r.I32("WorkerParityTest/return", int32(0))
 	return 0
 }
@@ -1141,7 +1162,9 @@ func restitutionDecodeSnapshot(t *testing.T, data *[]byte, previous []restitutio
 	if previous == nil {
 		count = int(binary.LittleEndian.Uint32(take(4)))
 	}
-	porttest.Ensure(t, count > 0 && count <= 64)
+	if !(count > 0 && count <= 64) {
+		t.Fatal("condition false")
+	}
 	full := make([]restitutionTransform, count)
 	for i := range full {
 		id := 0
@@ -1151,15 +1174,21 @@ func restitutionDecodeSnapshot(t *testing.T, data *[]byte, previous []restitutio
 			id = previous[i].bodyID
 		}
 		mask := take(1)[0]
-		porttest.Ensure(t, mask&0xf0 == 0)
+		if !(mask&0xf0 == 0) {
+			t.Fatal("condition false")
+		}
 		if i < len(previous) && previous[i].bodyID == id {
 			full[i] = previous[i]
 		} else {
-			porttest.Ensure(t, mask == 0x0f)
+			if !(mask == 0x0f) {
+				t.Fatal("condition false")
+			}
 		}
 		full[i].bodyID = id
 		if i > 0 {
-			porttest.Ensure(t, full[i-1].bodyID < id)
+			if !(full[i-1].bodyID < id) {
+				t.Fatal("condition false")
+			}
 		}
 		for component := range full[i].values {
 			if mask&(1<<component) == 0 {
@@ -1289,7 +1318,7 @@ func (r *restitutionOracle) end(worldID World) {
 }
 
 func TestRestitution(t *testing.T) {
-	defer porttest.Guard(t)
+
 	tests := []struct {
 		name string
 		run  func(*restitutionOracle) int
@@ -1311,34 +1340,42 @@ func TestRestitution(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			r := restitutionOpen(t, test.name)
-			porttest.Ensure(t, test.run(r) == 0)
+			if !(test.run(r) == 0) {
+				t.Fatal("condition false")
+			}
 		})
 	}
 }
 
 func TestRestitutionTraceFixtures(t *testing.T) {
-	defer porttest.Guard(t)
+
 	names := []string{"HeadOnTest", "PhaseTest", "SupportedTest", "TwoPointTest", "SpinTest", "DropTest", "SingleBoxTest", "ThresholdTest", "RestingTest", "NormalVelocityTest", "OvershootTest", "EnergyTest", "ImpulseTest", "WorkerParityTest"}
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
-			defer porttest.Guard(t)
+
 			var trace []byte
 			fullSeen := false
 			scenarios := 0
 			for _, record := range restitutionRecords(t, name) {
 				switch record.Key {
 				case "transforms/steps":
-					porttest.Ensure(t, !fullSeen && trace == nil && record.Type == "bytes")
+					if !(!fullSeen && trace == nil && record.Type == "bytes") {
+						t.Fatal("condition false")
+					}
 					var err error
 					trace, err = hex.DecodeString(record.Value)
 					if err != nil {
 						t.Fatal(err)
 					}
-					porttest.Ensure(t, len(trace)%8 == 0)
+					if !(len(trace)%8 == 0) {
+						t.Fatal("condition false")
+					}
 				case "transforms/full":
-					porttest.Ensure(t, trace != nil && !fullSeen && record.Type == "bytes")
+					if !(trace != nil && !fullSeen && record.Type == "bytes") {
+						t.Fatal("condition false")
+					}
 					encoded, err := hex.DecodeString(record.Value)
 					if err != nil {
 						t.Fatal(err)
@@ -1371,18 +1408,28 @@ func TestRestitutionTraceFixtures(t *testing.T) {
 						repacked = append(repacked, restitutionPackSnapshot(full, previous)...)
 						previous = full
 					}
-					porttest.Ensure(t, frames == (len(trace)/8)/60)
-					porttest.Ensure(t, bytes.Equal(encoded, repacked))
+					if !(frames == (len(trace)/8)/60) {
+						t.Fatal("condition false")
+					}
+					if !(bytes.Equal(encoded, repacked)) {
+						t.Fatal("condition false")
+					}
 					fullSeen = true
 				case "steps":
-					porttest.Ensure(t, fullSeen && record.Type == "bytes")
-					porttest.Ensure(t, len(record.Value) == len(trace)*2)
+					if !(fullSeen && record.Type == "bytes") {
+						t.Fatal("condition false")
+					}
+					if !(len(record.Value) == len(trace)*2) {
+						t.Fatal("condition false")
+					}
 					scenarios++
 					trace = nil
 					fullSeen = false
 				}
 			}
-			porttest.Ensure(t, scenarios > 0 && trace == nil && !fullSeen)
+			if !(scenarios > 0 && trace == nil && !fullSeen) {
+				t.Fatal("condition false")
+			}
 		})
 	}
 }

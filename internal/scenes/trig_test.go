@@ -10,11 +10,10 @@ import (
 
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func TestBoundedSceneTrig(t *testing.T) {
-	defer porttest.Guard(t)
+
 	r := oracle.Open(t, "scenes/Trig")
 	dump := func(index int, angle float32) {
 		t.Helper()
@@ -45,8 +44,12 @@ func TestBoundedSceneTrig(t *testing.T) {
 				hash = mix(hash, value)
 			}
 			if step == 0 && ray == 41 {
-				porttest.Ensure(t, math.Float32bits(angle) == 0x40bd9c85)
-				porttest.Ensure(t, math.Float32bits(sine) == 0xbeb352db && math.Float32bits(float32(25)*sine) == 0xc10c18bb)
+				if !(math.Float32bits(angle) == 0x40bd9c85) {
+					t.Fatal("condition false")
+				}
+				if !(math.Float32bits(sine) == 0xbeb352db && math.Float32bits(float32(25)*sine) == 0xc10c18bb) {
+					t.Fatal("condition false")
+				}
 				dump(0, angle)
 			}
 		}
@@ -64,5 +67,7 @@ func TestBoundedSceneTrig(t *testing.T) {
 			index += 2
 		}
 	}
-	porttest.Ensure(t, index == 81)
+	if !(index == 81) {
+		t.Fatal("condition false")
+	}
 }

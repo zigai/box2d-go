@@ -9,11 +9,10 @@ import (
 
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func TestSceneHelperBoundaries(t *testing.T) {
-	defer porttest.Guard(t)
+
 	rain, queries, seed := gRainData, gQueryBenchmark, gRandomSeed
 	t.Cleanup(func() { gRainData, gQueryBenchmark, gRandomSeed = rain, queries, seed })
 	gRandomSeed = randSeed
@@ -50,7 +49,9 @@ func TestSceneHelperBoundaries(t *testing.T) {
 		r.Bool(fmt.Sprintf("%d.spawned", step), spawned)
 		r.Bool(fmt.Sprintf("%d.cleared", step), cleared)
 		r.I32(fmt.Sprintf("%d.column", step), int32(gRainData.columnIndex))
-		porttest.Ensure(t, spawned == (step != 1) && cleared == (step == 1))
+		if !(spawned == (step != 1) && cleared == (step == 1)) {
+			t.Fatal("condition false")
+		}
 	}
 	CreateRain(world)
 	counts(-1)
@@ -79,7 +80,9 @@ func TestSceneHelperBoundaries(t *testing.T) {
 	flags(2)
 	r.Bool("2.oldBody", oldBody.IsValid())
 	r.Bool("2.oldJoint", oldJoint.IsValid())
-	porttest.Ensure(t, gRainData.columnIndex == 0 && gRainData.columnCount == rainColumnCount)
+	if !(gRainData.columnIndex == 0 && gRainData.columnCount == rainColumnCount) {
+		t.Fatal("condition false")
+	}
 	world.Destroy()
 	world = box2d.CreateWorld(&def)
 	cleanupWorld(world)
@@ -101,6 +104,8 @@ func TestSceneHelperBoundaries(t *testing.T) {
 		r.I32(fmt.Sprintf("%d.n", i), int32(s.NodeVisits))
 		r.I32(fmt.Sprintf("%d.l", i), int32(s.LeafVisits))
 		want := [4]float32{-5, 5, 5, -5}
-		porttest.Ensure(t, v == (box2d.Vec2{X: want[i]}))
+		if !(v == (box2d.Vec2{X: want[i]})) {
+			t.Fatal("condition false")
+		}
 	}
 }

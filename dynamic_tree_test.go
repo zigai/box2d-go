@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"math"
 	"os"
 	"strconv"
@@ -21,9 +21,9 @@ const treeGridCount = 20
 const treeProxyCount = 200
 
 func TestDynamicTree(t *testing.T) {
-	defer porttest.Guard(t)
+
 	t.Run("TreeCreateDestroy", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeCreateDestroy", 12345)
 		s.r.U32("rng/start", s.randomState)
 		a := AABB{
@@ -35,27 +35,35 @@ func TestDynamicTree(t *testing.T) {
 		createTreeProxyInternal(&tree, a, 1, 0, false)
 		s.tree("step/23", &tree)
 		s.check(25, uint64(tree.nodeEnd), tree.nodeEnd == 2)
-		porttest.Ensure(t, tree.nodeEnd == 2)
+		if !(tree.nodeEnd == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/25")
 		s.tree("check-state/25", &tree)
 		s.check(26, uint64(tree.proxyCount), tree.proxyCount == 1)
-		porttest.Ensure(t, tree.proxyCount == 1)
+		if !(tree.proxyCount == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/26")
 		s.tree("check-state/26", &tree)
 		tree.Destroy()
 		s.tree("step/28", &tree)
 		s.check(30, uint64(tree.nodeEnd), tree.nodeEnd == 0)
-		porttest.Ensure(t, tree.nodeEnd == 0)
+		if !(tree.nodeEnd == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/30")
 		s.tree("check-state/30", &tree)
 		s.check(31, uint64(tree.proxyCount), tree.proxyCount == 0)
-		porttest.Ensure(t, tree.proxyCount == 0)
+		if !(tree.proxyCount == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/31")
 		s.tree("check-state/31", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeRayCastTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeRayCastTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		// Test AABB centered at origin with bounds [-1, -1] to [1, 1]
@@ -76,7 +84,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/65", &tree)
 			s.check(67, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/67")
 			s.tree("check-state/67", &tree)
 		}
@@ -90,7 +100,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/78", &tree)
 			s.check(80, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/80")
 			s.tree("check-state/80", &tree)
 		}
@@ -104,7 +116,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/91", &tree)
 			s.check(93, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/93")
 			s.tree("check-state/93", &tree)
 		}
@@ -118,7 +132,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/104", &tree)
 			s.check(106, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/106")
 			s.tree("check-state/106", &tree)
 		}
@@ -132,7 +148,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/117", &tree)
 			s.check(119, uint64(proxyHit), proxyHit == -1)
-			porttest.Ensure(t, proxyHit == -1)
+			if !(proxyHit == -1) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/119")
 			s.tree("check-state/119", &tree)
 		}
@@ -146,7 +164,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/130", &tree)
 			s.check(132, uint64(proxyHit), proxyHit == -1)
-			porttest.Ensure(t, proxyHit == -1)
+			if !(proxyHit == -1) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/132")
 			s.tree("check-state/132", &tree)
 		}
@@ -160,7 +180,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/143", &tree)
 			s.check(145, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/145")
 			s.tree("check-state/145", &tree)
 		}
@@ -174,7 +196,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/156", &tree)
 			s.check(158, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/158")
 			s.tree("check-state/158", &tree)
 		}
@@ -188,7 +212,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/169", &tree)
 			s.check(171, uint64(proxyHit), proxyHit == -1)
-			porttest.Ensure(t, proxyHit == -1)
+			if !(proxyHit == -1) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/171")
 			s.tree("check-state/171", &tree)
 		}
@@ -202,7 +228,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/182", &tree)
 			s.check(184, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/184")
 			s.tree("check-state/184", &tree)
 		}
@@ -216,7 +244,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/195", &tree)
 			s.check(197, uint64(proxyHit), proxyHit == -1)
-			porttest.Ensure(t, proxyHit == -1)
+			if !(proxyHit == -1) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/197")
 			s.tree("check-state/197", &tree)
 		}
@@ -230,7 +260,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/208", &tree)
 			s.check(210, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/210")
 			s.tree("check-state/210", &tree)
 		}
@@ -244,7 +276,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/221", &tree)
 			s.check(223, uint64(proxyHit), proxyHit == proxyId)
-			porttest.Ensure(t, proxyHit == proxyId)
+			if !(proxyHit == proxyId) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/223")
 			s.tree("check-state/223", &tree)
 		}
@@ -263,7 +297,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/239", &tree)
 			s.check(241, uint64(proxyHit), proxyHit == proxyIdB)
-			porttest.Ensure(t, proxyHit == proxyIdB)
+			if !(proxyHit == proxyIdB) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/241")
 			s.tree("check-state/241", &tree)
 		}
@@ -277,7 +313,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/252", &tree)
 			s.check(254, uint64(proxyHit), proxyHit == proxyIdB)
-			porttest.Ensure(t, proxyHit == proxyIdB)
+			if !(proxyHit == proxyIdB) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/254")
 			s.tree("check-state/254", &tree)
 		}
@@ -291,7 +329,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/265", &tree)
 			s.check(267, uint64(proxyHit), proxyHit == -1)
-			porttest.Ensure(t, proxyHit == -1)
+			if !(proxyHit == -1) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/267")
 			s.tree("check-state/267", &tree)
 		}
@@ -305,7 +345,9 @@ func TestDynamicTree(t *testing.T) {
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/278", &tree)
 			s.check(280, uint64(proxyHit), proxyHit == -1)
-			porttest.Ensure(t, proxyHit == -1)
+			if !(proxyHit == -1) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/280")
 			s.tree("check-state/280", &tree)
 		}
@@ -314,7 +356,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeMultipleProxiesTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeMultipleProxiesTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -329,31 +371,45 @@ func TestDynamicTree(t *testing.T) {
 		id3 := createTreeProxyInternal(&tree, a3, 0x4, 44, false)
 		s.tree("step/316", &tree)
 		s.check(318, uint64(tree.ProxyCount()), tree.ProxyCount() == 3)
-		porttest.Ensure(t, tree.ProxyCount() == 3)
+		if !(tree.ProxyCount() == 3) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/318")
 		s.tree("check-state/318", &tree)
 		s.check(320, uint64(tree.UserData(id1)), tree.UserData(id1) == 42)
-		porttest.Ensure(t, tree.UserData(id1) == 42)
+		if !(tree.UserData(id1) == 42) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/320")
 		s.tree("check-state/320", &tree)
 		s.check(321, uint64(tree.UserData(id2)), tree.UserData(id2) == 43)
-		porttest.Ensure(t, tree.UserData(id2) == 43)
+		if !(tree.UserData(id2) == 43) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/321")
 		s.tree("check-state/321", &tree)
 		s.check(322, uint64(tree.UserData(id3)), tree.UserData(id3) == 44)
-		porttest.Ensure(t, tree.UserData(id3) == 44)
+		if !(tree.UserData(id3) == 44) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/322")
 		s.tree("check-state/322", &tree)
 		s.check(324, uint64(tree.CategoryBits(id1)), tree.CategoryBits(id1) == 0x1)
-		porttest.Ensure(t, tree.CategoryBits(id1) == 0x1)
+		if !(tree.CategoryBits(id1) == 0x1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/324")
 		s.tree("check-state/324", &tree)
 		s.check(325, uint64(tree.CategoryBits(id2)), tree.CategoryBits(id2) == 0x2)
-		porttest.Ensure(t, tree.CategoryBits(id2) == 0x2)
+		if !(tree.CategoryBits(id2) == 0x2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/325")
 		s.tree("check-state/325", &tree)
 		s.check(326, uint64(tree.CategoryBits(id3)), tree.CategoryBits(id3) == 0x4)
-		porttest.Ensure(t, tree.CategoryBits(id3) == 0x4)
+		if !(tree.CategoryBits(id3) == 0x4) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/326")
 		s.tree("check-state/326", &tree)
 		tree.Destroy()
@@ -361,7 +417,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeQueryTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeQueryTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -381,11 +437,15 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/347", &tree)
 		// We expect at least the middle proxy to be visited.
 		s.check(350, uint64(foundFlags[id2]), foundFlags[id2] == 1)
-		porttest.Ensure(t, foundFlags[id2] == 1)
+		if !(foundFlags[id2] == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/350")
 		s.tree("check-state/350", &tree)
 		s.check(351, uint64(stats.LeafVisits), stats.LeafVisits >= 1)
-		porttest.Ensure(t, stats.LeafVisits >= 1)
+		if !(stats.LeafVisits >= 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/351")
 		s.tree("check-state/351", &tree)
 		// Test QueryAll using list collector
@@ -393,11 +453,15 @@ func TestDynamicTree(t *testing.T) {
 		allStats := tree.QueryAll(queryA, treeCollectList(list[:]))
 		s.tree("step/355", &tree)
 		s.check(356, uint64(list[0]), list[0] >= 1)
-		porttest.Ensure(t, list[0] >= 1) // at least one proxy should be collected
+		if !(list[0] >= 1) {
+			t.Fatal("condition false")
+		} // at least one proxy should be collected
 		s.flush("check/356")
 		s.tree("check-state/356", &tree)
 		s.check(357, uint64(allStats.LeafVisits), allStats.LeafVisits >= 1)
-		porttest.Ensure(t, allStats.LeafVisits >= 1)
+		if !(allStats.LeafVisits >= 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/357")
 		s.tree("check-state/357", &tree)
 		tree.Destroy()
@@ -407,7 +471,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeMoveAndEnlargeTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeMoveAndEnlargeTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -421,19 +485,27 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/373", &tree)
 		got := tree.AABB(id)
 		s.check(376, uint64(math.Float32bits(got.LowerBound.X)), got.LowerBound.X == moved.LowerBound.X)
-		porttest.Ensure(t, got.LowerBound.X == moved.LowerBound.X)
+		if !(got.LowerBound.X == moved.LowerBound.X) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/376")
 		s.tree("check-state/376", &tree)
 		s.check(377, uint64(math.Float32bits(got.LowerBound.Y)), got.LowerBound.Y == moved.LowerBound.Y)
-		porttest.Ensure(t, got.LowerBound.Y == moved.LowerBound.Y)
+		if !(got.LowerBound.Y == moved.LowerBound.Y) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/377")
 		s.tree("check-state/377", &tree)
 		s.check(378, uint64(math.Float32bits(got.UpperBound.X)), got.UpperBound.X == moved.UpperBound.X)
-		porttest.Ensure(t, got.UpperBound.X == moved.UpperBound.X)
+		if !(got.UpperBound.X == moved.UpperBound.X) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/378")
 		s.tree("check-state/378", &tree)
 		s.check(379, uint64(math.Float32bits(got.UpperBound.Y)), got.UpperBound.Y == moved.UpperBound.Y)
-		porttest.Ensure(t, got.UpperBound.Y == moved.UpperBound.Y)
+		if !(got.UpperBound.Y == moved.UpperBound.Y) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/379")
 		s.tree("check-state/379", &tree)
 		// Now enlarge the proxy
@@ -442,11 +514,15 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/383", &tree)
 		got2 := tree.AABB(id)
 		s.check(386, uint64(math.Float32bits(got2.LowerBound.X)), got2.LowerBound.X <= enlarge.LowerBound.X+1e-6)
-		porttest.Ensure(t, got2.LowerBound.X <= enlarge.LowerBound.X+1e-6)
+		if !(got2.LowerBound.X <= enlarge.LowerBound.X+1e-6) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/386")
 		s.tree("check-state/386", &tree)
 		s.check(387, uint64(math.Float32bits(got2.UpperBound.X)), got2.UpperBound.X >= enlarge.UpperBound.X-1e-6)
-		porttest.Ensure(t, got2.UpperBound.X >= enlarge.UpperBound.X-1e-6)
+		if !(got2.UpperBound.X >= enlarge.UpperBound.X-1e-6) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/387")
 		s.tree("check-state/387", &tree)
 		tree.Destroy()
@@ -454,7 +530,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeRebuildAndValidateTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeRebuildAndValidateTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -469,15 +545,21 @@ func TestDynamicTree(t *testing.T) {
 		sorted := tree.rebuild(true)
 		s.tree("step/405", &tree)
 		s.check(407, uint64(sorted), sorted >= 0)
-		porttest.Ensure(t, sorted >= 0)
+		if !(sorted >= 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/407")
 		s.tree("check-state/407", &tree)
 		s.check(408, uint64(treeBool(tree.ByteCount() > 0)), tree.ByteCount() > 0)
-		porttest.Ensure(t, tree.ByteCount() > 0)
+		if !(tree.ByteCount() > 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/408")
 		s.tree("check-state/408", &tree)
 		s.check(409, uint64(tree.Height()), tree.Height() > 0)
-		porttest.Ensure(t, tree.Height() > 0)
+		if !(tree.Height() > 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/409")
 		s.tree("check-state/409", &tree)
 		tree.Destroy()
@@ -485,7 +567,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeRowHeightTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeRowHeightTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -501,7 +583,9 @@ func TestDynamicTree(t *testing.T) {
 		s.r.F32("min-height", minHeight)
 		tree.Validate()
 		s.check(430, uint64(tree.Height()), float32(tree.Height()) < 2.0*minHeight)
-		porttest.Ensure(t, float32(tree.Height()) < 2.0*minHeight)
+		if !(float32(tree.Height()) < 2.0*minHeight) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/430")
 		s.tree("check-state/430", &tree)
 		tree.Destroy()
@@ -509,7 +593,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeGridHeightTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeGridHeightTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -529,7 +613,9 @@ func TestDynamicTree(t *testing.T) {
 		s.r.F32("min-height", minHeight)
 		tree.Validate()
 		s.check(456, uint64(tree.Height()), float32(tree.Height()) < 2.0*minHeight)
-		porttest.Ensure(t, float32(tree.Height()) < 2.0*minHeight)
+		if !(float32(tree.Height()) < 2.0*minHeight) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/456")
 		s.tree("check-state/456", &tree)
 		tree.Destroy()
@@ -537,7 +623,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeGridMovementTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeGridMovementTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -555,7 +641,9 @@ func TestDynamicTree(t *testing.T) {
 			}
 		}
 		s.check(482, uint64(index), index == treeGridCount*treeGridCount)
-		porttest.Ensure(t, index == treeGridCount*treeGridCount)
+		if !(index == treeGridCount*treeGridCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/482")
 		s.tree("check-state/482", &tree)
 		minHeight := s.fixtureFloats("min-height", 0)[0]
@@ -563,7 +651,9 @@ func TestDynamicTree(t *testing.T) {
 		tree.Validate()
 		height1 := tree.Height()
 		s.check(488, uint64(height1), float32(height1) < 2.0*minHeight)
-		porttest.Ensure(t, float32(height1) < 2.0*minHeight)
+		if !(float32(height1) < 2.0*minHeight) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/488")
 		s.tree("check-state/488", &tree)
 		offset := Vec2{10.0, 20.0}
@@ -581,7 +671,9 @@ func TestDynamicTree(t *testing.T) {
 		tree.Validate()
 		height2 := tree.Height()
 		s.check(506, uint64(height2), float32(height2) < 3.0*minHeight)
-		porttest.Ensure(t, float32(height2) < 3.0*minHeight)
+		if !(float32(height2) < 3.0*minHeight) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/506")
 		s.tree("check-state/506", &tree)
 		tree.rebuild(true)
@@ -589,7 +681,9 @@ func TestDynamicTree(t *testing.T) {
 		tree.Validate()
 		height3 := tree.Height()
 		s.check(512, uint64(height3), float32(height3) < 2.0*minHeight)
-		porttest.Ensure(t, float32(height3) < 2.0*minHeight)
+		if !(float32(height3) < 2.0*minHeight) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/512")
 		s.tree("check-state/512", &tree)
 		tree.Destroy()
@@ -597,7 +691,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeOneProxyTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeOneProxyTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(1)
@@ -609,47 +703,67 @@ func TestDynamicTree(t *testing.T) {
 		tree.Validate()
 		// One proxy is a leaf at the root beside the empty node
 		s.check(805, uint64(tree.nodeEnd), tree.nodeEnd == 2)
-		porttest.Ensure(t, tree.nodeEnd == 2)
+		if !(tree.nodeEnd == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/805")
 		s.tree("check-state/805", &tree)
 		s.check(806, uint64(tree.proxyCount), tree.proxyCount == 1)
-		porttest.Ensure(t, tree.proxyCount == 1)
+		if !(tree.proxyCount == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/806")
 		s.tree("check-state/806", &tree)
 		s.check(807, uint64(treeBool(isLeaf(&tree.nodes[rootNode]))), isLeaf(&tree.nodes[rootNode]))
-		porttest.Ensure(t, isLeaf(&tree.nodes[rootNode]))
+		if !(isLeaf(&tree.nodes[rootNode])) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/807")
 		s.tree("check-state/807", &tree)
 		s.check(808, uint64(tree.Height()), tree.Height() == 0)
-		porttest.Ensure(t, tree.Height() == 0)
+		if !(tree.Height() == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/808")
 		s.tree("check-state/808", &tree)
 		s.check(809, uint64(tree.UserData(proxyId)), tree.UserData(proxyId) == 7)
-		porttest.Ensure(t, tree.UserData(proxyId) == 7)
+		if !(tree.UserData(proxyId) == 7) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/809")
 		s.tree("check-state/809", &tree)
 		s.check(810, uint64(tree.CategoryBits(proxyId)), tree.CategoryBits(proxyId) == 1)
-		porttest.Ensure(t, tree.CategoryBits(proxyId) == 1)
+		if !(tree.CategoryBits(proxyId) == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/810")
 		s.tree("check-state/810", &tree)
 		s.check(811, uint64(treeBool(treeBoxEquals(tree.AABB(proxyId), box))), treeBoxEquals(tree.AABB(proxyId), box))
-		porttest.Ensure(t, treeBoxEquals(tree.AABB(proxyId), box))
+		if !(treeBoxEquals(tree.AABB(proxyId), box)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/811")
 		s.tree("check-state/811", &tree)
 		s.check(812, uint64(treeBool(treeBoxEquals(tree.RootBounds(), box))), treeBoxEquals(tree.RootBounds(), box))
-		porttest.Ensure(t, treeBoxEquals(tree.RootBounds(), box))
+		if !(treeBoxEquals(tree.RootBounds(), box)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/812")
 		s.tree("check-state/812", &tree)
 		inside := AABB{Vec2{0.4, 0.4}, Vec2{0.6, 0.6}}
 		outside := AABB{Vec2{5.0, 5.0}, Vec2{6.0, 6.0}}
 		result816 := treeCompareQuery(t, s, &tree, proxyIds[:], 1, inside)
 		s.check(816, uint64(result816), result816 == 0)
-		porttest.Ensure(t, result816 == 0)
+		if !(result816 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/816")
 		s.tree("check-state/816", &tree)
 		result817 := treeCompareQuery(t, s, &tree, proxyIds[:], 1, outside)
 		s.check(817, uint64(result817), result817 == 0)
-		porttest.Ensure(t, result817 == 0)
+		if !(result817 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/817")
 		s.tree("check-state/817", &tree)
 		origin := Vec2{-1.0, 0.5}
@@ -659,45 +773,61 @@ func TestDynamicTree(t *testing.T) {
 		tree.CastRay(&input, DefaultMaskBits, treeClosestRay(&hit))
 		s.tree("step/823", &tree)
 		s.check(824, uint64(hit.proxyID), hit.proxyID == proxyId)
-		porttest.Ensure(t, hit.proxyID == proxyId)
+		if !(hit.proxyID == proxyId) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/824")
 		s.tree("check-state/824", &tree)
 		result825 := treeCompareRayCast(t, s, &tree, proxyIds[:], 1, origin, translation)
 		s.check(825, uint64(result825), result825 == 0)
-		porttest.Ensure(t, result825 == 0)
+		if !(result825 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/825")
 		s.tree("check-state/825", &tree)
 		missOrigin := Vec2{-1.0, 5.0}
 		result828 := treeCompareRayCast(t, s, &tree, proxyIds[:], 1, missOrigin, translation)
 		s.check(828, uint64(result828), result828 == 0)
-		porttest.Ensure(t, result828 == 0)
+		if !(result828 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/828")
 		s.tree("check-state/828", &tree)
 		castBox := AABB{Vec2{-3.0, 0.25}, Vec2{-2.0, 0.75}}
 		castTranslation := Vec2{10.0, 0.0}
 		result832 := treeCompareBoxCast(t, s, &tree, proxyIds[:], 1, castBox, castTranslation)
 		s.check(832, uint64(result832), result832 == 0)
-		porttest.Ensure(t, result832 == 0)
+		if !(result832 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/832")
 		s.tree("check-state/832", &tree)
 		// A full build keeps the leaf at the root
 		rebuilt835 := tree.rebuild(true)
 		s.check(835, uint64(rebuilt835), rebuilt835 == 1)
-		porttest.Ensure(t, rebuilt835 == 1)
+		if !(rebuilt835 == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/835")
 		s.tree("check-state/835", &tree)
 		tree.Validate()
 		s.check(837, uint64(tree.nodeEnd), tree.nodeEnd == 2)
-		porttest.Ensure(t, tree.nodeEnd == 2)
+		if !(tree.nodeEnd == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/837")
 		s.tree("check-state/837", &tree)
 		s.check(838, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/838")
 		s.tree("check-state/838", &tree)
 		result839 := treeCompareQuery(t, s, &tree, proxyIds[:], 1, inside)
 		s.check(839, uint64(result839), result839 == 0)
-		porttest.Ensure(t, result839 == 0)
+		if !(result839 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/839")
 		s.tree("check-state/839", &tree)
 		// The leaf is the root, so a mark and refit show up in the root bounds directly
@@ -705,27 +835,37 @@ func TestDynamicTree(t *testing.T) {
 		tree.markProxyMoved(proxyId, enlarged)
 		s.tree("step/843", &tree)
 		s.check(844, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree))
-		porttest.Ensure(t, hasTreeMoved(&tree))
+		if !(hasTreeMoved(&tree)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/844")
 		s.tree("check-state/844", &tree)
 		tree.refit()
 		s.tree("step/845", &tree)
 		tree.Validate()
 		s.check(847, uint64(treeBool(treeBoxEquals(tree.AABB(proxyId), enlarged))), treeBoxEquals(tree.AABB(proxyId), enlarged))
-		porttest.Ensure(t, treeBoxEquals(tree.AABB(proxyId), enlarged))
+		if !(treeBoxEquals(tree.AABB(proxyId), enlarged)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/847")
 		s.tree("check-state/847", &tree)
 		s.check(848, uint64(treeBool(treeBoxEquals(tree.RootBounds(), enlarged))), treeBoxEquals(tree.RootBounds(), enlarged))
-		porttest.Ensure(t, treeBoxEquals(tree.RootBounds(), enlarged))
+		if !(treeBoxEquals(tree.RootBounds(), enlarged)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/848")
 		s.tree("check-state/848", &tree)
 		rebuilt849 := tree.rebuild(false)
 		s.check(849, uint64(rebuilt849), rebuilt849 == 1)
-		porttest.Ensure(t, rebuilt849 == 1)
+		if !(rebuilt849 == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/849")
 		s.tree("check-state/849", &tree)
 		s.check(850, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree) == false)
-		porttest.Ensure(t, hasTreeMoved(&tree) == false)
+		if !(hasTreeMoved(&tree) == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/850")
 		s.tree("check-state/850", &tree)
 		tree.validateNoMoved()
@@ -733,24 +873,34 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/853", &tree)
 		tree.Validate()
 		s.check(855, uint64(tree.proxyCount), tree.proxyCount == 0)
-		porttest.Ensure(t, tree.proxyCount == 0)
+		if !(tree.proxyCount == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/855")
 		s.tree("check-state/855", &tree)
 		s.check(856, uint64(tree.nodeEnd), tree.nodeEnd == 2)
-		porttest.Ensure(t, tree.nodeEnd == 2)
+		if !(tree.nodeEnd == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/856")
 		s.tree("check-state/856", &tree)
 		s.check(857, uint64(treeBool(isEmptyNode(&tree.nodes[rootNode]))), isEmptyNode(&tree.nodes[rootNode]))
-		porttest.Ensure(t, isEmptyNode(&tree.nodes[rootNode]))
+		if !(isEmptyNode(&tree.nodes[rootNode])) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/857")
 		s.tree("check-state/857", &tree)
 		s.check(858, uint64(tree.Height()), tree.Height() == 0)
-		porttest.Ensure(t, tree.Height() == 0)
+		if !(tree.Height() == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/858")
 		s.tree("check-state/858", &tree)
 		result859 := treeCompareQuery(t, s, &tree, proxyIds[:], 0, inside)
 		s.check(859, uint64(result859), result859 == 0)
-		porttest.Ensure(t, result859 == 0)
+		if !(result859 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/859")
 		s.tree("check-state/859", &tree)
 		tree.Destroy()
@@ -758,7 +908,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeLeafRootTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeLeafRootTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -774,49 +924,69 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/877", &tree)
 		tree.Validate()
 		s.check(879, uint64(tree.nodeEnd), tree.nodeEnd == 4)
-		porttest.Ensure(t, tree.nodeEnd == 4)
+		if !(tree.nodeEnd == 4) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/879")
 		s.tree("check-state/879", &tree)
 		s.check(880, uint64(tree.proxyCount), tree.proxyCount == 2)
-		porttest.Ensure(t, tree.proxyCount == 2)
+		if !(tree.proxyCount == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/880")
 		s.tree("check-state/880", &tree)
 		s.check(881, uint64(treeBool(isLeaf(&tree.nodes[rootNode]))), isLeaf(&tree.nodes[rootNode]) == false)
-		porttest.Ensure(t, isLeaf(&tree.nodes[rootNode]) == false)
+		if !(isLeaf(&tree.nodes[rootNode]) == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/881")
 		s.tree("check-state/881", &tree)
 		s.check(882, uint64(tree.Height()), tree.Height() == 1)
-		porttest.Ensure(t, tree.Height() == 1)
+		if !(tree.Height() == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/882")
 		s.tree("check-state/882", &tree)
 		tree.DestroyProxy(idA)
 		s.tree("step/884", &tree)
 		tree.Validate()
 		s.check(886, uint64(treeBool(isLeaf(&tree.nodes[rootNode]))), isLeaf(&tree.nodes[rootNode]))
-		porttest.Ensure(t, isLeaf(&tree.nodes[rootNode]))
+		if !(isLeaf(&tree.nodes[rootNode])) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/886")
 		s.tree("check-state/886", &tree)
 		s.check(887, uint64(tree.nodeEnd), tree.nodeEnd == 4)
-		porttest.Ensure(t, tree.nodeEnd == 4)
+		if !(tree.nodeEnd == 4) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/887")
 		s.tree("check-state/887", &tree)
 		s.check(888, uint64(tree.pairFreeList), tree.pairFreeList == 2)
-		porttest.Ensure(t, tree.pairFreeList == 2)
+		if !(tree.pairFreeList == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/888")
 		s.tree("check-state/888", &tree)
 		s.check(889, uint64(tree.proxyCount), tree.proxyCount == 1)
-		porttest.Ensure(t, tree.proxyCount == 1)
+		if !(tree.proxyCount == 1) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/889")
 		s.tree("check-state/889", &tree)
 		idsB := [1]int{idB}
 		result891 := treeCompareQuery(t, s, &tree, idsB[:], 1, all)
 		s.check(891, uint64(result891), result891 == 0)
-		porttest.Ensure(t, result891 == 0)
+		if !(result891 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/891")
 		s.tree("check-state/891", &tree)
 		result892 := treeCompareQuery(t, s, &tree, idsB[:], 1, boxA)
 		s.check(892, uint64(result892), result892 == 0)
-		porttest.Ensure(t, result892 == 0)
+		if !(result892 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/892")
 		s.tree("check-state/892", &tree)
 		// The freed pair is reused
@@ -824,21 +994,29 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/895", &tree)
 		tree.Validate()
 		s.check(897, uint64(tree.nodeEnd), tree.nodeEnd == 4)
-		porttest.Ensure(t, tree.nodeEnd == 4)
+		if !(tree.nodeEnd == 4) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/897")
 		s.tree("check-state/897", &tree)
 		s.check(898, uint64(tree.pairFreeList), tree.pairFreeList == int32(nullIndex))
-		porttest.Ensure(t, tree.pairFreeList == int32(nullIndex))
+		if !(tree.pairFreeList == int32(nullIndex)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/898")
 		s.tree("check-state/898", &tree)
 		s.check(899, uint64(tree.proxyCount), tree.proxyCount == 2)
-		porttest.Ensure(t, tree.proxyCount == 2)
+		if !(tree.proxyCount == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/899")
 		s.tree("check-state/899", &tree)
 		idsBC := [2]int{idB, idC}
 		result901 := treeCompareQuery(t, s, &tree, idsBC[:], 2, all)
 		s.check(901, uint64(result901), result901 == 0)
-		porttest.Ensure(t, result901 == 0)
+		if !(result901 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/901")
 		s.tree("check-state/901", &tree)
 		// A third proxy extends the array
@@ -846,22 +1024,30 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/904", &tree)
 		tree.Validate()
 		s.check(906, uint64(tree.nodeEnd), tree.nodeEnd == 6)
-		porttest.Ensure(t, tree.nodeEnd == 6)
+		if !(tree.nodeEnd == 6) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/906")
 		s.tree("check-state/906", &tree)
 		s.check(907, uint64(tree.proxyCount), tree.proxyCount == 3)
-		porttest.Ensure(t, tree.proxyCount == 3)
+		if !(tree.proxyCount == 3) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/907")
 		s.tree("check-state/907", &tree)
 		idsBCD := [3]int{idB, idC, idD}
 		result909 := treeCompareQuery(t, s, &tree, idsBCD[:], 3, all)
 		s.check(909, uint64(result909), result909 == 0)
-		porttest.Ensure(t, result909 == 0)
+		if !(result909 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/909")
 		s.tree("check-state/909", &tree)
 		result910 := treeCompareQuery(t, s, &tree, idsBCD[:], 3, boxC)
 		s.check(910, uint64(result910), result910 == 0)
-		porttest.Ensure(t, result910 == 0)
+		if !(result910 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/910")
 		s.tree("check-state/910", &tree)
 		// A remove leaves a hole that the full build compacts
@@ -869,63 +1055,87 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/913", &tree)
 		tree.Validate()
 		s.check(915, uint64(tree.nodeEnd), tree.nodeEnd == 6)
-		porttest.Ensure(t, tree.nodeEnd == 6)
+		if !(tree.nodeEnd == 6) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/915")
 		s.tree("check-state/915", &tree)
 		s.check(916, uint64(tree.pairFreeList), tree.pairFreeList != int32(nullIndex))
-		porttest.Ensure(t, tree.pairFreeList != int32(nullIndex))
+		if !(tree.pairFreeList != int32(nullIndex)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/916")
 		s.tree("check-state/916", &tree)
 		idsCD := [2]int{idC, idD}
 		result918 := treeCompareQuery(t, s, &tree, idsCD[:], 2, all)
 		s.check(918, uint64(result918), result918 == 0)
-		porttest.Ensure(t, result918 == 0)
+		if !(result918 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/918")
 		s.tree("check-state/918", &tree)
 		rebuilt919 := tree.rebuild(true)
 		s.check(919, uint64(rebuilt919), rebuilt919 == 2)
-		porttest.Ensure(t, rebuilt919 == 2)
+		if !(rebuilt919 == 2) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/919")
 		s.tree("check-state/919", &tree)
 		tree.Validate()
 		s.check(921, uint64(tree.nodeEnd), tree.nodeEnd == 4)
-		porttest.Ensure(t, tree.nodeEnd == 4)
+		if !(tree.nodeEnd == 4) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/921")
 		s.tree("check-state/921", &tree)
 		s.check(922, uint64(tree.pairFreeList), tree.pairFreeList == int32(nullIndex))
-		porttest.Ensure(t, tree.pairFreeList == int32(nullIndex))
+		if !(tree.pairFreeList == int32(nullIndex)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/922")
 		s.tree("check-state/922", &tree)
 		result923 := treeCompareQuery(t, s, &tree, idsCD[:], 2, all)
 		s.check(923, uint64(result923), result923 == 0)
-		porttest.Ensure(t, result923 == 0)
+		if !(result923 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/923")
 		s.tree("check-state/923", &tree)
 		tree.DestroyProxy(idC)
 		s.tree("step/925", &tree)
 		tree.Validate()
 		s.check(927, uint64(treeBool(isLeaf(&tree.nodes[rootNode]))), isLeaf(&tree.nodes[rootNode]))
-		porttest.Ensure(t, isLeaf(&tree.nodes[rootNode]))
+		if !(isLeaf(&tree.nodes[rootNode])) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/927")
 		s.tree("check-state/927", &tree)
 		tree.DestroyProxy(idD)
 		s.tree("step/929", &tree)
 		tree.Validate()
 		s.check(931, uint64(tree.proxyCount), tree.proxyCount == 0)
-		porttest.Ensure(t, tree.proxyCount == 0)
+		if !(tree.proxyCount == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/931")
 		s.tree("check-state/931", &tree)
 		s.check(932, uint64(treeBool(isEmptyNode(&tree.nodes[rootNode]))), isEmptyNode(&tree.nodes[rootNode]))
-		porttest.Ensure(t, isEmptyNode(&tree.nodes[rootNode]))
+		if !(isEmptyNode(&tree.nodes[rootNode])) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/932")
 		s.tree("check-state/932", &tree)
 		s.check(933, uint64(tree.Height()), tree.Height() == 0)
-		porttest.Ensure(t, tree.Height() == 0)
+		if !(tree.Height() == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/933")
 		s.tree("check-state/933", &tree)
 		result934 := treeCompareQuery(t, s, &tree, idsBCD[:], 0, all)
 		s.check(934, uint64(result934), result934 == 0)
-		porttest.Ensure(t, result934 == 0)
+		if !(result934 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/934")
 		s.tree("check-state/934", &tree)
 		tree.Destroy()
@@ -933,7 +1143,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeQueryBruteForceTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeQueryBruteForceTest", 12345)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(treeProxyCount)
@@ -947,20 +1157,26 @@ func TestDynamicTree(t *testing.T) {
 		for i := 0; i < 32; i++ {
 			result952 := treeCompareQuery(t, s, &tree, proxyIds[:], treeProxyCount, s.randomBox(8.0))
 			s.check(952, uint64(result952), result952 == 0)
-			porttest.Ensure(t, result952 == 0)
+			if !(result952 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/952")
 			s.tree("check-state/952", &tree)
 		}
 		rebuilt955 := tree.rebuild(true)
 		s.check(955, uint64(rebuilt955), rebuilt955 == treeProxyCount)
-		porttest.Ensure(t, rebuilt955 == treeProxyCount)
+		if !(rebuilt955 == treeProxyCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/955")
 		s.tree("check-state/955", &tree)
 		tree.Validate()
 		for i := 0; i < 32; i++ {
 			result959 := treeCompareQuery(t, s, &tree, proxyIds[:], treeProxyCount, s.randomBox(8.0))
 			s.check(959, uint64(result959), result959 == 0)
-			porttest.Ensure(t, result959 == 0)
+			if !(result959 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/959")
 			s.tree("check-state/959", &tree)
 		}
@@ -973,7 +1189,9 @@ func TestDynamicTree(t *testing.T) {
 		for i := 0; i < 32; i++ {
 			result971 := treeCompareQuery(t, s, &tree, proxyIds[:], treeProxyCount, s.randomBox(8.0))
 			s.check(971, uint64(result971), result971 == 0)
-			porttest.Ensure(t, result971 == 0)
+			if !(result971 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/971")
 			s.tree("check-state/971", &tree)
 		}
@@ -982,7 +1200,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeCastBruteForceTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeCastBruteForceTest", 1416758761)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(treeProxyCount)
@@ -994,7 +1212,9 @@ func TestDynamicTree(t *testing.T) {
 		}
 		rebuilt987 := tree.rebuild(true)
 		s.check(987, uint64(rebuilt987), rebuilt987 == treeProxyCount)
-		porttest.Ensure(t, rebuilt987 == treeProxyCount)
+		if !(rebuilt987 == treeProxyCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/987")
 		s.tree("check-state/987", &tree)
 		tree.Validate()
@@ -1009,14 +1229,18 @@ func TestDynamicTree(t *testing.T) {
 			s.r.Vec2("translation", translation.X, translation.Y)
 			result996 := treeCompareRayCast(t, s, &tree, proxyIds[:], treeProxyCount, origin, translation)
 			s.check(996, uint64(result996), result996 == 0)
-			porttest.Ensure(t, result996 == 0)
+			if !(result996 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/996")
 			s.tree("check-state/996", &tree)
 			halfExtent := Vec2{s.randomFloat(0.25, 2.0), s.randomFloat(0.25, 2.0)}
 			box := AABB{Sub(origin, halfExtent), Add(origin, halfExtent)}
 			result1000 := treeCompareBoxCast(t, s, &tree, proxyIds[:], treeProxyCount, box, translation)
 			s.check(1000, uint64(result1000), result1000 == 0)
-			porttest.Ensure(t, result1000 == 0)
+			if !(result1000 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/1000")
 			s.tree("check-state/1000", &tree)
 		}
@@ -1025,7 +1249,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeMarkAndRefitTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeMarkAndRefitTest", 2736551817)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(treeProxyCount)
@@ -1037,19 +1261,27 @@ func TestDynamicTree(t *testing.T) {
 		}
 		rebuilt1017 := tree.rebuild(true)
 		s.check(1017, uint64(rebuilt1017), rebuilt1017 == treeProxyCount)
-		porttest.Ensure(t, rebuilt1017 == treeProxyCount)
+		if !(rebuilt1017 == treeProxyCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1017")
 		s.tree("check-state/1017", &tree)
 		s.check(1018, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1018")
 		s.tree("check-state/1018", &tree)
 		s.check(1019, uint64(tree.nodeEnd), tree.nodeEnd == 2*treeProxyCount)
-		porttest.Ensure(t, tree.nodeEnd == 2*treeProxyCount)
+		if !(tree.nodeEnd == 2*treeProxyCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1019")
 		s.tree("check-state/1019", &tree)
 		s.check(1020, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree) == false)
-		porttest.Ensure(t, hasTreeMoved(&tree) == false)
+		if !(hasTreeMoved(&tree) == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1020")
 		s.tree("check-state/1020", &tree)
 		var marked [treeProxyCount]bool
@@ -1064,22 +1296,30 @@ func TestDynamicTree(t *testing.T) {
 		markedBelow := false
 		result1033 := treeCheckMarks(t, s, &tree, rootNode, marked[:], &markedBelow)
 		s.check(1033, uint64(result1033), result1033 == 0)
-		porttest.Ensure(t, result1033 == 0)
+		if !(result1033 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1033")
 		s.tree("check-state/1033", &tree)
 		s.check(1034, uint64(treeBool(markedBelow)), markedBelow)
-		porttest.Ensure(t, markedBelow)
+		if !(markedBelow) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1034")
 		s.tree("check-state/1034", &tree)
 		s.check(1035, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree))
-		porttest.Ensure(t, hasTreeMoved(&tree))
+		if !(hasTreeMoved(&tree)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1035")
 		s.tree("check-state/1035", &tree)
 		// The leaf records took the fat boxes before the refit
 		for i := 0; i < treeProxyCount; i++ {
 			if marked[i] {
 				s.check(1042, uint64(treeBool(treeBoxEquals(tree.AABB(i), enlarged[i]))), treeBoxEquals(tree.AABB(i), enlarged[i]))
-				porttest.Ensure(t, treeBoxEquals(tree.AABB(i), enlarged[i]))
+				if !(treeBoxEquals(tree.AABB(i), enlarged[i])) {
+					t.Fatal("condition false")
+				}
 				s.flush("check/1042")
 				s.tree("check-state/1042", &tree)
 			}
@@ -1090,63 +1330,87 @@ func TestDynamicTree(t *testing.T) {
 		var bounds AABB
 		result1049 := treeCheckBounds(t, s, &tree, rootNode, &bounds)
 		s.check(1049, uint64(result1049), result1049 == 0)
-		porttest.Ensure(t, result1049 == 0)
+		if !(result1049 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1049")
 		s.tree("check-state/1049", &tree)
 		s.check(1050, uint64(treeBool(treeBoxEquals(bounds, tree.RootBounds()))), treeBoxEquals(bounds, tree.RootBounds()))
-		porttest.Ensure(t, treeBoxEquals(bounds, tree.RootBounds()))
+		if !(treeBoxEquals(bounds, tree.RootBounds())) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1050")
 		s.tree("check-state/1050", &tree)
 		// Marks survive the refit
 		result1053 := treeCheckMarks(t, s, &tree, rootNode, marked[:], &markedBelow)
 		s.check(1053, uint64(result1053), result1053 == 0)
-		porttest.Ensure(t, result1053 == 0)
+		if !(result1053 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1053")
 		s.tree("check-state/1053", &tree)
 		s.check(1054, uint64(treeBool(markedBelow)), markedBelow)
-		porttest.Ensure(t, markedBelow)
+		if !(markedBelow) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1054")
 		s.tree("check-state/1054", &tree)
 		for i := 0; i < 16; i++ {
 			result1057 := treeCompareQuery(t, s, &tree, proxyIds[:], treeProxyCount, s.randomBox(8.0))
 			s.check(1057, uint64(result1057), result1057 == 0)
-			porttest.Ensure(t, result1057 == 0)
+			if !(result1057 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/1057")
 			s.tree("check-state/1057", &tree)
 		}
 		// The rebuild clears every mark and restores the order
 		rebuilt1061 := tree.rebuild(false)
 		s.check(1061, uint64(rebuilt1061), rebuilt1061 > 0)
-		porttest.Ensure(t, rebuilt1061 > 0)
+		if !(rebuilt1061 > 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1061")
 		s.tree("check-state/1061", &tree)
 		s.check(1062, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree) == false)
-		porttest.Ensure(t, hasTreeMoved(&tree) == false)
+		if !(hasTreeMoved(&tree) == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1062")
 		s.tree("check-state/1062", &tree)
 		clear(marked[:])
 		result1064 := treeCheckMarks(t, s, &tree, rootNode, marked[:], &markedBelow)
 		s.check(1064, uint64(result1064), result1064 == 0)
-		porttest.Ensure(t, result1064 == 0)
+		if !(result1064 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1064")
 		s.tree("check-state/1064", &tree)
 		s.check(1065, uint64(treeBool(markedBelow)), markedBelow == false)
-		porttest.Ensure(t, markedBelow == false)
+		if !(markedBelow == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1065")
 		s.tree("check-state/1065", &tree)
 		s.check(1066, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1066")
 		s.tree("check-state/1066", &tree)
 		result1067 := treeCheckBounds(t, s, &tree, rootNode, &bounds)
 		s.check(1067, uint64(result1067), result1067 == 0)
-		porttest.Ensure(t, result1067 == 0)
+		if !(result1067 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1067")
 		s.tree("check-state/1067", &tree)
 		for i := 0; i < 16; i++ {
 			result1070 := treeCompareQuery(t, s, &tree, proxyIds[:], treeProxyCount, s.randomBox(8.0))
 			s.check(1070, uint64(result1070), result1070 == 0)
-			porttest.Ensure(t, result1070 == 0)
+			if !(result1070 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/1070")
 			s.tree("check-state/1070", &tree)
 		}
@@ -1158,23 +1422,31 @@ func TestDynamicTree(t *testing.T) {
 		marked[loneId] = true
 		result1078 := treeCheckMarks(t, s, &tree, rootNode, marked[:], &markedBelow)
 		s.check(1078, uint64(result1078), result1078 == 0)
-		porttest.Ensure(t, result1078 == 0)
+		if !(result1078 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1078")
 		s.tree("check-state/1078", &tree)
 		s.check(1079, uint64(treeBool(markedBelow)), markedBelow)
-		porttest.Ensure(t, markedBelow)
+		if !(markedBelow) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1079")
 		s.tree("check-state/1079", &tree)
 		tree.refit()
 		s.tree("step/1080", &tree)
 		result1081 := treeCheckBounds(t, s, &tree, rootNode, &bounds)
 		s.check(1081, uint64(result1081), result1081 == 0)
-		porttest.Ensure(t, result1081 == 0)
+		if !(result1081 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1081")
 		s.tree("check-state/1081", &tree)
 		rebuilt1082 := tree.rebuild(false)
 		s.check(1082, uint64(rebuilt1082), rebuilt1082 > 0)
-		porttest.Ensure(t, rebuilt1082 > 0)
+		if !(rebuilt1082 > 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1082")
 		s.tree("check-state/1082", &tree)
 		tree.validateNoMoved()
@@ -1183,7 +1455,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeDfsOrderTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeDfsOrderTest", 4061065257)
 		s.r.U32("rng/start", s.randomState)
 		proxyCount := 50
@@ -1196,19 +1468,27 @@ func TestDynamicTree(t *testing.T) {
 		}
 		rebuilt1101 := tree.rebuild(true)
 		s.check(1101, uint64(rebuilt1101), rebuilt1101 == proxyCount)
-		porttest.Ensure(t, rebuilt1101 == proxyCount)
+		if !(rebuilt1101 == proxyCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1101")
 		s.tree("check-state/1101", &tree)
 		s.check(1102, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1102")
 		s.tree("check-state/1102", &tree)
 		s.check(1103, uint64(tree.nodeEnd), tree.nodeEnd == int32(2*proxyCount))
-		porttest.Ensure(t, tree.nodeEnd == int32(2*proxyCount))
+		if !(tree.nodeEnd == int32(2*proxyCount)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1103")
 		s.tree("check-state/1103", &tree)
 		s.check(1104, uint64(tree.pairFreeList), tree.pairFreeList == int32(nullIndex))
-		porttest.Ensure(t, tree.pairFreeList == int32(nullIndex))
+		if !(tree.pairFreeList == int32(nullIndex)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1104")
 		s.tree("check-state/1104", &tree)
 		// A fresh pair lands above everything, so the order survives when the sibling is a leaf.
@@ -1219,11 +1499,15 @@ func TestDynamicTree(t *testing.T) {
 		tree.Validate()
 		rebuilt1112 := tree.rebuild(true)
 		s.check(1112, uint64(rebuilt1112), rebuilt1112 == proxyCount)
-		porttest.Ensure(t, rebuilt1112 == proxyCount)
+		if !(rebuilt1112 == proxyCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1112")
 		s.tree("check-state/1112", &tree)
 		s.check(1113, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1113")
 		s.tree("check-state/1113", &tree)
 		tree.moveProxyInternal(proxyIds[7], s.randomBox(2.0), false)
@@ -1231,11 +1515,15 @@ func TestDynamicTree(t *testing.T) {
 		tree.Validate()
 		rebuilt1118 := tree.rebuild(true)
 		s.check(1118, uint64(rebuilt1118), rebuilt1118 == proxyCount)
-		porttest.Ensure(t, rebuilt1118 == proxyCount)
+		if !(rebuilt1118 == proxyCount) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1118")
 		s.tree("check-state/1118", &tree)
 		s.check(1119, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1119")
 		s.tree("check-state/1119", &tree)
 		orderedEnd := tree.nodeEnd
@@ -1248,15 +1536,21 @@ func TestDynamicTree(t *testing.T) {
 		proxyIds[20] = proxyIds[proxyCount-2]
 		proxyCount -= 2
 		s.check(1128, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1128")
 		s.tree("check-state/1128", &tree)
 		s.check(1129, uint64(tree.nodeEnd), tree.nodeEnd == orderedEnd)
-		porttest.Ensure(t, tree.nodeEnd == orderedEnd)
+		if !(tree.nodeEnd == orderedEnd) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1129")
 		s.tree("check-state/1129", &tree)
 		s.check(1130, uint64(tree.pairFreeList), tree.pairFreeList != int32(nullIndex))
-		porttest.Ensure(t, tree.pairFreeList != int32(nullIndex))
+		if !(tree.pairFreeList != int32(nullIndex)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1130")
 		s.tree("check-state/1130", &tree)
 		tree.Validate()
@@ -1264,7 +1558,9 @@ func TestDynamicTree(t *testing.T) {
 		tree.markProxyMoved(proxyIds[10], enlarged)
 		s.tree("step/1134", &tree)
 		s.check(1135, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree))
-		porttest.Ensure(t, hasTreeMoved(&tree))
+		if !(hasTreeMoved(&tree)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1135")
 		s.tree("check-state/1135", &tree)
 		tree.refit()
@@ -1273,35 +1569,49 @@ func TestDynamicTree(t *testing.T) {
 		var bounds AABB
 		result1139 := treeCheckBounds(t, s, &tree, rootNode, &bounds)
 		s.check(1139, uint64(result1139), result1139 == 0)
-		porttest.Ensure(t, result1139 == 0)
+		if !(result1139 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1139")
 		s.tree("check-state/1139", &tree)
 		s.check(1140, uint64(treeBool(treeBoxEquals(bounds, tree.RootBounds()))), treeBoxEquals(bounds, tree.RootBounds()))
-		porttest.Ensure(t, treeBoxEquals(bounds, tree.RootBounds()))
+		if !(treeBoxEquals(bounds, tree.RootBounds())) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1140")
 		s.tree("check-state/1140", &tree)
 		for i := 0; i < 16; i++ {
 			result1143 := treeCompareQuery(t, s, &tree, proxyIds[:], proxyCount, s.randomBox(8.0))
 			s.check(1143, uint64(result1143), result1143 == 0)
-			porttest.Ensure(t, result1143 == 0)
+			if !(result1143 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/1143")
 			s.tree("check-state/1143", &tree)
 		}
 		rebuilt1146 := tree.rebuild(false)
 		s.check(1146, uint64(rebuilt1146), rebuilt1146 > 0)
-		porttest.Ensure(t, rebuilt1146 > 0)
+		if !(rebuilt1146 > 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1146")
 		s.tree("check-state/1146", &tree)
 		s.check(1147, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1147")
 		s.tree("check-state/1147", &tree)
 		s.check(1148, uint64(tree.nodeEnd), tree.nodeEnd == int32(2*proxyCount))
-		porttest.Ensure(t, tree.nodeEnd == int32(2*proxyCount))
+		if !(tree.nodeEnd == int32(2*proxyCount)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1148")
 		s.tree("check-state/1148", &tree)
 		s.check(1149, uint64(tree.pairFreeList), tree.pairFreeList == int32(nullIndex))
-		porttest.Ensure(t, tree.pairFreeList == int32(nullIndex))
+		if !(tree.pairFreeList == int32(nullIndex)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1149")
 		s.tree("check-state/1149", &tree)
 		tree.Validate()
@@ -1312,11 +1622,15 @@ func TestDynamicTree(t *testing.T) {
 		s.tree("step/1155", &tree)
 		proxyCount += 1
 		s.check(1157, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered == false)
-		porttest.Ensure(t, tree.dfsOrdered == false)
+		if !(tree.dfsOrdered == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1157")
 		s.tree("check-state/1157", &tree)
 		s.check(1158, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree) == false)
-		porttest.Ensure(t, hasTreeMoved(&tree) == false)
+		if !(hasTreeMoved(&tree) == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1158")
 		s.tree("check-state/1158", &tree)
 		tree.Validate()
@@ -1329,34 +1643,46 @@ func TestDynamicTree(t *testing.T) {
 		tree.Validate()
 		result1166 := treeCheckBounds(t, s, &tree, rootNode, &bounds)
 		s.check(1166, uint64(result1166), result1166 == 0)
-		porttest.Ensure(t, result1166 == 0)
+		if !(result1166 == 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1166")
 		s.tree("check-state/1166", &tree)
 		tree.clearMoved()
 		s.tree("step/1167", &tree)
 		s.check(1168, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree) == false)
-		porttest.Ensure(t, hasTreeMoved(&tree) == false)
+		if !(hasTreeMoved(&tree) == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1168")
 		s.tree("check-state/1168", &tree)
 		// The rebuild runs for the order alone
 		rebuilt1171 := tree.rebuild(false)
 		s.check(1171, uint64(rebuilt1171), rebuilt1171 > 0)
-		porttest.Ensure(t, rebuilt1171 > 0)
+		if !(rebuilt1171 > 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1171")
 		s.tree("check-state/1171", &tree)
 		s.check(1172, uint64(treeBool(tree.dfsOrdered)), tree.dfsOrdered)
-		porttest.Ensure(t, tree.dfsOrdered)
+		if !(tree.dfsOrdered) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1172")
 		s.tree("check-state/1172", &tree)
 		s.check(1173, uint64(tree.nodeEnd), tree.nodeEnd == int32(2*proxyCount))
-		porttest.Ensure(t, tree.nodeEnd == int32(2*proxyCount))
+		if !(tree.nodeEnd == int32(2*proxyCount)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1173")
 		s.tree("check-state/1173", &tree)
 		tree.Validate()
 		for i := 0; i < 16; i++ {
 			result1177 := treeCompareQuery(t, s, &tree, proxyIds[:], proxyCount, s.randomBox(8.0))
 			s.check(1177, uint64(result1177), result1177 == 0)
-			porttest.Ensure(t, result1177 == 0)
+			if !(result1177 == 0) {
+				t.Fatal("condition false")
+			}
 			s.flush("check/1177")
 			s.tree("check-state/1177", &tree)
 		}
@@ -1365,7 +1691,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/end", s.randomState)
 	})
 	t.Run("TreeStaleAfterInsertRemoveTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		s := treeOpen(t, "TreeStaleAfterInsertRemoveTest", 1530990073)
 		s.r.U32("rng/start", s.randomState)
 		tree := CreateDynamicTree(16)
@@ -1378,7 +1704,9 @@ func TestDynamicTree(t *testing.T) {
 		}
 		rebuilt1196 := tree.rebuild(false)
 		s.check(1196, uint64(rebuilt1196), rebuilt1196 == 16)
-		porttest.Ensure(t, rebuilt1196 == 16)
+		if !(rebuilt1196 == 16) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1196")
 		s.tree("check-state/1196", &tree)
 		// Control: enlarge and refit on the ordered tree
@@ -1388,12 +1716,16 @@ func TestDynamicTree(t *testing.T) {
 		tree.refit()
 		s.tree("step/1201", &tree)
 		s.check(1202, uint64(treeBool(tree.RootBounds().Contains(big))), tree.RootBounds().Contains(big))
-		porttest.Ensure(t, tree.RootBounds().Contains(big))
+		if !(tree.RootBounds().Contains(big)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1202")
 		s.tree("check-state/1202", &tree)
 		rebuilt1203 := tree.rebuild(false)
 		s.check(1203, uint64(rebuilt1203), rebuilt1203 > 0)
-		porttest.Ensure(t, rebuilt1203 > 0)
+		if !(rebuilt1203 > 0) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1203")
 		s.tree("check-state/1203", &tree)
 		// Insert and remove between steps leaves no marks
@@ -1403,7 +1735,9 @@ func TestDynamicTree(t *testing.T) {
 		tree.DestroyProxy(extraId)
 		s.tree("step/1208", &tree)
 		s.check(1209, uint64(treeBool(hasTreeMoved(&tree))), hasTreeMoved(&tree) == false)
-		porttest.Ensure(t, hasTreeMoved(&tree) == false)
+		if !(hasTreeMoved(&tree) == false) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1209")
 		s.tree("check-state/1209", &tree)
 		// The world's rebuild call, then a proxy enlarges during the step
@@ -1415,7 +1749,9 @@ func TestDynamicTree(t *testing.T) {
 		tree.refit()
 		s.tree("step/1215", &tree)
 		s.check(1216, uint64(treeBool(tree.RootBounds().Contains(bigger))), tree.RootBounds().Contains(bigger))
-		porttest.Ensure(t, tree.RootBounds().Contains(bigger))
+		if !(tree.RootBounds().Contains(bigger)) {
+			t.Fatal("condition false")
+		}
 		s.flush("check/1216")
 		s.tree("check-state/1216", &tree)
 		tree.Validate()
@@ -1667,19 +2003,25 @@ func treeCompareQuery(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs [
 	var hits treeHitSet
 	tree.Query(box, DefaultMaskBits, treeCollectHit(&hits))
 	s.check(578, uint64(treeBool(hits.bad)), hits.bad == false)
-	porttest.Ensure(t, hits.bad == false)
+	if !(hits.bad == false) {
+		t.Fatal("condition false")
+	}
 	expectedCount := 0
 	for i := 0; i < proxyCount; i++ {
 		proxyID := proxyIDs[i]
 		overlaps := tree.AABB(proxyID).Overlaps(box)
 		s.check(585, uint64(treeBool(hits.hit[proxyID])), hits.hit[proxyID] == overlaps)
-		porttest.Ensure(t, hits.hit[proxyID] == overlaps)
+		if !(hits.hit[proxyID] == overlaps) {
+			t.Fatal("condition false")
+		}
 		if overlaps {
 			expectedCount++
 		}
 	}
 	s.check(589, uint64(hits.count), hits.count == expectedCount)
-	porttest.Ensure(t, hits.count == expectedCount)
+	if !(hits.count == expectedCount) {
+		t.Fatal("condition false")
+	}
 	packed := make([]byte, 30)
 	for i, hit := range hits.hit {
 		if hit {
@@ -1768,11 +2110,15 @@ func treeCompareRayCast(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs
 		}
 	}
 	s.check(686, uint64(math.Float32bits(hit.fraction)), hit.fraction == bestFraction)
-	porttest.Ensure(t, hit.fraction == bestFraction)
+	if !(hit.fraction == bestFraction) {
+		t.Fatal("condition false")
+	}
 	s.r.F32("fraction/686", hit.fraction)
 	if unique {
 		s.check(689, uint64(hit.proxyID), hit.proxyID == bestID)
-		porttest.Ensure(t, hit.proxyID == bestID)
+		if !(hit.proxyID == bestID) {
+			t.Fatal("condition false")
+		}
 	}
 	s.flush("return/692")
 	return 0
@@ -1800,11 +2146,15 @@ func treeCompareBoxCast(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs
 		}
 	}
 	s.check(725, uint64(math.Float32bits(hit.fraction)), hit.fraction == bestFraction)
-	porttest.Ensure(t, hit.fraction == bestFraction)
+	if !(hit.fraction == bestFraction) {
+		t.Fatal("condition false")
+	}
 	s.r.F32("fraction/725", hit.fraction)
 	if unique {
 		s.check(728, uint64(hit.proxyID), hit.proxyID == bestID)
-		porttest.Ensure(t, hit.proxyID == bestID)
+		if !(hit.proxyID == bestID) {
+			t.Fatal("condition false")
+		}
 	}
 	s.flush("return/731")
 	return 0
@@ -1817,7 +2167,9 @@ func treeCheckMarks(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex in
 	marked := isNodeMoved(node)
 	if isLeaf(node) {
 		s.check(742, uint64(treeBool(marked)), marked == markedProxies[getProxyID(node)])
-		porttest.Ensure(t, marked == markedProxies[getProxyID(node)])
+		if !(marked == markedProxies[getProxyID(node)]) {
+			t.Fatal("condition false")
+		}
 	} else {
 		pair := getLeftChild(node)
 		below1 := false
@@ -1829,7 +2181,9 @@ func treeCheckMarks(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex in
 			return 1
 		}
 		s.check(759, uint64(treeBool(marked)), marked == (below1 || below2))
-		porttest.Ensure(t, marked == (below1 || below2))
+		if !(marked == (below1 || below2)) {
+			t.Fatal("condition false")
+		}
 	}
 	*markedBelow = marked
 	s.flush("return/763")
@@ -1849,7 +2203,9 @@ func treeCheckBounds(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex i
 			return 1
 		}
 		s.check(784, uint64(treeBool(treeBoxEquals(below1.Union(below2), node.AABB))), treeBoxEquals(below1.Union(below2), node.AABB))
-		porttest.Ensure(t, treeBoxEquals(below1.Union(below2), node.AABB))
+		if !(treeBoxEquals(below1.Union(below2), node.AABB)) {
+			t.Fatal("condition false")
+		}
 	}
 	*bounds = node.AABB
 	packed := make([]byte, 0, 16)

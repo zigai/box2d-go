@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 func snapshotTransformTrace(r *oracle.Reader, worldID World, key string, step int) {
@@ -206,117 +205,173 @@ func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
 }
 
 func TestLargeWorld(t *testing.T) {
-	defer porttest.Guard(t)
+
 	t.Run("LargeWorldPyramidTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "large_world/LargeWorldPyramidTest")
 		origin := snapshotRunPyramid(t, r, Pos{})
-		porttest.Ensure(t, origin.sleepStep > 0)
+		if !(origin.sleepStep > 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L102", origin.sleepStep > 0)
 		r.I32("L102/value0", int32(origin.sleepStep))
 		if IsDoublePrecision() {
 			large := snapshotRunPyramid(t, r, Pos{X: 1e7})
-			porttest.Ensure(t, large.sleepStep == origin.sleepStep)
+			if !(large.sleepStep == origin.sleepStep) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L107", large.sleepStep == origin.sleepStep)
 			r.I32("L107/value0", int32(large.sleepStep))
 			r.I32("L107/value1", int32(origin.sleepStep))
 			for i := range origin.rel {
-				porttest.EnsureSmall(t, large.rel[i].X-origin.rel[i].X, float32(1e-3))
+				if v := large.rel[i].X - origin.rel[i].X; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+					t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+				}
 				r.F32("L110", large.rel[i].X-origin.rel[i].X)
-				porttest.EnsureSmall(t, large.rel[i].Y-origin.rel[i].Y, float32(1e-3))
+				if v := large.rel[i].Y - origin.rel[i].Y; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+					t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+				}
 				r.F32("L111", large.rel[i].Y-origin.rel[i].Y)
 			}
 		}
 	})
 	t.Run("LargeWorldBulletTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "large_world/LargeWorldBulletTest")
 		x := snapshotRunBullet(t, r, Pos{})
-		porttest.Ensure(t, x > 0 && x < 0.5)
+		if !(x > 0 && x < 0.5) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L165", x > 0 && x < 0.5)
 		r.F32("L165/value0", x)
 		if IsDoublePrecision() {
 			x = snapshotRunBullet(t, r, Pos{X: 1e7})
-			porttest.Ensure(t, x > 0 && x < 0.5)
+			if !(x > 0 && x < 0.5) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L169", x > 0 && x < 0.5)
 			r.F32("L169/value0", x)
 		}
 	})
 	t.Run("LargeWorldRayCastTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "large_world/LargeWorldRayCastTest")
 		rel := snapshotRunRayCast(t, Pos{})
-		porttest.EnsureSmall(t, rel.X+0.5, float32(1e-4))
+		if v := rel.X + 0.5; v < -(float32(1e-4)) || (float32(1e-4)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
+		}
 		r.F32("L207", rel.X+0.5)
-		porttest.EnsureSmall(t, rel.Y, float32(1e-4))
+		if v := rel.Y; v < -(float32(1e-4)) || (float32(1e-4)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
+		}
 		r.F32("L208", rel.Y)
 		if IsDoublePrecision() {
 			rel = snapshotRunRayCast(t, Pos{X: 1e7})
-			porttest.EnsureSmall(t, rel.X+0.5, float32(1e-4))
+			if v := rel.X + 0.5; v < -(float32(1e-4)) || (float32(1e-4)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
+			}
 			r.F32("L212", rel.X+0.5)
-			porttest.EnsureSmall(t, rel.Y, float32(1e-4))
+			if v := rel.Y; v < -(float32(1e-4)) || (float32(1e-4)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
+			}
 			r.F32("L213", rel.Y)
 		}
 	})
 	t.Run("LargeWorldOriginQueryTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "large_world/LargeWorldOriginQueryTest")
 		origin := snapshotRunOriginQueries(t, Pos{})
-		porttest.Ensure(t, origin.overlapCount == 1)
+		if !(origin.overlapCount == 1) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L311", origin.overlapCount == 1)
 		r.I32("L311/value0", int32(origin.overlapCount))
-		porttest.Ensure(t, origin.castFraction < 1)
+		if !(origin.castFraction < 1) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L312", origin.castFraction < 1)
 		r.F32("L312/value0", origin.castFraction)
-		porttest.Ensure(t, origin.moverFraction < 1)
+		if !(origin.moverFraction < 1) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L313", origin.moverFraction < 1)
 		r.F32("L313/value0", origin.moverFraction)
-		porttest.Ensure(t, origin.planeCount >= 1)
+		if !(origin.planeCount >= 1) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L314", origin.planeCount >= 1)
 		r.I32("L314/value0", int32(origin.planeCount))
-		porttest.Ensure(t, origin.insidePoint)
+		if !(origin.insidePoint) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L315", origin.insidePoint)
-		porttest.Ensure(t, origin.shapeRayHit)
+		if !(origin.shapeRayHit) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L316", origin.shapeRayHit)
 		castRel := SubPos(origin.castPoint, Pos{})
-		porttest.EnsureSmall(t, castRel.X+0.5, float32(1e-3))
+		if v := castRel.X + 0.5; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+		}
 		r.F32("L319", castRel.X+0.5)
 		rayRel := SubPos(origin.shapeRayPoint, Pos{})
-		porttest.EnsureSmall(t, rayRel.X+0.5, float32(1e-3))
+		if v := rayRel.X + 0.5; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+		}
 		r.F32("L321", rayRel.X+0.5)
 		if IsDoublePrecision() {
 			base := Pos{X: 1e7}
 			large := snapshotRunOriginQueries(t, base)
-			porttest.Ensure(t, large.overlapCount == origin.overlapCount)
+			if !(large.overlapCount == origin.overlapCount) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L328", large.overlapCount == origin.overlapCount)
 			r.I32("L328/value0", int32(large.overlapCount))
 			r.I32("L328/value1", int32(origin.overlapCount))
-			porttest.Ensure(t, large.planeCount == origin.planeCount)
+			if !(large.planeCount == origin.planeCount) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L329", large.planeCount == origin.planeCount)
 			r.I32("L329/value0", int32(large.planeCount))
 			r.I32("L329/value1", int32(origin.planeCount))
-			porttest.Ensure(t, large.insidePoint == origin.insidePoint)
+			if !(large.insidePoint == origin.insidePoint) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L330", large.insidePoint == origin.insidePoint)
-			porttest.Ensure(t, large.shapeRayHit == origin.shapeRayHit)
+			if !(large.shapeRayHit == origin.shapeRayHit) {
+				t.Fatal("condition false")
+			}
 			r.Bool("L331", large.shapeRayHit == origin.shapeRayHit)
-			porttest.EnsureSmall(t, large.castFraction-origin.castFraction, float32(1e-4))
+			if v := large.castFraction - origin.castFraction; v < -(float32(1e-4)) || (float32(1e-4)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
+			}
 			r.F32("L332", large.castFraction-origin.castFraction)
-			porttest.EnsureSmall(t, large.moverFraction-origin.moverFraction, float32(1e-4))
+			if v := large.moverFraction - origin.moverFraction; v < -(float32(1e-4)) || (float32(1e-4)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
+			}
 			r.F32("L333", large.moverFraction-origin.moverFraction)
 			largeCast := SubPos(large.castPoint, base)
-			porttest.EnsureSmall(t, largeCast.X-castRel.X, float32(1e-3))
+			if v := largeCast.X - castRel.X; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+			}
 			r.F32("L336", largeCast.X-castRel.X)
-			porttest.EnsureSmall(t, largeCast.Y-castRel.Y, float32(1e-3))
+			if v := largeCast.Y - castRel.Y; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+			}
 			r.F32("L337", largeCast.Y-castRel.Y)
 			largeRay := SubPos(large.shapeRayPoint, base)
-			porttest.EnsureSmall(t, largeRay.X-rayRel.X, float32(1e-3))
+			if v := largeRay.X - rayRel.X; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+			}
 			r.F32("L340", largeRay.X-rayRel.X)
-			porttest.EnsureSmall(t, largeRay.Y-rayRel.Y, float32(1e-3))
+			if v := largeRay.Y - rayRel.Y; v < -(float32(1e-3)) || (float32(1e-3)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
+			}
 			r.F32("L341", largeRay.Y-rayRel.Y)
 		}
 	})
 	t.Run("LargeWorldRecordingTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "large_world/LargeWorldRecordingTest")
 		wd := DefaultWorldDef()
 		wd.WorkerCount = 1
@@ -363,11 +418,17 @@ func TestLargeWorld(t *testing.T) {
 		w.Destroy()
 		data := rec.Data()
 		size := rec.Size()
-		porttest.Ensure(t, size > 0)
+		if !(size > 0) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L417", size > 0)
-		porttest.Ensure(t, ValidateReplay(data, 0))
+		if !(ValidateReplay(data, 0)) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L421", true)
-		porttest.Ensure(t, ValidateReplay(data, 4))
+		if !(ValidateReplay(data, 4)) {
+			t.Fatal("condition false")
+		}
 		r.Bool("L422", true)
 		rec.Destroy()
 	})

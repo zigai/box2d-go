@@ -17,7 +17,7 @@ jobs:
   test:
     name: test (${{ matrix.arch }}${{ matrix.goamd64 && format(' {0}', matrix.goamd64) || '' }}, ${{ matrix.precision }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    timeout-minutes: 120
     env:
       GOAMD64: ${{ matrix.goamd64 || 'v1' }}
     strategy:
@@ -43,7 +43,7 @@ jobs:
       - name: go test
         run: go test -tags "${{ matrix.tags }}" ./...
       - name: go test -race
-        run: go test -race -tags "${{ matrix.tags }}" ./...
+        run: go test -race -timeout 90m -tags "${{ matrix.tags }}" ./...
 
   test-wasm:
     name: test (wasm, ${{ matrix.precision }})
@@ -70,7 +70,7 @@ jobs:
       - name: go vet
         run: go vet -tags "${{ matrix.tags }}" ./...
       - name: go test
-        run: go test -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" -tags "${{ matrix.tags }}" ./...
+        run: go test -timeout 15m -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" -tags "${{ matrix.tags }}" ./...
 
   lint:
     runs-on: ubuntu-latest

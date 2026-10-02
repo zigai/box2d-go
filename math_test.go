@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"math"
 	"os"
 	"strconv"
@@ -18,7 +18,6 @@ import (
 )
 
 func TestMath(t *testing.T) {
-	defer porttest.Guard(t)
 
 	checks := collisionOpenMath(t)
 	for angleT := float32(-10.0); angleT < 10.0; angleT += 0.01 {
@@ -30,19 +29,27 @@ func TestMath(t *testing.T) {
 		// The cosine and sine approximations are accurate to about 0.1 degrees (0.002 radians)
 		// printf( "%g %g\n", r.C - c, r.S - s )
 		checks.f32(25, r.C-c)
-		porttest.EnsureSmall(t, r.C-c, 0.002)
+		if v := r.C - c; v < -(0.002) || (0.002) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 0.002)
+		}
 		checks.f32(26, r.S-s)
-		porttest.EnsureSmall(t, r.S-s, 0.002)
+		if v := r.S - s; v < -(0.002) || (0.002) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 0.002)
+		}
 
 		xn := box2d.UnwindAngle(angle)
 		checks.f32(285, xn)
 		checks.boolean(29, -box2d.Pi <= xn && xn <= box2d.Pi)
-		porttest.Ensure(t, -box2d.Pi <= xn && xn <= box2d.Pi)
+		if !(-box2d.Pi <= xn && xn <= box2d.Pi) {
+			t.Fatal("condition false")
+		}
 
 		a := box2d.Atan2(s, c)
 		checks.f32(288, a)
 		checks.boolean(32, box2d.IsValidFloat(a))
-		porttest.Ensure(t, box2d.IsValidFloat(a))
+		if !(box2d.IsValidFloat(a)) {
+			t.Fatal("condition false")
+		}
 
 		diff := box2d.AbsFloat(a - xn)
 
@@ -53,7 +60,9 @@ func TestMath(t *testing.T) {
 
 		// The approximate atan2 is quite accurate
 		checks.f32(43, diff)
-		porttest.EnsureSmall(t, diff, float32(0.00004))
+		if v := diff; v < -(float32(0.00004)) || (float32(0.00004)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+		}
 	}
 
 	for y := float32(-1.0); y <= 1.0; y += 0.01 {
@@ -63,9 +72,13 @@ func TestMath(t *testing.T) {
 			diff := box2d.AbsFloat(a1 - a2)
 			checks.f32(309, a1)
 			checks.boolean(53, box2d.IsValidFloat(a1))
-			porttest.Ensure(t, box2d.IsValidFloat(a1))
+			if !(box2d.IsValidFloat(a1)) {
+				t.Fatal("condition false")
+			}
 			checks.f32(54, diff)
-			porttest.EnsureSmall(t, diff, float32(0.00004))
+			if v := diff; v < -(float32(0.00004)) || (float32(0.00004)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+			}
 		}
 	}
 
@@ -75,9 +88,13 @@ func TestMath(t *testing.T) {
 		diff := box2d.AbsFloat(a1 - a2)
 		checks.f32(318, a1)
 		checks.boolean(62, box2d.IsValidFloat(a1))
-		porttest.Ensure(t, box2d.IsValidFloat(a1))
+		if !(box2d.IsValidFloat(a1)) {
+			t.Fatal("condition false")
+		}
 		checks.f32(63, diff)
-		porttest.EnsureSmall(t, diff, float32(0.00004))
+		if v := diff; v < -(float32(0.00004)) || (float32(0.00004)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+		}
 	}
 
 	{
@@ -86,9 +103,13 @@ func TestMath(t *testing.T) {
 		diff := box2d.AbsFloat(a1 - a2)
 		checks.f32(326, a1)
 		checks.boolean(70, box2d.IsValidFloat(a1))
-		porttest.Ensure(t, box2d.IsValidFloat(a1))
+		if !(box2d.IsValidFloat(a1)) {
+			t.Fatal("condition false")
+		}
 		checks.f32(71, diff)
-		porttest.EnsureSmall(t, diff, float32(0.00004))
+		if v := diff; v < -(float32(0.00004)) || (float32(0.00004)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+		}
 	}
 
 	{
@@ -97,9 +118,13 @@ func TestMath(t *testing.T) {
 		diff := box2d.AbsFloat(a1 - a2)
 		checks.f32(334, a1)
 		checks.boolean(78, box2d.IsValidFloat(a1))
-		porttest.Ensure(t, box2d.IsValidFloat(a1))
+		if !(box2d.IsValidFloat(a1)) {
+			t.Fatal("condition false")
+		}
 		checks.f32(79, diff)
-		porttest.EnsureSmall(t, diff, float32(0.00004))
+		if v := diff; v < -(float32(0.00004)) || (float32(0.00004)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+		}
 	}
 
 	{
@@ -108,9 +133,13 @@ func TestMath(t *testing.T) {
 		diff := box2d.AbsFloat(a1 - a2)
 		checks.f32(342, a1)
 		checks.boolean(86, box2d.IsValidFloat(a1))
-		porttest.Ensure(t, box2d.IsValidFloat(a1))
+		if !(box2d.IsValidFloat(a1)) {
+			t.Fatal("condition false")
+		}
 		checks.f32(87, diff)
-		porttest.EnsureSmall(t, diff, float32(0.00004))
+		if v := diff; v < -(float32(0.00004)) || (float32(0.00004)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+		}
 	}
 
 	{
@@ -119,9 +148,13 @@ func TestMath(t *testing.T) {
 		diff := box2d.AbsFloat(a1 - a2)
 		checks.f32(350, a1)
 		checks.boolean(94, box2d.IsValidFloat(a1))
-		porttest.Ensure(t, box2d.IsValidFloat(a1))
+		if !(box2d.IsValidFloat(a1)) {
+			t.Fatal("condition false")
+		}
 		checks.f32(95, diff)
-		porttest.EnsureSmall(t, diff, float32(0.00004))
+		if v := diff; v < -(float32(0.00004)) || (float32(0.00004)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+		}
 	}
 
 	zero := box2d.Vec2Zero
@@ -132,19 +165,25 @@ func TestMath(t *testing.T) {
 	checks.f32(359, v.X)
 	checks.f32(615, v.Y)
 	checks.boolean(103, v.X == 3.0 && v.Y == 3.0)
-	porttest.Ensure(t, v.X == 3.0 && v.Y == 3.0)
+	if !(v.X == 3.0 && v.Y == 3.0) {
+		t.Fatal("condition false")
+	}
 
 	v = box2d.Sub(zero, two)
 	checks.f32(362, v.X)
 	checks.f32(618, v.Y)
 	checks.boolean(106, v.X == -2.0 && v.Y == -2.0)
-	porttest.Ensure(t, v.X == -2.0 && v.Y == -2.0)
+	if !(v.X == -2.0 && v.Y == -2.0) {
+		t.Fatal("condition false")
+	}
 
 	v = box2d.Add(two, two)
 	checks.f32(365, v.X)
 	checks.f32(621, v.Y)
 	checks.boolean(109, v.X != 5.0 && v.Y != 5.0)
-	porttest.Ensure(t, v.X != 5.0 && v.Y != 5.0)
+	if !(v.X != 5.0 && v.Y != 5.0) {
+		t.Fatal("condition false")
+	}
 
 	transform1 := box2d.Transform{box2d.Vec2{-2.0, 3.0}, box2d.MakeRot(1.0)}
 	transform2 := box2d.Transform{box2d.Vec2{1.0, 0.0}, box2d.MakeRot(-2.0)}
@@ -155,16 +194,24 @@ func TestMath(t *testing.T) {
 	u := box2d.TransformPoint(transform, two)
 
 	checks.f32(120, u.X-v.X)
-	porttest.EnsureSmall(t, u.X-v.X, 10.0*float32(0x1p-23))
+	if v := u.X - v.X; v < -(10.0*float32(0x1p-23)) || (10.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 10.0*float32(0x1p-23))
+	}
 	checks.f32(121, u.Y-v.Y)
-	porttest.EnsureSmall(t, u.Y-v.Y, 10.0*float32(0x1p-23))
+	if v := u.Y - v.Y; v < -(10.0*float32(0x1p-23)) || (10.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 10.0*float32(0x1p-23))
+	}
 
 	v = box2d.TransformPoint(transform1, two)
 	v = box2d.InvTransformPoint(transform1, v)
 	checks.f32(126, v.X-two.X)
-	porttest.EnsureSmall(t, v.X-two.X, 8.0*float32(0x1p-23))
+	if v := v.X - two.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+	}
 	checks.f32(127, v.Y-two.Y)
-	porttest.EnsureSmall(t, v.Y-two.Y, 8.0*float32(0x1p-23))
+	if v := v.Y - two.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+	}
 
 	v = box2d.Normalize(box2d.Vec2{0.2, -0.5})
 	for y := float32(-1.0); y <= 1.0; y += 0.01 {
@@ -178,9 +225,13 @@ func TestMath(t *testing.T) {
 
 			w := box2d.RotateVector(r, v)
 			checks.f32(144, w.X-u.X)
-			porttest.EnsureSmall(t, w.X-u.X, 4.0*float32(0x1p-23))
+			if v := w.X - u.X; v < -(4.0*float32(0x1p-23)) || (4.0*float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, 4.0*float32(0x1p-23))
+			}
 			checks.f32(145, w.Y-u.Y)
-			porttest.EnsureSmall(t, w.Y-u.Y, 4.0*float32(0x1p-23))
+			if v := w.Y - u.Y; v < -(4.0*float32(0x1p-23)) || (4.0*float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, 4.0*float32(0x1p-23))
+			}
 		}
 	}
 
@@ -194,7 +245,9 @@ func TestMath(t *testing.T) {
 		q := box2d.NLerp(q1, q2, alpha)
 		angle := q.Angle()
 		checks.f32(159, float32(float32(alpha*0.5)*box2d.Pi)-angle)
-		porttest.EnsureSmall(t, float32(float32(alpha*0.5)*box2d.Pi)-angle, 5.0*box2d.Pi/180.0)
+		if v := float32(float32(alpha*0.5)*box2d.Pi) - angle; v < -(5.0*box2d.Pi/180.0) || (5.0*box2d.Pi/180.0) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 5.0*box2d.Pi/180.0)
+		}
 		//printf("angle = [%g %g %g]\n", alpha, alpha * 0.5 * box2d.Pi, angle)
 	}
 
@@ -208,7 +261,9 @@ func TestMath(t *testing.T) {
 		unwoundAngle := box2d.UnwindAngle(angle - baseAngle)
 		tolerance := 0.1 * box2d.Pi / 180.0
 		checks.f32(174, relativeAngle-unwoundAngle)
-		porttest.EnsureSmall(t, relativeAngle-unwoundAngle, tolerance)
+		if v := relativeAngle - unwoundAngle; v < -(tolerance) || (tolerance) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, tolerance)
+		}
 	}
 
 	// World position boundary helpers. With large world mode off these collapse to the float
@@ -219,35 +274,53 @@ func TestMath(t *testing.T) {
 		p := box2d.OffsetPos(base, d)
 		back := box2d.SubPos(p, base)
 		checks.f32(184, back.X-d.X)
-		porttest.EnsureSmall(t, back.X-d.X, 8.0*float32(0x1p-23))
+		if v := back.X - d.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+		}
 		checks.f32(185, back.Y-d.Y)
-		porttest.EnsureSmall(t, back.Y-d.Y, 8.0*float32(0x1p-23))
+		if v := back.Y - d.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+		}
 
 		r := box2d.ToVec2(base)
 		checks.f32(444, r.X)
 		checks.f32(700, r.Y)
 		checks.boolean(188, r.X == 10.0 && r.Y == -20.0)
-		porttest.Ensure(t, r.X == 10.0 && r.Y == -20.0)
+		if !(r.X == 10.0 && r.Y == -20.0) {
+			t.Fatal("condition false")
+		}
 
 		checks.boolean(190, box2d.IsValidPosition(p))
-		porttest.Ensure(t, box2d.IsValidPosition(p))
+		if !(box2d.IsValidPosition(p)) {
+			t.Fatal("condition false")
+		}
 		checks.boolean(191, box2d.IsValidPosition(box2d.PosZero))
-		porttest.Ensure(t, box2d.IsValidPosition(box2d.PosZero))
+		if !(box2d.IsValidPosition(box2d.PosZero)) {
+			t.Fatal("condition false")
+		}
 		checks.boolean(192, box2d.IsValidWorldTransform(box2d.WorldTransformIdentity))
-		porttest.Ensure(t, box2d.IsValidWorldTransform(box2d.WorldTransformIdentity))
+		if !(box2d.IsValidWorldTransform(box2d.WorldTransformIdentity)) {
+			t.Fatal("condition false")
+		}
 
 		wt := box2d.WorldTransform{box2d.Pos{3.0, -4.0}, box2d.MakeRot(0.7)}
 		checks.boolean(195, box2d.IsValidWorldTransform(wt))
-		porttest.Ensure(t, box2d.IsValidWorldTransform(wt))
+		if !(box2d.IsValidWorldTransform(wt)) {
+			t.Fatal("condition false")
+		}
 
 		// Local to world to local round trip
 		local := box2d.Vec2{1.5, 2.5}
 		world := box2d.TransformWorldPoint(wt, local)
 		backLocal := box2d.InvTransformWorldPoint(wt, world)
 		checks.f32(201, backLocal.X-local.X)
-		porttest.EnsureSmall(t, backLocal.X-local.X, 8.0*float32(0x1p-23))
+		if v := backLocal.X - local.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+		}
 		checks.f32(202, backLocal.Y-local.Y)
-		porttest.EnsureSmall(t, backLocal.Y-local.Y, 8.0*float32(0x1p-23))
+		if v := backLocal.Y - local.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+		}
 
 		// Relative transform of B in A matches a float reference at modest coordinates
 		A := box2d.WorldTransform{box2d.Pos{-2.0, 3.0}, box2d.MakeRot(1.0)}
@@ -257,9 +330,13 @@ func TestMath(t *testing.T) {
 		refB := box2d.Transform{box2d.ToVec2(B.P), B.Q}
 		ref := box2d.InvMulTransforms(refA, refB)
 		checks.f32(211, rel.P.X-ref.P.X)
-		porttest.EnsureSmall(t, rel.P.X-ref.P.X, 8.0*float32(0x1p-23))
+		if v := rel.P.X - ref.P.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+		}
 		checks.f32(212, rel.P.Y-ref.P.Y)
-		porttest.EnsureSmall(t, rel.P.Y-ref.P.Y, 8.0*float32(0x1p-23))
+		if v := rel.P.Y - ref.P.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+		}
 	}
 
 	if unsafe.Sizeof(box2d.Pos{}.X) == 8 {
@@ -271,9 +348,13 @@ func TestMath(t *testing.T) {
 			p := box2d.OffsetPos(base, d)
 			back := box2d.SubPos(p, base)
 			checks.f32(223, back.X-d.X)
-			porttest.EnsureSmall(t, back.X-d.X, 1.0e-4)
+			if v := back.X - d.X; v < -(1.0e-4) || (1.0e-4) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, 1.0e-4)
+			}
 			checks.f32(224, back.Y-d.Y)
-			porttest.EnsureSmall(t, back.Y-d.Y, 1.0e-4)
+			if v := back.Y - d.Y; v < -(1.0e-4) || (1.0e-4) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, 1.0e-4)
+			}
 		}
 	}
 

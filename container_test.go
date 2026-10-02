@@ -5,8 +5,6 @@ package box2d
 
 import (
 	"testing"
-
-	"github.com/zigai/box2d/internal/porttest"
 )
 
 type containerFoo struct {
@@ -16,9 +14,8 @@ type containerFoo struct {
 type containerBar struct{ a []int }
 
 func TestContainer(t *testing.T) {
-	defer porttest.Guard(t)
+
 	t.Run("TestCreateDestroy", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = nil
@@ -27,18 +24,18 @@ func TestContainer(t *testing.T) {
 
 	})
 	t.Run("TestAccess", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = nil
 		a = arrayPush(a, 42)
 		element := &a[0]
-		porttest.Ensure(t, *element == 42)
+		if !(*element == 42) {
+			t.Fatal("condition false")
+		}
 		a = nil
 
 	})
 	t.Run("TestIteration", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = arrayPush(a, 1)
@@ -50,12 +47,13 @@ func TestContainer(t *testing.T) {
 			sum += a[i]
 		}
 
-		porttest.Ensure(t, sum == 6)
+		if !(sum == 6) {
+			t.Fatal("condition false")
+		}
 		a = nil
 
 	})
 	t.Run("TestArrayOfStruct", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []containerFoo
 		a = nil
@@ -70,14 +68,17 @@ func TestContainer(t *testing.T) {
 			sum2 += a[i].b
 		}
 
-		porttest.Ensure(t, sum1 == 6)
-		porttest.Ensure(t, sum2 == 18.0)
+		if !(sum1 == 6) {
+			t.Fatal("condition false")
+		}
+		if !(sum2 == 18.0) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestStructWithArray", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a containerBar
 		a.a = nil
@@ -90,13 +91,14 @@ func TestContainer(t *testing.T) {
 			sum1 += a.a[i]
 		}
 
-		porttest.Ensure(t, sum1 == 6)
+		if !(sum1 == 6) {
+			t.Fatal("condition false")
+		}
 
 		a.a = nil
 
 	})
 	t.Run("TestArrayEmplace", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []uint64
 
@@ -111,25 +113,30 @@ func TestContainer(t *testing.T) {
 			sum += int(a[i])
 		}
 
-		porttest.Ensure(t, sum == 100*99/2)
+		if !(sum == 100*99/2) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayRemove", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int16
 
 		n := 10
 		a = arrayReserve(a, n)
-		porttest.Ensure(t, cap(a) == n && len(a) == 0)
+		if !(cap(a) == n && len(a) == 0) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < n; i++ {
 			a = arrayPush(a, int16(i))
 		}
 
-		porttest.Ensure(t, len(a) == n)
+		if !(len(a) == n) {
+			t.Fatal("condition false")
+		}
 
 		sum := 0
 		for i := 0; i < n; i++ {
@@ -138,20 +145,23 @@ func TestContainer(t *testing.T) {
 			sum += temp
 		}
 
-		porttest.Ensure(t, sum == n*(n-1)/2-1)
+		if !(sum == n*(n-1)/2-1) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayPop", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []uint8
 
 		n := 100
 		a = arrayReserve(a, n)
 		a = a[:n]
-		porttest.Ensure(t, cap(a) == n && len(a) == n)
+		if !(cap(a) == n && len(a) == n) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < n; i++ {
 			a = arrayPush(a, uint8(i))
@@ -164,67 +174,89 @@ func TestContainer(t *testing.T) {
 			sum += int(popped)
 		}
 
-		porttest.Ensure(t, sum == 100*99/2)
+		if !(sum == 100*99/2) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestEmptyArrayProperties", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = nil
-		porttest.Ensure(t, len(a) == 0)
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
 		a = nil
-		porttest.Ensure(t, len(a) == 0)
-		porttest.Ensure(t, cap(a) == 0)
-		porttest.Ensure(t, a == nil)
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
+		if !(cap(a) == 0) {
+			t.Fatal("condition false")
+		}
+		if !(a == nil) {
+			t.Fatal("condition false")
+		}
 
 	})
 	t.Run("TestArrayReserveNoop", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = arrayReserve(a, 16)
-		porttest.Ensure(t, cap(a) >= 16)
+		if !(cap(a) >= 16) {
+			t.Fatal("condition false")
+		}
 		oldCapacity := cap(a)
 
 		a = arrayReserve(a, 8)
-		porttest.Ensure(t, cap(a) == oldCapacity)
+		if !(cap(a) == oldCapacity) {
+			t.Fatal("condition false")
+		}
 		a = arrayReserve(a, oldCapacity)
-		porttest.Ensure(t, cap(a) == oldCapacity)
+		if !(cap(a) == oldCapacity) {
+			t.Fatal("condition false")
+		}
 		a = nil
 
 	})
 	t.Run("TestArrayResizeDown", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		for i := 0; i < 10; i++ {
 			a = arrayPush(a, i*10)
 		}
-		porttest.Ensure(t, len(a) == 10)
+		if !(len(a) == 10) {
+			t.Fatal("condition false")
+		}
 
 		a = arrayReserve(a, 5)
 		a = a[:5]
-		porttest.Ensure(t, len(a) == 5)
+		if !(len(a) == 5) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < 5; i++ {
-			porttest.Ensure(t, a[i] == i*10)
+			if !(a[i] == i*10) {
+				t.Fatal("condition false")
+			}
 		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayResizeUp", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 
 		a = arrayReserve(a, 10)
 		a = a[:10]
-		porttest.Ensure(t, len(a) == 10)
-		porttest.Ensure(t, cap(a) >= 10)
+		if !(len(a) == 10) {
+			t.Fatal("condition false")
+		}
+		if !(cap(a) >= 10) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < 10; i++ {
 			a[i] = i + 1
@@ -232,16 +264,19 @@ func TestContainer(t *testing.T) {
 
 		a = arrayReserve(a, 20)
 		a = a[:20]
-		porttest.Ensure(t, len(a) == 20)
+		if !(len(a) == 20) {
+			t.Fatal("condition false")
+		}
 		for i := 0; i < 10; i++ {
-			porttest.Ensure(t, a[i] == i+1)
+			if !(a[i] == i+1) {
+				t.Fatal("condition false")
+			}
 		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayPopOrder", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var popped int
 
@@ -251,20 +286,31 @@ func TestContainer(t *testing.T) {
 		a = arrayPush(a, 30)
 
 		a, popped = arrayPop(a)
-		porttest.Ensure(t, popped == 30)
-		porttest.Ensure(t, len(a) == 2)
+		if !(popped == 30) {
+			t.Fatal("condition false")
+		}
+		if !(len(a) == 2) {
+			t.Fatal("condition false")
+		}
 		a, popped = arrayPop(a)
-		porttest.Ensure(t, popped == 20)
-		porttest.Ensure(t, len(a) == 1)
+		if !(popped == 20) {
+			t.Fatal("condition false")
+		}
+		if !(len(a) == 1) {
+			t.Fatal("condition false")
+		}
 		a, popped = arrayPop(a)
-		porttest.Ensure(t, popped == 10)
-		porttest.Ensure(t, len(a) == 0)
+		if !(popped == 10) {
+			t.Fatal("condition false")
+		}
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayRemoveSwapContents", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = arrayPush(a, 100)
@@ -273,28 +319,47 @@ func TestContainer(t *testing.T) {
 		a = arrayPush(a, 400)
 
 		a, _ = arrayRemoveSwap(a, 1)
-		porttest.Ensure(t, len(a) == 3)
-		porttest.Ensure(t, a[0] == 100)
-		porttest.Ensure(t, a[1] == 400)
-		porttest.Ensure(t, a[2] == 300)
+		if !(len(a) == 3) {
+			t.Fatal("condition false")
+		}
+		if !(a[0] == 100) {
+			t.Fatal("condition false")
+		}
+		if !(a[1] == 400) {
+			t.Fatal("condition false")
+		}
+		if !(a[2] == 300) {
+			t.Fatal("condition false")
+		}
 
 		a, _ = arrayRemoveSwap(a, 2)
-		porttest.Ensure(t, len(a) == 2)
-		porttest.Ensure(t, a[0] == 100)
-		porttest.Ensure(t, a[1] == 400)
+		if !(len(a) == 2) {
+			t.Fatal("condition false")
+		}
+		if !(a[0] == 100) {
+			t.Fatal("condition false")
+		}
+		if !(a[1] == 400) {
+			t.Fatal("condition false")
+		}
 
 		a, _ = arrayRemoveSwap(a, 0)
-		porttest.Ensure(t, len(a) == 1)
-		porttest.Ensure(t, a[0] == 400)
+		if !(len(a) == 1) {
+			t.Fatal("condition false")
+		}
+		if !(a[0] == 400) {
+			t.Fatal("condition false")
+		}
 
 		a, _ = arrayRemoveSwap(a, 0)
-		porttest.Ensure(t, len(a) == 0)
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayRemoveSwapAllFromEnd", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = arrayPush(a, 1)
@@ -302,22 +367,33 @@ func TestContainer(t *testing.T) {
 		a = arrayPush(a, 3)
 
 		a, _ = arrayRemoveSwap(a, len(a)-1)
-		porttest.Ensure(t, len(a) == 2)
-		porttest.Ensure(t, a[0] == 1)
-		porttest.Ensure(t, a[1] == 2)
+		if !(len(a) == 2) {
+			t.Fatal("condition false")
+		}
+		if !(a[0] == 1) {
+			t.Fatal("condition false")
+		}
+		if !(a[1] == 2) {
+			t.Fatal("condition false")
+		}
 
 		a, _ = arrayRemoveSwap(a, len(a)-1)
-		porttest.Ensure(t, len(a) == 1)
-		porttest.Ensure(t, a[0] == 1)
+		if !(len(a) == 1) {
+			t.Fatal("condition false")
+		}
+		if !(a[0] == 1) {
+			t.Fatal("condition false")
+		}
 
 		a, _ = arrayRemoveSwap(a, len(a)-1)
-		porttest.Ensure(t, len(a) == 0)
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayGrowthIntegrity", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 
@@ -325,18 +401,23 @@ func TestContainer(t *testing.T) {
 			a = arrayPush(a, i)
 		}
 
-		porttest.Ensure(t, len(a) == 1000)
-		porttest.Ensure(t, cap(a) >= 1000)
+		if !(len(a) == 1000) {
+			t.Fatal("condition false")
+		}
+		if !(cap(a) >= 1000) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < 1000; i++ {
-			porttest.Ensure(t, a[i] == i)
+			if !(a[i] == i) {
+				t.Fatal("condition false")
+			}
 		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayInterleavedPushPop", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var popped int
 
@@ -345,29 +426,46 @@ func TestContainer(t *testing.T) {
 		a = arrayPush(a, 1)
 		a = arrayPush(a, 2)
 		a, popped = arrayPop(a)
-		porttest.Ensure(t, popped == 2)
-		porttest.Ensure(t, len(a) == 1)
+		if !(popped == 2) {
+			t.Fatal("condition false")
+		}
+		if !(len(a) == 1) {
+			t.Fatal("condition false")
+		}
 
 		a = arrayPush(a, 3)
 		a = arrayPush(a, 4)
-		porttest.Ensure(t, len(a) == 3)
+		if !(len(a) == 3) {
+			t.Fatal("condition false")
+		}
 		a, popped = arrayPop(a)
-		porttest.Ensure(t, popped == 4)
+		if !(popped == 4) {
+			t.Fatal("condition false")
+		}
 		a, popped = arrayPop(a)
-		porttest.Ensure(t, popped == 3)
+		if !(popped == 3) {
+			t.Fatal("condition false")
+		}
 		a, popped = arrayPop(a)
-		porttest.Ensure(t, popped == 1)
-		porttest.Ensure(t, len(a) == 0)
+		if !(popped == 1) {
+			t.Fatal("condition false")
+		}
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
 
 		a = arrayPush(a, 99)
-		porttest.Ensure(t, len(a) == 1)
-		porttest.Ensure(t, a[0] == 99)
+		if !(len(a) == 1) {
+			t.Fatal("condition false")
+		}
+		if !(a[0] == 99) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayEmplaceStruct", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []containerFoo
 
@@ -378,40 +476,52 @@ func TestContainer(t *testing.T) {
 			f.b = float32(i) * 2.0
 		}
 
-		porttest.Ensure(t, len(a) == 50)
+		if !(len(a) == 50) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < 50; i++ {
 			f := &a[i]
-			porttest.Ensure(t, f.a == i)
-			porttest.Ensure(t, f.b == float32(i)*2.0)
+			if !(f.a == i) {
+				t.Fatal("condition false")
+			}
+			if !(f.b == float32(i)*2.0) {
+				t.Fatal("condition false")
+			}
 		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayPushAfterReserve", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 
 		a = arrayReserve(a, 50)
-		porttest.Ensure(t, len(a) == 0)
-		porttest.Ensure(t, cap(a) >= 50)
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
+		if !(cap(a) >= 50) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < 50; i++ {
 			a = arrayPush(a, i*3)
 		}
 
-		porttest.Ensure(t, len(a) == 50)
+		if !(len(a) == 50) {
+			t.Fatal("condition false")
+		}
 		for i := 0; i < 50; i++ {
-			porttest.Ensure(t, a[i] == i*3)
+			if !(a[i] == i*3) {
+				t.Fatal("condition false")
+			}
 		}
 
 		a = nil
 
 	})
 	t.Run("TestArraySingleElement", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []containerFoo
 
@@ -420,34 +530,55 @@ func TestContainer(t *testing.T) {
 		f.a = 7
 		f.b = 3.14
 
-		porttest.Ensure(t, len(a) == 1)
-		porttest.Ensure(t, a[0].a == 7)
-		porttest.Ensure(t, a[0].b == 3.14)
+		if !(len(a) == 1) {
+			t.Fatal("condition false")
+		}
+		if !(a[0].a == 7) {
+			t.Fatal("condition false")
+		}
+		if !(a[0].b == 3.14) {
+			t.Fatal("condition false")
+		}
 
 		a, popped := arrayPop(a)
-		porttest.Ensure(t, popped.a == 7)
-		porttest.Ensure(t, popped.b == 3.14)
-		porttest.Ensure(t, len(a) == 0)
+		if !(popped.a == 7) {
+			t.Fatal("condition false")
+		}
+		if !(popped.b == 3.14) {
+			t.Fatal("condition false")
+		}
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
 
 		a = nil
 
 	})
 	t.Run("TestArrayCreateN", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		var a []int
 		a = make([]int, 0, 16)
-		porttest.Ensure(t, len(a) == 0)
-		porttest.Ensure(t, cap(a) == 16)
-		porttest.Ensure(t, a != nil)
+		if !(len(a) == 0) {
+			t.Fatal("condition false")
+		}
+		if !(cap(a) == 16) {
+			t.Fatal("condition false")
+		}
+		if !(a != nil) {
+			t.Fatal("condition false")
+		}
 
 		for i := 0; i < 16; i++ {
 			a = arrayPush(a, i*5)
 		}
 
-		porttest.Ensure(t, len(a) == 16)
+		if !(len(a) == 16) {
+			t.Fatal("condition false")
+		}
 		for i := 0; i < 16; i++ {
-			porttest.Ensure(t, a[i] == i*5)
+			if !(a[i] == i*5) {
+				t.Fatal("condition false")
+			}
 		}
 
 		a = nil

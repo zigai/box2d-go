@@ -1189,6 +1189,15 @@ func bulletBodyTask(startIndex int, endIndex int, workerIndex int, context *step
 	}
 }
 
+func clearSolverScratch(graph *constraintGraph) {
+	for i := range graph.colors {
+		color := &graph.colors[i]
+		color.wideConstraints = nil
+		color.overflowConstraints = nil
+		color.wideConstraintCount = 0
+	}
+}
+
 func solve(world *world, stepContext *stepContext) {
 	// Only count steps that advance the simulation
 	world.stepIndex += 1
@@ -1197,6 +1206,7 @@ func solve(world *world, stepContext *stepContext) {
 	awake := &world.solverSets[awakeSet]
 	awakeBodyCount := len(awake.bodySims)
 	if awakeBodyCount == 0 {
+		clearSolverScratch(&world.constraintGraph)
 		return
 	}
 
@@ -1291,11 +1301,21 @@ func solve(world *world, stepContext *stepContext) {
 		contactPrepareDim := computeBlockCount(wideContactCount, minContactsPerBlock, maxBlockCount)
 		jointPrepareDim := computeBlockCount(jointCount, minJointsPerBlock, maxBlockCount)
 
-		wideContactConstraints := make([]contactConstraintWide, wideContactCount)
+		if wideContactCount > cap(world.solverWideScratch) {
+			world.solverWideScratch = make([]contactConstraintWide, wideContactCount)
+		} else {
+			clear(world.solverWideScratch[:wideContactCount])
+		}
+		wideContactConstraints := world.solverWideScratch[:wideContactCount]
 
 		overflow := &colors[overflowIndex]
 		overflowCount := len(overflow.contactSims)
-		overflowContacts := make([]contactConstraint, overflowCount)
+		if overflowCount > cap(world.solverOverflowScratch) {
+			world.solverOverflowScratch = make([]contactConstraint, overflowCount)
+		} else {
+			clear(world.solverOverflowScratch[:overflowCount])
+		}
+		overflowContacts := world.solverOverflowScratch[:overflowCount]
 		overflow.overflowConstraints = overflowContacts
 
 		// Build the span table for the flat prepare/store parallel-for while I slice the
@@ -1849,6 +1869,7 @@ func solve(world *world, stepContext *stepContext) {
 		world.profile.SleepIslands = GetMilliseconds(sleepTicks)
 
 	}
+	clearSolverScratch(&world.constraintGraph)
 }
 
 func makeSoft(hertz float32, zeta float32, h float32) softness {

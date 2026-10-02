@@ -20,52 +20,56 @@ type thread struct {
 }
 
 func createMutex() *sync.Mutex {
-	todo()
-	return nil
+	return new(sync.Mutex)
 }
 
-func destroyMutex(m *sync.Mutex) {
-	todo()
-}
+func destroyMutex(m *sync.Mutex) {}
 
 func lockMutex(m *sync.Mutex) {
-	todo()
+	m.Lock()
 }
 
 func unlockMutex(m *sync.Mutex) {
-	todo()
+	m.Unlock()
 }
 
 func createSemaphore(initCount int) *semaphore {
-	todo()
-	return nil
+	s := &semaphore{count: initCount}
+	s.condition = sync.NewCond(&s.mutex)
+	return s
 }
 
-func destroySemaphore(s *semaphore) {
-	todo()
-}
+func destroySemaphore(s *semaphore) {}
 
 func waitSemaphore(s *semaphore) {
-	todo()
+	s.mutex.Lock()
+	for s.count == 0 {
+		s.condition.Wait()
+	}
+	s.count--
+	s.mutex.Unlock()
 }
 
 func signalSemaphore(s *semaphore) {
-	todo()
+	s.mutex.Lock()
+	s.count++
+	s.condition.Signal()
+	s.mutex.Unlock()
 }
 
-func setCurrentThreadName(name string) {
-	todo()
-}
+func setCurrentThreadName(name string) {}
 
 func threadStart(t *thread) {
-	todo()
+	defer close(t.done)
+	t.function()
 }
 
 func createThread(function threadFunction, name string) *thread {
-	todo()
-	return nil
+	t := &thread{done: make(chan struct{}), function: function, name: name}
+	go threadStart(t)
+	return t
 }
 
 func joinThread(t *thread) {
-	todo()
+	<-t.done
 }

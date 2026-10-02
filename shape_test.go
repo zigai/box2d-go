@@ -6,7 +6,7 @@ package box2d_test
 import (
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"math"
 	"testing"
 )
@@ -14,9 +14,8 @@ import (
 const collisionShapeN = 4
 
 func TestShape(t *testing.T) {
-	defer porttest.Guard(t)
+
 	t.Run("ShapeMassTest", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		o := oracle.Open(t, "shape/ShapeMassTest")
 		box := box2d.MakeBox(1, 1)
@@ -27,14 +26,20 @@ func TestShape(t *testing.T) {
 			md := box2d.ComputeCircleMass(&circle, 1.0)
 			o.F32("shape:23/value0", md.Mass)
 			o.F32("shape:23", md.Mass-box2d.Pi)
-			porttest.EnsureSmall(t, md.Mass-box2d.Pi, float32(0x1p-23))
+			if v := md.Mass - box2d.Pi; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:24/value0", md.Center.X)
 			o.F32("shape:24/value1", md.Center.Y)
 			o.Bool("shape:24", md.Center.X == 1.0 && md.Center.Y == 0.0)
-			porttest.Ensure(t, md.Center.X == 1.0 && md.Center.Y == 0.0)
+			if !(md.Center.X == 1.0 && md.Center.Y == 0.0) {
+				t.Fatal("condition false")
+			}
 			o.F32("shape:25/value0", md.RotationalInertia)
 			o.F32("shape:25", md.RotationalInertia-0.5*box2d.Pi)
-			porttest.EnsureSmall(t, md.RotationalInertia-0.5*box2d.Pi, float32(0x1p-23))
+			if v := md.RotationalInertia - 0.5*box2d.Pi; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 		{
@@ -73,28 +78,40 @@ func TestShape(t *testing.T) {
 			o.F32("shape:60/value2", mdUpper.Mass)
 			o.Bool("shape:60", mdLower.Mass < md.Mass && md.Mass < mdUpper.Mass)
 
-			porttest.Ensure(t, mdLower.Mass < md.Mass && md.Mass < mdUpper.Mass)
+			if !(mdLower.Mass < md.Mass && md.Mass < mdUpper.Mass) {
+				t.Fatal("condition false")
+			}
 			o.F32("shape:62/value0", mdLower.RotationalInertia)
 			o.F32("shape:62/value1", md.RotationalInertia)
 			o.F32("shape:62/value2", mdUpper.RotationalInertia)
 			o.Bool("shape:62", mdLower.RotationalInertia < md.RotationalInertia && md.RotationalInertia < mdUpper.RotationalInertia)
-			porttest.Ensure(t, mdLower.RotationalInertia < md.RotationalInertia && md.RotationalInertia < mdUpper.RotationalInertia)
+			if !(mdLower.RotationalInertia < md.RotationalInertia && md.RotationalInertia < mdUpper.RotationalInertia) {
+				t.Fatal("condition false")
+			}
 		}
 
 		{
 			md := box2d.ComputePolygonMass(&box, 1.0)
 			o.F32("shape:67/value0", md.Mass)
 			o.F32("shape:67", md.Mass-4.0)
-			porttest.EnsureSmall(t, md.Mass-4.0, float32(0x1p-23))
+			if v := md.Mass - 4.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:68/value0", md.Center.X)
 			o.F32("shape:68", md.Center.X)
-			porttest.EnsureSmall(t, md.Center.X, float32(0x1p-23))
+			if v := md.Center.X; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:69/value0", md.Center.Y)
 			o.F32("shape:69", md.Center.Y)
-			porttest.EnsureSmall(t, md.Center.Y, float32(0x1p-23))
+			if v := md.Center.Y; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:70/value0", md.RotationalInertia)
 			o.F32("shape:70", md.RotationalInertia-8.0/3.0)
-			porttest.EnsureSmall(t, md.RotationalInertia-8.0/3.0, 2.0*float32(0x1p-23))
+			if v := md.RotationalInertia - 8.0/3.0; v < -(2.0*float32(0x1p-23)) || (2.0*float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, 2.0*float32(0x1p-23))
+			}
 		}
 
 		{
@@ -109,24 +126,31 @@ func TestShape(t *testing.T) {
 			o.F32("shape:80/value1", m2.Mass)
 			o.F32("shape:80", m1.Mass-m2.Mass)
 
-			porttest.EnsureSmall(t, m1.Mass-m2.Mass, float32(0x1p-23))
+			if v := m1.Mass - m2.Mass; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:82/value0", m1.RotationalInertia)
 			o.F32("shape:82/value1", m2.RotationalInertia)
 			o.F32("shape:82", m1.RotationalInertia-m2.RotationalInertia)
-			porttest.EnsureSmall(t, m1.RotationalInertia-m2.RotationalInertia, float32(0x1p-23))
+			if v := m1.RotationalInertia - m2.RotationalInertia; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:83/value0", m2.Center.X)
 			o.F32("shape:83/value1", offset.X)
 			o.F32("shape:83", m2.Center.X-offset.X)
-			porttest.EnsureSmall(t, m2.Center.X-offset.X, float32(0x1p-23))
+			if v := m2.Center.X - offset.X; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:84/value0", m2.Center.Y)
 			o.F32("shape:84/value1", offset.Y)
 			o.F32("shape:84", m2.Center.Y-offset.Y)
-			porttest.EnsureSmall(t, m2.Center.Y-offset.Y, float32(0x1p-23))
+			if v := m2.Center.Y - offset.Y; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 	})
 	t.Run("ShapeAABBTest", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		o := oracle.Open(t, "shape/ShapeAABBTest")
 		box := box2d.MakeBox(1, 1)
@@ -137,53 +161,76 @@ func TestShape(t *testing.T) {
 			b := box2d.ComputeCircleAABB(&circle, box2d.WorldTransformIdentity)
 			o.F32("shape:96/value0", b.LowerBound.X)
 			o.F32("shape:96", b.LowerBound.X)
-			porttest.EnsureSmall(t, b.LowerBound.X, float32(0x1p-23))
+			if v := b.LowerBound.X; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:97/value0", b.LowerBound.Y)
 			o.F32("shape:97", b.LowerBound.Y+1.0)
-			porttest.EnsureSmall(t, b.LowerBound.Y+1.0, float32(0x1p-23))
+			if v := b.LowerBound.Y + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:98/value0", b.UpperBound.X)
 			o.F32("shape:98", b.UpperBound.X-2.0)
-			porttest.EnsureSmall(t, b.UpperBound.X-2.0, float32(0x1p-23))
+			if v := b.UpperBound.X - 2.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:99/value0", b.UpperBound.Y)
 			o.F32("shape:99", b.UpperBound.Y-1.0)
-			porttest.EnsureSmall(t, b.UpperBound.Y-1.0, float32(0x1p-23))
+			if v := b.UpperBound.Y - 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 		{
 			b := box2d.ComputePolygonAABB(&box, box2d.WorldTransformIdentity)
 			o.F32("shape:104/value0", b.LowerBound.X)
 			o.F32("shape:104", b.LowerBound.X+1.0)
-			porttest.EnsureSmall(t, b.LowerBound.X+1.0, float32(0x1p-23))
+			if v := b.LowerBound.X + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:105/value0", b.LowerBound.Y)
 			o.F32("shape:105", b.LowerBound.Y+1.0)
-			porttest.EnsureSmall(t, b.LowerBound.Y+1.0, float32(0x1p-23))
+			if v := b.LowerBound.Y + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:106/value0", b.UpperBound.X)
 			o.F32("shape:106", b.UpperBound.X-1.0)
-			porttest.EnsureSmall(t, b.UpperBound.X-1.0, float32(0x1p-23))
+			if v := b.UpperBound.X - 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:107/value0", b.UpperBound.Y)
 			o.F32("shape:107", b.UpperBound.Y-1.0)
-			porttest.EnsureSmall(t, b.UpperBound.Y-1.0, float32(0x1p-23))
+			if v := b.UpperBound.Y - 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 		{
 			b := box2d.ComputeSegmentAABB(&segment, box2d.WorldTransformIdentity)
 			o.F32("shape:112/value0", b.LowerBound.X)
 			o.F32("shape:112", b.LowerBound.X)
-			porttest.EnsureSmall(t, b.LowerBound.X, float32(0x1p-23))
+			if v := b.LowerBound.X; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:113/value0", b.LowerBound.Y)
 			o.F32("shape:113", b.LowerBound.Y+1.0)
-			porttest.EnsureSmall(t, b.LowerBound.Y+1.0, float32(0x1p-23))
+			if v := b.LowerBound.Y + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:114/value0", b.UpperBound.X)
 			o.F32("shape:114", b.UpperBound.X)
-			porttest.EnsureSmall(t, b.UpperBound.X, float32(0x1p-23))
+			if v := b.UpperBound.X; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:115/value0", b.UpperBound.Y)
 			o.F32("shape:115", b.UpperBound.Y-1.0)
-			porttest.EnsureSmall(t, b.UpperBound.Y-1.0, float32(0x1p-23))
+			if v := b.UpperBound.Y - 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 	})
 	t.Run("PointInShapeTest", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		o := oracle.Open(t, "shape/PointInShapeTest")
 		box := box2d.MakeBox(1, 1)
@@ -196,25 +243,32 @@ func TestShape(t *testing.T) {
 			var hit bool
 			hit = box2d.PointInCircle(&circle, p1)
 			o.Bool("shape:131", hit == true)
-			porttest.Ensure(t, hit == true)
+			if !(hit == true) {
+				t.Fatal("condition false")
+			}
 			hit = box2d.PointInCircle(&circle, p2)
 			o.Bool("shape:133", hit == false)
-			porttest.Ensure(t, hit == false)
+			if !(hit == false) {
+				t.Fatal("condition false")
+			}
 		}
 
 		{
 			var hit bool
 			hit = box2d.PointInPolygon(&box, p1)
 			o.Bool("shape:139", hit == true)
-			porttest.Ensure(t, hit == true)
+			if !(hit == true) {
+				t.Fatal("condition false")
+			}
 			hit = box2d.PointInPolygon(&box, p2)
 			o.Bool("shape:141", hit == false)
-			porttest.Ensure(t, hit == false)
+			if !(hit == false) {
+				t.Fatal("condition false")
+			}
 		}
 
 	})
 	t.Run("RayCastShapeTest", func(t *testing.T) {
-		defer porttest.Guard(t)
 
 		o := oracle.Open(t, "shape/RayCastShapeTest")
 		box := box2d.MakeBox(1, 1)
@@ -227,48 +281,72 @@ func TestShape(t *testing.T) {
 			output := box2d.RayCastCircle(&circle, &input)
 			o.Bool("shape:155/value0", output.Hit)
 			o.Bool("shape:155", output.Hit)
-			porttest.Ensure(t, output.Hit)
+			if !(output.Hit) {
+				t.Fatal("condition false")
+			}
 			o.F32("shape:156/value0", output.Normal.X)
 			o.F32("shape:156", output.Normal.X+1.0)
-			porttest.EnsureSmall(t, output.Normal.X+1.0, float32(0x1p-23))
+			if v := output.Normal.X + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:157/value0", output.Normal.Y)
 			o.F32("shape:157", output.Normal.Y)
-			porttest.EnsureSmall(t, output.Normal.Y, float32(0x1p-23))
+			if v := output.Normal.Y; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:158/value0", output.Fraction)
 			o.F32("shape:158", output.Fraction-0.5)
-			porttest.EnsureSmall(t, output.Fraction-0.5, float32(0x1p-23))
+			if v := output.Fraction - 0.5; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 		{
 			output := box2d.RayCastPolygon(&box, &input)
 			o.Bool("shape:163/value0", output.Hit)
 			o.Bool("shape:163", output.Hit)
-			porttest.Ensure(t, output.Hit)
+			if !(output.Hit) {
+				t.Fatal("condition false")
+			}
 			o.F32("shape:164/value0", output.Normal.X)
 			o.F32("shape:164", output.Normal.X+1.0)
-			porttest.EnsureSmall(t, output.Normal.X+1.0, float32(0x1p-23))
+			if v := output.Normal.X + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:165/value0", output.Normal.Y)
 			o.F32("shape:165", output.Normal.Y)
-			porttest.EnsureSmall(t, output.Normal.Y, float32(0x1p-23))
+			if v := output.Normal.Y; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:166/value0", output.Fraction)
 			o.F32("shape:166", output.Fraction-3.0/8.0)
-			porttest.EnsureSmall(t, output.Fraction-3.0/8.0, float32(0x1p-23))
+			if v := output.Fraction - 3.0/8.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 		{
 			output := box2d.RayCastSegment(&segment, &input, true)
 			o.Bool("shape:171/value0", output.Hit)
 			o.Bool("shape:171", output.Hit)
-			porttest.Ensure(t, output.Hit)
+			if !(output.Hit) {
+				t.Fatal("condition false")
+			}
 			o.F32("shape:172/value0", output.Normal.X)
 			o.F32("shape:172", output.Normal.X+1.0)
-			porttest.EnsureSmall(t, output.Normal.X+1.0, float32(0x1p-23))
+			if v := output.Normal.X + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:173/value0", output.Normal.Y)
 			o.F32("shape:173", output.Normal.Y)
-			porttest.EnsureSmall(t, output.Normal.Y, float32(0x1p-23))
+			if v := output.Normal.Y; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 			o.F32("shape:174/value0", output.Fraction)
 			o.F32("shape:174", output.Fraction-0.5)
-			porttest.EnsureSmall(t, output.Fraction-0.5, float32(0x1p-23))
+			if v := output.Fraction - 0.5; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
+				t.Fatalf("condition false: abs(%v) < %v", v, float32(0x1p-23))
+			}
 		}
 
 	})

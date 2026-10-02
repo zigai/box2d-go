@@ -6,7 +6,7 @@ package box2d_test
 import (
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/porttest"
+
 	"testing"
 )
 
@@ -52,9 +52,9 @@ func inputSamePoint(a, b box2d.Vec2) bool {
 }
 
 func TestChain(t *testing.T) {
-	defer porttest.Guard(t)
+
 	t.Run("SegmentCountTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/chain/SegmentCountTest")
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
@@ -73,27 +73,35 @@ func TestChain(t *testing.T) {
 		{
 			ok := triangle == 3
 			r.Bool("check.120", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := square == 4
 			r.Bool("check.121", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := pair == 1
 			r.Bool("check.122", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := line == 5
 			r.Bool("check.123", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 	})
 	t.Run("SegmentGeometryTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/chain/SegmentGeometryTest")
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
@@ -138,12 +146,16 @@ func TestChain(t *testing.T) {
 		{
 			ok := loopCount == 4
 			r.Bool("check.159", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := openCount == 5
 			r.Bool("check.160", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		// ENSURE stringizes into a format string, so keep a percent out of the condition
@@ -154,22 +166,30 @@ func TestChain(t *testing.T) {
 			{
 				ok := inputSamePoint(loop[i].Segment.Point1, inputLoopSquare[i])
 				r.Bool("check.168", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := inputSamePoint(loop[i].Segment.Point2, inputLoopSquare[next])
 				r.Bool("check.169", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := inputSamePoint(loop[i].Ghost1, inputLoopSquare[prev])
 				r.Bool("check.170", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := inputSamePoint(loop[i].Ghost2, inputLoopSquare[after])
 				r.Bool("check.171", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 
@@ -177,12 +197,16 @@ func TestChain(t *testing.T) {
 			{
 				ok := inputSamePoint(open[i].Segment.Point1, inputOpenLine[i])
 				r.Bool("check.176", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := inputSamePoint(open[i].Segment.Point2, inputOpenLine[i+1])
 				r.Bool("check.177", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 
@@ -190,32 +214,40 @@ func TestChain(t *testing.T) {
 		{
 			ok := inputSamePoint(open[0].Ghost1, inputGhostBegin)
 			r.Bool("check.181", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 		{
 			ok := inputSamePoint(open[4].Ghost2, inputGhostEnd)
 			r.Bool("check.182", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		for i := 1; i < 5; i++ {
 			{
 				ok := inputSamePoint(open[i].Ghost1, inputOpenLine[i-1])
 				r.Bool("check.186", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 		for i := 0; i < 4; i++ {
 			{
 				ok := inputSamePoint(open[i].Ghost2, inputOpenLine[i+2])
 				r.Bool("check.190", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 
 	})
 	t.Run("LoopMaterialTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/chain/LoopMaterialTest")
 		restore := box2d.InputSaveInputHooks()
 		t.Cleanup(restore)
@@ -255,7 +287,9 @@ func TestChain(t *testing.T) {
 		{
 			ok := assertsTripped == 0
 			r.Bool("check.225", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		for i := 0; i < 4; i++ {
@@ -266,25 +300,31 @@ func TestChain(t *testing.T) {
 			{
 				ok := created[i] == uint64(i+1)
 				r.Bool("check.230", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := updated[i] == expected
 				r.Bool("check.231", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 
 			// The getter and the segment shape cannot disagree, there is one copy
 			{
 				ok := reported[i] == expected
 				r.Bool("check.234", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 
 	})
 	t.Run("OpenMaterialTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/chain/OpenMaterialTest")
 		restore := box2d.InputSaveInputHooks()
 		t.Cleanup(restore)
@@ -326,7 +366,9 @@ func TestChain(t *testing.T) {
 		{
 			ok := assertsTripped == 0
 			r.Bool("check.273", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		for i := 0; i < 5; i++ {
@@ -340,23 +382,29 @@ func TestChain(t *testing.T) {
 			{
 				ok := created[i] == uint64(i+1)
 				r.Bool("check.287", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := updated[i] == expected
 				r.Bool("check.288", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := reported[i] == expected
 				r.Bool("check.289", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 
 	})
 	t.Run("SingleMaterialTest", func(t *testing.T) {
-		defer porttest.Guard(t)
+
 		r := oracle.Open(t, "input/chain/SingleMaterialTest")
 		restore := box2d.InputSaveInputHooks()
 		t.Cleanup(restore)
@@ -406,7 +454,9 @@ func TestChain(t *testing.T) {
 		{
 			ok := assertsTripped == 0
 			r.Bool("check.336", ok)
-			porttest.Ensure(t, ok)
+			if !(ok) {
+				t.Fatal("condition false")
+			}
 		}
 
 		for i := 0; i < 5; i++ {
@@ -417,22 +467,30 @@ func TestChain(t *testing.T) {
 			{
 				ok := created[i] == 1
 				r.Bool("check.341", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := broadcast[i] == 99
 				r.Bool("check.342", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := single[i] == expected
 				r.Bool("check.343", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 			{
 				ok := reported[i] == expected
 				r.Bool("check.344", ok)
-				porttest.Ensure(t, ok)
+				if !(ok) {
+					t.Fatal("condition false")
+				}
 			}
 		}
 

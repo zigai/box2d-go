@@ -100,10 +100,11 @@ build_variant() {
 		cat "$dir.configure.log" >&2
 		die "cmake configure failed for $name"
 	}
-	cmake --build "$dir" --parallel >"$dir.build.log" 2>&1 || {
+	cmake --build "$dir" --parallel ${ORACLE_BENCH_ONLY:+--target bench_scenes} >"$dir.build.log" 2>&1 || {
 		cat "$dir.build.log" >&2
 		die "build failed for $name"
 	}
+	[ "${ORACLE_BENCH_ONLY:-0}" != 1 ] || return 0
 
 	mkdir -p "$out"
 	for exe in "$dir"/bin/*; do
@@ -142,6 +143,8 @@ mkdir -p "$build"
 
 build_variant float float scalar "$ORACLE_CC"
 build_variant double double scalar "$ORACLE_CC"
+
+[ "${ORACLE_BENCH_ONLY:-0}" != 1 ] || exit 0
 
 if [ "$ORACLE_CHECKS" = 1 ]; then
 	build_variant float-simd float simd "$ORACLE_CC"

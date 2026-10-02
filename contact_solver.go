@@ -3,6 +3,8 @@
 
 package box2d
 
+import "unsafe"
+
 type contactConstraintPoint struct {
 	anchorA            Vec2
 	anchorB            Vec2
@@ -97,208 +99,1912 @@ type bodyStateW struct {
 
 var zeroContactSim contactSim
 
+// contact separation for sub-stepping
+// s = s0 + dot(cB + rB - cA - rA, normal)
+// normal is held constant
+// body positions c can translation and anchors r can rotate
+// s(t) = s0 + dot(cB(t) + rB(t) - cA(t) - rA(t), normal)
+// s(t) = s0 + dot(cB0 + dpB + rot(dqB, rB0) - cA0 - dpA - rot(dqA, rA0), normal)
+// s(t) = s0 + dot(cB0 - cA0, normal) + dot(dpB - dpA + rot(dqB, rB0) - rot(dqA, rA0), normal)
+// s_base = s0 + dot(cB0 - cA0, normal)
+
 func prepareContactsOverflow(context *stepContext) {
-	todo()
+	world := context.world
+	graph := context.graph
+	color := &graph.colors[overflowIndex]
+	constraints := color.overflowConstraints
+	contactCount := len(color.contactSims)
+	contacts := color.contactSims
+	states := context.states
+
+	// Stiffer for static contacts to avoid bodies getting pushed through the ground
+	contactSoftness := context.contactSoftness
+	staticSoftness := context.staticSoftness
+
+	warmStartScale := float32(0.0)
+	if world.enableWarmStarting {
+		warmStartScale = 1.0
+	}
+	anyRestitution := false
+
+	for i := 0; i < contactCount; i++ {
+		contactSim := &contacts[i]
+
+		manifold := &contactSim.manifold
+		pointCount := manifold.PointCount
+
+		assert(0 < pointCount && pointCount <= 2, "0 < pointCount && pointCount <= 2")
+
+		indexA := decodeAwakeIndex(contactSim.encodedBodySimA)
+		indexB := decodeAwakeIndex(contactSim.encodedBodySimB)
+
+		if validationEnabled {
+			bodyA := &world.bodies[contactSim.bodyIDA]
+			assert(contactSim.encodedBodySimA == encodeBodySimIndex(bodyA), "contactSim.encodedBodySimA == encodeBodySimIndex( bodyA )")
+
+			bodyB := &world.bodies[contactSim.bodyIDB]
+			assert(contactSim.encodedBodySimB == encodeBodySimIndex(bodyB), "contactSim.encodedBodySimB == encodeBodySimIndex( bodyB )")
+		}
+
+		constraint := &constraints[i]
+
+		// 0 is null
+		constraint.indexA = indexA + 1
+		constraint.indexB = indexB + 1
+		constraint.normal = manifold.Normal
+		constraint.friction = contactSim.friction
+		constraint.restitution = contactSim.restitution
+		constraint.rollingResistance = contactSim.rollingResistance
+		constraint.rollingImpulse = float32(warmStartScale * manifold.RollingImpulse)
+		constraint.tangentSpeed = contactSim.tangentSpeed
+		constraint.pointCount = pointCount
+
+		haveRestitution := contactSim.restitution > 0.0
+		hitEvents := (contactSim.simFlags & simEnableHitEvent) != 0
+		sampleVelocity := haveRestitution || hitEvents
+		anyRestitution = anyRestitution || haveRestitution
+
+		vA := Vec2Zero
+		wA := float32(0.0)
+		vB := Vec2Zero
+		wB := float32(0.0)
+
+		if sampleVelocity {
+			if indexA != nullIndex {
+				vA = states[indexA].linearVelocity
+				wA = states[indexA].angularVelocity
+			}
+
+			if indexB != nullIndex {
+				vB = states[indexB].linearVelocity
+				wB = states[indexB].angularVelocity
+			}
+		}
+
+		mA := contactSim.invMassA
+		iA := contactSim.invIA
+		mB := contactSim.invMassB
+		iB := contactSim.invIB
+
+		if indexA == nullIndex || indexB == nullIndex {
+			constraint.softness = staticSoftness
+		} else {
+			constraint.softness = contactSoftness
+		}
+
+		// copy mass into constraint to avoid cache misses during sub-stepping
+		constraint.invMassA = mA
+		constraint.invIA = iA
+		constraint.invMassB = mB
+		constraint.invIB = iB
+
+		{
+			k := iA + iB
+			if k > 0.0 {
+				constraint.rollingMass = 1.0 / k
+			} else {
+				constraint.rollingMass = 0.0
+			}
+		}
+
+		normal := constraint.normal
+		tangent := RightPerp(constraint.normal)
+
+		for j := 0; j < pointCount; j++ {
+			mp := &manifold.Points[j]
+			cp := &constraint.points[j]
+
+			cp.normalImpulse = float32(warmStartScale * mp.NormalImpulse)
+			cp.tangentImpulse = float32(warmStartScale * mp.TangentImpulse)
+			cp.totalNormalImpulse = 0.0
+			cp.restitutionImpulse = 0.0
+
+			rA := mp.AnchorA
+			rB := mp.AnchorB
+
+			cp.anchorA = rA
+			cp.anchorB = rB
+			cp.baseSeparation = mp.Separation - Dot(Sub(rB, rA), normal)
+
+			rnA := Cross(rA, normal)
+			rnB := Cross(rB, normal)
+			kNormal := mA + mB + float32(iA*rnA*rnA) + float32(iB*rnB*rnB)
+			if kNormal > 0.0 {
+				cp.normalMass = 1.0 / kNormal
+			} else {
+				cp.normalMass = 0.0
+			}
+
+			rtA := Cross(rA, tangent)
+			rtB := Cross(rB, tangent)
+			kTangent := mA + mB + float32(iA*rtA*rtA) + float32(iB*rtB*rtB)
+			if kTangent > 0.0 {
+				cp.tangentMass = 1.0 / kTangent
+			} else {
+				cp.tangentMass = 0.0
+			}
+
+			// Only compute the normal velocity terms if needed.
+			if sampleVelocity {
+				vrA := Add(vA, CrossSV(wA, rA))
+				vrB := Add(vB, CrossSV(wB, rB))
+				vn := Dot(normal, Sub(vrB, vrA))
+
+				cp.relativeVelocity = vn
+				mp.NormalVelocity = vn
+			} else {
+				cp.relativeVelocity = 0.0
+				mp.NormalVelocity = 0.0
+			}
+		}
+	}
+
+	if anyRestitution {
+		// Check if set first? Store per task context and OR?
+		context.anyRestitution.Store(1)
+	}
 }
 
 func warmStartContactsOverflow(context *stepContext) {
-	todo()
+	graph := context.graph
+	color := &graph.colors[overflowIndex]
+	constraints := color.overflowConstraints
+	contactCount := len(color.contactSims)
+	world := context.world
+	awakeSet := &world.solverSets[awakeSet]
+	states := awakeSet.bodyStates
+
+	// This is a dummy state to represent a static body because static bodies don't have a solver body.
+	dummyState := identityBodyState
+
+	for i := 0; i < contactCount; i++ {
+		constraint := &constraints[i]
+
+		indexA := constraint.indexA - 1
+		indexB := constraint.indexB - 1
+
+		stateA := &dummyState
+		if indexA != nullIndex {
+			stateA = &states[indexA]
+		}
+		stateB := &dummyState
+		if indexB != nullIndex {
+			stateB = &states[indexB]
+		}
+
+		vA := stateA.linearVelocity
+		wA := stateA.angularVelocity
+		vB := stateB.linearVelocity
+		wB := stateB.angularVelocity
+
+		mA := constraint.invMassA
+		iA := constraint.invIA
+		mB := constraint.invMassB
+		iB := constraint.invIB
+
+		// Stiffer for static contacts to avoid bodies getting pushed through the ground
+		normal := constraint.normal
+		tangent := RightPerp(constraint.normal)
+		pointCount := constraint.pointCount
+
+		for j := 0; j < pointCount; j++ {
+			cp := &constraint.points[j]
+
+			// fixed anchors
+			rA := cp.anchorA
+			rB := cp.anchorB
+
+			P := Add(MulSV(cp.normalImpulse, normal), MulSV(cp.tangentImpulse, tangent))
+
+			cp.totalNormalImpulse += cp.normalImpulse
+
+			wA -= float32(iA * Cross(rA, P))
+			vA = MulAdd(vA, -mA, P)
+			wB += float32(iB * Cross(rB, P))
+			vB = MulAdd(vB, mB, P)
+		}
+
+		wA -= float32(iA * constraint.rollingImpulse)
+		wB += float32(iB * constraint.rollingImpulse)
+
+		if stateA.flags&dynamicFlag != 0 {
+			stateA.linearVelocity = vA
+			stateA.angularVelocity = wA
+		}
+
+		if stateB.flags&dynamicFlag != 0 {
+			stateB.linearVelocity = vB
+			stateB.angularVelocity = wB
+		}
+	}
 }
 
+// Solve the non-penetration constraints with the soft bias. No friction and no restitution.
 func pushContactsOverflow(context *stepContext) {
-	todo()
+	graph := context.graph
+	color := &graph.colors[overflowIndex]
+	constraints := color.overflowConstraints
+	contactCount := len(color.contactSims)
+	world := context.world
+	awakeSet := &world.solverSets[awakeSet]
+	states := awakeSet.bodyStates
+
+	invH := context.invH
+	contactSpeed := context.world.contactSpeed
+
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	dummyState := identityBodyState
+
+	for i := 0; i < contactCount; i++ {
+		constraint := &constraints[i]
+		mA := constraint.invMassA
+		iA := constraint.invIA
+		mB := constraint.invMassB
+		iB := constraint.invIB
+
+		indexA := constraint.indexA - 1
+		indexB := constraint.indexB - 1
+
+		stateA := &dummyState
+		if indexA != nullIndex {
+			stateA = &states[indexA]
+		}
+		vA := stateA.linearVelocity
+		wA := stateA.angularVelocity
+		dqA := stateA.deltaRotation
+
+		stateB := &dummyState
+		if indexB != nullIndex {
+			stateB = &states[indexB]
+		}
+		vB := stateB.linearVelocity
+		wB := stateB.angularVelocity
+		dqB := stateB.deltaRotation
+
+		dp := Sub(stateB.deltaPosition, stateA.deltaPosition)
+
+		normal := constraint.normal
+		softness := constraint.softness
+		pointCount := constraint.pointCount
+
+		for j := 0; j < pointCount; j++ {
+			cp := &constraint.points[j]
+
+			// fixed anchor points
+			rA := cp.anchorA
+			rB := cp.anchorB
+
+			// compute current separation
+			// this is subject to round-off error if the anchor is far from the body center of mass
+			ds := Add(dp, Sub(RotateVector(dqB, rB), RotateVector(dqA, rA)))
+			s := cp.baseSeparation + Dot(ds, normal)
+
+			var velocityBias float32
+			var massScale float32
+			var impulseScale float32
+			if s > 0.0 {
+				// speculative bias is positive
+				velocityBias = float32(s * invH)
+				massScale = 1.0
+				impulseScale = 0.0
+			} else {
+				// overlap bias is negative
+				velocityBias = MaxFloat(float32(softness.massScale*softness.biasRate*s), -contactSpeed)
+				massScale = softness.massScale
+				impulseScale = softness.impulseScale
+			}
+
+			// relative normal velocity at contact
+			vrA := Add(vA, CrossSV(wA, rA))
+			vrB := Add(vB, CrossSV(wB, rB))
+			vn := Dot(Sub(vrB, vrA), normal)
+
+			// incremental normal impulse
+			impulse := float32(-cp.normalMass*(float32(massScale*vn)+velocityBias)) - float32(impulseScale*cp.normalImpulse)
+
+			// clamp the accumulated impulse
+			newImpulse := MaxFloat(cp.normalImpulse+impulse, 0.0)
+			impulse = newImpulse - cp.normalImpulse
+			cp.normalImpulse = newImpulse
+			cp.totalNormalImpulse += impulse
+
+			// apply normal impulse
+			P := MulSV(impulse, normal)
+			vA = MulSub(vA, mA, P)
+			wA -= float32(iA * Cross(rA, P))
+
+			vB = MulAdd(vB, mB, P)
+			wB += float32(iB * Cross(rB, P))
+		}
+
+		if stateA.flags&dynamicFlag != 0 {
+			stateA.linearVelocity = vA
+			stateA.angularVelocity = wA
+		}
+
+		if stateB.flags&dynamicFlag != 0 {
+			stateB.linearVelocity = vB
+			stateB.angularVelocity = wB
+		}
+	}
 }
 
+// Solve contacts: normal, friction and rolling resistance.
 func solveContactsOverflow(context *stepContext) {
-	todo()
+	graph := context.graph
+	color := &graph.colors[overflowIndex]
+	constraints := color.overflowConstraints
+	contactCount := len(color.contactSims)
+	world := context.world
+	awakeSet := &world.solverSets[awakeSet]
+	states := awakeSet.bodyStates
+
+	invH := context.invH
+
+	// This is a dummy body to represent a static body since static bodies don't have a solver body.
+	dummyState := identityBodyState
+
+	for i := 0; i < contactCount; i++ {
+		constraint := &constraints[i]
+		mA := constraint.invMassA
+		iA := constraint.invIA
+		mB := constraint.invMassB
+		iB := constraint.invIB
+
+		indexA := constraint.indexA - 1
+		indexB := constraint.indexB - 1
+
+		stateA := &dummyState
+		if indexA != nullIndex {
+			stateA = &states[indexA]
+		}
+		vA := stateA.linearVelocity
+		wA := stateA.angularVelocity
+		dqA := stateA.deltaRotation
+
+		stateB := &dummyState
+		if indexB != nullIndex {
+			stateB = &states[indexB]
+		}
+		vB := stateB.linearVelocity
+		wB := stateB.angularVelocity
+		dqB := stateB.deltaRotation
+
+		dp := Sub(stateB.deltaPosition, stateA.deltaPosition)
+
+		normal := constraint.normal
+		tangent := RightPerp(normal)
+		friction := constraint.friction
+
+		pointCount := constraint.pointCount
+		totalNormalImpulse := float32(0.0)
+
+		for j := 0; j < pointCount; j++ {
+			cp := &constraint.points[j]
+
+			// fixed anchor points
+			rA := cp.anchorA
+			rB := cp.anchorB
+
+			// compute current separation
+			// this is subject to round-off error if the anchor is far from the body center of mass
+			ds := Add(dp, Sub(RotateVector(dqB, rB), RotateVector(dqA, rA)))
+			s := cp.baseSeparation + Dot(ds, normal)
+
+			// speculative bias, zero when overlapped
+			velocityBias := float32(0.0)
+			if s > 0.0 {
+				velocityBias = float32(s * invH)
+			}
+
+			// relative normal velocity at contact
+			vrA := Add(vA, CrossSV(wA, rA))
+			vrB := Add(vB, CrossSV(wB, rB))
+			vn := Dot(Sub(vrB, vrA), normal)
+
+			// incremental normal impulse
+			impulse := float32(-cp.normalMass * (vn + velocityBias))
+
+			// clamp the accumulated impulse
+			newImpulse := MaxFloat(cp.normalImpulse+impulse, 0.0)
+			impulse = newImpulse - cp.normalImpulse
+			cp.normalImpulse = newImpulse
+			cp.totalNormalImpulse += impulse
+
+			// This is used for rolling resistance
+			totalNormalImpulse += newImpulse
+
+			// apply normal impulse
+			P := MulSV(impulse, normal)
+			vA = MulSub(vA, mA, P)
+			wA -= float32(iA * Cross(rA, P))
+
+			vB = MulAdd(vB, mB, P)
+			wB += float32(iB * Cross(rB, P))
+		}
+
+		// Rolling resistance
+		{
+			deltaLambda := float32(-constraint.rollingMass * (wB - wA))
+			lambda := constraint.rollingImpulse
+			maxLambda := float32(constraint.rollingResistance * totalNormalImpulse)
+			constraint.rollingImpulse = ClampFloat(lambda+deltaLambda, -maxLambda, maxLambda)
+			deltaLambda = constraint.rollingImpulse - lambda
+
+			wA -= float32(iA * deltaLambda)
+			wB += float32(iB * deltaLambda)
+		}
+
+		// Friction
+		for j := 0; j < pointCount; j++ {
+			cp := &constraint.points[j]
+
+			// fixed anchor points
+			rA := cp.anchorA
+			rB := cp.anchorB
+
+			// relative tangent velocity at contact
+			vrB := Add(vB, CrossSV(wB, rB))
+			vrA := Add(vA, CrossSV(wA, rA))
+
+			// vt = dot(vrB - sB * tangent - (vrA + sA * tangent), tangent)
+			//    = dot(vrB - vrA, tangent) - (sA + sB)
+
+			vt := Dot(Sub(vrB, vrA), tangent) - constraint.tangentSpeed
+
+			// incremental tangent impulse
+			impulse := float32(cp.tangentMass * (-vt))
+
+			// clamp the accumulated force
+			maxFriction := float32(friction * cp.normalImpulse)
+			newImpulse := ClampFloat(cp.tangentImpulse+impulse, -maxFriction, maxFriction)
+			impulse = newImpulse - cp.tangentImpulse
+			cp.tangentImpulse = newImpulse
+
+			// apply tangent impulse
+			P := MulSV(impulse, tangent)
+			vA = MulSub(vA, mA, P)
+			wA -= float32(iA * Cross(rA, P))
+			vB = MulAdd(vB, mB, P)
+			wB += float32(iB * Cross(rB, P))
+		}
+
+		if stateA.flags&dynamicFlag != 0 {
+			stateA.linearVelocity = vA
+			stateA.angularVelocity = wA
+		}
+
+		if stateB.flags&dynamicFlag != 0 {
+			stateB.linearVelocity = vB
+			stateB.angularVelocity = wB
+		}
+	}
 }
 
 func applyRestitutionOverflow(context *stepContext) {
-	todo()
+	graph := context.graph
+	color := &graph.colors[overflowIndex]
+	constraints := color.overflowConstraints
+	contactCount := len(color.contactSims)
+	world := context.world
+	awakeSet := &world.solverSets[awakeSet]
+	states := awakeSet.bodyStates
+
+	threshold := world.restitutionThreshold
+	invH := context.invH
+	propagate := world.enableRestitutionPropagation
+
+	dummyState := identityBodyState
+
+	for i := 0; i < contactCount; i++ {
+		constraint := &constraints[i]
+		if propagate == false && constraint.restitution == 0.0 {
+			continue
+		}
+
+		mA := constraint.invMassA
+		iA := constraint.invIA
+		mB := constraint.invMassB
+		iB := constraint.invIB
+
+		indexA := constraint.indexA - 1
+		indexB := constraint.indexB - 1
+
+		stateA := &dummyState
+		if indexA != nullIndex {
+			stateA = &states[indexA]
+		}
+		vA := stateA.linearVelocity
+		wA := stateA.angularVelocity
+		dqA := stateA.deltaRotation
+
+		stateB := &dummyState
+		if indexB != nullIndex {
+			stateB = &states[indexB]
+		}
+		vB := stateB.linearVelocity
+		wB := stateB.angularVelocity
+		dqB := stateB.deltaRotation
+
+		dp := Sub(stateB.deltaPosition, stateA.deltaPosition)
+
+		normal := constraint.normal
+		restitution := constraint.restitution
+		pointCount := constraint.pointCount
+
+		for j := 0; j < pointCount; j++ {
+			cp := &constraint.points[j]
+
+			rA := cp.anchorA
+			rB := cp.anchorB
+
+			// The total normal impulse is 0 for speculative points.
+			compressionImpulse := cp.totalNormalImpulse - cp.restitutionImpulse
+			armed := restitution > 0.0 && cp.relativeVelocity < -threshold && compressionImpulse > 0.0
+
+			var velocityBias float32
+			if armed {
+				velocityBias = float32(restitution * cp.relativeVelocity)
+			} else {
+				ds := Add(dp, Sub(RotateVector(dqB, rB), RotateVector(dqA, rA)))
+				s := cp.baseSeparation + Dot(ds, normal)
+
+				if s > 0.0 {
+					velocityBias = float32(s * invH)
+				} else {
+					velocityBias = 0.0
+				}
+			}
+
+			vrA := Add(vA, CrossSV(wA, rA))
+			vrB := Add(vB, CrossSV(wB, rB))
+			vn := Dot(Sub(vrB, vrA), normal)
+
+			impulse := float32(-cp.normalMass * (vn + velocityBias))
+
+			newImpulse := MaxFloat(cp.normalImpulse+impulse, 0.0)
+			impulse = newImpulse - cp.normalImpulse
+
+			approachImpulse := float32(MinFloat(MaxFloat(-cp.normalMass*vn, 0.0), MaxFloat(impulse, 0.0)))
+
+			if armed {
+				// Poisson kinetic restitution guarantees no energy gain.
+				allowance := float32(restitution*(compressionImpulse+approachImpulse)) - cp.restitutionImpulse
+				impulse = MinFloat(impulse, approachImpulse+MaxFloat(allowance, 0.0))
+			}
+
+			cp.normalImpulse += impulse
+			cp.restitutionImpulse += impulse - approachImpulse
+			cp.totalNormalImpulse += impulse
+
+			P := MulSV(impulse, normal)
+			vA = MulSub(vA, mA, P)
+			wA -= float32(iA * Cross(rA, P))
+
+			vB = MulAdd(vB, mB, P)
+			wB += float32(iB * Cross(rB, P))
+		}
+
+		if stateA.flags&dynamicFlag != 0 {
+			stateA.linearVelocity = vA
+			stateA.angularVelocity = wA
+		}
+
+		if stateB.flags&dynamicFlag != 0 {
+			stateB.linearVelocity = vB
+			stateB.angularVelocity = wB
+		}
+	}
 }
 
 func storeImpulsesOverflow(context *stepContext) {
-	todo()
+	world := context.world
+	graph := context.graph
+	color := &graph.colors[overflowIndex]
+	constraints := color.overflowConstraints
+	contactSims := color.contactSims
+	taskContext := &world.taskContexts[0]
+	hitEventBitSet := &taskContext.hitEventBitSet
+	contactCount := len(color.contactSims)
+	negHitThreshold := -world.hitEventThreshold
+	hasHitEvents := taskContext.hasHitEvents
+
+	for i := 0; i < contactCount; i++ {
+		constraint := &constraints[i]
+		contactSim := &contactSims[i]
+		manifold := &contactSim.manifold
+		pointCount := manifold.PointCount
+
+		for j := 0; j < pointCount; j++ {
+			mp := &manifold.Points[j]
+			mp.NormalImpulse = constraint.points[j].normalImpulse
+			mp.TangentImpulse = constraint.points[j].tangentImpulse
+			mp.TotalNormalImpulse = constraint.points[j].totalNormalImpulse
+		}
+
+		if contactSim.simFlags&simEnableHitEvent != 0 {
+			for j := 0; j < contactSim.manifold.PointCount; j++ {
+				mp := &manifold.Points[j]
+
+				// Need to check total impulse because the point may be speculative and not colliding
+				if mp.NormalVelocity < negHitThreshold && mp.TotalNormalImpulse > 0.0 {
+					setBit(hitEventBitSet, uint32(contactSim.contactID))
+					hasHitEvents = true
+					break
+				}
+			}
+		}
+
+		manifold.RollingImpulse = constraint.rollingImpulse
+	}
+
+	taskContext.hasHitEvents = hasHitEvents
 }
 
 func zeroW() floatW {
-	todo()
-	return floatW{}
+	return floatW{0.0, 0.0, 0.0, 0.0}
 }
 
 func splatW(scalar float32) floatW {
-	todo()
-	return floatW{}
+	return floatW{scalar, scalar, scalar, scalar}
 }
 
 func setW(a float32, b float32, c float32, d float32) floatW {
-	todo()
-	return floatW{}
+	return floatW{a, b, c, d}
 }
 
 func negW(a floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{-a.x, -a.y, -a.z, -a.w}
 }
 
 func addW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w}
 }
 
 func subW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w}
 }
 
 func mulW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{float32(a.x * b.x), float32(a.y * b.y), float32(a.z * b.z), float32(a.w * b.w)}
 }
 
 func divW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w}
 }
 
 func mulAddW(a floatW, b floatW, c floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{a.x + float32(b.x*c.x), a.y + float32(b.y*c.y), a.z + float32(b.z*c.z), a.w + float32(b.w*c.w)}
 }
 
 func mulSubW(a floatW, b floatW, c floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{a.x - float32(b.x*c.x), a.y - float32(b.y*c.y), a.z - float32(b.z*c.z), a.w - float32(b.w*c.w)}
 }
 
 func minW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	var r floatW
+	if a.x <= b.x {
+		r.x = a.x
+	} else {
+		r.x = b.x
+	}
+	if a.y <= b.y {
+		r.y = a.y
+	} else {
+		r.y = b.y
+	}
+	if a.z <= b.z {
+		r.z = a.z
+	} else {
+		r.z = b.z
+	}
+	if a.w <= b.w {
+		r.w = a.w
+	} else {
+		r.w = b.w
+	}
+	return r
 }
 
 func maxW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	var r floatW
+	if a.x >= b.x {
+		r.x = a.x
+	} else {
+		r.x = b.x
+	}
+	if a.y >= b.y {
+		r.y = a.y
+	} else {
+		r.y = b.y
+	}
+	if a.z >= b.z {
+		r.z = a.z
+	} else {
+		r.z = b.z
+	}
+	if a.w >= b.w {
+		r.w = a.w
+	} else {
+		r.w = b.w
+	}
+	return r
 }
 
+// a = clamp(a, -b, b)
 func symClampW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	var r floatW
+	r.x = ClampFloat(a.x, -b.x, b.x)
+	r.y = ClampFloat(a.y, -b.y, b.y)
+	r.z = ClampFloat(a.z, -b.z, b.z)
+	r.w = ClampFloat(a.w, -b.w, b.w)
+	return r
 }
 
 func andW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	var r floatW
+	if a.x != 0.0 && b.x != 0.0 {
+		r.x = 1.0
+	} else {
+		r.x = 0.0
+	}
+	if a.y != 0.0 && b.y != 0.0 {
+		r.y = 1.0
+	} else {
+		r.y = 0.0
+	}
+	if a.z != 0.0 && b.z != 0.0 {
+		r.z = 1.0
+	} else {
+		r.z = 0.0
+	}
+	if a.w != 0.0 && b.w != 0.0 {
+		r.w = 1.0
+	} else {
+		r.w = 0.0
+	}
+	return r
 }
 
 func greaterThanW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	var r floatW
+	if a.x > b.x {
+		r.x = 1.0
+	} else {
+		r.x = 0.0
+	}
+	if a.y > b.y {
+		r.y = 1.0
+	} else {
+		r.y = 0.0
+	}
+	if a.z > b.z {
+		r.z = 1.0
+	} else {
+		r.z = 0.0
+	}
+	if a.w > b.w {
+		r.w = 1.0
+	} else {
+		r.w = 0.0
+	}
+	return r
 }
 
 func lessThanW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	var r floatW
+	if a.x < b.x {
+		r.x = 1.0
+	} else {
+		r.x = 0.0
+	}
+	if a.y < b.y {
+		r.y = 1.0
+	} else {
+		r.y = 0.0
+	}
+	if a.z < b.z {
+		r.z = 1.0
+	} else {
+		r.z = 0.0
+	}
+	if a.w < b.w {
+		r.w = 1.0
+	} else {
+		r.w = 0.0
+	}
+	return r
 }
 
 func anyTrueW(mask floatW) bool {
-	todo()
-	return false
+	return mask.x != 0.0 || mask.y != 0.0 || mask.z != 0.0 || mask.w != 0.0
 }
 
 func allZeroW(a floatW) bool {
-	todo()
-	return false
-}
-
-func blendW(a floatW, b floatW, mask floatW) floatW {
-	todo()
-	return floatW{}
+	return a.x == 0.0 && a.y == 0.0 && a.z == 0.0 && a.w == 0.0
 }
 
 func loadU(data []float32) floatW {
-	todo()
-	return floatW{}
+	return floatW{data[0], data[1], data[2], data[3]}
 }
 
 func storeW(data []float32, a floatW) {
-	todo()
+	data[0] = a.x
+	data[1] = a.y
+	data[2] = a.z
+	data[3] = a.w
 }
 
-func softMaskW(indexA []int, indexB []int) floatW {
-	todo()
-	return floatW{}
+// component-wise returns mask ? b : a
+func blendW(a floatW, b floatW, mask floatW) floatW {
+	var r floatW
+	if mask.x != 0.0 {
+		r.x = b.x
+	} else {
+		r.x = a.x
+	}
+	if mask.y != 0.0 {
+		r.y = b.y
+	} else {
+		r.y = a.y
+	}
+	if mask.z != 0.0 {
+		r.z = b.z
+	} else {
+		r.z = a.z
+	}
+	if mask.w != 0.0 {
+		r.w = b.w
+	} else {
+		r.w = a.w
+	}
+	return r
 }
 
 func unpackLoW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{a.x, b.x, a.y, b.y}
 }
 
 func unpackHiW(a floatW, b floatW) floatW {
-	todo()
-	return floatW{}
+	return floatW{a.z, b.z, a.w, b.w}
 }
 
+func softMaskW(indexA []int, indexB []int) floatW {
+	var r floatW
+	if indexA[0] == 0 || indexB[0] == 0 {
+		r.x = 1.0
+	} else {
+		r.x = 0.0
+	}
+	if indexA[1] == 0 || indexB[1] == 0 {
+		r.y = 1.0
+	} else {
+		r.y = 0.0
+	}
+	if indexA[2] == 0 || indexB[2] == 0 {
+		r.z = 1.0
+	} else {
+		r.z = 0.0
+	}
+	if indexA[3] == 0 || indexB[3] == 0 {
+		r.w = 1.0
+	} else {
+		r.w = 0.0
+	}
+	return r
+}
 func subVW(a vec2W, b vec2W) vec2W {
-	todo()
-	return vec2W{}
+	return vec2W{x: subW(a.x, b.x), y: subW(a.y, b.y)}
 }
 
 func rightPerpW(a vec2W) vec2W {
-	todo()
-	return vec2W{}
+	return vec2W{x: a.y, y: negW(a.x)}
 }
 
 func dotW(a vec2W, b vec2W) floatW {
-	todo()
-	return floatW{}
+	return addW(mulW(a.x, b.x), mulW(a.y, b.y))
 }
 
 func crossW(a vec2W, b vec2W) floatW {
-	todo()
-	return floatW{}
+	return subW(mulW(a.x, b.y), mulW(a.y, b.x))
 }
 
 func rotateVectorW(q rotW, v vec2W) vec2W {
-	todo()
-	return vec2W{}
+	return vec2W{subW(mulW(q.c, v.x), mulW(q.s, v.y)), addW(mulW(q.s, v.x), mulW(q.c, v.y))}
 }
 
 func getWideContactConstraintByteCount() int {
-	todo()
-	return 0
+	return int(unsafe.Sizeof(contactConstraintWide{}))
 }
 
 func gatherBodies(states []bodyState, indices []int) bodyStateW {
-	todo()
-	return bodyStateW{}
+	validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
+
+	identity := identityBodyState
+
+	// zero means null
+	i1 := indices[0] - 1
+	i2 := indices[1] - 1
+	i3 := indices[2] - 1
+	i4 := indices[3] - 1
+
+	s1 := identity
+	if i1 != nullIndex {
+		s1 = states[i1]
+	}
+	s2 := identity
+	if i2 != nullIndex {
+		s2 = states[i2]
+	}
+	s3 := identity
+	if i3 != nullIndex {
+		s3 = states[i3]
+	}
+	s4 := identity
+	if i4 != nullIndex {
+		s4 = states[i4]
+	}
+
+	var simdBody bodyStateW
+	simdBody.v.x = floatW{s1.linearVelocity.X, s2.linearVelocity.X, s3.linearVelocity.X, s4.linearVelocity.X}
+	simdBody.v.y = floatW{s1.linearVelocity.Y, s2.linearVelocity.Y, s3.linearVelocity.Y, s4.linearVelocity.Y}
+	simdBody.w = floatW{s1.angularVelocity, s2.angularVelocity, s3.angularVelocity, s4.angularVelocity}
+	simdBody.flags = floatW{float32(s1.flags), float32(s2.flags), float32(s3.flags), float32(s4.flags)}
+	simdBody.dp.x = floatW{s1.deltaPosition.X, s2.deltaPosition.X, s3.deltaPosition.X, s4.deltaPosition.X}
+	simdBody.dp.y = floatW{s1.deltaPosition.Y, s2.deltaPosition.Y, s3.deltaPosition.Y, s4.deltaPosition.Y}
+	simdBody.dq.c = floatW{s1.deltaRotation.C, s2.deltaRotation.C, s3.deltaRotation.C, s4.deltaRotation.C}
+	simdBody.dq.s = floatW{s1.deltaRotation.S, s2.deltaRotation.S, s3.deltaRotation.S, s4.deltaRotation.S}
+
+	return simdBody
 }
 
+// This writes only the velocities back to the solver bodies
 func scatterBodies(states []bodyState, indices []int, simdBody *bodyStateW) {
-	todo()
+	validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
+
+	// zero means null
+	i1 := indices[0] - 1
+	i2 := indices[1] - 1
+	i3 := indices[2] - 1
+	i4 := indices[3] - 1
+
+	if i1 != nullIndex && (states[i1].flags&dynamicFlag != 0) {
+		state := &states[i1]
+		state.linearVelocity.X = simdBody.v.x.x
+		state.linearVelocity.Y = simdBody.v.y.x
+		state.angularVelocity = simdBody.w.x
+	}
+
+	if i2 != nullIndex && (states[i2].flags&dynamicFlag != 0) {
+		state := &states[i2]
+		state.linearVelocity.X = simdBody.v.x.y
+		state.linearVelocity.Y = simdBody.v.y.y
+		state.angularVelocity = simdBody.w.y
+	}
+
+	if i3 != nullIndex && (states[i3].flags&dynamicFlag != 0) {
+		state := &states[i3]
+		state.linearVelocity.X = simdBody.v.x.z
+		state.linearVelocity.Y = simdBody.v.y.z
+		state.angularVelocity = simdBody.w.z
+	}
+
+	if i4 != nullIndex && (states[i4].flags&dynamicFlag != 0) {
+		state := &states[i4]
+		state.linearVelocity.X = simdBody.v.x.w
+		state.linearVelocity.Y = simdBody.v.y.w
+		state.angularVelocity = simdBody.w.w
+	}
 }
 
+// Prepare wide contact constraints.
+// Potential optimization: for SSE2 load 4 manifold points and transpose, like the body gather/scatter.
+// I would need to reorder the manifold point so that constraint data comes first.
 func prepareContactsWide(block solverBlock, context *stepContext) {
-	todo()
+	world := context.world
+	states := context.states
+	spans := context.contactPrepareSpans
+	wideBase := context.wideContactConstraints
+
+	zero := zeroW()
+	oneW := splatW(1.0)
+	warmStartScale := zero
+	if world.enableWarmStarting {
+		warmStartScale = oneW
+	}
+	anyRestitution := false
+
+	wideIndex := block.startIndex
+	endWideIndex := block.startIndex + int(block.count)
+
+	// Find color for start index. Linear search but fast.
+	colorIndex := 0
+	for spans[colorIndex+1].start <= wideIndex {
+		colorIndex += 1
+	}
+
+	// Loop over block
+	for wideIndex < endWideIndex {
+		colorWideStart := spans[colorIndex].start
+		colorWideEndIndex := MinInt(spans[colorIndex+1].start, endWideIndex)
+		colorContactCount := spans[colorIndex].count
+		contactSims := spans[colorIndex].contacts
+
+		if validationEnabled {
+			expectedWide := 0
+			if colorContactCount > 0 {
+				expectedWide = ((colorContactCount - 1) >> simdShift) + 1
+			}
+			assert(spans[colorIndex+1].start-spans[colorIndex].start == expectedWide, "spans[colorIndex + 1].start - spans[colorIndex].start == expectedWide")
+		}
+
+		// Loop over color
+		for ; wideIndex < colorWideEndIndex; wideIndex++ {
+			cw := &wideBase[wideIndex]
+			localWideIndex := wideIndex - colorWideStart
+
+			var contactLanes [simdWidth]*contactSim
+			hitEvents := uint32(0)
+
+			for laneIndex := 0; laneIndex < simdWidth; laneIndex++ {
+				contactIndex := simdWidth*localWideIndex + laneIndex
+				if contactIndex < colorContactCount {
+					c := &contactSims[contactIndex]
+					contactLanes[laneIndex] = c
+
+					// index base-1
+					cw.indexA[laneIndex] = decodeAwakeIndex(c.encodedBodySimA) + 1
+					cw.indexB[laneIndex] = decodeAwakeIndex(c.encodedBodySimB) + 1
+					hitEvents |= (c.simFlags & simEnableHitEvent)
+
+					if validationEnabled {
+						bodyA := &world.bodies[c.bodyIDA]
+						bodyB := &world.bodies[c.bodyIDB]
+						assert(c.encodedBodySimA == encodeBodySimIndex(bodyA), "c.encodedBodySimA == encodeBodySimIndex( bodyA )")
+						assert(c.encodedBodySimB == encodeBodySimIndex(bodyB), "c.encodedBodySimB == encodeBodySimIndex( bodyB )")
+					}
+				} else {
+					contactLanes[laneIndex] = &zeroContactSim
+				}
+			}
+
+			cw.invMassA = setW(contactLanes[0].invMassA, contactLanes[1].invMassA, contactLanes[2].invMassA, contactLanes[3].invMassA)
+			cw.invMassB = setW(contactLanes[0].invMassB, contactLanes[1].invMassB, contactLanes[2].invMassB, contactLanes[3].invMassB)
+			cw.invIA = setW(contactLanes[0].invIA, contactLanes[1].invIA, contactLanes[2].invIA, contactLanes[3].invIA)
+			cw.invIB = setW(contactLanes[0].invIB, contactLanes[1].invIB, contactLanes[2].invIB, contactLanes[3].invIB)
+			cw.normal.x = setW(contactLanes[0].manifold.Normal.X, contactLanes[1].manifold.Normal.X, contactLanes[2].manifold.Normal.X, contactLanes[3].manifold.Normal.X)
+			cw.normal.y = setW(contactLanes[0].manifold.Normal.Y, contactLanes[1].manifold.Normal.Y, contactLanes[2].manifold.Normal.Y, contactLanes[3].manifold.Normal.Y)
+			cw.friction = setW(contactLanes[0].friction, contactLanes[1].friction, contactLanes[2].friction, contactLanes[3].friction)
+			cw.tangentSpeed = setW(contactLanes[0].tangentSpeed, contactLanes[1].tangentSpeed, contactLanes[2].tangentSpeed, contactLanes[3].tangentSpeed)
+			cw.rollingResistance = setW(contactLanes[0].rollingResistance, contactLanes[1].rollingResistance, contactLanes[2].rollingResistance, contactLanes[3].rollingResistance)
+			cw.rollingImpulse = setW(contactLanes[0].manifold.RollingImpulse, contactLanes[1].manifold.RollingImpulse, contactLanes[2].manifold.RollingImpulse, contactLanes[3].manifold.RollingImpulse)
+			cw.rollingImpulse = mulW(warmStartScale, cw.rollingImpulse)
+
+			cw.restitution = setW(contactLanes[0].restitution, contactLanes[1].restitution, contactLanes[2].restitution, contactLanes[3].restitution)
+
+			tangent := rightPerpW(cw.normal)
+
+			var pointCounts floatW
+			pointCounts = setW(float32(contactLanes[0].manifold.PointCount), float32(contactLanes[1].manifold.PointCount), float32(contactLanes[2].manifold.PointCount), float32(contactLanes[3].manifold.PointCount))
+			twoPointMask := greaterThanW(pointCounts, oneW)
+
+			{
+				// Optimized transpose gather. Similar to gatherBodies.
+				m1a := setW(contactLanes[0].manifold.Points[0].AnchorA.X, contactLanes[0].manifold.Points[0].AnchorA.Y, contactLanes[0].manifold.Points[0].AnchorB.X, contactLanes[0].manifold.Points[0].AnchorB.Y)
+				m1b := setW(contactLanes[0].manifold.Points[0].Separation, contactLanes[0].manifold.Points[0].NormalImpulse, contactLanes[0].manifold.Points[0].TangentImpulse, contactLanes[0].manifold.Points[0].TotalNormalImpulse)
+				m2a := setW(contactLanes[1].manifold.Points[0].AnchorA.X, contactLanes[1].manifold.Points[0].AnchorA.Y, contactLanes[1].manifold.Points[0].AnchorB.X, contactLanes[1].manifold.Points[0].AnchorB.Y)
+				m2b := setW(contactLanes[1].manifold.Points[0].Separation, contactLanes[1].manifold.Points[0].NormalImpulse, contactLanes[1].manifold.Points[0].TangentImpulse, contactLanes[1].manifold.Points[0].TotalNormalImpulse)
+				m3a := setW(contactLanes[2].manifold.Points[0].AnchorA.X, contactLanes[2].manifold.Points[0].AnchorA.Y, contactLanes[2].manifold.Points[0].AnchorB.X, contactLanes[2].manifold.Points[0].AnchorB.Y)
+				m3b := setW(contactLanes[2].manifold.Points[0].Separation, contactLanes[2].manifold.Points[0].NormalImpulse, contactLanes[2].manifold.Points[0].TangentImpulse, contactLanes[2].manifold.Points[0].TotalNormalImpulse)
+				m4a := setW(contactLanes[3].manifold.Points[0].AnchorA.X, contactLanes[3].manifold.Points[0].AnchorA.Y, contactLanes[3].manifold.Points[0].AnchorB.X, contactLanes[3].manifold.Points[0].AnchorB.Y)
+				m4b := setW(contactLanes[3].manifold.Points[0].Separation, contactLanes[3].manifold.Points[0].NormalImpulse, contactLanes[3].manifold.Points[0].TangentImpulse, contactLanes[3].manifold.Points[0].TotalNormalImpulse)
+
+				t1a := unpackLoW(m1a, m3a)
+				t2a := unpackLoW(m2a, m4a)
+				t3a := unpackHiW(m1a, m3a)
+				t4a := unpackHiW(m2a, m4a)
+				t1b := unpackLoW(m1b, m3b)
+				t2b := unpackLoW(m2b, m4b)
+				t3b := unpackHiW(m1b, m3b)
+				t4b := unpackHiW(m2b, m4b)
+
+				cw.anchorA1.x = unpackLoW(t1a, t2a)
+				cw.anchorA1.y = unpackHiW(t1a, t2a)
+				cw.anchorB1.x = unpackLoW(t3a, t4a)
+				cw.anchorB1.y = unpackHiW(t3a, t4a)
+				cw.baseSeparation1 = unpackLoW(t1b, t2b)
+				cw.normalImpulse1 = unpackHiW(t1b, t2b)
+				cw.tangentImpulse1 = unpackLoW(t3b, t4b)
+
+				// separation1 = cw.baseSeparation1;
+
+				offset := dotW(subVW(cw.anchorB1, cw.anchorA1), cw.normal)
+				cw.baseSeparation1 = subW(cw.baseSeparation1, offset)
+				cw.normalImpulse1 = mulW(warmStartScale, cw.normalImpulse1)
+				cw.tangentImpulse1 = mulW(warmStartScale, cw.tangentImpulse1)
+				cw.totalNormalImpulse1 = zero
+				cw.relativeVelocity1 = zero
+				cw.restitutionImpulse1 = zero
+
+				// Effective mass along normal.
+				{
+					rnA := crossW(cw.anchorA1, cw.normal)
+					rnB := crossW(cw.anchorB1, cw.normal)
+					k := addW(cw.invMassA, cw.invMassB)
+					k = mulAddW(k, cw.invIA, mulW(rnA, rnA))
+					k = mulAddW(k, cw.invIB, mulW(rnB, rnB))
+					test := greaterThanW(k, zeroW())
+					cw.normalMass1 = blendW(zeroW(), divW(oneW, k), test)
+				}
+
+				// Effective mass along tangent.
+				{
+					rtA := crossW(cw.anchorA1, tangent)
+					rtB := crossW(cw.anchorB1, tangent)
+					k := addW(cw.invMassA, cw.invMassB)
+					k = mulAddW(k, cw.invIA, mulW(rtA, rtA))
+					k = mulAddW(k, cw.invIB, mulW(rtB, rtB))
+					test := greaterThanW(k, zeroW())
+					cw.tangentMass1 = blendW(zeroW(), divW(oneW, k), test)
+				}
+			}
+
+			{
+				m1a := setW(contactLanes[0].manifold.Points[1].AnchorA.X, contactLanes[0].manifold.Points[1].AnchorA.Y, contactLanes[0].manifold.Points[1].AnchorB.X, contactLanes[0].manifold.Points[1].AnchorB.Y)
+				m1b := setW(contactLanes[0].manifold.Points[1].Separation, contactLanes[0].manifold.Points[1].NormalImpulse, contactLanes[0].manifold.Points[1].TangentImpulse, contactLanes[0].manifold.Points[1].TotalNormalImpulse)
+				m2a := setW(contactLanes[1].manifold.Points[1].AnchorA.X, contactLanes[1].manifold.Points[1].AnchorA.Y, contactLanes[1].manifold.Points[1].AnchorB.X, contactLanes[1].manifold.Points[1].AnchorB.Y)
+				m2b := setW(contactLanes[1].manifold.Points[1].Separation, contactLanes[1].manifold.Points[1].NormalImpulse, contactLanes[1].manifold.Points[1].TangentImpulse, contactLanes[1].manifold.Points[1].TotalNormalImpulse)
+				m3a := setW(contactLanes[2].manifold.Points[1].AnchorA.X, contactLanes[2].manifold.Points[1].AnchorA.Y, contactLanes[2].manifold.Points[1].AnchorB.X, contactLanes[2].manifold.Points[1].AnchorB.Y)
+				m3b := setW(contactLanes[2].manifold.Points[1].Separation, contactLanes[2].manifold.Points[1].NormalImpulse, contactLanes[2].manifold.Points[1].TangentImpulse, contactLanes[2].manifold.Points[1].TotalNormalImpulse)
+				m4a := setW(contactLanes[3].manifold.Points[1].AnchorA.X, contactLanes[3].manifold.Points[1].AnchorA.Y, contactLanes[3].manifold.Points[1].AnchorB.X, contactLanes[3].manifold.Points[1].AnchorB.Y)
+				m4b := setW(contactLanes[3].manifold.Points[1].Separation, contactLanes[3].manifold.Points[1].NormalImpulse, contactLanes[3].manifold.Points[1].TangentImpulse, contactLanes[3].manifold.Points[1].TotalNormalImpulse)
+
+				t1a := unpackLoW(m1a, m3a)
+				t2a := unpackLoW(m2a, m4a)
+				t3a := unpackHiW(m1a, m3a)
+				t4a := unpackHiW(m2a, m4a)
+				t1b := unpackLoW(m1b, m3b)
+				t2b := unpackLoW(m2b, m4b)
+				t3b := unpackHiW(m1b, m3b)
+				t4b := unpackHiW(m2b, m4b)
+
+				cw.anchorA2.x = unpackLoW(t1a, t2a)
+				cw.anchorA2.y = unpackHiW(t1a, t2a)
+				cw.anchorB2.x = unpackLoW(t3a, t4a)
+				cw.anchorB2.y = unpackHiW(t3a, t4a)
+				cw.baseSeparation2 = unpackLoW(t1b, t2b)
+				cw.normalImpulse2 = unpackHiW(t1b, t2b)
+				cw.tangentImpulse2 = unpackLoW(t3b, t4b)
+
+				// separation2 = cw.baseSeparation2;
+
+				offset := dotW(subVW(cw.anchorB2, cw.anchorA2), cw.normal)
+				cw.baseSeparation2 = subW(cw.baseSeparation2, offset)
+				cw.normalImpulse2 = mulW(warmStartScale, cw.normalImpulse2)
+				cw.tangentImpulse2 = mulW(warmStartScale, cw.tangentImpulse2)
+				cw.totalNormalImpulse2 = zero
+				cw.relativeVelocity2 = zero
+				cw.restitutionImpulse2 = zero
+
+				// Effective mass along normal.
+				{
+					rnA := crossW(cw.anchorA2, cw.normal)
+					rnB := crossW(cw.anchorB2, cw.normal)
+					k := addW(cw.invMassA, cw.invMassB)
+					k = mulAddW(k, cw.invIA, mulW(rnA, rnA))
+					k = mulAddW(k, cw.invIB, mulW(rnB, rnB))
+					test := greaterThanW(k, zeroW())
+					cw.normalMass2 = blendW(zeroW(), divW(oneW, k), test)
+				}
+
+				// Effective mass along tangent.
+				{
+					rtA := crossW(cw.anchorA2, tangent)
+					rtB := crossW(cw.anchorB2, tangent)
+					k := addW(cw.invMassA, cw.invMassB)
+					k = mulAddW(k, cw.invIA, mulW(rtA, rtA))
+					k = mulAddW(k, cw.invIB, mulW(rtB, rtB))
+					test := greaterThanW(k, zeroW())
+					cw.tangentMass2 = blendW(zeroW(), divW(oneW, k), test)
+				}
+
+				// Zero effective mass on lanes that only have one point.
+				cw.normalMass2 = blendW(zero, cw.normalMass2, twoPointMask)
+				cw.tangentMass2 = blendW(zero, cw.tangentMass2, twoPointMask)
+			}
+
+			// Only sample contact point normal velocity if needed.
+			restitutionMask := greaterThanW(cw.restitution, zero)
+			haveRestitution := anyTrueW(restitutionMask)
+			anyRestitution = anyRestitution || haveRestitution
+
+			if (hitEvents&simEnableHitEvent) != 0 || haveRestitution {
+				bA := gatherBodies(states, cw.indexA[:])
+				bB := gatherBodies(states, cw.indexB[:])
+
+				{
+					rA := cw.anchorA1
+					rB := cw.anchorB1
+
+					// Relative velocity at contact
+					dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+					dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+					vn := addW(mulW(dvx, cw.normal.x), mulW(dvy, cw.normal.y))
+					cw.relativeVelocity1 = vn
+
+					var normalVelocities [simdWidth]float32
+					storeW(normalVelocities[:], vn)
+
+					for lane := 0; lane < simdWidth; lane++ {
+						// Check the point count to avoid a race writing to zeroContactSim.
+						if contactLanes[lane].manifold.PointCount > 0 {
+							contactLanes[lane].manifold.Points[0].NormalVelocity = normalVelocities[lane]
+						}
+					}
+				}
+
+				{
+					rA := cw.anchorA2
+					rB := cw.anchorB2
+
+					// Relative velocity at contact
+					dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+					dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+					vn := addW(mulW(dvx, cw.normal.x), mulW(dvy, cw.normal.y))
+					cw.relativeVelocity2 = vn
+
+					var normalVelocities [simdWidth]float32
+					storeW(normalVelocities[:], vn)
+
+					for lane := 0; lane < simdWidth; lane++ {
+						if contactLanes[lane].manifold.PointCount > 1 {
+							contactLanes[lane].manifold.Points[1].NormalVelocity = normalVelocities[lane]
+						}
+					}
+				}
+			}
+		}
+
+		// Advance to next color
+		colorIndex += 1
+	}
+
+	if anyRestitution {
+		context.anyRestitution.Store(1)
+	}
 }
 
 func warmStartContactsWide(block solverBlock, context *stepContext) {
-	todo()
+	states := context.states
+	constraints := context.graph.colors[block.colorIndex].wideConstraints
+
+	for i := block.startIndex; i < block.startIndex+int(block.count); i++ {
+		c := &constraints[i]
+		bA := gatherBodies(states, c.indexA[:])
+		bB := gatherBodies(states, c.indexB[:])
+
+		tangentX := c.normal.y
+		tangentY := subW(zeroW(), c.normal.x)
+
+		{
+			// fixed anchors
+			rA := c.anchorA1
+			rB := c.anchorB1
+
+			var P vec2W
+			P.x = addW(mulW(c.normalImpulse1, c.normal.x), mulW(c.tangentImpulse1, tangentX))
+			P.y = addW(mulW(c.normalImpulse1, c.normal.y), mulW(c.tangentImpulse1, tangentY))
+			bA.w = mulSubW(bA.w, c.invIA, crossW(rA, P))
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, P.x)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, P.y)
+			bB.w = mulAddW(bB.w, c.invIB, crossW(rB, P))
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, P.x)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, P.y)
+
+			c.totalNormalImpulse1 = addW(c.totalNormalImpulse1, c.normalImpulse1)
+		}
+
+		{
+			// fixed anchors
+			rA := c.anchorA2
+			rB := c.anchorB2
+
+			var P vec2W
+			P.x = addW(mulW(c.normalImpulse2, c.normal.x), mulW(c.tangentImpulse2, tangentX))
+			P.y = addW(mulW(c.normalImpulse2, c.normal.y), mulW(c.tangentImpulse2, tangentY))
+			bA.w = mulSubW(bA.w, c.invIA, crossW(rA, P))
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, P.x)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, P.y)
+			bB.w = mulAddW(bB.w, c.invIB, crossW(rB, P))
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, P.x)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, P.y)
+
+			c.totalNormalImpulse2 = addW(c.totalNormalImpulse2, c.normalImpulse2)
+		}
+
+		bA.w = mulSubW(bA.w, c.invIA, c.rollingImpulse)
+		bB.w = mulAddW(bB.w, c.invIB, c.rollingImpulse)
+
+		scatterBodies(states, c.indexA[:], &bA)
+		scatterBodies(states, c.indexB[:], &bB)
+	}
 }
 
 func pushContactsWide(block solverBlock, context *stepContext) {
-	todo()
+	states := context.states
+	color := &context.graph.colors[block.colorIndex]
+	constraints := color.wideConstraints
+	invH := splatW(context.invH)
+	contactSpeed := splatW(-context.world.contactSpeed)
+	oneW := splatW(1.0)
+
+	dynamicBiasRate := splatW(context.contactSoftness.massScale * context.contactSoftness.biasRate)
+	dynamicMassScale := splatW(context.contactSoftness.massScale)
+	dynamicImpulseScale := splatW(context.contactSoftness.impulseScale)
+	staticBiasRate := splatW(context.staticSoftness.massScale * context.staticSoftness.biasRate)
+	staticMassScale := splatW(context.staticSoftness.massScale)
+	staticImpulseScale := splatW(context.staticSoftness.impulseScale)
+
+	for wideIndex := block.startIndex; wideIndex < block.startIndex+int(block.count); wideIndex++ {
+		c := &constraints[wideIndex]
+
+		bA := gatherBodies(states, c.indexA[:])
+		bB := gatherBodies(states, c.indexB[:])
+
+		softMask := softMaskW(c.indexA[:], c.indexB[:])
+		biasRate := blendW(dynamicBiasRate, staticBiasRate, softMask)
+		massScale := blendW(dynamicMassScale, staticMassScale, softMask)
+		impulseScale := blendW(dynamicImpulseScale, staticImpulseScale, softMask)
+
+		dp := vec2W{subW(bB.dp.x, bA.dp.x), subW(bB.dp.y, bA.dp.y)}
+
+		// point1 non-penetration constraint
+		{
+			// Fixed anchors for impulses
+			rA := c.anchorA1
+			rB := c.anchorB1
+
+			// Moving anchors for current separation
+			rsA := rotateVectorW(bA.dq, rA)
+			rsB := rotateVectorW(bB.dq, rB)
+
+			// compute current separation
+			// this is subject to round-off error if the anchor is far from the body center of mass
+			ds := vec2W{addW(dp.x, subW(rsB.x, rsA.x)), addW(dp.y, subW(rsB.y, rsA.y))}
+			s := addW(dotW(c.normal, ds), c.baseSeparation1)
+
+			// Apply speculative bias if separation is greater than zero, otherwise apply soft constraint bias
+			// The contactSpeed is meant to limit stiffness, not increase it.
+			separated := greaterThanW(s, zeroW())
+
+			// Speculative bias - positive
+			specBias := mulW(s, invH)
+
+			// Overlap bias - negative when overlapped
+			overlapBias := maxW(mulW(biasRate, s), contactSpeed)
+
+			// velocity bias = s > 0 ? spec : overlap
+			velocityBias := blendW(overlapBias, specBias, separated)
+
+			pointMassScale := blendW(massScale, oneW, separated)
+			pointImpulseScale := blendW(impulseScale, zeroW(), separated)
+
+			// Relative velocity at contact
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vn := addW(mulW(dvx, c.normal.x), mulW(dvy, c.normal.y))
+
+			// Compute normal impulse
+			negImpulse := addW(mulW(c.normalMass1, addW(mulW(pointMassScale, vn), velocityBias)), mulW(pointImpulseScale, c.normalImpulse1))
+
+			// Clamp the accumulated impulse
+			newImpulse := maxW(subW(c.normalImpulse1, negImpulse), zeroW())
+			impulse := subW(newImpulse, c.normalImpulse1)
+			c.normalImpulse1 = newImpulse
+			c.totalNormalImpulse1 = addW(c.totalNormalImpulse1, impulse)
+
+			// Apply contact impulse
+			Px := mulW(impulse, c.normal.x)
+			Py := mulW(impulse, c.normal.y)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		// second point non-penetration constraint
+		{
+			// moving anchors for current separation
+			rsA := rotateVectorW(bA.dq, c.anchorA2)
+			rsB := rotateVectorW(bB.dq, c.anchorB2)
+
+			// compute current separation
+			ds := vec2W{addW(dp.x, subW(rsB.x, rsA.x)), addW(dp.y, subW(rsB.y, rsA.y))}
+			s := addW(dotW(c.normal, ds), c.baseSeparation2)
+
+			separated := greaterThanW(s, zeroW())
+
+			specBias := mulW(s, invH)
+			overlapBias := maxW(mulW(biasRate, s), contactSpeed)
+			velocityBias := blendW(overlapBias, specBias, separated)
+
+			pointMassScale := blendW(massScale, oneW, separated)
+			pointImpulseScale := blendW(impulseScale, zeroW(), separated)
+
+			// fixed anchors for Jacobians
+			rA := c.anchorA2
+			rB := c.anchorB2
+
+			// Relative velocity at contact
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vn := addW(mulW(dvx, c.normal.x), mulW(dvy, c.normal.y))
+
+			// Compute normal impulse
+			negImpulse := addW(mulW(c.normalMass2, addW(mulW(pointMassScale, vn), velocityBias)), mulW(pointImpulseScale, c.normalImpulse2))
+
+			// Clamp the accumulated impulse
+			newImpulse := maxW(subW(c.normalImpulse2, negImpulse), zeroW())
+			impulse := subW(newImpulse, c.normalImpulse2)
+			c.normalImpulse2 = newImpulse
+			c.totalNormalImpulse2 = addW(c.totalNormalImpulse2, impulse)
+
+			// Apply contact impulse
+			Px := mulW(impulse, c.normal.x)
+			Py := mulW(impulse, c.normal.y)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		scatterBodies(states, c.indexA[:], &bA)
+		scatterBodies(states, c.indexB[:], &bB)
+	}
 }
 
+// Solve the normal constraint, friction, and rolling resistance.
 func solveContactsWide(block solverBlock, context *stepContext) {
-	todo()
+	states := context.states
+	color := &context.graph.colors[block.colorIndex]
+	constraints := color.wideConstraints
+	invH := splatW(context.invH)
+
+	for wideIndex := block.startIndex; wideIndex < block.startIndex+int(block.count); wideIndex++ {
+		c := &constraints[wideIndex]
+
+		bA := gatherBodies(states, c.indexA[:])
+		bB := gatherBodies(states, c.indexB[:])
+
+		totalNormalImpulse := zeroW()
+
+		dp := vec2W{subW(bB.dp.x, bA.dp.x), subW(bB.dp.y, bA.dp.y)}
+
+		var velocityBias1, velocityBias2 floatW
+		{
+			// Moving anchors for current separation
+			rsA := rotateVectorW(bA.dq, c.anchorA1)
+			rsB := rotateVectorW(bB.dq, c.anchorB1)
+
+			// compute current separation
+			// this is subject to round-off error if the anchor is far from the body center of mass
+			ds := vec2W{addW(dp.x, subW(rsB.x, rsA.x)), addW(dp.y, subW(rsB.y, rsA.y))}
+			s := addW(dotW(c.normal, ds), c.baseSeparation1)
+
+			// Speculative bias, positive if separated and zero if overlapped
+			velocityBias1 = maxW(zeroW(), mulW(s, invH))
+		}
+
+		{
+			rsA := rotateVectorW(bA.dq, c.anchorA2)
+			rsB := rotateVectorW(bB.dq, c.anchorB2)
+
+			ds := vec2W{addW(dp.x, subW(rsB.x, rsA.x)), addW(dp.y, subW(rsB.y, rsA.y))}
+			s := addW(dotW(c.normal, ds), c.baseSeparation2)
+
+			velocityBias2 = maxW(zeroW(), mulW(s, invH))
+		}
+
+		// point1 non-penetration constraint
+		{
+			// Fixed anchors for impulses
+			rA := c.anchorA1
+			rB := c.anchorB1
+
+			// Relative velocity at contact
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vn := addW(mulW(dvx, c.normal.x), mulW(dvy, c.normal.y))
+
+			// Compute normal impulse
+			negImpulse := mulW(c.normalMass1, addW(vn, velocityBias1))
+
+			// Clamp the accumulated impulse
+			newImpulse := maxW(subW(c.normalImpulse1, negImpulse), zeroW())
+			impulse := subW(newImpulse, c.normalImpulse1)
+			c.normalImpulse1 = newImpulse
+			c.totalNormalImpulse1 = addW(c.totalNormalImpulse1, impulse)
+
+			totalNormalImpulse = addW(totalNormalImpulse, newImpulse)
+
+			// Apply contact impulse
+			Px := mulW(impulse, c.normal.x)
+			Py := mulW(impulse, c.normal.y)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		// second point non-penetration constraint
+		{
+			// fixed anchors for Jacobians
+			rA := c.anchorA2
+			rB := c.anchorB2
+
+			// Relative velocity at contact
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vn := addW(mulW(dvx, c.normal.x), mulW(dvy, c.normal.y))
+
+			// Compute normal impulse
+			negImpulse := mulW(c.normalMass2, addW(vn, velocityBias2))
+
+			// Clamp the accumulated impulse
+			newImpulse := maxW(subW(c.normalImpulse2, negImpulse), zeroW())
+			impulse := subW(newImpulse, c.normalImpulse2)
+			c.normalImpulse2 = newImpulse
+			c.totalNormalImpulse2 = addW(c.totalNormalImpulse2, impulse)
+
+			totalNormalImpulse = addW(totalNormalImpulse, newImpulse)
+
+			// Apply contact impulse
+			Px := mulW(impulse, c.normal.x)
+			Py := mulW(impulse, c.normal.y)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		// Rolling resistance
+		if allZeroW(c.rollingResistance) == false {
+			k := addW(c.invIA, c.invIB)
+			mask := greaterThanW(k, zeroW())
+			deltaLambda := blendW(zeroW(), divW(subW(bA.w, bB.w), k), mask)
+			lambda := c.rollingImpulse
+			maxLambda := mulW(c.rollingResistance, totalNormalImpulse)
+			c.rollingImpulse = symClampW(addW(lambda, deltaLambda), maxLambda)
+			deltaLambda = subW(c.rollingImpulse, lambda)
+
+			bA.w = mulSubW(bA.w, c.invIA, deltaLambda)
+			bB.w = mulAddW(bB.w, c.invIB, deltaLambda)
+		}
+
+		tangentX := c.normal.y
+		tangentY := subW(zeroW(), c.normal.x)
+
+		// point 1 friction constraint
+		{
+			// Fixed anchor points for applying impulses
+			rA := c.anchorA1
+			rB := c.anchorB1
+
+			// Relative velocity at contact
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vt := addW(mulW(dvx, tangentX), mulW(dvy, tangentY))
+
+			// Tangent speed (conveyor belt)
+			vt = subW(vt, c.tangentSpeed)
+
+			// Compute tangent force
+			negImpulse := mulW(c.tangentMass1, vt)
+
+			// Clamp the accumulated force
+			maxFriction := mulW(c.friction, c.normalImpulse1)
+			newImpulse := subW(c.tangentImpulse1, negImpulse)
+			newImpulse = maxW(subW(zeroW(), maxFriction), minW(newImpulse, maxFriction))
+			impulse := subW(newImpulse, c.tangentImpulse1)
+			c.tangentImpulse1 = newImpulse
+
+			// Apply contact impulse
+			Px := mulW(impulse, tangentX)
+			Py := mulW(impulse, tangentY)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		// second point friction constraint
+		{
+			// fixed anchors for Jacobians
+			rA := c.anchorA2
+			rB := c.anchorB2
+
+			// Relative velocity at contact
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vt := addW(mulW(dvx, tangentX), mulW(dvy, tangentY))
+
+			// Tangent speed (conveyor belt)
+			vt = subW(vt, c.tangentSpeed)
+
+			// Compute tangent force
+			negImpulse := mulW(c.tangentMass2, vt)
+
+			// Clamp the accumulated force
+			maxFriction := mulW(c.friction, c.normalImpulse2)
+			newImpulse := subW(c.tangentImpulse2, negImpulse)
+			newImpulse = maxW(subW(zeroW(), maxFriction), minW(newImpulse, maxFriction))
+			impulse := subW(newImpulse, c.tangentImpulse2)
+			c.tangentImpulse2 = newImpulse
+
+			// Apply contact impulse
+			Px := mulW(impulse, tangentX)
+			Py := mulW(impulse, tangentY)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		scatterBodies(states, c.indexA[:], &bA)
+		scatterBodies(states, c.indexB[:], &bB)
+	}
 }
 
 func applyRestitutionWide(block solverBlock, context *stepContext) {
-	todo()
+	states := context.states
+	color := &context.graph.colors[block.colorIndex]
+	constraints := color.wideConstraints
+	invH := splatW(context.invH)
+	negRestitutionThreshold := splatW(-context.world.restitutionThreshold)
+	zeroW := zeroW()
+	propagate := context.world.enableRestitutionPropagation
+
+	for wideIndex := block.startIndex; wideIndex < block.startIndex+int(block.count); wideIndex++ {
+		c := &constraints[wideIndex]
+		if propagate == false && allZeroW(c.restitution) {
+			continue
+		}
+
+		bA := gatherBodies(states, c.indexA[:])
+		bB := gatherBodies(states, c.indexB[:])
+
+		restitutionMask := greaterThanW(c.restitution, zeroW)
+		normalMass1 := blendW(zeroW, c.normalMass1, restitutionMask)
+		if propagate {
+			normalMass1 = c.normalMass1
+		}
+		normalMass2 := blendW(zeroW, c.normalMass2, restitutionMask)
+		if propagate {
+			normalMass2 = c.normalMass2
+		}
+		dp := vec2W{subW(bB.dp.x, bA.dp.x), subW(bB.dp.y, bA.dp.y)}
+
+		{
+			rA := c.anchorA1
+			rB := c.anchorB1
+
+			compressionImpulse := subW(c.totalNormalImpulse1, c.restitutionImpulse1)
+			armed := andW(andW(restitutionMask, lessThanW(c.relativeVelocity1, negRestitutionThreshold)), greaterThanW(compressionImpulse, zeroW))
+
+			rsA := rotateVectorW(bA.dq, rA)
+			rsB := rotateVectorW(bB.dq, rB)
+			ds := vec2W{addW(dp.x, subW(rsB.x, rsA.x)), addW(dp.y, subW(rsB.y, rsA.y))}
+			s := addW(dotW(c.normal, ds), c.baseSeparation1)
+
+			specBias := maxW(zeroW, mulW(s, invH))
+			velocityBias := blendW(specBias, mulW(c.restitution, c.relativeVelocity1), armed)
+
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vn := addW(mulW(dvx, c.normal.x), mulW(dvy, c.normal.y))
+
+			negImpulse := mulW(normalMass1, addW(vn, velocityBias))
+
+			newImpulse := maxW(subW(c.normalImpulse1, negImpulse), zeroW)
+			impulse := subW(newImpulse, c.normalImpulse1)
+
+			approachImpulse := minW(maxW(negW(mulW(normalMass1, vn)), zeroW), maxW(impulse, zeroW))
+			allowance := subW(mulW(c.restitution, addW(compressionImpulse, approachImpulse)), c.restitutionImpulse1)
+			maxImpulse := addW(approachImpulse, maxW(allowance, zeroW))
+			impulse = blendW(impulse, minW(impulse, maxImpulse), armed)
+
+			c.normalImpulse1 = addW(c.normalImpulse1, impulse)
+			c.restitutionImpulse1 = addW(c.restitutionImpulse1, subW(impulse, approachImpulse))
+			c.totalNormalImpulse1 = addW(c.totalNormalImpulse1, impulse)
+
+			Px := mulW(impulse, c.normal.x)
+			Py := mulW(impulse, c.normal.y)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		{
+			rA := c.anchorA2
+			rB := c.anchorB2
+
+			compressionImpulse := subW(c.totalNormalImpulse2, c.restitutionImpulse2)
+			armed := andW(andW(restitutionMask, lessThanW(c.relativeVelocity2, negRestitutionThreshold)), greaterThanW(compressionImpulse, zeroW))
+
+			rsA := rotateVectorW(bA.dq, rA)
+			rsB := rotateVectorW(bB.dq, rB)
+			ds := vec2W{addW(dp.x, subW(rsB.x, rsA.x)), addW(dp.y, subW(rsB.y, rsA.y))}
+			s := addW(dotW(c.normal, ds), c.baseSeparation2)
+
+			specBias := maxW(zeroW, mulW(s, invH))
+			velocityBias := blendW(specBias, mulW(c.restitution, c.relativeVelocity2), armed)
+
+			dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
+			dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
+			vn := addW(mulW(dvx, c.normal.x), mulW(dvy, c.normal.y))
+
+			negImpulse := mulW(normalMass2, addW(vn, velocityBias))
+
+			newImpulse := maxW(subW(c.normalImpulse2, negImpulse), zeroW)
+			impulse := subW(newImpulse, c.normalImpulse2)
+
+			approachImpulse := minW(maxW(negW(mulW(normalMass2, vn)), zeroW), maxW(impulse, zeroW))
+			allowance := subW(mulW(c.restitution, addW(compressionImpulse, approachImpulse)), c.restitutionImpulse2)
+			maxImpulse := addW(approachImpulse, maxW(allowance, zeroW))
+			impulse = blendW(impulse, minW(impulse, maxImpulse), armed)
+
+			c.normalImpulse2 = addW(c.normalImpulse2, impulse)
+			c.restitutionImpulse2 = addW(c.restitutionImpulse2, subW(impulse, approachImpulse))
+			c.totalNormalImpulse2 = addW(c.totalNormalImpulse2, impulse)
+
+			Px := mulW(impulse, c.normal.x)
+			Py := mulW(impulse, c.normal.y)
+
+			bA.v.x = mulSubW(bA.v.x, c.invMassA, Px)
+			bA.v.y = mulSubW(bA.v.y, c.invMassA, Py)
+			bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, Py), mulW(rA.y, Px)))
+
+			bB.v.x = mulAddW(bB.v.x, c.invMassB, Px)
+			bB.v.y = mulAddW(bB.v.y, c.invMassB, Py)
+			bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, Py), mulW(rB.y, Px)))
+		}
+
+		scatterBodies(states, c.indexA[:], &bA)
+		scatterBodies(states, c.indexB[:], &bB)
+	}
 }
 
+// I tried adding this to the last relax iterations but it was slower.
+//
+// Runs as a flat parallel-for over the whole wide constraint range. Per-color
+// contact sims are looked up through the prepareSpans cursor rather than the
+// block's colorIndex, matching the layout of prepareContactsWide.
+//
+// I could store the manifold pointer in the contactConstraintWide to simplify
+// this. But it is important to keep the constraint small.
 func storeImpulsesWide(block solverBlock, context *stepContext, workerIndex int) {
-	todo()
+	world := context.world
+	spans := context.contactPrepareSpans
+	wideBase := context.wideContactConstraints
+	taskContext := &world.taskContexts[workerIndex]
+	hitEventBitSet := &taskContext.hitEventBitSet
+	hasHitEvents := taskContext.hasHitEvents
+	negHitThreshold := -world.hitEventThreshold
+
+	wideIndex := block.startIndex
+	endWideIndex := block.startIndex + int(block.count)
+
+	// Find color for start index
+	colorIndex := 0
+	for spans[colorIndex+1].start <= wideIndex {
+		colorIndex += 1
+	}
+
+	for wideIndex < endWideIndex {
+		colorWideEndIndex := MinInt(spans[colorIndex+1].start, endWideIndex)
+		colorWideStart := spans[colorIndex].start
+		colorContactCount := spans[colorIndex].count
+		contactSims := spans[colorIndex].contacts
+
+		for ; wideIndex < colorWideEndIndex; wideIndex++ {
+			c := &wideBase[wideIndex]
+			rollingImpulse := [simdWidth]float32{c.rollingImpulse.x, c.rollingImpulse.y, c.rollingImpulse.z, c.rollingImpulse.w}
+			normalImpulse1 := [simdWidth]float32{c.normalImpulse1.x, c.normalImpulse1.y, c.normalImpulse1.z, c.normalImpulse1.w}
+			normalImpulse2 := [simdWidth]float32{c.normalImpulse2.x, c.normalImpulse2.y, c.normalImpulse2.z, c.normalImpulse2.w}
+			tangentImpulse1 := [simdWidth]float32{c.tangentImpulse1.x, c.tangentImpulse1.y, c.tangentImpulse1.z, c.tangentImpulse1.w}
+			tangentImpulse2 := [simdWidth]float32{c.tangentImpulse2.x, c.tangentImpulse2.y, c.tangentImpulse2.z, c.tangentImpulse2.w}
+			totalNormalImpulse1 := [simdWidth]float32{c.totalNormalImpulse1.x, c.totalNormalImpulse1.y, c.totalNormalImpulse1.z, c.totalNormalImpulse1.w}
+			totalNormalImpulse2 := [simdWidth]float32{c.totalNormalImpulse2.x, c.totalNormalImpulse2.y, c.totalNormalImpulse2.z, c.totalNormalImpulse2.w}
+
+			localWideIndex := wideIndex - colorWideStart
+			baseIndex := simdWidth * localWideIndex
+
+			for laneIndex := 0; laneIndex < simdWidth; laneIndex++ {
+				contactIndex := baseIndex + laneIndex
+				if contactIndex >= colorContactCount {
+					break
+				}
+
+				contactSim := &contactSims[contactIndex]
+				m := &contactSim.manifold
+				m.RollingImpulse = rollingImpulse[laneIndex]
+
+				m.Points[0].NormalImpulse = normalImpulse1[laneIndex]
+				m.Points[0].TangentImpulse = tangentImpulse1[laneIndex]
+				m.Points[0].TotalNormalImpulse = totalNormalImpulse1[laneIndex]
+
+				m.Points[1].NormalImpulse = normalImpulse2[laneIndex]
+				m.Points[1].TangentImpulse = tangentImpulse2[laneIndex]
+				m.Points[1].TotalNormalImpulse = totalNormalImpulse2[laneIndex]
+
+				// Check for hit events to speed up serial processing later in the step
+				if contactSim.simFlags&simEnableHitEvent != 0 {
+					for k := 0; k < contactSim.manifold.PointCount; k++ {
+						mp := &m.Points[k]
+
+						// Need to check total impulse because the point may be speculative and not colliding
+						if mp.NormalVelocity < negHitThreshold && mp.TotalNormalImpulse > 0.0 {
+							setBit(hitEventBitSet, uint32(contactSim.contactID))
+							hasHitEvents = true
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// Advance to next color
+		colorIndex += 1
+	}
+
+	taskContext.hasHitEvents = hasHitEvents
 }

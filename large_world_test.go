@@ -67,10 +67,11 @@ type snapshotPyramidResult struct {
 	rel       [9]Vec2
 }
 
-func snapshotRunPyramid(r *oracle.Reader, base Pos) snapshotPyramidResult {
+func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyramidResult {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := CreateWorld(&wd)
+	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Position = base
 	ground := w.CreateBody(&bd)
@@ -109,10 +110,11 @@ func snapshotRunPyramid(r *oracle.Reader, base Pos) snapshotPyramidResult {
 	return result
 }
 
-func snapshotRunBullet(r *oracle.Reader, base Pos) float32 {
+func snapshotRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := CreateWorld(&wd)
+	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Type = StaticBody
 	bd.Position = base
@@ -139,10 +141,11 @@ func snapshotRunBullet(r *oracle.Reader, base Pos) float32 {
 	return x
 }
 
-func snapshotRunRayCast(base Pos) Vec2 {
+func snapshotRunRayCast(t *testing.T, base Pos) Vec2 {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := CreateWorld(&wd)
+	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Position = base
 	body := w.CreateBody(&bd)
@@ -167,10 +170,11 @@ type snapshotOriginQueryData struct {
 	shapeRayHit   bool
 }
 
-func snapshotRunOriginQueries(base Pos) snapshotOriginQueryData {
+func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := CreateWorld(&wd)
+	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Position = base
 	body := w.CreateBody(&bd)
@@ -206,12 +210,12 @@ func TestLargeWorld(t *testing.T) {
 	t.Run("LargeWorldPyramidTest", func(t *testing.T) {
 		defer porttest.Guard(t)
 		r := oracle.Open(t, "large_world/LargeWorldPyramidTest")
-		origin := snapshotRunPyramid(r, Pos{})
+		origin := snapshotRunPyramid(t, r, Pos{})
 		porttest.Ensure(t, origin.sleepStep > 0)
 		r.Bool("L102", origin.sleepStep > 0)
 		r.I32("L102/value0", int32(origin.sleepStep))
 		if IsDoublePrecision() {
-			large := snapshotRunPyramid(r, Pos{X: 1e7})
+			large := snapshotRunPyramid(t, r, Pos{X: 1e7})
 			porttest.Ensure(t, large.sleepStep == origin.sleepStep)
 			r.Bool("L107", large.sleepStep == origin.sleepStep)
 			r.I32("L107/value0", int32(large.sleepStep))
@@ -227,12 +231,12 @@ func TestLargeWorld(t *testing.T) {
 	t.Run("LargeWorldBulletTest", func(t *testing.T) {
 		defer porttest.Guard(t)
 		r := oracle.Open(t, "large_world/LargeWorldBulletTest")
-		x := snapshotRunBullet(r, Pos{})
+		x := snapshotRunBullet(t, r, Pos{})
 		porttest.Ensure(t, x > 0 && x < 0.5)
 		r.Bool("L165", x > 0 && x < 0.5)
 		r.F32("L165/value0", x)
 		if IsDoublePrecision() {
-			x = snapshotRunBullet(r, Pos{X: 1e7})
+			x = snapshotRunBullet(t, r, Pos{X: 1e7})
 			porttest.Ensure(t, x > 0 && x < 0.5)
 			r.Bool("L169", x > 0 && x < 0.5)
 			r.F32("L169/value0", x)
@@ -241,13 +245,13 @@ func TestLargeWorld(t *testing.T) {
 	t.Run("LargeWorldRayCastTest", func(t *testing.T) {
 		defer porttest.Guard(t)
 		r := oracle.Open(t, "large_world/LargeWorldRayCastTest")
-		rel := snapshotRunRayCast(Pos{})
+		rel := snapshotRunRayCast(t, Pos{})
 		porttest.EnsureSmall(t, rel.X+0.5, float32(1e-4))
 		r.F32("L207", rel.X+0.5)
 		porttest.EnsureSmall(t, rel.Y, float32(1e-4))
 		r.F32("L208", rel.Y)
 		if IsDoublePrecision() {
-			rel = snapshotRunRayCast(Pos{X: 1e7})
+			rel = snapshotRunRayCast(t, Pos{X: 1e7})
 			porttest.EnsureSmall(t, rel.X+0.5, float32(1e-4))
 			r.F32("L212", rel.X+0.5)
 			porttest.EnsureSmall(t, rel.Y, float32(1e-4))
@@ -257,7 +261,7 @@ func TestLargeWorld(t *testing.T) {
 	t.Run("LargeWorldOriginQueryTest", func(t *testing.T) {
 		defer porttest.Guard(t)
 		r := oracle.Open(t, "large_world/LargeWorldOriginQueryTest")
-		origin := snapshotRunOriginQueries(Pos{})
+		origin := snapshotRunOriginQueries(t, Pos{})
 		porttest.Ensure(t, origin.overlapCount == 1)
 		r.Bool("L311", origin.overlapCount == 1)
 		r.I32("L311/value0", int32(origin.overlapCount))
@@ -282,7 +286,7 @@ func TestLargeWorld(t *testing.T) {
 		r.F32("L321", rayRel.X+0.5)
 		if IsDoublePrecision() {
 			base := Pos{X: 1e7}
-			large := snapshotRunOriginQueries(base)
+			large := snapshotRunOriginQueries(t, base)
 			porttest.Ensure(t, large.overlapCount == origin.overlapCount)
 			r.Bool("L328", large.overlapCount == origin.overlapCount)
 			r.I32("L328/value0", int32(large.overlapCount))
@@ -317,6 +321,7 @@ func TestLargeWorld(t *testing.T) {
 		wd := DefaultWorldDef()
 		wd.WorkerCount = 1
 		w := CreateWorld(&wd)
+		BTWorldCleanup(t, w)
 		base := Pos{}
 		if IsDoublePrecision() {
 			base = Pos{X: 1e7}

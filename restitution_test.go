@@ -23,11 +23,56 @@ const restitutionSubStepCount = 4
 const restitutionRestitutionIterations = 4
 const restitutionImpactSpeed float32 = 5.0
 
+func TestBTWorldCleanupSkipped(t *testing.T) {
+	defer porttest.Guard(t)
+	var ids [2]World
+	t.Run("skip", func(t *testing.T) {
+		defer porttest.Guard(t)
+		def := DefaultWorldDef()
+		for i := range ids {
+			ids[i] = CreateWorld(&def)
+			BTWorldCleanup(t, ids[i])
+			porttest.Ensure(t, ids[i].IsValid())
+		}
+		t.SkipNow()
+	})
+	for _, id := range ids {
+		if id.IsValid() {
+			t.Fatal("skipped test left a live world")
+		}
+	}
+}
+
+func TestBTWorldCleanupExplicitDestroy(t *testing.T) {
+	defer porttest.Guard(t)
+	var replacement World
+	t.Run("destroy and recycle", func(child *testing.T) {
+		defer porttest.Guard(child)
+		def := DefaultWorldDef()
+		id := CreateWorld(&def)
+		BTWorldCleanup(child, id)
+		porttest.Ensure(child, id.IsValid())
+		id.Destroy()
+		porttest.Ensure(child, !id.IsValid())
+		replacement = CreateWorld(&def)
+		BTWorldCleanup(t, replacement)
+		porttest.Ensure(child, replacement.IsValid())
+		porttest.Ensure(child, replacement.index1 == id.index1)
+	})
+	porttest.Ensure(t, replacement.IsValid())
+	t.Run("null", func(t *testing.T) {
+		defer porttest.Guard(t)
+		BTWorldCleanup(t, World{})
+	})
+}
+
 func restitutionMakeWorld(r *restitutionOracle, gravityY float32) World {
 	var worldDef WorldDef = DefaultWorldDef()
 	worldDef.Gravity = Vec2{float32(0.0), gravityY}
 	worldDef.EnableSleep = false
-	return CreateWorld(&worldDef)
+	id := CreateWorld(&worldDef)
+	BTWorldCleanup(r.t, id)
+	return id
 }
 
 func restitutionMakeWorldIterations(r *restitutionOracle, gravityY float32, restitutionIterations int) World {
@@ -35,7 +80,9 @@ func restitutionMakeWorldIterations(r *restitutionOracle, gravityY float32, rest
 	worldDef.Gravity = Vec2{float32(0.0), gravityY}
 	worldDef.EnableSleep = false
 	worldDef.RestitutionIterations = restitutionIterations
-	return CreateWorld(&worldDef)
+	id := CreateWorld(&worldDef)
+	BTWorldCleanup(r.t, id)
+	return id
 }
 
 func restitutionMakeGround(r *restitutionOracle, worldID World, restitution float32) {
@@ -121,6 +168,7 @@ func restitutionMeasureSupportedBounce(r *restitutionOracle, restitution float32
 	worldDef.EnableRestitutionPropagation = propagate
 	worldDef.RestitutionIterations = restitutionRestitutionIterations
 	var worldID World = CreateWorld(&worldDef)
+	BTWorldCleanup(r.t, worldID)
 	restitutionMakeGround(r, worldID, float32(0.0))
 	for i := 0; i < supportCount; i++ {
 		restitutionMakeBall(r, worldID, float32(0.0), (float32(0.5) + float32(float32(1.0)*float32(i))), float32(0.0), float32(0.0))
@@ -942,6 +990,7 @@ func restitutionRunWorkerScene(r *restitutionOracle, workerCount int) uint64 {
 	worldDef.EnableSleep = false
 	worldDef.WorkerCount = workerCount
 	var worldID World = CreateWorld(&worldDef)
+	BTWorldCleanup(r.t, worldID)
 	restitutionMakeGround(r, worldID, float32(0.6))
 	for i := 0; i < 20; i++ {
 		restitutionMakeBall(r, worldID, (-float32(10.0) + float32(float32(1.05)*float32(i))), (float32(3.0) + float32(float32(0.13)*float32(i))), float32(0.0), float32(0.6))

@@ -58,6 +58,7 @@ func TestChain(t *testing.T) {
 		r := oracle.Open(t, "input/chain/SegmentCountTest")
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyID := worldID.CreateBody(&bodyDef)
@@ -96,6 +97,7 @@ func TestChain(t *testing.T) {
 		r := oracle.Open(t, "input/chain/SegmentGeometryTest")
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyID := worldID.CreateBody(&bodyDef)
@@ -225,6 +227,7 @@ func TestChain(t *testing.T) {
 		endCountingAsserts := func() int { restore(); return assertCount }
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyID := worldID.CreateBody(&bodyDef)
@@ -293,6 +296,7 @@ func TestChain(t *testing.T) {
 		endCountingAsserts := func() int { restore(); return assertCount }
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyID := worldID.CreateBody(&bodyDef)
@@ -364,6 +368,7 @@ func TestChain(t *testing.T) {
 		endCountingAsserts := func() int { restore(); return assertCount }
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyID := worldID.CreateBody(&bodyDef)

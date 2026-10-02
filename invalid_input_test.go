@@ -53,6 +53,7 @@ func TestInvalidInput(t *testing.T) {
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		gravity := worldID.Gravity()
 		restitutionThreshold := float32(worldID.RestitutionThreshold())
@@ -142,6 +143,7 @@ func TestInvalidInput(t *testing.T) {
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -228,6 +230,7 @@ func TestInvalidInput(t *testing.T) {
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -345,6 +348,7 @@ func TestInvalidInput(t *testing.T) {
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := worldID.CreateBody(&bodyDef)
@@ -432,6 +436,7 @@ func TestInvalidInput(t *testing.T) {
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -449,6 +454,7 @@ func TestInvalidInput(t *testing.T) {
 			badWorldDef := box2d.DefaultWorldDef()
 			badWorldDef.Gravity = badVec
 			badWorldID := box2d.CreateWorld(&badWorldDef)
+			box2d.BTWorldCleanup(t, badWorldID)
 			{
 				ok := badWorldID.IsValid() == false
 				r.Bool("check.353", ok)
@@ -574,6 +580,7 @@ func TestInvalidInput(t *testing.T) {
 		worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
 		worldDef.WorkerCount = 1
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 
 		recording := box2d.CreateRecording(0)
 		worldID.StartRecording(recording)

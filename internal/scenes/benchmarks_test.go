@@ -18,8 +18,15 @@ func TestSceneHelperBoundaries(t *testing.T) {
 	t.Cleanup(func() { gRainData, gQueryBenchmark, gRandomSeed = rain, queries, seed })
 	gRandomSeed = randSeed
 	def := box2d.DefaultWorldDef()
+	cleanupWorld := func(id box2d.World) {
+		t.Cleanup(func() {
+			if id.IsValid() {
+				id.Destroy()
+			}
+		})
+	}
 	world := box2d.CreateWorld(&def)
-	defer func() { world.Destroy() }()
+	cleanupWorld(world)
 	r := oracle.Open(t, "scenes/Helpers")
 	counts := func(step int) {
 		t.Helper()
@@ -75,6 +82,7 @@ func TestSceneHelperBoundaries(t *testing.T) {
 	porttest.Ensure(t, gRainData.columnIndex == 0 && gRainData.columnCount == rainColumnCount)
 	world.Destroy()
 	world = box2d.CreateWorld(&def)
+	cleanupWorld(world)
 	CreateQueries(world)
 	positions := [4]float32{gQueryBenchmark.paddleMaxX + 1, gQueryBenchmark.paddleMaxX, gQueryBenchmark.paddleMinX - 1, gQueryBenchmark.paddleMinX}
 	for i, x := range positions {

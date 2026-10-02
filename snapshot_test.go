@@ -28,12 +28,13 @@ func snapshotTreeTailMatches(data []byte, tail []int32) bool {
 	}
 	return true
 }
-func snapshotBuildScene(workerCount int, outIds *snapshotSnapshotIDs) World {
+func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotIDs) World {
 	heldJoint := Joint{}
 	heldChain := Chain{}
 	def := DefaultWorldDef()
 	def.WorkerCount = workerCount
 	worldId := CreateWorld(&def)
+	BTWorldCleanup(t, worldId)
 	{
 		bd := DefaultBodyDef()
 		bd.Position = Pos{X: 0.0, Y: -1.0}
@@ -190,7 +191,7 @@ func TestSnapshot(t *testing.T) {
 	defer porttest.Guard(t)
 	r := oracle.Open(t, "snapshot/SnapshotTest")
 	snapPath := filepath.Join(t.TempDir(), "test_snapshot_midstream.b2rec")
-	worldAId := snapshotBuildScene(1, nil)
+	worldAId := snapshotBuildScene(t, 1, nil)
 	snapshotStepUntilSleep(r, worldAId)
 	worldA := getWorldFromId(worldAId)
 	porttest.Ensure(t, len(worldA.solverSets) > 3)
@@ -205,6 +206,7 @@ func TestSnapshot(t *testing.T) {
 	porttest.Ensure(t, buf.size > 0)
 	r.Bool("L255", buf.size > 0)
 	worldBId, err := CreateWorldFromSnapshot(buf.data, 1)
+	BTWorldCleanup(t, worldBId)
 	porttest.Ensure(t, err == nil && worldBId.IsValid())
 	r.Bool("L259", worldBId.IsValid())
 	worldB := getWorldFromId(worldBId)
@@ -270,10 +272,12 @@ func TestSnapshot(t *testing.T) {
 	buf = recBuffer{}
 	serializeWorld(worldA, &buf)
 	worldA1Id, err := CreateWorldFromSnapshot(buf.data, 1)
+	BTWorldCleanup(t, worldA1Id)
 	porttest.Ensure(t, err == nil && worldA1Id.IsValid())
 	r.Bool("L322", worldA1Id.IsValid())
 	worldA1 := getWorldFromId(worldA1Id)
 	worldCId, err := CreateWorldFromSnapshot(buf.data, 4)
+	BTWorldCleanup(t, worldCId)
 	porttest.Ensure(t, err == nil && worldCId.IsValid())
 	r.Bool("L326", worldCId.IsValid())
 	worldC := getWorldFromId(worldCId)
@@ -294,7 +298,7 @@ func TestSnapshot(t *testing.T) {
 		}
 	}
 	var ids snapshotSnapshotIDs
-	rId := snapshotBuildScene(1, &ids)
+	rId := snapshotBuildScene(t, 1, &ids)
 	snapshotStepUntilSleep(r, rId)
 	rWorld := getWorldFromId(rId)
 	image := rId.Snapshot()
@@ -382,10 +386,12 @@ func TestSnapshot(t *testing.T) {
 	def4 := DefaultWorldDef()
 	def4.WorkerCount = 4
 	sId := CreateWorld(&def4)
+	BTWorldCleanup(t, sId)
 	porttest.Ensure(t, sId.Restore(image) == nil)
 	r.Bool("L439", true)
 	sWorld := getWorldFromId(sId)
 	freshId, err := CreateWorldFromSnapshot(image, 1)
+	BTWorldCleanup(t, freshId)
 	porttest.Ensure(t, err == nil && freshId.IsValid())
 	r.Bool("L443", freshId.IsValid())
 	freshWorld := getWorldFromId(freshId)
@@ -402,7 +408,7 @@ func TestSnapshot(t *testing.T) {
 		}
 	}
 	{
-		wId := snapshotBuildScene(1, nil)
+		wId := snapshotBuildScene(t, 1, nil)
 		for step := 0; step < 20; step++ {
 			wId.Step(dt, subSteps)
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L469/step/%d", step), step)
@@ -430,6 +436,7 @@ func TestSnapshot(t *testing.T) {
 		r.Bool("L490", true)
 		loaded.Destroy()
 		player, err := CreateReplay(recData, 0)
+		destroyPlayer := BTReplayCleanup(t, player)
 		porttest.Ensure(t, err == nil && player != nil)
 		r.Bool("L495", player != nil)
 		pid0 := player.WorldID()
@@ -463,11 +470,11 @@ func TestSnapshot(t *testing.T) {
 		r.I32("L516/value0", int32(frames2))
 		porttest.Ensure(t, player.HasDiverged() == false)
 		r.Bool("L517", player.HasDiverged() == false)
-		player.Destroy()
+		destroyPlayer()
 		rec.Destroy()
 	}
 	{
-		wId := snapshotBuildScene(1, nil)
+		wId := snapshotBuildScene(t, 1, nil)
 		for step := 0; step < 20; step++ {
 			wId.Step(dt, subSteps)
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L531/step/%d", step), step)
@@ -482,6 +489,7 @@ func TestSnapshot(t *testing.T) {
 			realTail[step] = hashWorldState(origin)
 		}
 		cId, err := CreateWorldFromSnapshot(snap, 1)
+		BTWorldCleanup(t, cId)
 		porttest.Ensure(t, err == nil && cId.IsValid())
 		r.Bool("L552", cId.IsValid())
 		clone := getWorldFromId(cId)
@@ -500,6 +508,7 @@ func TestSnapshot(t *testing.T) {
 		wd := DefaultWorldDef()
 		wd.WorkerCount = 1
 		wId := CreateWorld(&wd)
+		BTWorldCleanup(t, wId)
 		rec := CreateRecording(0)
 		wId.StartRecording(rec)
 		bd := DefaultBodyDef()
@@ -516,6 +525,7 @@ func TestSnapshot(t *testing.T) {
 		wId.StopRecording()
 		wId.Destroy()
 		player, err := CreateReplay(rec.Data(), 0)
+		destroyPlayer := BTReplayCleanup(t, player)
 		porttest.Ensure(t, err == nil && player != nil)
 		r.Bool("L595", player != nil)
 		pid0 := player.WorldID()
@@ -531,13 +541,14 @@ func TestSnapshot(t *testing.T) {
 		r.Bool("L604", player.Frame() == 0)
 		r.I32("L604/value0", int32(player.Frame()))
 		r.I32("L604/value0", int32(player.Frame()))
-		player.Destroy()
+		destroyPlayer()
 		rec.Destroy()
 	}
 	{
 		wd := DefaultWorldDef()
 		wd.WorkerCount = 1
 		wId := CreateWorld(&wd)
+		BTWorldCleanup(t, wId)
 		w := getWorldFromId(wId)
 		gbd := DefaultBodyDef()
 		gbd.Position = Pos{X: 0.0, Y: -1.0}

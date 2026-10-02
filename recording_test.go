@@ -85,6 +85,7 @@ func TestRecording(t *testing.T) {
 	worldDef.WorkerCount = 1
 
 	worldID := box2d.CreateWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
 	porttest.Ensure(t, worldID.IsValid())
 	r.Bool("check 165", worldID.IsValid())
 
@@ -463,6 +464,7 @@ func TestRecording(t *testing.T) {
 
 	{
 		player, err := box2d.CreateReplay(recData, 0)
+		destroyPlayer := box2d.BTReplayCleanup(t, player)
 		porttest.Ensure(t, err == nil)
 		porttest.Ensure(t, player != nil)
 		r.Bool("check 557", player != nil)
@@ -525,11 +527,12 @@ func TestRecording(t *testing.T) {
 		porttest.Ensure(t, player.HasDiverged() == false)
 		r.Bool("check 604", player.HasDiverged() == false)
 
-		player.Destroy()
+		destroyPlayer()
 	}
 
 	{
 		player, err := box2d.CreateReplay(recData, 0)
+		destroyPlayer := box2d.BTReplayCleanup(t, player)
 		porttest.Ensure(t, err == nil)
 		porttest.Ensure(t, player != nil)
 		r.Bool("check 613", player != nil)
@@ -551,7 +554,7 @@ func TestRecording(t *testing.T) {
 		r.Bool("check 624", recordingReplaySafetyFactor(player, "fastBody") == 0.4)
 		r.F32("value 624", recordingReplaySafetyFactor(player, "fastBody"))
 
-		player.Destroy()
+		destroyPlayer()
 	}
 
 	rec.Destroy()
@@ -567,6 +570,7 @@ func TestRecordingOutliner(t *testing.T) {
 	worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
 	worldDef.WorkerCount = 1
 	worldID := box2d.CreateWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
 
 	groundDef := box2d.DefaultBodyDef()
 	groundID := worldID.CreateBody(&groundDef)
@@ -604,6 +608,7 @@ func TestRecordingOutliner(t *testing.T) {
 	r.Bool("check 678", recSize > 0)
 
 	player, err := box2d.CreateReplay(recData, 0)
+	destroyPlayer := box2d.BTReplayCleanup(t, player)
 	porttest.Ensure(t, err == nil)
 	porttest.Ensure(t, player != nil)
 	r.Bool("check 681", player != nil)
@@ -631,7 +636,7 @@ func TestRecordingOutliner(t *testing.T) {
 	r.Bool("check 702", player.BodyCount() == seedCount)
 	r.I32("value 702", int32(player.BodyCount()))
 
-	player.Destroy()
+	destroyPlayer()
 	rec.Destroy()
 	return
 }
@@ -643,6 +648,7 @@ func recordingReplayDeepHash(player *box2d.Replay) uint64 {
 func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte, recSize, workerCount, budgetBytes, minInterval int) int {
 
 	ref, err := box2d.CreateReplay(recData, workerCount)
+	destroyRef := box2d.BTReplayCleanup(t, ref)
 	porttest.Ensure(t, err == nil)
 	porttest.Ensure(t, ref != nil)
 	r.Bool("check 725", ref != nil)
@@ -665,9 +671,10 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 	}
 	porttest.Ensure(t, ref.HasDiverged() == false)
 	r.Bool("check 737", ref.HasDiverged() == false)
-	ref.Destroy()
+	destroyRef()
 
 	player, err := box2d.CreateReplay(recData, workerCount)
+	destroyPlayer := box2d.BTReplayCleanup(t, player)
 	porttest.Ensure(t, err == nil)
 	porttest.Ensure(t, player != nil)
 	r.Bool("check 743", player != nil)
@@ -700,12 +707,12 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 			t.Logf("keyframe seek mismatch at frame %d (wc %d): got %d want %d\n", target, workerCount, got,
 				refHash[target])
 
-			player.Destroy()
+			destroyPlayer()
 			return 1
 		}
 	}
 
-	player.Destroy()
+	destroyPlayer()
 
 	return 0
 }
@@ -718,6 +725,7 @@ func TestRecordingKeyframe(t *testing.T) {
 	worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
 	worldDef.WorkerCount = 1
 	worldID := box2d.CreateWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
 
 	groundDef := box2d.DefaultBodyDef()
 	groundID := worldID.CreateBody(&groundDef)
@@ -753,11 +761,12 @@ func TestRecordingKeyframe(t *testing.T) {
 	r.Bool("check 827", recSize > 0)
 
 	probe, err := box2d.CreateReplay(recData, 0)
+	destroyProbe := box2d.BTReplayCleanup(t, probe)
 	porttest.Ensure(t, err == nil)
 	porttest.Ensure(t, probe != nil)
 	r.Bool("check 832", probe != nil)
 	snapSize := len(probe.WorldID().Snapshot())
-	probe.Destroy()
+	destroyProbe()
 	porttest.Ensure(t, snapSize > 0)
 	r.Bool("check 835", snapSize > 0)
 	tightBudget := 6 * snapSize
@@ -824,6 +833,7 @@ func recordingRecordSceneEx(t *testing.T, r *oracle.Reader, trace *recordingTrac
 	wd := box2d.DefaultWorldDef()
 	wd.WorkerCount = workerCount
 	worldID := box2d.CreateWorld(&wd)
+	box2d.BTWorldCleanup(t, worldID)
 	build(worldID)
 
 	rec := box2d.CreateRecording(0)
@@ -846,6 +856,7 @@ func recordingRecordScene(t *testing.T, r *oracle.Reader, trace *recordingTrace,
 
 func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte, recSize, workerCount, budgetBytes, minInterval int) int {
 	ref, err := box2d.CreateReplay(recData, workerCount)
+	destroyRef := box2d.BTReplayCleanup(t, ref)
 	porttest.Ensure(t, err == nil)
 	porttest.Ensure(t, ref != nil)
 	r.Bool("check 948", ref != nil)
@@ -868,9 +879,10 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 	}
 	porttest.Ensure(t, ref.HasDiverged() == false)
 	r.Bool("check 960", ref.HasDiverged() == false)
-	ref.Destroy()
+	destroyRef()
 
 	player, err := box2d.CreateReplay(recData, workerCount)
+	destroyPlayer := box2d.BTReplayCleanup(t, player)
 	porttest.Ensure(t, err == nil)
 	porttest.Ensure(t, player != nil)
 	r.Bool("check 964", player != nil)
@@ -900,12 +912,12 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 			t.Logf("scrub mismatch at frame %d (wc %d budget %d): %s divergence (deep got %d want %d)\n", target, workerCount,
 				budgetBytes, kind, got, refHash[target])
 
-			player.Destroy()
+			destroyPlayer()
 			return 1
 		}
 	}
 
-	player.Destroy()
+	destroyPlayer()
 	return 0
 }
 
@@ -916,11 +928,12 @@ func recordingScrubRecording(t *testing.T, r *oracle.Reader, trace *recordingTra
 	r.Bool("check 1003", recSize > 0)
 
 	probe, err := box2d.CreateReplay(recData, 0)
+	destroyProbe := box2d.BTReplayCleanup(t, probe)
 	porttest.Ensure(t, err == nil)
 	porttest.Ensure(t, probe != nil)
 	r.Bool("check 1006", probe != nil)
 	snapSize := len(probe.WorldID().Snapshot())
-	probe.Destroy()
+	destroyProbe()
 	tightBudget := 4 * snapSize
 	check1011 := recordingCheckScrubAllFrames(t, r, trace, recData, recSize, workerCount, tightBudget, 8) == 0
 	porttest.Ensure(t, check1011)
@@ -962,6 +975,7 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 	wd := box2d.DefaultWorldDef()
 	wd.WorkerCount = workerCount
 	liveID := box2d.CreateWorld(&wd)
+	box2d.BTWorldCleanup(t, liveID)
 	build(liveID)
 	for i := 0; i < churnFrame; i++ {
 		liveID.Step(dt, subSteps)
@@ -974,6 +988,7 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 	cd := box2d.DefaultWorldDef()
 	cd.WorkerCount = workerCount
 	cloneID := box2d.CreateWorld(&cd)
+	box2d.BTWorldCleanup(t, cloneID)
 	clone := box2d.RecordingGetWorldFromID(cloneID)
 
 	var ref uint64

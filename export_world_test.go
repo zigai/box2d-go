@@ -3,6 +3,31 @@
 
 package box2d
 
+import (
+	"sync"
+	"testing"
+)
+
+func BTWorldCleanup(t testing.TB, id World) {
+	t.Helper()
+	t.Cleanup(func() {
+		if id.IsValid() {
+			id.Destroy()
+		}
+	})
+}
+
+func BTReplayCleanup(t testing.TB, player *Replay) func() {
+	t.Helper()
+	destroy := sync.OnceFunc(func() {
+		if player != nil {
+			player.Destroy()
+		}
+	})
+	t.Cleanup(destroy)
+	return destroy
+}
+
 const WorldStaticSet = staticSet
 const WorldAwakeSet = awakeSet
 

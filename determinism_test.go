@@ -19,6 +19,7 @@ func inputSingleMultithreading(t *testing.T, r *oracle.Reader, trace *inputTrans
 	worldDef := box2d.DefaultWorldDef()
 	worldDef.WorkerCount = workerCount
 	worldID := box2d.CreateWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
 	data := scenes.CreateFallingHinges(worldID)
 	timeStep := float32(1.0 / 60.0)
 	stepLimit := 500
@@ -69,6 +70,7 @@ func TestDeterminism(t *testing.T) {
 			worldDef := box2d.DefaultWorldDef()
 			worldDef.WorkerCount = workerCount
 			worldID := box2d.CreateWorld(&worldDef)
+			box2d.BTWorldCleanup(t, worldID)
 			data := scenes.CreateFallingHinges(worldID)
 			timeStep := float32(1.0 / 60.0)
 			stepLimit := 1000
@@ -96,6 +98,7 @@ func TestDeterminism(t *testing.T) {
 		trace := inputTransformTrace{}
 		worldDef := box2d.DefaultWorldDef()
 		worldID := box2d.CreateWorld(&worldDef)
+		box2d.BTWorldCleanup(t, worldID)
 		data := scenes.CreateFallingHinges(worldID)
 		timeStep := float32(1.0 / 60.0)
 		done := false

@@ -6,30 +6,28 @@ package box2d
 type aabbV = AABB
 
 func loadAABBV(aabb *AABB) aabbV {
-	todo()
-	return aabbV{}
+	return *aabb
 }
 
 func overlapNode(av aabbV, node *TreeNode) bool {
-	todo()
-	return false
+	bv := &node.AABB
+	return av.LowerBound.X <= bv.UpperBound.X && av.LowerBound.Y <= bv.UpperBound.Y && bv.LowerBound.X <= av.UpperBound.X && bv.LowerBound.Y <= av.UpperBound.Y
 }
 
 func overlapV(a, b *AABB) bool {
-	todo()
-	return false
+	return a.LowerBound.X <= b.UpperBound.X && a.LowerBound.Y <= b.UpperBound.Y && b.LowerBound.X <= a.UpperBound.X && b.LowerBound.Y <= a.UpperBound.Y
 }
 
 func unionV(a, b AABB) AABB {
-	todo()
-	return AABB{}
+	return a.Union(b)
 }
 
 func unionPairV(pair []TreeNode) aabbV {
-	todo()
-	return aabbV{}
+	return pair[0].AABB.Union(pair[1].AABB)
 }
 
 func storeAABBV(aabb *AABB, value aabbV, condition bool) {
-	todo()
+	if condition {
+		*aabb = value
+	}
 }

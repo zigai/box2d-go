@@ -804,7 +804,7 @@ func recordingBuildScrubPyramid(worldID box2d.World, baseCount int) {
 	for row := 0; row < baseCount; row++ {
 		count := baseCount - row
 		y := h + float32(float32(row)*pitch)
-		xStart := -0.5 * float32(count-1) * pitch
+		xStart := float32(-0.5 * float32(count-1) * pitch)
 		for col := 0; col < count; col++ {
 			body := box2d.DefaultBodyDef()
 			body.Type = box2d.DynamicBody

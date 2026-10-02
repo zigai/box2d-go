@@ -98,7 +98,7 @@ func CrossVS(v Vec2, s float32) Vec2 {
 
 // Perform the cross product on a scalar and a vector. In 2D this produces a vector.
 func CrossSV(s float32, v Vec2) Vec2 {
-	return Vec2{-s * v.Y, s * v.X}
+	return Vec2{float32(-s * v.Y), float32(s * v.X)}
 }
 
 // Get a left pointing perpendicular vector. Equivalent to CrossSV(1.0f, v)
@@ -139,7 +139,7 @@ func Mul(a Vec2, b Vec2) Vec2 {
 
 // Multiply a scalar and vector
 func MulSV(s float32, v Vec2) Vec2 {
-	return Vec2{s * v.X, s * v.Y}
+	return Vec2{float32(s * v.X), float32(s * v.Y)}
 }
 
 // a + s * b

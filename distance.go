@@ -192,7 +192,7 @@ type separationFunction struct {
 func GetSweepTransform(sweep *Sweep, time float32) Transform {
 	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
 	var xf Transform
-	xf.P = Add(MulSV(1.0-time, sweep.C1), MulSV(time, sweep.C2))
+	xf.P = Lerp(sweep.C1, sweep.C2, time)
 	q := Rot{
 		float32((1.0-time)*sweep.Q1.C) + float32(time*sweep.Q2.C),
 		float32((1.0-time)*sweep.Q1.S) + float32(time*sweep.Q2.S),

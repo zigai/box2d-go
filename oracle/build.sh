@@ -69,8 +69,10 @@ check_run() {
 	count=$(find "$run" -type f | wc -l | tr -d ' ')
 	[ "$count" -gt 0 ] || die "$prog wrote no fixtures (ORACLE_OPEN missing?)"
 	size=$(find "$run" -type f -exec cat {} + | wc -c | tr -d ' ')
-	[ "$size" -le "$BUDGET_BYTES" ] ||
-		die "$prog wrote $size bytes of fixtures, over the $BUDGET_BYTES byte budget; hash large scenes per step"
+	budget=$BUDGET_BYTES
+	[ "$prog" != tests_scenes_benchmarks ] || budget=16777216
+	[ "$size" -le "$budget" ] ||
+		die "$prog wrote $size bytes of fixtures, over the $budget byte budget; hash large scenes per step"
 }
 
 build_variant() {

@@ -39,13 +39,41 @@ type PlaneSolverResult struct {
 // @param targetDelta the desired translation from the position used to generate the collision planes
 // @param planes the collision planes
 func SolvePlanes(targetDelta Vec2, planes []CollisionPlane) PlaneSolverResult {
-	todo()
-	return PlaneSolverResult{}
+	for i := range planes {
+		planes[i].Push = 0
+	}
+	delta := targetDelta
+	tolerance := LinearSlop()
+	iteration := 0
+	for ; iteration < 20; iteration++ {
+		var totalPush float32
+		for planeIndex := range planes {
+			plane := &planes[planeIndex]
+			separation := PlaneSeparation(plane.Plane, delta) + LinearSlop()
+			push := -separation
+			accumulatedPush := plane.Push
+			plane.Push = ClampFloat(plane.Push+push, 0, plane.PushLimit)
+			push = plane.Push - accumulatedPush
+			delta = MulAdd(delta, push, plane.Plane.Normal)
+			totalPush += AbsFloat(push)
+		}
+		if totalPush < tolerance {
+			break
+		}
+	}
+	return PlaneSolverResult{Delta: delta, IterationCount: iteration}
 }
 
 // Clips the velocity against the given collision planes. Planes with zero push or ClipVelocity
 // set to false are skipped.
 func ClipVector(vector Vec2, planes []CollisionPlane) Vec2 {
-	todo()
-	return Vec2{}
+	v := vector
+	for planeIndex := range planes {
+		plane := &planes[planeIndex]
+		if plane.Push == 0 || !plane.ClipVelocity {
+			continue
+		}
+		v = MulSub(v, MinFloat(0, Dot(v, plane.Plane.Normal)), plane.Plane.Normal)
+	}
+	return v
 }

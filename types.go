@@ -8,43 +8,33 @@ import "math"
 var defaultMaterial = SurfaceMaterial{Friction: 0.6}
 
 func emptyDrawPolygon(transform WorldTransform, vertices []Vec2, color HexColor) {
-	todo()
 }
 
 func emptyDrawSolidPolygon(transform WorldTransform, vertices []Vec2, radius float32, color HexColor) {
-	todo()
 }
 
 func emptyDrawCircle(center Pos, radius float32, color HexColor) {
-	todo()
 }
 
 func emptyDrawSolidCircle(transform WorldTransform, center Vec2, radius float32, color HexColor) {
-	todo()
 }
 
 func emptyDrawSolidCapsule(p1 Pos, p2 Pos, radius float32, color HexColor) {
-	todo()
 }
 
 func emptyDrawSegment(p1 Pos, p2 Pos, color HexColor) {
-	todo()
 }
 
 func emptyDrawTransform(transform WorldTransform) {
-	todo()
 }
 
 func emptyDrawPoint(p Pos, size float32, color HexColor) {
-	todo()
 }
 
 func emptyDrawString(p Pos, s string, color HexColor) {
-	todo()
 }
 
 func emptyDrawBounds(aabb AABB, color HexColor) {
-	todo()
 }
 
 // Use this to initialize your world definition

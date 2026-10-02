@@ -3,29 +3,34 @@
 
 package box2d
 
+import (
+	"runtime"
+	"time"
+)
+
+var tickOrigin = time.Now()
+
 // Get the absolute number of system ticks. The value is platform specific.
 func GetTicks() uint64 {
-	todo()
-	var result uint64
-	return result
+	return uint64(time.Since(tickOrigin).Nanoseconds())
 }
 
 // Get the milliseconds passed from an initial tick value.
 func GetMilliseconds(ticks uint64) float32 {
-	todo()
-	var result float32
-	return result
+	ticks2 := GetTicks()
+	return float32(float64(ticks2-ticks) / 1000000)
 }
 
 // Get the milliseconds passed from an initial tick value. Resets the passed in
 // value to the current tick value.
 func GetMillisecondsAndReset(ticks *uint64) float32 {
-	todo()
-	var result float32
-	return result
+	ticks2 := GetTicks()
+	milliseconds := float32(float64(ticks2-*ticks) / 1000000)
+	*ticks = ticks2
+	return milliseconds
 }
 
 // Yield to be used in a busy loop.
 func Yield() {
-	todo()
+	runtime.Gosched()
 }

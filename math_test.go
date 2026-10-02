@@ -22,7 +22,7 @@ func TestMath(t *testing.T) {
 
 	checks := collisionOpenMath(t)
 	for angleT := float32(-10.0); angleT < 10.0; angleT += 0.01 {
-		angle := box2d.Pi * angleT
+		angle := float32(box2d.Pi * angleT)
 		r := box2d.MakeRot(angle)
 		c := checks.reference(20)
 		s := checks.reference(21)
@@ -202,7 +202,7 @@ func TestMath(t *testing.T) {
 	baseAngle := 0.75 * box2d.Pi
 	q1 = box2d.MakeRot(baseAngle)
 	for angleT := float32(-10.0); angleT < 10.0; angleT += 0.01 {
-		angle := box2d.Pi * angleT
+		angle := float32(box2d.Pi * angleT)
 		q2 = box2d.MakeRot(angle)
 		relativeAngle := box2d.RelativeAngle(q1, q2)
 		unwoundAngle := box2d.UnwindAngle(angle - baseAngle)

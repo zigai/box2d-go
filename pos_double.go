@@ -33,3 +33,7 @@ type WorldCastOutput struct {
 }
 
 const huge float32 = 1.0e9
+
+const doublePrecision = true
+
+type posScalar = float64

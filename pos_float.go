@@ -15,3 +15,7 @@ type WorldTransform = Transform
 type WorldCastOutput = CastOutput
 
 const huge float32 = 1.0e5
+
+const doublePrecision = false
+
+type posScalar = float32

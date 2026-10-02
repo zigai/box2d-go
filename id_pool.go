@@ -9,47 +9,61 @@ type idPool struct {
 }
 
 func createIDPool() idPool {
-	todo()
-	var result idPool
-	return result
+	return idPool{freeArray: make([]int, 0, 32)}
 }
 
 func destroyIDPool(pool *idPool) {
-	todo()
+	*pool = idPool{}
 }
 
 func allocID(pool *idPool) int {
-	todo()
-	var result int
-	return result
+	if len(pool.freeArray) > 0 {
+		var id int
+		pool.freeArray, id = arrayPop(pool.freeArray)
+		return id
+	}
+	id := pool.nextIndex
+	pool.nextIndex++
+	return id
 }
 
 func freeID(pool *idPool, id int) {
-	todo()
+	assert(pool.nextIndex > 0, "pool.nextIndex > 0")
+	assert(0 <= id && id < pool.nextIndex, "0 <= id && id < pool.nextIndex")
+	pool.freeArray = arrayPush(pool.freeArray, id)
 }
 
 func validateFreeID(pool *idPool, id int) {
-	todo()
+	if !validationEnabled {
+		return
+	}
+	for _, freeID := range pool.freeArray {
+		if freeID == id {
+			return
+		}
+	}
+	assert(false, "0")
 }
 
 func validateUsedID(pool *idPool, id int) {
-	todo()
+	if !validationEnabled {
+		return
+	}
+	for _, freeID := range pool.freeArray {
+		if freeID == id {
+			assert(false, "0")
+		}
+	}
 }
 
 func getIDCount(pool *idPool) int {
-	todo()
-	var result int
-	return result
+	return pool.nextIndex - len(pool.freeArray)
 }
 
 func getIDCapacity(pool *idPool) int {
-	todo()
-	var result int
-	return result
+	return pool.nextIndex
 }
 
 func getIDBytes(pool *idPool) int {
-	todo()
-	var result int
-	return result
+	return cap(pool.freeArray) * 4
 }

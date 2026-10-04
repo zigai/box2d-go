@@ -1,3 +1,11 @@
+{"k":"full/origin/count","t":"i32","v":"00000002"}
+{"k":"full/origin/normal","t":"vec2","v":"3f800000,00000000"}
+{"k":"full/origin/0/point","t":"vec2","v":"3ee66666,bf000000"}
+{"k":"full/origin/0/separation","t":"f32","v":"bdccccd0"}
+{"k":"full/origin/0/id","t":"u32","v":"00000100"}
+{"k":"full/origin/1/point","t":"vec2","v":"3ee66666,3f000000"}
+{"k":"full/origin/1/separation","t":"f32","v":"bdccccd0"}
+{"k":"full/origin/1/id","t":"u32","v":"00000203"}
 {"k":"collision:218/value0","t":"i32","v":"00000002"}
 {"k":"collision:218","t":"bool","v":"1"}
 {"k":"collision:220/value0","t":"f32","v":"bdccccd0"}

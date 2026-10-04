@@ -8,6 +8,30 @@
 #include "box2d/collision.h"
 #include "box2d/math_functions.h"
 
+static void collisionObserveCast( b2CastOutput output )
+{
+	ORACLE_BOOL( "full/cast/hit", output.hit );
+	ORACLE_I32( "full/cast/iterations", output.iterations );
+	if ( output.hit )
+	{
+		ORACLE_F32( "full/cast/fraction", output.fraction );
+		ORACLE_VEC2( "full/cast/normal", output.normal );
+		ORACLE_VEC2( "full/cast/point", output.point );
+	}
+}
+
+static void collisionObserveManifold( const char* key, b2LocalManifold m )
+{
+	ORACLE_I32( ORACLE_KEY( "%s/count", key ), m.pointCount );
+	if ( m.pointCount > 0 ) ORACLE_VEC2( ORACLE_KEY( "%s/normal", key ), m.normal );
+	for ( int i = 0; i < m.pointCount; ++i )
+	{
+		ORACLE_VEC2( ORACLE_KEY( "%s/%d/point", key, i ), m.points[i].point );
+		ORACLE_F32( ORACLE_KEY( "%s/%d/separation", key, i ), m.points[i].separation );
+		ORACLE_U32( ORACLE_KEY( "%s/%d/id", key, i ), m.points[i].id );
+	}
+}
+
 static int AABBTest( void )
 {
 	ORACLE_OPEN( "collision/AABBTest" );
@@ -43,6 +67,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { -3.0f, 0.0f };
 		b2Vec2 p2 = { 3.0f, 0.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:42/value0", output.hit );
 		ORACLE_BOOL( "collision:42", output.hit == true );
@@ -69,6 +94,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { 3.0f, 0.0f };
 		b2Vec2 p2 = { -3.0f, 0.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:56/value0", output.hit );
 		ORACLE_BOOL( "collision:56", output.hit == true );
@@ -95,6 +121,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { 0.0f, -3.0f };
 		b2Vec2 p2 = { 0.0f, 3.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:70/value0", output.hit );
 		ORACLE_BOOL( "collision:70", output.hit == true );
@@ -121,6 +148,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { 0.0f, 3.0f };
 		b2Vec2 p2 = { 0.0f, -3.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:84/value0", output.hit );
 		ORACLE_BOOL( "collision:84", output.hit == true );
@@ -147,6 +175,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { -3.0f, 2.0f };
 		b2Vec2 p2 = { 3.0f, 2.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:98/value0", output.hit );
 		ORACLE_BOOL( "collision:98", output.hit == false );
@@ -158,6 +187,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { 2.0f, -3.0f };
 		b2Vec2 p2 = { 2.0f, 3.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:107/value0", output.hit );
 		ORACLE_BOOL( "collision:107", output.hit == false );
@@ -169,6 +199,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { 0.0f, 0.0f };
 		b2Vec2 p2 = { 2.0f, 0.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:116/value0", output.hit );
 		ORACLE_BOOL( "collision:116", output.hit == false );
@@ -180,6 +211,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { -2.0f, -2.0f };
 		b2Vec2 p2 = { 2.0f, 2.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:125/value0", output.hit );
 		ORACLE_BOOL( "collision:125", output.hit == true );
@@ -200,6 +232,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { -2.0f, 1.5f };
 		b2Vec2 p2 = { 2.0f, 1.5f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:138/value0", output.hit );
 		ORACLE_BOOL( "collision:138", output.hit == false );
@@ -211,6 +244,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { -2.0f, 1.0f };
 		b2Vec2 p2 = { 2.0f, 1.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:147/value0", output.hit );
 		ORACLE_BOOL( "collision:147", output.hit == true );
@@ -231,6 +265,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { -3.0f, 0.0f };
 		b2Vec2 p2 = { -2.5f, 0.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:159/value0", output.hit );
 		ORACLE_BOOL( "collision:159", output.hit == false );
@@ -242,6 +277,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { 0.0f, 0.0f };
 		b2Vec2 p2 = { 0.0f, 0.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:168/value0", output.hit );
 		ORACLE_BOOL( "collision:168", output.hit == false );
@@ -253,6 +289,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { -2.0f, 0.0f };
 		b2Vec2 p2 = { -1.0f, 0.0f };
 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:177/value0", output.hit );
 		ORACLE_BOOL( "collision:177", output.hit == true );
@@ -274,6 +311,7 @@ static int AABBRayCastTest( void )
 		b2Vec2 p1 = { 0.0f, 4.0f };
 		b2Vec2 p2 = { 6.0f, 4.0f };
 		b2CastOutput output = b2AABB_RayCast( offsetAABB, p1, p2 );
+		collisionObserveCast( output );
 
 		ORACLE_BOOL( "collision:190/value0", output.hit );
 		ORACLE_BOOL( "collision:190", output.hit == true );
@@ -314,6 +352,7 @@ static int LargeWorldManifoldTest( void )
 	b2WorldTransform xfAo = b2WorldTransform_identity;
 	b2WorldTransform xfBo = { b2OffsetPos( b2Pos_zero, sep ), b2Rot_identity };
 	b2LocalManifold mOrigin = b2CollidePolygons( &boxA, &boxB, b2InvMulWorldTransforms( xfAo, xfBo ) );
+	collisionObserveManifold( "full/origin", mOrigin );
 
 	ORACLE_I32( "collision:218/value0", mOrigin.pointCount );
 	ORACLE_BOOL( "collision:218", mOrigin.pointCount == 2 );
@@ -333,6 +372,7 @@ static int LargeWorldManifoldTest( void )
 	b2WorldTransform xfAl = { base, b2Rot_identity };
 	b2WorldTransform xfBl = { b2OffsetPos( base, sep ), b2Rot_identity };
 	b2LocalManifold mLarge = b2CollidePolygons( &boxA, &boxB, b2InvMulWorldTransforms( xfAl, xfBl ) );
+	collisionObserveManifold( "full/large", mLarge );
 
 	ORACLE_I32( "collision:231/value0", mLarge.pointCount );
 	ORACLE_I32( "collision:231/value1", mOrigin.pointCount );

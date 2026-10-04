@@ -1048,6 +1048,9 @@ type restitutionOracle struct {
 	previousTransforms []restitutionTransform
 	snapshots          []restitutionSnapshot
 	nextSnapshot       int
+	richExpected       [][][36]uint64
+	richRows           [][36]uint64
+	richScenario       int
 }
 
 type restitutionTransform struct {
@@ -1095,6 +1098,13 @@ func restitutionOpen(t *testing.T, name string) *restitutionOracle {
 	t.Helper()
 	r := &restitutionOracle{Reader: oracle.Open(t, "restitution/"+name), t: t}
 	for _, record := range restitutionRecords(t, name) {
+		if record.Key == "dynamics/rle-u32-36u64-le" {
+			data, err := hex.DecodeString(record.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.richExpected = append(r.richExpected, BTDynamicsUnpack(t, data))
+		}
 		if record.Key == "transforms/full" {
 			data, err := hex.DecodeString(record.Value)
 			if err != nil {
@@ -1232,6 +1242,12 @@ func (r *restitutionOracle) snapshot(step int, full []restitutionTransform) {
 }
 
 func (r *restitutionOracle) step(worldID World) {
+	row := BTObserveDynamics(r.Reader, worldID, fmt.Sprintf("observation/%d/", len(r.steps)/8+1), len(r.steps) == 0 || (len(r.steps)/8+1)%60 == 0)
+	if r.richScenario >= len(r.richExpected) {
+		r.t.Fatal("unexpected dynamics scenario")
+	}
+	BTDynamicsCompare(r.t, fmt.Sprintf("restitution/%s/scenario/%d", r.t.Name(), r.richScenario+1), len(r.steps)/8+1, row, r.richExpected[r.richScenario])
+	r.richRows = append(r.richRows, row)
 	world := getWorldFromId(worldID)
 	hash := uint64(14695981039346656037)
 	transformHash := uint64(14695981039346656037)
@@ -1308,6 +1324,12 @@ func (r *restitutionOracle) step(worldID World) {
 }
 
 func (r *restitutionOracle) end(worldID World) {
+	if r.richScenario >= len(r.richExpected) || len(r.richRows) != len(r.richExpected[r.richScenario]) {
+		r.t.Fatal("dynamics scenario step count differs")
+	}
+	BTDynamicsEnd(r.Reader, r.richRows)
+	r.richRows = nil
+	r.richScenario++
 	r.Bytes("transforms/steps", r.transformSteps)
 	r.Bytes("transforms/full", r.fullStates)
 	r.Bytes("steps", r.steps)

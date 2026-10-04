@@ -1,3 +1,7 @@
+{"k":"full/toi/state","t":"i32","v":"00000003"}
+{"k":"full/toi/fraction","t":"f32","v":"3efeb852"}
+{"k":"full/toi/point","t":"vec2","v":"3f8051ec,bf800000"}
+{"k":"full/toi/normal","t":"vec2","v":"3f800000,00000000"}
 {"k":"distance:188/value0","t":"i32","v":"00000003"}
 {"k":"distance:188","t":"bool","v":"1"}
 {"k":"distance:190/value0","t":"f32","v":"3efeb852"}

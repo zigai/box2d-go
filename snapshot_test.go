@@ -480,6 +480,11 @@ func TestSnapshot(t *testing.T) {
 		snapshotTransformTrace(r, sId, fmt.Sprintf("L449/step/%d", step), step)
 		freshId.Step(dt, subSteps)
 		snapshotTransformTrace(r, freshId, fmt.Sprintf("L450/step/%d", step), step)
+		r.U64(fmt.Sprintf("continuation/in-place/%d/state", step), sId.StateHash())
+		r.U64(fmt.Sprintf("continuation/fresh/%d/state", step), freshId.StateHash())
+		if sId.StateHash() != freshId.StateHash() {
+			t.Fatalf("in-place versus fresh canonical state at step %d", step)
+		}
 		if hashWorldState(sWorld) != hashWorldState(freshWorld) {
 			r.Bool("L454", false)
 			if !(false) {
@@ -587,10 +592,13 @@ func TestSnapshot(t *testing.T) {
 		origin := getWorldFromId(wId)
 		const tailSteps = 90
 		var realTail [tailSteps]uint64
+		var realDeepTail [tailSteps]uint64
 		for step := 0; step < tailSteps; step++ {
 			wId.Step(dt, subSteps)
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L547/step/%d", step), step)
+			r.U64(fmt.Sprintf("moving/origin/%d/state", step), wId.StateHash())
 			realTail[step] = hashWorldState(origin)
+			realDeepTail[step] = wId.StateHash()
 		}
 		cId, err := CreateWorldFromSnapshot(snap, 1)
 		BTWorldCleanup(t, cId)
@@ -602,6 +610,10 @@ func TestSnapshot(t *testing.T) {
 		for step := 0; step < tailSteps; step++ {
 			cId.Step(dt, subSteps)
 			snapshotTransformTrace(r, cId, fmt.Sprintf("L556/step/%d", step), step)
+			r.U64(fmt.Sprintf("moving/clone/%d/state", step), cId.StateHash())
+			if cId.StateHash() != realDeepTail[step] {
+				t.Fatalf("moving continuation canonical state at step %d: got %x, uninterrupted %x", step, cId.StateHash(), realDeepTail[step])
+			}
 			if realTail[step] != hashWorldState(clone) {
 				r.Bool("L560", false)
 				if !(false) {

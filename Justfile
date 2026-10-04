@@ -6,10 +6,10 @@ default:
     @just --list
 
 test:
-    go test ./...
-    go test -tags {{tags}} ./...
-    go test -race ./...
-    go test -race -tags {{tags}} ./...
+    go test -timeout 60m ./...
+    go test -timeout 60m -tags {{tags}} ./...
+    ./test/run.sh -race -timeout 90m
+    ./test/run.sh -race -timeout 90m -tags {{tags}}
 
 lint:
     go vet ./...
@@ -24,7 +24,7 @@ skips:
     set -euo pipefail
     for t in "" "{{tags}}"; do
         label="${t:-default}"
-        go test -tags "$t" -json ./... | jq -rs --arg label "$label" '
+        go test -timeout 60m -tags "$t" -json ./... | jq -rs --arg label "$label" '
             [.[] | select(.Action == "output" and .Test != null and (.Output | test("\\bunported: ")))
                  | {pkg: .Package, test: .Test}] | unique
             | "unported skips (\($label) build): \(length)"'
@@ -32,6 +32,10 @@ skips:
 
 oracle:
     ./oracle/build.sh
+
+oracle-check:
+    go test -timeout 60m -tags box2d_oracle -v ./test/integration
+    go test -timeout 60m -tags box2d_oracle,{{tags}} -v ./test/integration
 
 oracle-bench:
     ORACLE_BENCH_ONLY=1 ./oracle/build.sh

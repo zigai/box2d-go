@@ -436,12 +436,9 @@ func (w World) Destroy() {
 		state.islands[i].joints = nil
 	}
 	state.islands = nil
-	// Destroy solver sets
-	for i := range state.solverSets {
-		if state.solverSets[i].setIndex != nullIndex {
-			destroySolverSet(state, i)
-		}
-	}
+	// The entire solver-set pool is being discarded, so no ids need recycling.
+	// A failed snapshot rebuild may leave the sets and id pool inconsistent.
+	// Dropping the owning slice releases even partially decoded set storage.
 	state.solverSets = nil
 	destroyGraph(&state.constraintGraph)
 	destroyBroadPhase(&state.broadPhase)

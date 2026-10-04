@@ -1,0 +1,814 @@
+{
+  "schema": 1,
+  "upstream": "956ce4e1e8acddd05a21102629e268ff9321ec50",
+  "registration": "test/main.c",
+  "suites": {
+    "TableTest": {
+      "source": "test/test_table.c",
+      "go": "TestTable",
+      "fixture": "table/TableTest",
+      "cases": {
+        "BasicHashSetTest": {
+          "go": "TestTable/BasicHashSetTest",
+          "fixture": "table/BasicHashSetTest"
+        },
+        "HashSetCapacityTest": {
+          "go": "TestTable/HashSetCapacityTest",
+          "fixture": "table/HashSetCapacityTest"
+        },
+        "HashSetAddRemoveTest": {
+          "go": "TestTable/HashSetAddRemoveTest",
+          "fixture": "table/HashSetAddRemoveTest"
+        },
+        "HashSetClearTest": {
+          "go": "TestTable/HashSetClearTest",
+          "fixture": "table/HashSetClearTest"
+        },
+        "HashSetGrowthTest": {
+          "go": "TestTable/HashSetGrowthTest",
+          "fixture": "table/HashSetGrowthTest"
+        },
+        "HashSetEdgeCasesTest": {
+          "go": "TestTable/HashSetEdgeCasesTest",
+          "fixture": "table/HashSetEdgeCasesTest"
+        },
+        "HashSetRemovalReorganizationTest": {
+          "go": "TestTable/HashSetRemovalReorganizationTest",
+          "fixture": "table/HashSetRemovalReorganizationTest"
+        },
+        "HashSetStressTest": {
+          "go": "TestTable/HashSetStressTest",
+          "fixture": "table/HashSetStressTest"
+        },
+        "HashSetShapePairKeyTest": {
+          "go": "TestTable/HashSetShapePairKeyTest",
+          "fixture": "table/HashSetShapePairKeyTest"
+        },
+        "HashSetBytesTest": {
+          "go": "TestTable/HashSetBytesTest",
+          "fixture": "table/HashSetBytesTest"
+        },
+        "HashSetTest": {
+          "go": "TestTable/HashSetTest",
+          "fixture": "table/HashSetTest"
+        }
+      }
+    },
+    "BitSetTest": {
+      "source": "test/test_bitset.c",
+      "go": "TestBitset",
+      "fixture": "bitset/BitSetTest",
+      "cases": {}
+    },
+    "ChainTest": {
+      "source": "test/test_chain.c",
+      "go": "TestChain",
+      "cases": {
+        "SegmentCountTest": {
+          "go": "TestChain/SegmentCountTest",
+          "fixture": "input/chain/SegmentCountTest"
+        },
+        "SegmentGeometryTest": {
+          "go": "TestChain/SegmentGeometryTest",
+          "fixture": "input/chain/SegmentGeometryTest"
+        },
+        "LoopMaterialTest": {
+          "go": "TestChain/LoopMaterialTest",
+          "fixture": "input/chain/LoopMaterialTest"
+        },
+        "OpenMaterialTest": {
+          "go": "TestChain/OpenMaterialTest",
+          "fixture": "input/chain/OpenMaterialTest"
+        },
+        "SingleMaterialTest": {
+          "go": "TestChain/SingleMaterialTest",
+          "fixture": "input/chain/SingleMaterialTest"
+        }
+      }
+    },
+    "CollisionTest": {
+      "source": "test/test_collision.c",
+      "go": "TestCollision",
+      "cases": {
+        "AABBTest": {
+          "go": "TestCollision/AABBTest",
+          "fixture": "collision/AABBTest"
+        },
+        "AABBRayCastTest": {
+          "go": "TestCollision/AABBRayCastTest",
+          "fixture": "collision/AABBRayCastTest"
+        },
+        "LargeWorldManifoldTest": {
+          "go": "TestCollision/LargeWorldManifoldTest",
+          "fixture": "collision/LargeWorldManifoldTest"
+        },
+        "LargeWorldAABBTest": {
+          "go": "TestCollision/LargeWorldAABBTest",
+          "fixture": "collision/LargeWorldAABBTest"
+        }
+      }
+    },
+    "ContainerTest": {
+      "source": "test/test_container.c",
+      "go": "TestContainer",
+      "cases": {
+        "TestCreateDestroy": {
+          "go": "TestContainer/TestCreateDestroy",
+          "fixture": "container/TestCreateDestroy"
+        },
+        "TestAccess": {
+          "go": "TestContainer/TestAccess",
+          "fixture": "container/TestAccess"
+        },
+        "TestIteration": {
+          "go": "TestContainer/TestIteration",
+          "fixture": "container/TestIteration"
+        },
+        "TestArrayOfStruct": {
+          "go": "TestContainer/TestArrayOfStruct",
+          "fixture": "container/TestArrayOfStruct"
+        },
+        "TestStructWithArray": {
+          "go": "TestContainer/TestStructWithArray",
+          "fixture": "container/TestStructWithArray"
+        },
+        "TestArrayEmplace": {
+          "go": "TestContainer/TestArrayEmplace",
+          "fixture": "container/TestArrayEmplace"
+        },
+        "TestArrayRemove": {
+          "go": "TestContainer/TestArrayRemove",
+          "fixture": "container/TestArrayRemove"
+        },
+        "TestArrayPop": {
+          "go": "TestContainer/TestArrayPop",
+          "fixture": "container/TestArrayPop"
+        },
+        "TestEmptyArrayProperties": {
+          "go": "TestContainer/TestEmptyArrayProperties",
+          "fixture": "container/TestEmptyArrayProperties"
+        },
+        "TestArrayReserveNoop": {
+          "go": "TestContainer/TestArrayReserveNoop",
+          "fixture": "container/TestArrayReserveNoop"
+        },
+        "TestArrayResizeDown": {
+          "go": "TestContainer/TestArrayResizeDown",
+          "fixture": "container/TestArrayResizeDown"
+        },
+        "TestArrayResizeUp": {
+          "go": "TestContainer/TestArrayResizeUp",
+          "fixture": "container/TestArrayResizeUp"
+        },
+        "TestArrayPopOrder": {
+          "go": "TestContainer/TestArrayPopOrder",
+          "fixture": "container/TestArrayPopOrder"
+        },
+        "TestArrayRemoveSwapContents": {
+          "go": "TestContainer/TestArrayRemoveSwapContents",
+          "fixture": "container/TestArrayRemoveSwapContents"
+        },
+        "TestArrayRemoveSwapAllFromEnd": {
+          "go": "TestContainer/TestArrayRemoveSwapAllFromEnd",
+          "fixture": "container/TestArrayRemoveSwapAllFromEnd"
+        },
+        "TestArrayGrowthIntegrity": {
+          "go": "TestContainer/TestArrayGrowthIntegrity",
+          "fixture": "container/TestArrayGrowthIntegrity"
+        },
+        "TestArrayInterleavedPushPop": {
+          "go": "TestContainer/TestArrayInterleavedPushPop",
+          "fixture": "container/TestArrayInterleavedPushPop"
+        },
+        "TestArrayEmplaceStruct": {
+          "go": "TestContainer/TestArrayEmplaceStruct",
+          "fixture": "container/TestArrayEmplaceStruct"
+        },
+        "TestArrayPushAfterReserve": {
+          "go": "TestContainer/TestArrayPushAfterReserve",
+          "fixture": "container/TestArrayPushAfterReserve"
+        },
+        "TestArraySingleElement": {
+          "go": "TestContainer/TestArraySingleElement",
+          "fixture": "container/TestArraySingleElement"
+        },
+        "TestArrayCreateN": {
+          "go": "TestContainer/TestArrayCreateN",
+          "fixture": "container/TestArrayCreateN"
+        }
+      }
+    },
+    "DeterminismTest": {
+      "source": "test/test_determinism.c",
+      "go": "TestDeterminism",
+      "cases": {
+        "MultithreadingTest": {
+          "go": "TestDeterminism/MultithreadingTest",
+          "fixture": "input/determinism/MultithreadingTest"
+        },
+        "BuiltInSchedulerTest": {
+          "go": "TestDeterminism/BuiltInSchedulerTest",
+          "fixture": "input/determinism/BuiltInSchedulerTest"
+        },
+        "CrossPlatformTest": {
+          "go": "TestDeterminism/CrossPlatformTest",
+          "fixture": "input/determinism/CrossPlatformTest"
+        }
+      }
+    },
+    "DistanceTest": {
+      "source": "test/test_distance.c",
+      "go": "TestDistance",
+      "cases": {
+        "SegmentDistanceTest": {
+          "go": "TestDistance/SegmentDistanceTest",
+          "fixture": "distance/SegmentDistanceTest"
+        },
+        "ShapeDistanceTest": {
+          "go": "TestDistance/ShapeDistanceTest",
+          "fixture": "distance/ShapeDistanceTest"
+        },
+        "ShapeCastTest": {
+          "go": "TestDistance/ShapeCastTest",
+          "fixture": "distance/ShapeCastTest"
+        },
+        "ShapeDistanceShortEdgeTest": {
+          "go": "TestDistance/ShapeDistanceShortEdgeTest",
+          "fixture": "distance/ShapeDistanceShortEdgeTest"
+        },
+        "TimeOfImpactTest": {
+          "go": "TestDistance/TimeOfImpactTest",
+          "fixture": "distance/TimeOfImpactTest"
+        }
+      }
+    },
+    "DynamicTreeTest": {
+      "source": "test/test_dynamic_tree.c",
+      "go": "TestDynamicTree",
+      "cases": {
+        "TreeCreateDestroy": {
+          "go": "TestDynamicTree/TreeCreateDestroy",
+          "fixture": "dynamic_tree/TreeCreateDestroy"
+        },
+        "TreeRayCastTest": {
+          "go": "TestDynamicTree/TreeRayCastTest",
+          "fixture": "dynamic_tree/TreeRayCastTest"
+        },
+        "TreeMultipleProxiesTest": {
+          "go": "TestDynamicTree/TreeMultipleProxiesTest",
+          "fixture": "dynamic_tree/TreeMultipleProxiesTest"
+        },
+        "TreeQueryTest": {
+          "go": "TestDynamicTree/TreeQueryTest",
+          "fixture": "dynamic_tree/TreeQueryTest"
+        },
+        "TreeMoveAndEnlargeTest": {
+          "go": "TestDynamicTree/TreeMoveAndEnlargeTest",
+          "fixture": "dynamic_tree/TreeMoveAndEnlargeTest"
+        },
+        "TreeRebuildAndValidateTest": {
+          "go": "TestDynamicTree/TreeRebuildAndValidateTest",
+          "fixture": "dynamic_tree/TreeRebuildAndValidateTest"
+        },
+        "TreeRowHeightTest": {
+          "go": "TestDynamicTree/TreeRowHeightTest",
+          "fixture": "dynamic_tree/TreeRowHeightTest"
+        },
+        "TreeGridHeightTest": {
+          "go": "TestDynamicTree/TreeGridHeightTest",
+          "fixture": "dynamic_tree/TreeGridHeightTest"
+        },
+        "TreeGridMovementTest": {
+          "go": "TestDynamicTree/TreeGridMovementTest",
+          "fixture": "dynamic_tree/TreeGridMovementTest"
+        },
+        "TreeOneProxyTest": {
+          "go": "TestDynamicTree/TreeOneProxyTest",
+          "fixture": "dynamic_tree/TreeOneProxyTest"
+        },
+        "TreeLeafRootTest": {
+          "go": "TestDynamicTree/TreeLeafRootTest",
+          "fixture": "dynamic_tree/TreeLeafRootTest"
+        },
+        "TreeQueryBruteForceTest": {
+          "go": "TestDynamicTree/TreeQueryBruteForceTest",
+          "fixture": "dynamic_tree/TreeQueryBruteForceTest"
+        },
+        "TreeCastBruteForceTest": {
+          "go": "TestDynamicTree/TreeCastBruteForceTest",
+          "fixture": "dynamic_tree/TreeCastBruteForceTest"
+        },
+        "TreeMarkAndRefitTest": {
+          "go": "TestDynamicTree/TreeMarkAndRefitTest",
+          "fixture": "dynamic_tree/TreeMarkAndRefitTest"
+        },
+        "TreeDfsOrderTest": {
+          "go": "TestDynamicTree/TreeDfsOrderTest",
+          "fixture": "dynamic_tree/TreeDfsOrderTest"
+        },
+        "TreeStaleAfterInsertRemoveTest": {
+          "go": "TestDynamicTree/TreeStaleAfterInsertRemoveTest",
+          "fixture": "dynamic_tree/TreeStaleAfterInsertRemoveTest"
+        }
+      }
+    },
+    "IdTest": {
+      "source": "test/test_id.c",
+      "go": "TestId",
+      "fixture": "id/IdTest",
+      "cases": {}
+    },
+    "InvalidInputTest": {
+      "source": "test/test_invalid_input.c",
+      "go": "TestInvalidInput",
+      "cases": {
+        "WorldInputTest": {
+          "go": "TestInvalidInput/WorldInputTest",
+          "fixture": "input/invalid_input/WorldInputTest"
+        },
+        "BodyInputTest": {
+          "go": "TestInvalidInput/BodyInputTest",
+          "fixture": "input/invalid_input/BodyInputTest"
+        },
+        "ShapeInputTest": {
+          "go": "TestInvalidInput/ShapeInputTest",
+          "fixture": "input/invalid_input/ShapeInputTest"
+        },
+        "JointInputTest": {
+          "go": "TestInvalidInput/JointInputTest",
+          "fixture": "input/invalid_input/JointInputTest"
+        },
+        "CreateInputTest": {
+          "go": "TestInvalidInput/CreateInputTest",
+          "fixture": "input/invalid_input/CreateInputTest"
+        },
+        "RecordReplayTest": {
+          "go": "TestInvalidInput/RecordReplayTest",
+          "fixture": "input/invalid_input/RecordReplayTest"
+        }
+      }
+    },
+    "LargeWorldTest": {
+      "source": "test/test_large_world.c",
+      "go": "TestLargeWorld",
+      "cases": {
+        "LargeWorldPyramidTest": {
+          "go": "TestLargeWorld/LargeWorldPyramidTest",
+          "fixture": "large_world/LargeWorldPyramidTest"
+        },
+        "LargeWorldBulletTest": {
+          "go": "TestLargeWorld/LargeWorldBulletTest",
+          "fixture": "large_world/LargeWorldBulletTest"
+        },
+        "LargeWorldRayCastTest": {
+          "go": "TestLargeWorld/LargeWorldRayCastTest",
+          "fixture": "large_world/LargeWorldRayCastTest"
+        },
+        "LargeWorldOriginQueryTest": {
+          "go": "TestLargeWorld/LargeWorldOriginQueryTest",
+          "fixture": "large_world/LargeWorldOriginQueryTest"
+        },
+        "LargeWorldRecordingTest": {
+          "go": "TestLargeWorld/LargeWorldRecordingTest",
+          "fixture": "large_world/LargeWorldRecordingTest"
+        }
+      }
+    },
+    "MathTest": {
+      "source": "test/test_math.c",
+      "go": "TestMath",
+      "fixture": "math/MathTest",
+      "cases": {}
+    },
+    "MoverTest": {
+      "source": "test/test_mover.c",
+      "go": "TestMover",
+      "cases": {
+        "NoPlanesTest": {
+          "go": "TestMover/NoPlanesTest",
+          "fixture": "mover/NoPlanesTest"
+        },
+        "SolvePlaneTest": {
+          "go": "TestMover/SolvePlaneTest",
+          "fixture": "mover/SolvePlaneTest"
+        },
+        "PushLimitTest": {
+          "go": "TestMover/PushLimitTest",
+          "fixture": "mover/PushLimitTest"
+        },
+        "CornerTest": {
+          "go": "TestMover/CornerTest",
+          "fixture": "mover/CornerTest"
+        },
+        "WedgeTest": {
+          "go": "TestMover/WedgeTest",
+          "fixture": "mover/WedgeTest"
+        },
+        "ClipVectorTest": {
+          "go": "TestMover/ClipVectorTest",
+          "fixture": "mover/ClipVectorTest"
+        }
+      }
+    },
+    "RecordingKeyframeTest": {
+      "source": "test/test_recording.c",
+      "go": "TestRecordingKeyframe",
+      "fixture": "recording/RecordingKeyframeTest",
+      "cases": {}
+    },
+    "RecordingOutlinerTest": {
+      "source": "test/test_recording.c",
+      "go": "TestRecordingOutliner",
+      "fixture": "recording/RecordingOutlinerTest",
+      "cases": {}
+    },
+    "RecordingQueryScrubTest": {
+      "source": "test/test_recording.c",
+      "go": "TestRecordingQueryScrub",
+      "fixture": "recording/RecordingQueryScrubTest",
+      "cases": {}
+    },
+    "RecordingScrubTest": {
+      "source": "test/test_recording.c",
+      "go": "TestRecordingScrub",
+      "fixture": "recording/RecordingScrubTest",
+      "cases": {}
+    },
+    "RecordingTest": {
+      "source": "test/test_recording.c",
+      "go": "TestRecording",
+      "fixture": "recording/RecordingTest",
+      "cases": {}
+    },
+    "ReStepRaceTest": {
+      "source": "test/test_recording.c",
+      "go": "TestReStepRace",
+      "fixture": "recording/ReStepRaceTest",
+      "cases": {}
+    },
+    "RestitutionTest": {
+      "source": "test/test_restitution.c",
+      "go": "TestRestitution",
+      "cases": {
+        "HeadOnTest": {
+          "go": "TestRestitution/HeadOnTest",
+          "fixture": "restitution/HeadOnTest"
+        },
+        "PhaseTest": {
+          "go": "TestRestitution/PhaseTest",
+          "fixture": "restitution/PhaseTest"
+        },
+        "SupportedTest": {
+          "go": "TestRestitution/SupportedTest",
+          "fixture": "restitution/SupportedTest"
+        },
+        "TwoPointTest": {
+          "go": "TestRestitution/TwoPointTest",
+          "fixture": "restitution/TwoPointTest"
+        },
+        "SpinTest": {
+          "go": "TestRestitution/SpinTest",
+          "fixture": "restitution/SpinTest"
+        },
+        "DropTest": {
+          "go": "TestRestitution/DropTest",
+          "fixture": "restitution/DropTest"
+        },
+        "SingleBoxTest": {
+          "go": "TestRestitution/SingleBoxTest",
+          "fixture": "restitution/SingleBoxTest"
+        },
+        "ThresholdTest": {
+          "go": "TestRestitution/ThresholdTest",
+          "fixture": "restitution/ThresholdTest"
+        },
+        "RestingTest": {
+          "go": "TestRestitution/RestingTest",
+          "fixture": "restitution/RestingTest"
+        },
+        "NormalVelocityTest": {
+          "go": "TestRestitution/NormalVelocityTest",
+          "fixture": "restitution/NormalVelocityTest"
+        },
+        "OvershootTest": {
+          "go": "TestRestitution/OvershootTest",
+          "fixture": "restitution/OvershootTest"
+        },
+        "EnergyTest": {
+          "go": "TestRestitution/EnergyTest",
+          "fixture": "restitution/EnergyTest"
+        },
+        "ImpulseTest": {
+          "go": "TestRestitution/ImpulseTest",
+          "fixture": "restitution/ImpulseTest"
+        },
+        "WorkerParityTest": {
+          "go": "TestRestitution/WorkerParityTest",
+          "fixture": "restitution/WorkerParityTest"
+        }
+      }
+    },
+    "ShapeTest": {
+      "source": "test/test_shape.c",
+      "go": "TestShape",
+      "cases": {
+        "ShapeMassTest": {
+          "go": "TestShape/ShapeMassTest",
+          "fixture": "shape/ShapeMassTest"
+        },
+        "ShapeAABBTest": {
+          "go": "TestShape/ShapeAABBTest",
+          "fixture": "shape/ShapeAABBTest"
+        },
+        "PointInShapeTest": {
+          "go": "TestShape/PointInShapeTest",
+          "fixture": "shape/PointInShapeTest"
+        },
+        "RayCastShapeTest": {
+          "go": "TestShape/RayCastShapeTest",
+          "fixture": "shape/RayCastShapeTest"
+        }
+      }
+    },
+    "SnapshotTest": {
+      "source": "test/test_snapshot.c",
+      "go": "TestSnapshot",
+      "fixture": "snapshot/SnapshotTest",
+      "cases": {}
+    },
+    "ThreadTest": {
+      "source": "test/test_thread.c",
+      "go": "TestThread",
+      "cases": {
+        "SemaphoreCreateDestroyTest": {
+          "go": "TestThread/SemaphoreCreateDestroyTest",
+          "fixture": "thread/SemaphoreCreateDestroyTest"
+        },
+        "SemaphoreSignalWaitTest": {
+          "go": "TestThread/SemaphoreSignalWaitTest",
+          "fixture": "thread/SemaphoreSignalWaitTest"
+        },
+        "SemaphoreInitialCountTest": {
+          "go": "TestThread/SemaphoreInitialCountTest",
+          "fixture": "thread/SemaphoreInitialCountTest"
+        },
+        "ThreadCreateJoinTest": {
+          "go": "TestThread/ThreadCreateJoinTest",
+          "fixture": "thread/ThreadCreateJoinTest"
+        },
+        "ThreadMultipleTest": {
+          "go": "TestThread/ThreadMultipleTest",
+          "fixture": "thread/ThreadMultipleTest"
+        }
+      }
+    },
+    "WorldTest": {
+      "source": "test/test_world.c",
+      "go": "TestWorld",
+      "cases": {
+        "HelloWorld": {
+          "go": "TestWorld/HelloWorld",
+          "fixture": "world/HelloWorld"
+        },
+        "EmptyWorld": {
+          "go": "TestWorld/EmptyWorld",
+          "fixture": "world/EmptyWorld"
+        },
+        "DestroyAllBodiesWorld": {
+          "go": "TestWorld/DestroyAllBodiesWorld",
+          "fixture": "world/DestroyAllBodiesWorld"
+        },
+        "TestIsValid": {
+          "go": "TestWorld/TestIsValid",
+          "fixture": "world/TestIsValid"
+        },
+        "TestWorldRecycle": {
+          "go": "TestWorld/TestWorldRecycle",
+          "fixture": "world/TestWorldRecycle"
+        },
+        "TestWorldCoverage": {
+          "go": "TestWorld/TestWorldCoverage",
+          "fixture": "world/TestWorldCoverage"
+        },
+        "TestSensor": {
+          "go": "TestWorld/TestSensor",
+          "fixture": "world/TestSensor"
+        },
+        "TestSetWorkerCount": {
+          "go": "TestWorld/TestSetWorkerCount",
+          "fixture": "world/TestSetWorkerCount"
+        },
+        "ChainSegmentShapeTest": {
+          "go": "TestWorld/ChainSegmentShapeTest",
+          "fixture": "world/ChainSegmentShapeTest"
+        },
+        "SetBulletDriftTest": {
+          "go": "TestWorld/SetBulletDriftTest",
+          "fixture": "world/SetBulletDriftTest"
+        },
+        "DeferredMassFlagSyncTest": {
+          "go": "TestWorld/DeferredMassFlagSyncTest",
+          "fixture": "world/DeferredMassFlagSyncTest"
+        },
+        "EnableSleepFlagSyncTest": {
+          "go": "TestWorld/EnableSleepFlagSyncTest",
+          "fixture": "world/EnableSleepFlagSyncTest"
+        },
+        "EnableContactRecyclingTest": {
+          "go": "TestWorld/EnableContactRecyclingTest",
+          "fixture": "world/EnableContactRecyclingTest"
+        },
+        "EnlargedProxyDestroyedTest": {
+          "go": "TestWorld/EnlargedProxyDestroyedTest",
+          "fixture": "world/EnlargedProxyDestroyedTest"
+        },
+        "BroadPhasePairsTest": {
+          "go": "TestWorld/BroadPhasePairsTest",
+          "fixture": "world/BroadPhasePairsTest"
+        },
+        "BodySimLocatorTest": {
+          "go": "TestWorld/BodySimLocatorTest",
+          "fixture": "world/BodySimLocatorTest"
+        },
+        "NonDynamicJointDisableTest": {
+          "go": "TestWorld/NonDynamicJointDisableTest",
+          "fixture": "world/NonDynamicJointDisableTest"
+        }
+      }
+    }
+  },
+  "disabled_upstream": [
+    {
+      "suite": "DistanceTest",
+      "name": "ShapeCastShortEdgeTest",
+      "go": "TestDistance/ShapeCastShortEdgeTest",
+      "source": "test/test_distance.c",
+      "reason": "B2_SHORT_EDGE_CAST_REPRO is 0 at the pin; conservative advancement reproducer may assert/abort the suite."
+    }
+  ],
+  "unregistered_diagnostics": [
+    {
+      "name": "ReplayFileScrubDiag",
+      "source": "test/test_recording.c",
+      "go": "TestRecordingDiagnosticUnregistered",
+      "fixture": "recording/DiagnosticUnregistered",
+      "reason": "Not registered in main.c. The paired adapter exercises missing-file and native deterministic 12-frame scrub behavior."
+    }
+  ],
+  "public_families": [
+    {
+      "subject": "02",
+      "go": [
+        "TestSnapshotFamiliesRollback",
+        "TestSnapshotDestroyedReusedHandlesAndNewWorld",
+        "TestSnapshotRetainsLiveWiringAndClearsApplicationData",
+        "TestSnapshotHeaderRejectionAndLateCleanup"
+      ]
+    },
+    {
+      "subject": "03",
+      "go": [
+        "TestRecordingMutationParity",
+        "TestRecordingLifecycleParity",
+        "TestRecordingDivergenceParity",
+        "TestRecordingOwnedSourceParity",
+        "TestRecordingFileAndFramingParity"
+      ]
+    },
+    {
+      "subject": "04/05",
+      "go": [
+        "TestLifecycleStoredIDs",
+        "TestLifecycleReuseAndDestruction",
+        "TestLifecycleCollectionTransitions",
+        "TestLifecycleMultiworldDestroyRecreate",
+        "TestOwnershipWorkerReconfiguration",
+        "TestOwnershipSynchronousNilFinish",
+        "TestOwnershipAsyncStepWaitsForExplicitRelease",
+        "TestOwnershipRepeatedShutdownWithCompletedWork",
+        "TestOwnershipConcurrentWorldsAgainstIndependentC",
+        "TestSchedulerWorldOwnedWorkersShutdown"
+      ]
+    },
+    {
+      "subject": "06",
+      "go": [
+        "TestDynamicsIntegration",
+        "TestDynamicsContactTuning",
+        "TestDynamicsRestitutionBoundary",
+        "TestDynamicsContinuous",
+        "TestDynamicsSleepWake"
+      ]
+    },
+    {
+      "subject": "07",
+      "go": [
+        "TestEventsLifecycleParity",
+        "TestEventsSleepingDestroyParity",
+        "TestEventsFastSensorParity",
+        "TestEventsMovementParity",
+        "TestEventsHitThresholdParity",
+        "TestEventsJointThresholdParity",
+        "TestEventsFilterEligibilityParity",
+        "TestEventsQueryFilterParity",
+        "TestEventsCallbackPolicyParity",
+        "TestEventsEarlyStopNativeSupplemental"
+      ]
+    },
+    {
+      "subject": "08",
+      "go": [
+        "TestInputGuardAssertionErrorNative",
+        "TestMalformedSavedInputCorpus",
+        "TestMalformedSavedPayloadReleasesWorldSlots",
+        "FuzzMalformedSnapshotHeader",
+        "FuzzMalformedSavedPayload"
+      ]
+    },
+    {
+      "subject": "09",
+      "go": [
+        "TestBodiesConstructionCopiesCallerInputs",
+        "TestBodiesMotionOperationsAndWake",
+        "TestBodiesMassMutationTriggersAndLoadedResponse",
+        "TestShapesMutationBoundsQueriesAndCollisions",
+        "TestChainsOwnershipMaterialsWindingAndDestruction",
+        "TestShapesTransformedQueriesAndEnvironmentalForces"
+      ]
+    },
+    {
+      "subject": "10",
+      "go": [
+        "TestJointParity",
+        "TestJointCollisionPolicy"
+      ]
+    },
+    {
+      "subject": "11",
+      "go": [
+        "TestMathPublicSpecialAngles",
+        "TestMathPublicScalars",
+        "TestMathPublicVectors",
+        "TestMathPublicRotations",
+        "TestMathPublicMatrixSpring",
+        "TestMathPublicTransforms",
+        "TestMathPublicRounding",
+        "TestMathPublicValidity",
+        "TestMathPublicBoundsPlanes",
+        "TestShapePublicHullAndConstructors",
+        "TestShapePublicMass",
+        "TestShapePublicAABB",
+        "TestShapePublicContainment",
+        "TestDistancePublic",
+        "TestDistanceDebugPublic",
+        "TestShapePublicRayCasts",
+        "TestShapePublicShapeCasts",
+        "TestCollisionPublicPairs",
+        "TestMoverOffsetsLimitsAndClipPolicies"
+      ]
+    },
+    {
+      "subject": "12",
+      "go": [
+        "TestPublicTreeHistory",
+        "TestTreeCallbackForwarding",
+        "TestWorldSpatialParity",
+        "TestWorldMoverPlanesResolveAndClip",
+        "TestWorldDrawTypedParity"
+      ]
+    },
+    {
+      "subject": "14",
+      "go": [
+        "TestScenes",
+        "TestParallelScenes"
+      ]
+    },
+    {
+      "subject": "01",
+      "go": [
+        "TestDifferentialCorpus"
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "subject": "12/C7",
+      "source": "include/box2d/box2d.h",
+      "name": "b2World_DumpMemoryStats",
+      "status": "blocked",
+      "reason": "No corresponding Go interface; not invoked by the pinned C test suite. No new diagnostic API authorized."
+    }
+  ],
+  "excluded": [
+    {
+      "source": "test/swift/test_world.swift",
+      "reason": "Separate Swift binding test, not a C runner case or supported Go binding."
+    },
+    {
+      "source": "samples/*.cpp",
+      "reason": "Interactive C++ sample applications are not C tests or declared Go scenario families; shared named C/Go scenes are separately compared."
+    }
+  ],
+  "policy": "Every active native suite/subcase must actually pass, each mapped Go case must pass, every completed designated-profile C fixture must be consumed, and disabled/not-run configurations remain visible. This finite inventory is not universal parity."
+}

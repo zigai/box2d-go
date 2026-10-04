@@ -513,6 +513,7 @@ func openSnapshotImage(image []byte, size int, r *snapReader) bool {
 // Create a new world from a snapshot image. Use this to load a saved world when there is
 // no existing world to restore into. The new world gets a fresh slot and id, so ids held
 // from the origin world will not match it. Host wiring is reset to defaults.
+// A rejected image returns a SnapshotError and releases the new world's resources.
 func CreateWorldFromSnapshot(image []byte, workerCount int) (World, error) {
 	if err := snapshotHeaderError(image, len(image)); err != nil {
 		return World{}, err
@@ -544,6 +545,7 @@ func CreateWorldFromSnapshot(image []byte, workerCount int) (World, error) {
 // On a rejected image (bad magic, version, or layout) the world is left unchanged.
 // A corrupt payload detected after the rebuild begins returns an error and leaves
 // the world unusable, so the caller must destroy it.
+// Destroy remains safe even when only part of the payload was rebuilt.
 func (w World) Restore(image []byte) error {
 	if err := snapshotHeaderError(image, len(image)); err != nil {
 		return err

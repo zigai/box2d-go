@@ -8,6 +8,44 @@
 
 #include <float.h>
 
+static void collisionObserveMass( b2MassData md )
+{
+	ORACLE_F32( "full/mass", md.mass );
+	ORACLE_VEC2( "full/mass-center", md.center );
+	ORACLE_F32( "full/inertia", md.rotationalInertia );
+}
+
+static void collisionObserveHull( b2Hull hull )
+{
+	ORACLE_I32( "full/hull/count", hull.count );
+	ORACLE_BOOL( "full/hull/valid", b2ValidateHull( &hull ) );
+	for ( int i = 0; i < hull.count; ++i ) ORACLE_VEC2( ORACLE_KEY( "full/hull/%d", i ), hull.points[i] );
+}
+
+static void collisionObservePolygon( b2Polygon polygon )
+{
+	ORACLE_I32( "full/polygon/count", polygon.count );
+	ORACLE_VEC2( "full/polygon/centroid", polygon.centroid );
+	ORACLE_F32( "full/polygon/radius", polygon.radius );
+	for ( int i = 0; i < polygon.count; ++i )
+	{
+		ORACLE_VEC2( ORACLE_KEY( "full/polygon/%d/vertex", i ), polygon.vertices[i] );
+		ORACLE_VEC2( ORACLE_KEY( "full/polygon/%d/normal", i ), polygon.normals[i] );
+	}
+}
+
+static void collisionObserveCast( b2CastOutput output )
+{
+	ORACLE_BOOL( "full/cast/hit", output.hit );
+	ORACLE_I32( "full/cast/iterations", output.iterations );
+	if ( output.hit )
+	{
+		ORACLE_F32( "full/cast/fraction", output.fraction );
+		ORACLE_VEC2( "full/cast/normal", output.normal );
+		ORACLE_VEC2( "full/cast/point", output.point );
+	}
+}
+
 static b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
 static b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
 static b2Polygon box;
@@ -20,6 +58,7 @@ static int ShapeMassTest( void )
 	ORACLE_OPEN( "shape/ShapeMassTest" );
 	{
 		b2MassData md = b2ComputeCircleMass( &circle, 1.0f );
+		collisionObserveMass( md );
 		ORACLE_F32( "shape:23/value0", md.mass );
 		ORACLE_F32( "shape:23", md.mass - B2_PI );
 		ENSURE_SMALL( md.mass - B2_PI, FLT_EPSILON );
@@ -37,10 +76,12 @@ static int ShapeMassTest( void )
 		float length = b2Distance( capsule.center1, capsule.center2 );
 
 		b2MassData md = b2ComputeCapsuleMass( &capsule, 1.0f );
+		collisionObserveMass( md );
 
 		// Box that full contains capsule
 		b2Polygon r = b2MakeBox( radius + 0.5f * length, radius );
 		b2MassData mdUpper = b2ComputePolygonMass( &r, 1.0f );
+		collisionObserveMass( mdUpper );
 
 		// Approximate capsule using convex hull
 		b2Vec2 points[2 * N];
@@ -61,9 +102,13 @@ static int ShapeMassTest( void )
 			angle += d;
 		}
 
+		for ( int i = 0; i < 2 * N; ++i ) ORACLE_VEC2( "full/capsule-input", points[i] );
 		b2Hull hull = b2ComputeHull( points, 2 * N );
+		collisionObserveHull( hull );
 		b2Polygon ac = b2MakePolygon( &hull, 0.0f );
+		collisionObservePolygon( ac );
 		b2MassData mdLower = b2ComputePolygonMass( &ac, 1.0f );
+		collisionObserveMass( mdLower );
 
 		ORACLE_F32( "shape:60/value0", mdLower.mass );
 		ORACLE_F32( "shape:60/value1", md.mass );
@@ -79,6 +124,7 @@ static int ShapeMassTest( void )
 
 	{
 		b2MassData md = b2ComputePolygonMass( &box, 1.0f );
+		collisionObserveMass( md );
 		ORACLE_F32( "shape:67/value0", md.mass );
 		ORACLE_F32( "shape:67", md.mass - 4.0f );
 		ENSURE_SMALL( md.mass - 4.0f, FLT_EPSILON );
@@ -100,6 +146,8 @@ static int ShapeMassTest( void )
 
 		b2MassData m1 = b2ComputePolygonMass( &b1, 1.0f );
 		b2MassData m2 = b2ComputePolygonMass( &b2, 1.0f );
+		collisionObserveMass( m1 );
+		collisionObserveMass( m2 );
 		
 		ORACLE_F32( "shape:80/value0", m1.mass );
 		ORACLE_F32( "shape:80/value1", m2.mass );
@@ -215,6 +263,7 @@ static int RayCastShapeTest( void )
 
 	{
 		b2CastOutput output = b2RayCastCircle( &circle, & input );
+		collisionObserveCast( output );
 		ORACLE_BOOL( "shape:155/value0", output.hit );
 		ORACLE_BOOL( "shape:155", output.hit );
 		ENSURE( output.hit );
@@ -231,6 +280,7 @@ static int RayCastShapeTest( void )
 
 	{
 		b2CastOutput output = b2RayCastPolygon( &box, & input);
+		collisionObserveCast( output );
 		ORACLE_BOOL( "shape:163/value0", output.hit );
 		ORACLE_BOOL( "shape:163", output.hit );
 		ENSURE( output.hit );
@@ -247,6 +297,7 @@ static int RayCastShapeTest( void )
 
 	{
 		b2CastOutput output = b2RayCastSegment( &segment, &input, true );
+		collisionObserveCast( output );
 		ORACLE_BOOL( "shape:171/value0", output.hit );
 		ORACLE_BOOL( "shape:171", output.hit );
 		ENSURE( output.hit );

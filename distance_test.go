@@ -75,6 +75,7 @@ func TestDistance(t *testing.T) {
 
 		cache := box2d.SimplexCache{}
 		output := box2d.ShapeDistance(&input, &cache, nil)
+		geometryOriginalDistance(r, output, cache)
 
 		r.F32("distance:52/value0", output.Distance)
 		r.F32("distance:52", output.Distance-1.0)
@@ -100,6 +101,7 @@ func TestDistance(t *testing.T) {
 		input.CanEncroach = false
 
 		output := box2d.ShapeCast(&input)
+		geometryOriginalCast(r, output)
 
 		r.Bool("distance:78/value0", output.Hit)
 		r.Bool("distance:78", output.Hit)
@@ -131,6 +133,7 @@ func TestDistance(t *testing.T) {
 
 		cache := box2d.SimplexCache{}
 		output := box2d.ShapeDistance(&input, &cache, nil)
+		geometryOriginalDistance(r, output, cache)
 
 		r.F32("distance:118/value0", output.Distance)
 		r.Bool("distance:118", output.Distance > 0.0)
@@ -196,6 +199,12 @@ func TestDistance(t *testing.T) {
 		input.MaxFraction = 1.0
 
 		output := box2d.TimeOfImpact(&input)
+		r.I32("full/toi/state", int32(output.State))
+		r.F32("full/toi/fraction", output.Fraction)
+		if output.State == box2d.TOIStateHit {
+			r.Vec2("full/toi/point", output.Point.X, output.Point.Y)
+			r.Vec2("full/toi/normal", output.Normal.X, output.Normal.Y)
+		}
 
 		r.I32("distance:188/value0", int32(output.State))
 		r.Bool("distance:188", output.State == box2d.TOIStateHit)

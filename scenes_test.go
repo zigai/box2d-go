@@ -61,7 +61,7 @@ func TestSceneRandomSeedIsolation(t *testing.T) {
 	}
 }
 
-func TestScenes(t *testing.T) { testScenes(t, 0) }
+func TestScenes(t *testing.T) { testScenes(t, 1) }
 
 func TestParallelScenes(t *testing.T) { testScenes(t, 4) }
 
@@ -73,25 +73,27 @@ func testScenes(t *testing.T, workers int) {
 		step    func(box2d.World, int) float32
 		stats   func() box2d.TreeStats
 		destroy func()
+		horizon int
 	}{
-		{name: "JointGrid", create: scenes.CreateJointGrid},
-		{name: "LargePyramid", create: scenes.CreateLargePyramid},
-		{name: "ManyPyramids", create: scenes.CreateManyPyramids},
-		{name: "Rain", create: scenes.CreateRain, step: scenes.StepRain},
-		{name: "Spinner", create: scenes.CreateSpinner, step: scenes.StepSpinner},
-		{name: "Smash", create: scenes.CreateSmash},
-		{name: "Tumbler", create: scenes.CreateTumbler},
-		{name: "Washer", create: scenes.CreateWasher},
-		{name: "Junkyard", create: scenes.CreateJunkyard, step: scenes.StepJunkyard},
-		{name: "Sleep", create: scenes.CreateSleep, step: scenes.StepSleep},
-		{name: "Compounds", create: scenes.CreateCompounds},
-		{name: "Queries", create: scenes.CreateQueries, step: scenes.StepQueries, stats: scenes.GetQueryBenchmarkStats},
-		{name: "TreeCast", create: scenes.CreateTreeCast, step: scenes.StepTreeCast, stats: scenes.GetTreeCastBenchmarkStats, destroy: scenes.DestroyTreeCast},
-		{name: "TileWorld", create: scenes.CreateTileWorld, step: scenes.StepTileWorld, stats: scenes.GetTileWorldBenchmarkStats, destroy: scenes.DestroyTileWorld},
+		{name: "JointGrid", create: scenes.CreateJointGrid, horizon: 500},
+		{name: "LargePyramid", create: scenes.CreateLargePyramid, horizon: 500},
+		{name: "ManyPyramids", create: scenes.CreateManyPyramids, horizon: 300},
+		{name: "Rain", create: scenes.CreateRain, step: scenes.StepRain, horizon: 1000},
+		{name: "Spinner", create: scenes.CreateSpinner, step: scenes.StepSpinner, horizon: 500},
+		{name: "Smash", create: scenes.CreateSmash, horizon: 300},
+		{name: "Tumbler", create: scenes.CreateTumbler, horizon: 750},
+		{name: "Washer", create: scenes.CreateWasher, horizon: 500},
+		{name: "Junkyard", create: scenes.CreateJunkyard, step: scenes.StepJunkyard, horizon: 800},
+		{name: "Sleep", create: scenes.CreateSleep, step: scenes.StepSleep, horizon: 300},
+		{name: "Compounds", create: scenes.CreateCompounds, horizon: 500},
+		{name: "Queries", create: scenes.CreateQueries, step: scenes.StepQueries, stats: scenes.GetQueryBenchmarkStats, horizon: 300},
+		{name: "TreeCast", create: scenes.CreateTreeCast, step: scenes.StepTreeCast, stats: scenes.GetTreeCastBenchmarkStats, destroy: scenes.DestroyTreeCast, horizon: 300},
+		{name: "TileWorld", create: scenes.CreateTileWorld, step: scenes.StepTileWorld, stats: scenes.GetTileWorldBenchmarkStats, destroy: scenes.DestroyTileWorld, horizon: 300},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 
+			isolateSceneRandomSeed(t)
 			def := box2d.DefaultWorldDef()
 			def.WorkerCount = workers
 			world := box2d.CreateWorld(&def)
@@ -100,8 +102,9 @@ func testScenes(t *testing.T, workers int) {
 				defer tc.destroy()
 			}
 			tc.create(world)
-			r := oracle.Open(t, "scenes/"+tc.name)
-			full := readSceneFull(t, tc.name)
+			fixture := fmt.Sprintf("%s_workers%d", tc.name, workers)
+			r := oracle.Open(t, "scenes/"+fixture)
+			full := readSceneFull(t, fixture)
 			actual := make(map[int][]byte)
 			checkScene(t, r, full, actual, world, -1)
 			if tc.name == "ManyPyramids" {
@@ -121,7 +124,7 @@ func testScenes(t *testing.T, workers int) {
 					r.Vec2(fmt.Sprintf("translation%d", index), translation.X, translation.Y)
 				}
 			}
-			for step := 0; step < 300; step++ {
+			for step := range tc.horizon {
 				if tc.step != nil {
 					r.F32(fmt.Sprintf("%d.v", step), tc.step(world, step))
 				}
@@ -143,8 +146,9 @@ func testScenes(t *testing.T, workers int) {
 		world := box2d.CreateWorld(&def)
 		defer world.Destroy()
 		data := scenes.CreateFallingHinges(world)
-		r := oracle.Open(t, "scenes/FallingHinges")
-		full := readSceneFull(t, "FallingHinges")
+		fixture := fmt.Sprintf("FallingHinges_workers%d", workers)
+		r := oracle.Open(t, "scenes/"+fixture)
+		full := readSceneFull(t, fixture)
 		actual := make(map[int][]byte)
 		defer scenes.DestroyFallingHinges(&data)
 		checkScene(t, r, full, actual, world, -1)
@@ -168,8 +172,9 @@ func testScenes(t *testing.T, workers int) {
 		defer world.Destroy()
 		var human scenes.Human
 		scenes.CreateHuman(&human, world, box2d.Pos{X: 0, Y: 5}, 1, 0.05, 5, 0.5, 1, nil, true)
-		r := oracle.Open(t, "scenes/Human")
-		full := readSceneFull(t, "Human")
+		fixture := fmt.Sprintf("Human_workers%d", workers)
+		r := oracle.Open(t, "scenes/"+fixture)
+		full := readSceneFull(t, fixture)
 		actual := make(map[int][]byte)
 		checkScene(t, r, full, actual, world, -1)
 		for step := 0; step < 300; step++ {
@@ -209,6 +214,9 @@ func testScenes(t *testing.T, workers int) {
 					t.Fatal("condition false")
 				}
 			}
+			if step == 0 || (step >= 20 && step <= 180 && step%20 == 0) {
+				checkSceneObservations(t, r, world, 2000+step)
+			}
 			world.Step(float32(1)/float32(60), 4)
 			checkScene(t, r, full, actual, world, step)
 		}
@@ -247,8 +255,23 @@ func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, wor
 		diagnoseSceneFull(t, step, want, bytes)
 	}
 	r.U64(fmt.Sprintf("%d.h", step), hash)
-	if step == -1 || step%60 == 59 {
+	checkSceneObservations(t, r, world, step)
+	if step == -1 || (step < 300 && step%60 == 59) {
 		actual[step] = bytes
+	}
+}
+
+func checkSceneObservations(t *testing.T, r *oracle.Reader, world box2d.World, step int) {
+	t.Helper()
+	for i, state := range box2d.SceneStateForTest(world) {
+		lane := []string{"dynamic", "contact", "joint"}[i]
+		r.I32(fmt.Sprintf("%d.%s.count", step, lane), int32(state.Count))
+		r.U64(fmt.Sprintf("%d.%s.hash", step, lane), state.Hash)
+	}
+	for i, state := range box2d.SceneEventsForTest(world) {
+		lane := []string{"move", "sensorBegin", "sensorEnd", "contactBegin", "contactEnd", "hit", "jointEvent"}[i]
+		r.I32(fmt.Sprintf("%d.%s.count", step, lane), int32(state.Count))
+		r.U64(fmt.Sprintf("%d.%s.hash", step, lane), state.Hash)
 	}
 }
 
@@ -778,129 +801,163 @@ func TestSceneFixtureInventory(t *testing.T) {
 				width = 8
 			}
 			benchmarks := int64(0)
-			for index, name := range names {
-				t.Run(name, func(t *testing.T) {
-
-					records, packed, full := readSceneRecords(t, config, name)
-					if !bytes.Equal(packSceneBundle(full, width), packed) {
-						t.Fatal("C/Go deterministic encoding mismatch")
-					}
-					next := 0
-					take := func(key, kind string) sceneRecord {
-						t.Helper()
-						if next >= len(records) {
-							t.Fatalf("missing %s", key)
+			for _, workers := range []int{1, 4} {
+				for index, name := range names {
+					fixture := fmt.Sprintf("%s_workers%d", name, workers)
+					t.Run(fixture, func(t *testing.T) {
+						records, packed, full := readSceneRecords(t, config, fixture)
+						if !bytes.Equal(packSceneBundle(full, width), packed) {
+							t.Fatal("C/Go deterministic encoding mismatch")
 						}
-						r := records[next]
-						next++
-						if r.Key != key || r.Type != kind {
-							t.Fatalf("record %d: want %s/%s, got %s/%s", next, key, kind, r.Key, r.Type)
-						}
-						return r
-					}
-					count := func(key string) int {
-						t.Helper()
-						r := take(key, "i32")
-						value, err := strconv.ParseUint(r.Value, 16, 32)
-						if err != nil || len(r.Value) != 8 {
-							t.Fatalf("invalid count %s", key)
-						}
-						return int(int32(value))
-					}
-					trace := func(step int) {
-						t.Helper()
-						bodies := count(fmt.Sprintf("%d.b", step))
-						shapes := count(fmt.Sprintf("%d.s", step))
-						if bodies < 0 || shapes < 0 {
-							t.Fatal("negative body/shape count")
-						}
-						h := take(fmt.Sprintf("%d.h", step), "u64")
-						value, err := strconv.ParseUint(h.Value, 16, 64)
-						if err != nil || len(h.Value) != 16 {
-							t.Fatal("invalid hash")
-						}
-						if state, ok := full[step]; ok {
-							if len(state)/(2*width+12) != bodies {
-								t.Fatalf("step %d count differs from full packet", step)
+						next := 0
+						take := func(key, kind string) sceneRecord {
+							t.Helper()
+							if next >= len(records) {
+								t.Fatalf("missing %s", key)
 							}
-							if got := sceneHash(state, width); got != value {
-								t.Fatalf("step %d full packet FNV: %016x != %016x", step, got, value)
+							r := records[next]
+							next++
+							if r.Key != key || r.Type != kind {
+								t.Fatalf("record %d: want %s/%s, got %s/%s", next, key, kind, r.Key, r.Type)
+							}
+							return r
+						}
+						count := func(key string) int {
+							t.Helper()
+							r := take(key, "i32")
+							value, err := strconv.ParseUint(r.Value, 16, 32)
+							if err != nil || len(r.Value) != 8 {
+								t.Fatalf("invalid count %s", key)
+							}
+							return int(int32(value))
+						}
+						observations := func(step int) {
+							t.Helper()
+							for _, lane := range []string{"dynamic", "contact", "joint", "move", "sensorBegin", "sensorEnd", "contactBegin", "contactEnd", "hit", "jointEvent"} {
+								if count(fmt.Sprintf("%d.%s.count", step, lane)) < 0 {
+									t.Fatal("negative observation count")
+								}
+								take(fmt.Sprintf("%d.%s.hash", step, lane), "u64")
 							}
 						}
-					}
-					trace(-1)
-					if name == "ManyPyramids" {
-						for _, key := range []string{"staticShapeCount", "staticBodyCount", "dynamicShapeCount", "dynamicBodyCount", "contactCount"} {
-							count(key)
-						}
-					}
-					if name == "Queries" {
-						count("queryCount")
-						take("extent", "f32")
-						for _, i := range []int{0, 999} {
-							take(fmt.Sprintf("origin%d", i), "pos")
-							take(fmt.Sprintf("translation%d", i), "vec2")
-						}
-					}
-					stepped := name == "Rain" || name == "Spinner" || name == "Junkyard" || name == "Sleep" || name == "Queries" || name == "TreeCast" || name == "TileWorld"
-					stats := name == "Queries" || name == "TreeCast" || name == "TileWorld"
-					for step := 0; step < 300; step++ {
-						if stepped {
-							take(fmt.Sprintf("%d.v", step), "f32")
-						}
-						if name == "FallingHinges" {
-							take(fmt.Sprintf("%d.done", step), "bool")
-							take(fmt.Sprintf("%d.hash", step), "u32")
-							count(fmt.Sprintf("%d.sleep", step))
-							count(fmt.Sprintf("%d.step", step))
-						}
-						if name == "Human" && (step == 140 || step == 180) {
-							if count(fmt.Sprintf("%d.torsoShapes", step)) != 1 {
-								t.Fatal("missing torso shape")
+						trace := func(step int) {
+							t.Helper()
+							bodies := count(fmt.Sprintf("%d.b", step))
+							shapes := count(fmt.Sprintf("%d.s", step))
+							if bodies < 0 || shapes < 0 {
+								t.Fatal("negative body/shape count")
 							}
-							sensor := take(fmt.Sprintf("%d.sensor", step), "bool")
-							expected := "0"
-							if step == 140 {
-								expected = "1"
+							h := take(fmt.Sprintf("%d.h", step), "u64")
+							value, err := strconv.ParseUint(h.Value, 16, 64)
+							if err != nil || len(h.Value) != 16 {
+								t.Fatal("invalid hash")
 							}
-							if sensor.Value != expected {
-								t.Fatal("sensor toggle differs")
+							if state, ok := full[step]; ok {
+								if len(state)/(2*width+12) != bodies {
+									t.Fatalf("step %d count differs from full packet", step)
+								}
+								if got := sceneHash(state, width); got != value {
+									t.Fatalf("step %d full packet FNV: %016x != %016x", step, got, value)
+								}
+							}
+							observations(step)
+						}
+						trace(-1)
+						if name == "ManyPyramids" {
+							for _, key := range []string{"staticShapeCount", "staticBodyCount", "dynamicShapeCount", "dynamicBodyCount", "contactCount"} {
+								count(key)
 							}
 						}
-						trace(step)
-						if stats {
-							count(fmt.Sprintf("%d.n", step))
-							count(fmt.Sprintf("%d.l", step))
+						if name == "Queries" {
+							count("queryCount")
+							take("extent", "f32")
+							for _, i := range []int{0, 999} {
+								take(fmt.Sprintf("origin%d", i), "pos")
+								take(fmt.Sprintf("translation%d", i), "vec2")
+							}
 						}
-					}
-					if name == "Human" {
-						trace(300)
-					}
-					take("full", "bytes")
-					if next != len(records) {
-						t.Fatal("extra fixture records")
-					}
-					info, err := os.Stat("testdata/oracle/" + config + "/scenes/" + name + ".jsonl")
-					if err != nil {
-						t.Fatal(err)
-					}
-					if index < 14 {
-						benchmarks += info.Size()
-					} else if info.Size() > 1048576 {
-						t.Fatal("area exceeds default budget")
-					}
-					t.Logf("%d bytes; 300 ordered steps; six full checkpoints; width %d", info.Size(), width)
-				})
+						stepped := name == "Rain" || name == "Spinner" || name == "Junkyard" || name == "Sleep" || name == "Queries" || name == "TreeCast" || name == "TileWorld"
+						stats := name == "Queries" || name == "TreeCast" || name == "TileWorld"
+						horizon := map[string]int{"JointGrid": 500, "LargePyramid": 500, "ManyPyramids": 300, "Rain": 1000, "Spinner": 500, "Smash": 300, "Tumbler": 750, "Washer": 500, "Junkyard": 800, "Sleep": 300, "Compounds": 500, "Queries": 300, "TreeCast": 300, "TileWorld": 300, "FallingHinges": 300, "Human": 300}[name]
+						for step := range horizon {
+							if stepped {
+								take(fmt.Sprintf("%d.v", step), "f32")
+							}
+							if name == "FallingHinges" {
+								take(fmt.Sprintf("%d.done", step), "bool")
+								take(fmt.Sprintf("%d.hash", step), "u32")
+								count(fmt.Sprintf("%d.sleep", step))
+								count(fmt.Sprintf("%d.step", step))
+							}
+							if name == "Human" && (step == 140 || step == 180) {
+								if count(fmt.Sprintf("%d.torsoShapes", step)) != 1 {
+									t.Fatal("missing torso shape")
+								}
+								sensor := take(fmt.Sprintf("%d.sensor", step), "bool")
+								expected := "0"
+								if step == 140 {
+									expected = "1"
+								}
+								if sensor.Value != expected {
+									t.Fatal("sensor toggle differs")
+								}
+							}
+							if name == "Human" && (step == 0 || (step >= 20 && step <= 180 && step%20 == 0)) {
+								observations(2000 + step)
+							}
+							trace(step)
+							if stats {
+								count(fmt.Sprintf("%d.n", step))
+								count(fmt.Sprintf("%d.l", step))
+							}
+						}
+						if name == "Human" {
+							trace(300)
+						}
+						take("full", "bytes")
+						if next != len(records) {
+							t.Fatal("extra fixture records")
+						}
+						info, err := os.Stat("testdata/oracle/" + config + "/scenes/" + fixture + ".jsonl")
+						if err != nil {
+							t.Fatal(err)
+						}
+						if index < 14 {
+							benchmarks += info.Size()
+						} else if info.Size() > 1048576 {
+							t.Fatal("area exceeds default budget")
+						}
+						t.Logf("%d bytes; %d ordered steps; six full checkpoints; workers %d; width %d", info.Size(), horizon, workers, width)
+					})
+				}
 			}
-			if benchmarks > 16777216 {
+			if benchmarks > 67108864 {
 				t.Fatalf("benchmark fixtures exceed named budget: %d", benchmarks)
 			}
 			entries, err := os.ReadDir("testdata/oracle/" + config + "/scenes")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(entries) != 19 {
-				t.Fatalf("want 19 area fixtures, got %d", len(entries))
+			if len(entries) != 43 {
+				t.Fatalf("want 43 area fixtures (32 worker traces, six query payloads, two extended helpers, Utils/Trig/Helpers), got %d", len(entries))
+			}
+			expectedNames := map[string]bool{"Utils.jsonl": true, "Trig.jsonl": true, "Helpers.jsonl": true}
+			for _, workers := range []int{1, 4} {
+				for _, name := range names {
+					expectedNames[fmt.Sprintf("%s_workers%d.jsonl", name, workers)] = true
+				}
+				for _, name := range []string{"QueriesPayload", "TreeCastPayload", "TileWorldPayload", "ExtendedHelpers"} {
+					expectedNames[fmt.Sprintf("%s_workers%d.jsonl", name, workers)] = true
+				}
+			}
+			for _, entry := range entries {
+				if !expectedNames[entry.Name()] || entry.IsDir() {
+					t.Fatalf("unexpected scene fixture %s", entry.Name())
+				}
+				delete(expectedNames, entry.Name())
+			}
+			if len(expectedNames) != 0 {
+				t.Fatalf("missing scene fixtures: %v", expectedNames)
 			}
 			data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/Utils.jsonl")
 			if err != nil {
@@ -940,6 +997,32 @@ func TestSceneFixtureInventory(t *testing.T) {
 				for range int(n) {
 					take("vertex", "vec2")
 					take("normal", "vec2")
+				}
+			}
+			boundary := []struct{ key, kind string }{
+				{"equal.int", "i32"}, {"equal.float", "f32"}, {"equal.vec", "vec2"}, {"equal.pos", "pos"}, {"equal.seed", "u32"},
+				{"fallback.count", "i32"}, {"fallback.radius", "f32"}, {"fallback.centroid", "vec2"},
+			}
+			for range 4 {
+				boundary = append(boundary, struct{ key, kind string }{"fallback.vertex", "vec2"}, struct{ key, kind string }{"fallback.normal", "vec2"})
+			}
+			for _, field := range boundary {
+				if next >= len(lines) {
+					t.Fatalf("missing utility boundary %s", field.key)
+				}
+				record, err := parseSceneRecord(lines[next])
+				next++
+				if err != nil {
+					t.Fatal(err)
+				}
+				if record.Key != field.key || record.Type != field.kind {
+					t.Fatalf("utility boundary: want %s/%s, got %s/%s", field.key, field.kind, record.Key, record.Type)
+				}
+				if err := validateSceneValue(record, width); err != nil {
+					t.Fatal(err)
+				}
+				if field.key == "fallback.count" && record.Value != "00000004" {
+					t.Fatal("C fallback is not a square")
 				}
 			}
 			if next != len(lines) {

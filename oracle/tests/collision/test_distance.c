@@ -9,6 +9,34 @@
 
 #include <float.h>
 
+static void collisionObserveDistance( b2DistanceOutput output, const b2SimplexCache* cache )
+{
+	ORACLE_F32( "full/distance", output.distance );
+	ORACLE_VEC2( "full/point-a", output.pointA );
+	ORACLE_VEC2( "full/point-b", output.pointB );
+	if ( output.distance > 0 ) ORACLE_VEC2( "full/normal", output.normal );
+	ORACLE_I32( "full/iterations", output.iterations );
+	ORACLE_I32( "full/simplex-count", output.simplexCount );
+	ORACLE_U32( "full/cache/count", cache->count );
+	for ( int i = 0; i < cache->count; ++i )
+	{
+		ORACLE_U32( ORACLE_KEY( "full/cache/%d/a", i ), cache->indexA[i] );
+		ORACLE_U32( ORACLE_KEY( "full/cache/%d/b", i ), cache->indexB[i] );
+	}
+}
+
+static void collisionObserveCast( b2CastOutput output )
+{
+	ORACLE_BOOL( "full/cast/hit", output.hit );
+	ORACLE_I32( "full/cast/iterations", output.iterations );
+	if ( output.hit )
+	{
+		ORACLE_F32( "full/cast/fraction", output.fraction );
+		ORACLE_VEC2( "full/cast/normal", output.normal );
+		ORACLE_VEC2( "full/cast/point", output.point );
+	}
+}
+
 static int SegmentDistanceTest( void )
 {
 	ORACLE_OPEN( "distance/SegmentDistanceTest" );
@@ -63,6 +91,7 @@ static int ShapeDistanceTest( void )
 
 	b2SimplexCache cache = { 0 };
 	b2DistanceOutput output = b2ShapeDistance(&input,  &cache, NULL, 0 );
+	collisionObserveDistance( output, &cache );
 
 	ORACLE_F32( "distance:52/value0", output.distance );
 	ORACLE_F32( "distance:52", output.distance - 1.0f );
@@ -91,6 +120,7 @@ static int ShapeCastTest( void )
 	input.canEncroach = false;
 
 	b2CastOutput output = b2ShapeCast( &input );
+	collisionObserveCast( output );
 
 	ORACLE_BOOL( "distance:78/value0", output.hit );
 	ORACLE_BOOL( "distance:78", output.hit );
@@ -135,6 +165,7 @@ static int ShapeDistanceShortEdgeTest( void )
 
 	b2SimplexCache cache = { 0 };
 	b2DistanceOutput output = b2ShapeDistance( &input, &cache, NULL, 0 );
+	collisionObserveDistance( output, &cache );
 
 	ORACLE_F32( "distance:118/value0", output.distance );
 	ORACLE_BOOL( "distance:118", output.distance > 0.0f );
@@ -214,6 +245,13 @@ static int TimeOfImpactTest( void )
 	input.maxFraction = 1.0f;
 
 	b2TOIOutput output = b2TimeOfImpact( &input );
+	ORACLE_I32( "full/toi/state", output.state );
+	ORACLE_F32( "full/toi/fraction", output.fraction );
+	if ( output.state == b2_toiStateHit )
+	{
+		ORACLE_VEC2( "full/toi/point", output.point );
+		ORACLE_VEC2( "full/toi/normal", output.normal );
+	}
 
 	ORACLE_I32( "distance:188/value0", output.state );
 	ORACLE_BOOL( "distance:188", output.state == b2_toiStateHit );

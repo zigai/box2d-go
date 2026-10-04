@@ -53,6 +53,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{-3.0, 0.0}
 			p2 := Vec2{3.0, 0.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:42/value0", output.Hit)
 			r.Bool("collision:42", output.Hit == true)
@@ -92,6 +93,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{3.0, 0.0}
 			p2 := Vec2{-3.0, 0.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:56/value0", output.Hit)
 			r.Bool("collision:56", output.Hit == true)
@@ -131,6 +133,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{0.0, -3.0}
 			p2 := Vec2{0.0, 3.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:70/value0", output.Hit)
 			r.Bool("collision:70", output.Hit == true)
@@ -170,6 +173,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{0.0, 3.0}
 			p2 := Vec2{0.0, -3.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:84/value0", output.Hit)
 			r.Bool("collision:84", output.Hit == true)
@@ -209,6 +213,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{-3.0, 2.0}
 			p2 := Vec2{3.0, 2.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:98/value0", output.Hit)
 			r.Bool("collision:98", output.Hit == false)
@@ -223,6 +228,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{2.0, -3.0}
 			p2 := Vec2{2.0, 3.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:107/value0", output.Hit)
 			r.Bool("collision:107", output.Hit == false)
@@ -237,6 +243,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{0.0, 0.0}
 			p2 := Vec2{2.0, 0.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:116/value0", output.Hit)
 			r.Bool("collision:116", output.Hit == false)
@@ -251,6 +258,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{-2.0, -2.0}
 			p2 := Vec2{2.0, 2.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:125/value0", output.Hit)
 			r.Bool("collision:125", output.Hit == true)
@@ -279,6 +287,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{-2.0, 1.5}
 			p2 := Vec2{2.0, 1.5}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:138/value0", output.Hit)
 			r.Bool("collision:138", output.Hit == false)
@@ -293,6 +302,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{-2.0, 1.0}
 			p2 := Vec2{2.0, 1.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:147/value0", output.Hit)
 			r.Bool("collision:147", output.Hit == true)
@@ -322,6 +332,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{-3.0, 0.0}
 			p2 := Vec2{-2.5, 0.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:159/value0", output.Hit)
 			r.Bool("collision:159", output.Hit == false)
@@ -336,6 +347,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{0.0, 0.0}
 			p2 := Vec2{0.0, 0.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:168/value0", output.Hit)
 			r.Bool("collision:168", output.Hit == false)
@@ -350,6 +362,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{-2.0, 0.0}
 			p2 := Vec2{-1.0, 0.0}
 			output := aabbRayCast(aabb, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:177/value0", output.Hit)
 			r.Bool("collision:177", output.Hit == true)
@@ -380,6 +393,7 @@ func TestCollision(t *testing.T) {
 			p1 := Vec2{0.0, 4.0}
 			p2 := Vec2{6.0, 4.0}
 			output := aabbRayCast(offsetAABB, p1, p2)
+			geometryCheckAABBCast(r, output)
 
 			r.Bool("collision:190/value0", output.Hit)
 			r.Bool("collision:190", output.Hit == true)
@@ -427,6 +441,7 @@ func TestCollision(t *testing.T) {
 		xfAo := WorldTransformIdentity
 		xfBo := WorldTransform{OffsetPos(PosZero, sep), RotIdentity}
 		mOrigin := CollidePolygons(&boxA, &boxB, InvMulWorldTransforms(xfAo, xfBo))
+		geometryCheckManifold(r, "full/origin", mOrigin)
 
 		r.I32("collision:218/value0", int32(mOrigin.PointCount))
 		r.Bool("collision:218", mOrigin.PointCount == 2)
@@ -453,6 +468,7 @@ func TestCollision(t *testing.T) {
 			xfAl := WorldTransform{base, RotIdentity}
 			xfBl := WorldTransform{OffsetPos(base, sep), RotIdentity}
 			mLarge := CollidePolygons(&boxA, &boxB, InvMulWorldTransforms(xfAl, xfBl))
+			geometryCheckManifold(r, "full/large", mLarge)
 
 			r.I32("collision:231/value0", int32(mLarge.PointCount))
 			r.I32("collision:231/value1", int32(mOrigin.PointCount))

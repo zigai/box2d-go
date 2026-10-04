@@ -8,6 +8,7 @@
 #include "body.h"
 #include "physics_world.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -54,6 +55,10 @@ static bool inputSameTransforms( const InputSnapshot* a, const InputSnapshot* b 
 
 static void inputTraceWorld( b2WorldId worldId, const char* key, bool fullState )
 {
+	// A trace emits more keys than ORACLE_KEY's scratch buffers can retain.
+	char ownedKey[256];
+	snprintf( ownedKey, sizeof( ownedKey ), "%s", key );
+	key = ownedKey;
 	b2World* world = b2GetWorldFromId( worldId );
 	int capacity = world->bodies.count;
 	InputSnapshot snapshot = { calloc( capacity > 0 ? capacity : 1, sizeof( b2WorldTransform ) ), 0 };
@@ -74,6 +79,56 @@ static void inputTraceWorld( b2WorldId worldId, const char* key, bool fullState 
 		hash = oracle_hash_transform( hash, transform.p, transform.q );
 	}
 	ORACLE_U64( key, hash );
+	ORACLE_U64( ORACLE_KEY( "%s.canonical", key ), b2World_GetStateHash( worldId ) );
+	b2Counters counters = b2World_GetCounters( worldId );
+	ORACLE_I32( ORACLE_KEY( "%s.bodies", key ), counters.bodyCount );
+	ORACLE_I32( ORACLE_KEY( "%s.shapes", key ), counters.shapeCount );
+	ORACLE_I32( ORACLE_KEY( "%s.contacts", key ), counters.contactCount );
+	ORACLE_I32( ORACLE_KEY( "%s.joints", key ), counters.jointCount );
+	b2BodyEvents moves = b2World_GetBodyEvents( worldId );
+	for ( int m = 0; fullState && m < moves.moveCount; ++m )
+	{
+		b2BodyMoveEvent event = moves.moveEvents[m];
+		int ordinal = -1;
+		int liveIndex = 0;
+		for ( int i = 0; i < capacity; ++i )
+		{
+			b2Body* body = b2Array_Get( world->bodies, i );
+			if ( body->id == B2_NULL_INDEX ) { continue; }
+			if ( B2_ID_EQUALS( event.bodyId, b2MakeBodyId( world, i ) ) ) { ordinal = liveIndex; break; }
+			liveIndex++;
+		}
+		ORACLE_I32( ORACLE_KEY( "%s.move.body", key ), ordinal );
+		ORACLE_BOOL( ORACLE_KEY( "%s.move.sleep", key ), event.fellAsleep );
+		ORACLE_POS( ORACLE_KEY( "%s.move.p", key ), event.transform.p );
+		ORACLE_ROT( ORACLE_KEY( "%s.move.q", key ), event.transform.q );
+	}
+	ORACLE_I32( ORACLE_KEY( "%s.move.count", key ), moves.moveCount );
+	if ( fullState )
+	{
+		for ( int i = 0; i < capacity; ++i )
+		{
+			b2Body* body = b2Array_Get( world->bodies, i );
+			if ( body->id == B2_NULL_INDEX ) { continue; }
+			b2BodyId id = b2MakeBodyId( world, i );
+			ORACLE_VEC2( ORACLE_KEY( "%s.body.velocity", key ), b2Body_GetLinearVelocity( id ) );
+			ORACLE_F32( ORACLE_KEY( "%s.body.angular", key ), b2Body_GetAngularVelocity( id ) );
+			ORACLE_BOOL( ORACLE_KEY( "%s.body.awake", key ), b2Body_IsAwake( id ) );
+			b2MassData mass = b2Body_GetMassData( id );
+			ORACLE_F32( ORACLE_KEY( "%s.body.mass", key ), mass.mass );
+			ORACLE_VEC2( ORACLE_KEY( "%s.body.center", key ), mass.center );
+			ORACLE_F32( ORACLE_KEY( "%s.body.inertia", key ), mass.rotationalInertia );
+		}
+	}
+	b2ContactEvents contacts = b2World_GetContactEvents( worldId );
+	b2SensorEvents sensors = b2World_GetSensorEvents( worldId );
+	b2JointEvents joints = b2World_GetJointEvents( worldId );
+	ORACLE_I32( ORACLE_KEY( "%s.contact.begin", key ), contacts.beginCount );
+	ORACLE_I32( ORACLE_KEY( "%s.contact.end", key ), contacts.endCount );
+	ORACLE_I32( ORACLE_KEY( "%s.contact.hit", key ), contacts.hitCount );
+	ORACLE_I32( ORACLE_KEY( "%s.sensor.begin", key ), sensors.beginCount );
+	ORACLE_I32( ORACLE_KEY( "%s.sensor.end", key ), sensors.endCount );
+	ORACLE_I32( ORACLE_KEY( "%s.joint.events", key ), joints.count );
 	if ( fullState )
 	{
 		int index = 0;

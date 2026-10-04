@@ -526,7 +526,8 @@ func solveSimplex3(s *Simplex) Vec2 {
 
 // Compute the closest points between two shapes represented as point clouds.
 // SimplexCache cache is input/output. On the first call set SimplexCache.Count to zero.
-// The underlying GJK algorithm may be debugged by passing in debug simplexes. You may pass in nil for these.
+// Passing a simplex buffer records the initial, reduced iteration, and final simplexes
+// up to its length. Pass nil to skip the debug history.
 func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simplex) DistanceOutput {
 
 	assert(input.ProxyA.Count > 0 && input.ProxyB.Count > 0, "input->proxyA.count > 0 && input->proxyB.count > 0")
@@ -601,6 +602,11 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 			return output
 		}
 
+		if simplexIndex < len(simplexes) {
+			simplexes[simplexIndex] = simplex
+			simplexIndex++
+		}
+
 		// Ensure the search direction is numerically fit.
 		if Dot(d, d) < 1000.0*float32(0x1p-126) {
 			// This is unlikely but could lead to bad cycling.
@@ -648,6 +654,11 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 
 		// New vertex is valid and needed.
 		simplex.Count += 1
+	}
+
+	if simplexIndex < len(simplexes) {
+		simplexes[simplexIndex] = simplex
+		simplexIndex++
 	}
 
 	// Prepare output in frame A

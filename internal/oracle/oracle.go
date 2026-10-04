@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path"
@@ -45,7 +46,20 @@ func Open(t testing.TB, name string) *Reader {
 		t.Fatalf("oracle: cannot read fixture %q: %v\nrun `just oracle` to generate fixtures", name, err)
 	}
 
-	return newReader(t, "testdata/oracle/"+config+"/"+name+".jsonl", data)
+	reference, err := fixtureReference(root)
+	if err != nil {
+		t.Fatalf("oracle: %v\nrun `just oracle` to explicitly regenerate and review C expectations", err)
+	}
+	records, err := verifyCapture(reference, name, data)
+	if err != nil {
+		t.Fatalf("oracle: %v", err)
+	}
+	r := Read(t, "testdata/oracle/"+config+"/"+name+".jsonl", data)
+	if r.Len() != records {
+		t.Fatalf("oracle: fixture %q has %d records; completed C capture requires %d", name, r.Len(), records)
+	}
+	t.Logf("C reference fixture: %s (%d observations)", name, records)
+	return r
 }
 
 func repoRoot() (string, error) {
@@ -67,7 +81,9 @@ func repoRoot() (string, error) {
 	}
 }
 
-func newReader(t testing.TB, displayPath string, data []byte) *Reader {
+// Read compares a complete typed capture supplied by a fresh C execution.
+// Approved offline files should use Open, which also verifies their provenance.
+func Read(t testing.TB, displayPath string, data []byte) *Reader {
 	t.Helper()
 
 	r := &Reader{t: t, path: displayPath}
@@ -77,14 +93,9 @@ func newReader(t testing.TB, displayPath string, data []byte) *Reader {
 			continue
 		}
 
-		var rec record
-		dec := json.NewDecoder(bytes.NewReader(line))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&rec); err != nil {
+		rec, err := decodeRecord(line)
+		if err != nil {
 			t.Fatalf("oracle: %s:%d: malformed record: %v", displayPath, i+1, err)
-		}
-		if rec.Type == "" {
-			t.Fatalf("oracle: %s:%d: record has no type", displayPath, i+1)
 		}
 
 		r.recs = append(r.recs, rec)
@@ -103,6 +114,70 @@ func newReader(t testing.TB, displayPath string, data []byte) *Reader {
 	})
 
 	return r
+}
+
+func decodeRecord(line []byte) (record, error) {
+	var rec record
+	dec := json.NewDecoder(bytes.NewReader(line))
+	open, err := dec.Token()
+	if err != nil || open != json.Delim('{') {
+		return rec, fmt.Errorf("expected a record object")
+	}
+	var fields uint8
+	for dec.More() {
+		token, err := dec.Token()
+		if err != nil {
+			return rec, err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return rec, fmt.Errorf("expected a string member")
+		}
+		var bit uint8
+		switch key {
+		case "k":
+			bit = 1
+		case "t":
+			bit = 2
+		case "v":
+			bit = 4
+		default:
+			return rec, fmt.Errorf("unknown member %q", key)
+		}
+		if fields&bit != 0 {
+			return rec, fmt.Errorf("duplicate member %q", key)
+		}
+		fields |= bit
+		token, err = dec.Token()
+		if err != nil {
+			return rec, err
+		}
+		value, ok := token.(string)
+		if !ok {
+			return rec, fmt.Errorf("member %q must be a string", key)
+		}
+		switch key {
+		case "k":
+			rec.Key = value
+		case "t":
+			rec.Type = value
+		case "v":
+			rec.Val = value
+		}
+	}
+	close, err := dec.Token()
+	if err != nil || close != json.Delim('}') || fields != 7 {
+		return rec, fmt.Errorf("record requires exactly k, t and v")
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return rec, fmt.Errorf("trailing content after record")
+	}
+	switch rec.Type {
+	case "f32", "vec2", "rot", "pos", "i32", "u32", "u64", "bool", "bytes":
+	default:
+		return rec, fmt.Errorf("unknown record type %q", rec.Type)
+	}
+	return rec, nil
 }
 
 func (r *Reader) Len() int { return len(r.recs) }

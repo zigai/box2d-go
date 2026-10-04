@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+# Run from the repository root. Callers supply Go build/runtime flags and bounds;
+# this runner owns test selection. The three disjoint groups cover every family.
+# Separate heavy scenes to bound cumulative process memory and race run time.
+go test "$@" -skip '^Test(Parallel)?Scenes$' ./...
+go test "$@" -run '^TestScenes$' ./...
+go test "$@" -run '^TestParallelScenes$' ./...

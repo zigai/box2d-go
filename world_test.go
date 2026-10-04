@@ -29,10 +29,12 @@ type worldPairBox struct {
 }
 type worldOracle struct {
 	*oracle.Reader
-	name     string
-	t        *testing.T
-	expected []uint64
-	hashes   []uint64
+	name         string
+	t            *testing.T
+	expected     []uint64
+	hashes       []uint64
+	richExpected [][36]uint64
+	richRows     [][36]uint64
 }
 
 func worldPackSteps(hashes []uint64) []byte {
@@ -98,6 +100,13 @@ func worldOpen(t *testing.T, name string) *worldOracle {
 				t.Fatal(err)
 			}
 		}
+		if record.Key == "dynamics/rle-u32-36u64-le" {
+			raw, err := hex.DecodeString(record.Val)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.richExpected = box2d.BTDynamicsUnpack(t, raw)
+		}
 	}
 	if !found {
 		t.Fatal("missing step trace record")
@@ -111,11 +120,21 @@ func worldOpen(t *testing.T, name string) *worldOracle {
 func (o *worldOracle) finish(t *testing.T) {
 	t.Helper()
 	if len(o.expected) != len(o.hashes) {
-		t.Fatalf("world/%s: first divergent source step %d: got %d steps, C oracle %d", o.name, min(len(o.expected), len(o.hashes))+1, len(o.hashes), len(o.expected))
+		t.Fatalf("world/%s: first divergent source observation %d: got %d observations, C oracle %d", o.name, min(len(o.expected), len(o.hashes))+1, len(o.hashes), len(o.expected))
 	}
+	if len(o.richExpected) != len(o.richRows) {
+		t.Fatalf("world/%s: dynamics observation count C=%d Go=%d", o.name, len(o.richExpected), len(o.richRows))
+	}
+	box2d.BTDynamicsEnd(o.Reader, o.richRows)
 	o.Bytes("steps/rle-u32-u64-le", worldPackSteps(o.hashes))
 }
+
+// step records a source observation, not an implicit World.Step. The six
+// TestSetWorkerCount target observations directly record velocity without stepping.
 func (o *worldOracle) step(w box2d.World, source string) {
+	row := box2d.BTObserveDynamics(o.Reader, w, fmt.Sprintf("observation/%d/%s/", len(o.hashes)+1, source), len(o.hashes) == 0 || (len(o.hashes)+1)%60 == 0 || o.name == "TestSetWorkerCount")
+	box2d.BTDynamicsCompare(o.t, "world/"+o.name+"/"+source, len(o.hashes)+1, row, o.richExpected)
+	o.richRows = append(o.richRows, row)
 	transforms := box2d.WorldBodyTransforms(w)
 	hash := oracle.HashInit
 	for _, body := range transforms {
@@ -125,10 +144,10 @@ func (o *worldOracle) step(w box2d.World, source string) {
 	o.hashes = append(o.hashes, hash)
 	index := len(o.hashes) - 1
 	if index >= len(o.expected) {
-		o.t.Fatalf("world/%s: unexpected source step %d (%s)", o.name, index+1, source)
+		o.t.Fatalf("world/%s: unexpected source observation %d (%s)", o.name, index+1, source)
 	}
 	if hash != o.expected[index] {
-		o.t.Fatalf("world/%s: first divergent source step %d (%s): transform hash got %016x, C oracle %016x", o.name, index+1, source, hash, o.expected[index])
+		o.t.Fatalf("world/%s: first divergent source observation %d (%s): transform-only diagnostic hash got %016x, C oracle %016x", o.name, index+1, source, hash, o.expected[index])
 	}
 	if len(o.hashes)%60 == 0 {
 		prefix := fmt.Sprintf("step/%d/%s/", len(o.hashes), source)
@@ -788,7 +807,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 
 	scenes.CreateJunkyard(worldId)
 	scenes.StepJunkyard(worldId, 1)
-	o.step(worldId, "L408")
+	o.step(worldId, "target/L408")
 
 	worldId.SetWorkerCount(4)
 	if !(worldId.WorkerCount() == 4) {
@@ -798,7 +817,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 	o.I32("L411:value", int32(worldId.WorkerCount()))
 
 	scenes.StepJunkyard(worldId, 2)
-	o.step(worldId, "L413")
+	o.step(worldId, "target/L413")
 
 	worldId.SetWorkerCount(4)
 	if !(worldId.WorkerCount() == 4) {
@@ -808,7 +827,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 	o.I32("L416:value", int32(worldId.WorkerCount()))
 
 	scenes.StepJunkyard(worldId, 3)
-	o.step(worldId, "L418")
+	o.step(worldId, "target/L418")
 
 	worldId.SetWorkerCount(0)
 	if !(worldId.WorkerCount() == 1) {
@@ -818,7 +837,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 	o.I32("L421:value", int32(worldId.WorkerCount()))
 
 	scenes.StepJunkyard(worldId, 4)
-	o.step(worldId, "L423")
+	o.step(worldId, "target/L423")
 
 	worldId.SetWorkerCount(-5)
 	if !(worldId.WorkerCount() == 1) {
@@ -828,7 +847,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 	o.I32("L426:value", int32(worldId.WorkerCount()))
 
 	scenes.StepJunkyard(worldId, 5)
-	o.step(worldId, "L428")
+	o.step(worldId, "target/L428")
 
 	worldId.SetWorkerCount(box2d.MaxWorkers + 10)
 	if !(worldId.WorkerCount() == box2d.MaxWorkers) {
@@ -838,7 +857,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 	o.I32("L431:value", int32(worldId.WorkerCount()))
 
 	scenes.StepJunkyard(worldId, 2)
-	o.step(worldId, "L433")
+	o.step(worldId, "target/L433")
 
 	worldId.Destroy()
 

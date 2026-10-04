@@ -522,6 +522,9 @@ int SnapshotTest( void )
 		ORACLE_SNAPSHOT_TRACE( sId, ORACLE_KEY( "L449/step/%d", step ), step );
 		b2World_Step( freshId, dt, subSteps );
 		ORACLE_SNAPSHOT_TRACE( freshId, ORACLE_KEY( "L450/step/%d", step ), step );
+		ORACLE_U64( ORACLE_KEY( "continuation/in-place/%d/state", step ), b2World_GetStateHash( sId ) );
+		ORACLE_U64( ORACLE_KEY( "continuation/fresh/%d/state", step ), b2World_GetStateHash( freshId ) );
+		ENSURE( b2World_GetStateHash( sId ) == b2World_GetStateHash( freshId ) );
 		if ( b2HashWorldState( sWorld ) != b2HashWorldState( freshWorld ) )
 		{
 			printf( "in-place vs fresh hash mismatch at step %d\n", step );
@@ -640,11 +643,14 @@ int SnapshotTest( void )
 			tailSteps = 90
 		};
 		uint64_t realTail[tailSteps];
+		uint64_t realDeepTail[tailSteps];
 		for ( int step = 0; step < tailSteps; ++step )
 		{
 			b2World_Step( wId, dt, subSteps );
 			ORACLE_SNAPSHOT_TRACE( wId, ORACLE_KEY( "L547/step/%d", step ), step );
+			ORACLE_U64( ORACLE_KEY( "moving/origin/%d/state", step ), b2World_GetStateHash( wId ) );
 			realTail[step] = b2HashWorldState( origin );
+			realDeepTail[step] = b2World_GetStateHash( wId );
 		}
 
 		b2WorldId cId = b2CreateWorldFromSnapshot( snap, snapSize, 1 );
@@ -655,6 +661,12 @@ int SnapshotTest( void )
 		{
 			b2World_Step( cId, dt, subSteps );
 			ORACLE_SNAPSHOT_TRACE( cId, ORACLE_KEY( "L556/step/%d", step ), step );
+			ORACLE_U64( ORACLE_KEY( "moving/clone/%d/state", step ), b2World_GetStateHash( cId ) );
+			if ( realDeepTail[step] != b2World_GetStateHash( cId ) )
+			{
+				printf( "moving continuation canonical state mismatch at step %d\n", step );
+				ENSURE( false );
+			}
 			if ( realTail[step] != b2HashWorldState( clone ) )
 			{
 				printf( "snapshot-equals-real mismatch at tail step %d\n", step );

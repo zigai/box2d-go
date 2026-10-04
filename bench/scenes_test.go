@@ -7,14 +7,23 @@ import (
 	"fmt"
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/scenes"
+	"os"
+	"runtime"
 	"testing"
-	_ "unsafe"
+	"unsafe"
 )
 
 //go:linkname randomSeed github.com/zigai/box2d/internal/scenes.gRandomSeed
 var randomSeed uint32
 
 func BenchmarkScenes(b *testing.B) {
+	// This deliberately matched custom workload times all 300 steps from step 0,
+	// excluding construction/destruction. It is not the pinned CLI warm-up/horizon.
+	precision := "float"
+	if unsafe.Sizeof(box2d.Pos{}) == 16 {
+		precision = "double"
+	}
+	fmt.Fprintf(os.Stdout, "box2d-bench: precision=%s scene-config=release steps=300 timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, runtime.GOMAXPROCS(0))
 	for _, workers := range []int{1, 4} {
 		b.Run(fmt.Sprintf("JointGrid/workers=%d", workers), func(b *testing.B) {
 			b.ReportAllocs()

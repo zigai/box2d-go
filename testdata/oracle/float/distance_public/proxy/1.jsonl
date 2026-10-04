@@ -1,0 +1,12 @@
+{"k":"plain/count","t":"i32","v":"00000001"}
+{"k":"plain/radius","t":"f32","v":"3ec00000"}
+{"k":"plain/point/0","t":"vec2","v":"c0000000,bf800000"}
+{"k":"offset/count","t":"i32","v":"00000001"}
+{"k":"offset/radius","t":"f32","v":"3f200000"}
+{"k":"offset/point/0","t":"vec2","v":"40266666,c0c66666"}
+{"k":"plain-after-source-mutation/count","t":"i32","v":"00000001"}
+{"k":"plain-after-source-mutation/radius","t":"f32","v":"3ec00000"}
+{"k":"plain-after-source-mutation/point/0","t":"vec2","v":"c0000000,bf800000"}
+{"k":"offset-after-source-mutation/count","t":"i32","v":"00000001"}
+{"k":"offset-after-source-mutation/radius","t":"f32","v":"3f200000"}
+{"k":"offset-after-source-mutation/point/0","t":"vec2","v":"40266666,c0c66666"}

@@ -46,9 +46,15 @@ static void EndRejectCount( void )
 #define REJECTS( CALL )                                                                                                          \
 	do                                                                                                                           \
 	{                                                                                                                            \
-		int countBefore = logCount;                                                                                              \
+		int countBefore = logCount; \
+		uint64_t stateBefore = b2World_GetStateHash( worldId ); \
+		ORACLE_U64( "reject.before", stateBefore ); \
 		CALL;                                                                                                                    \
 		ORACLE_I32( "reject", logCount - countBefore ); \
+		uint64_t stateAfter = b2World_GetStateHash( worldId ); \
+		ORACLE_U64( "reject.after", stateAfter ); \
+		ENSURE( stateAfter == stateBefore ); \
+		ObserveRejectedSettings( worldId ); \
 		if ( logCount != countBefore + 1 )                                                                                       \
 		{                                                                                                                        \
 			printf( "not rejected: " #CALL "\n" );                                                                               \
@@ -79,12 +85,154 @@ static bool IsBodyFinite( b2BodyId bodyId )
 		   b2IsValidVec2( b2Body_GetLinearVelocity( bodyId ) ) && b2IsValidFloat( b2Body_GetAngularVelocity( bodyId ) );
 }
 
+static void ObserveRejectedSettings( b2WorldId worldId )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	ORACLE_F32( "settings.contact.hertz", world->contactHertz );
+	ORACLE_F32( "settings.contact.damping", world->contactDampingRatio );
+	ORACLE_F32( "settings.contact.push", world->contactSpeed );
+	for ( int i = 0; i < world->bodies.count; ++i )
+	{
+		b2Body* body = b2Array_Get( world->bodies, i );
+		if ( body->id == B2_NULL_INDEX ) { continue; }
+		b2BodyId id = b2MakeBodyId( world, i );
+		b2MassData mass = b2Body_GetMassData( id );
+		ORACLE_F32( "settings.mass", mass.mass );
+		ORACLE_VEC2( "settings.center", mass.center );
+		ORACLE_F32( "settings.inertia", mass.rotationalInertia );
+		ORACLE_F32( "settings.linearDamping", b2Body_GetLinearDamping( id ) );
+		ORACLE_F32( "settings.angularDamping", b2Body_GetAngularDamping( id ) );
+		ORACLE_F32( "settings.gravityScale", b2Body_GetGravityScale( id ) );
+		ORACLE_F32( "settings.sleepThreshold", b2Body_GetSleepThreshold( id ) );
+		ORACLE_F32( "settings.safetyFactor", b2Body_GetSafetyFactor( id ) );
+		int count = b2Body_GetShapeCount( id );
+		b2ShapeId* shapes = calloc( count > 0 ? count : 1, sizeof( b2ShapeId ) );
+		if ( shapes == NULL ) { abort(); }
+		int returned = b2Body_GetShapes( id, shapes, count );
+		for ( int s = 0; s < returned; ++s )
+		{
+			b2ShapeId shape = shapes[s];
+			ORACLE_BOOL( "settings.shape.valid", b2Shape_IsValid( shape ) );
+			ORACLE_BOOL( "settings.shape.owner", B2_ID_EQUALS( b2Shape_GetBody( shape ), id ) );
+			ORACLE_F32( "settings.shape.density", b2Shape_GetDensity( shape ) );
+			b2SurfaceMaterial material = b2Shape_GetSurfaceMaterial( shape );
+			ORACLE_F32( "settings.material.friction", material.friction );
+			ORACLE_F32( "settings.material.restitution", material.restitution );
+			ORACLE_F32( "settings.material.rolling", material.rollingResistance );
+			ORACLE_F32( "settings.material.tangent", material.tangentSpeed );
+			ORACLE_U64( "settings.material.tag", material.userMaterialId );
+			ORACLE_U32( "settings.material.color", material.customColor );
+			b2AABB bounds = b2Shape_GetAABB( shape );
+			ORACLE_VEC2( "settings.aabb.lower", bounds.lowerBound );
+			ORACLE_VEC2( "settings.aabb.upper", bounds.upperBound );
+			b2ShapeType type = b2Shape_GetType( shape );
+			ORACLE_I32( "settings.shape.type", type );
+			if ( type == b2_polygonShape )
+			{
+				b2Polygon polygon = b2Shape_GetPolygon( shape );
+				ORACLE_I32( "settings.polygon.count", polygon.count );
+				ORACLE_F32( "settings.polygon.radius", polygon.radius );
+				ORACLE_VEC2( "settings.polygon.centroid", polygon.centroid );
+				for ( int p = 0; p < polygon.count; ++p )
+				{
+					ORACLE_VEC2( "settings.polygon.vertex", polygon.vertices[p] );
+					ORACLE_VEC2( "settings.polygon.normal", polygon.normals[p] );
+				}
+			}
+		}
+		ORACLE_I32( "settings.body.shapes", returned );
+		free( shapes );
+	}
+}
+
+static void ObserveRejectedJoint( b2JointId joint )
+{
+	b2Transform a = b2Joint_GetLocalFrameA( joint ), b = b2Joint_GetLocalFrameB( joint );
+	ORACLE_VEC2( "joint.frameA.p", a.p );
+	ORACLE_ROT( "joint.frameA.q", a.q );
+	ORACLE_VEC2( "joint.frameB.p", b.p );
+	ORACLE_ROT( "joint.frameB.q", b.q );
+	float hertz, damping;
+	b2Joint_GetConstraintTuning( joint, &hertz, &damping );
+	ORACLE_F32( "joint.hertz", hertz );
+	ORACLE_F32( "joint.damping", damping );
+	ORACLE_F32( "joint.forceThreshold", b2Joint_GetForceThreshold( joint ) );
+	ORACLE_F32( "joint.torqueThreshold", b2Joint_GetTorqueThreshold( joint ) );
+	ORACLE_F32( "joint.springHertz", b2RevoluteJoint_GetSpringHertz( joint ) );
+	ORACLE_F32( "joint.springDamping", b2RevoluteJoint_GetSpringDampingRatio( joint ) );
+	ORACLE_F32( "joint.target", b2RevoluteJoint_GetTargetAngle( joint ) );
+	ORACLE_F32( "joint.lower", b2RevoluteJoint_GetLowerLimit( joint ) );
+	ORACLE_F32( "joint.upper", b2RevoluteJoint_GetUpperLimit( joint ) );
+	ORACLE_F32( "joint.motorSpeed", b2RevoluteJoint_GetMotorSpeed( joint ) );
+	ORACLE_F32( "joint.maxTorque", b2RevoluteJoint_GetMaxMotorTorque( joint ) );
+}
+
+static bool ObserveConstructionCounts( b2WorldId worldId, int bodyCount )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	b2Counters counts = b2World_GetCounters( worldId );
+	int chains = b2GetIdCount( &world->chainIdPool );
+	ORACLE_I32( "construction.bodies", counts.bodyCount );
+	ORACLE_I32( "construction.shapes", counts.shapeCount );
+	ORACLE_I32( "construction.joints", counts.jointCount );
+	ORACLE_I32( "construction.contacts", counts.contactCount );
+	ORACLE_I32( "construction.chains", chains );
+	int shapes = 0, joints = 0;
+	for ( int i = 0; i < world->bodies.count; ++i )
+	{
+		b2Body* body = b2Array_Get( world->bodies, i );
+		if ( body->id == B2_NULL_INDEX ) { continue; }
+		b2BodyId id = b2MakeBodyId( world, i );
+		shapes += b2Body_GetShapeCount( id );
+		joints += b2Body_GetJointCount( id );
+	}
+	ORACLE_I32( "construction.enumerated.shapes", shapes );
+	ORACLE_I32( "construction.enumerated.joints", joints );
+	return counts.bodyCount == bodyCount && counts.shapeCount == 1 && counts.jointCount == 0 &&
+		counts.contactCount == 0 && chains == 0 && shapes == 1 && joints == 0;
+}
+
+static void IndependentWorld( void )
+{
+	b2WorldDef def = b2DefaultWorldDef();
+	def.workerCount = 4;
+	def.gravity = (b2Vec2){ 3.0f, -7.0f };
+	b2WorldId world = b2CreateWorld( &def );
+	ORACLE_BOOL( "independent.world.valid", b2World_IsValid( world ) );
+	if ( !b2World_IsValid( world ) ) { abort(); }
+	b2BodyDef bodyDef = b2DefaultBodyDef();
+	bodyDef.type = b2_dynamicBody;
+	bodyDef.linearVelocity = (b2Vec2){ 2.0f, 1.0f };
+	b2BodyId body = b2CreateBody( world, &bodyDef );
+	b2ShapeDef shapeDef = b2DefaultShapeDef();
+	b2Polygon box = b2MakeBox( 0.5f, 0.5f );
+	b2ShapeId shape = b2CreatePolygonShape( body, &shapeDef, &box );
+	ORACLE_BOOL( "independent.body.valid", b2Body_IsValid( body ) );
+	ORACLE_BOOL( "independent.shape.valid", b2Shape_IsValid( shape ) );
+	if ( !b2Body_IsValid( body ) || !b2Shape_IsValid( shape ) ) { abort(); }
+	for ( int i = 0; i < 2; ++i )
+	{
+		b2World_Step( world, 1.0f / 60.0f, 4 );
+		ORACLE_INPUT_TRACE( world, ORACLE_KEY( "independent.%d", i ), false );
+	}
+	b2DestroyWorld( world );
+	ORACLE_BOOL( "independent.world.destroyed", !b2World_IsValid( world ) );
+	if ( b2World_IsValid( world ) ) { abort(); }
+}
+
 static int WorldInputTest( void )
 {
 	ORACLE_OPEN( "input/invalid_input/WorldInputTest" );
 	ORACLE_INPUT_RESET();
 	b2WorldDef worldDef = b2DefaultWorldDef();
 	b2WorldId worldId = b2CreateWorld( &worldDef );
+	b2BodyDef bodyDef = b2DefaultBodyDef();
+	bodyDef.type = b2_dynamicBody;
+	bodyDef.linearVelocity = (b2Vec2){ 2.0f, 3.0f };
+	b2BodyId body = b2CreateBody( worldId, &bodyDef );
+	b2ShapeDef shapeDef = b2DefaultShapeDef();
+	b2Polygon box = b2MakeBox( 0.5f, 0.5f );
+	b2CreatePolygonShape( body, &shapeDef, &box );
 
 	b2Vec2 gravity = b2World_GetGravity( worldId );
 	float restitutionThreshold = b2World_GetRestitutionThreshold( worldId );
@@ -352,9 +500,11 @@ static int JointInputTest( void )
 		REJECTS( b2RevoluteJoint_SetLimits( jointId, -1.0f, bad ) );
 		REJECTS( b2RevoluteJoint_SetMotorSpeed( jointId, bad ) );
 		REJECTS( b2RevoluteJoint_SetMaxMotorTorque( jointId, bad ) );
+		ObserveRejectedJoint( jointId );
 	}
 
 	ACCEPTS( b2RevoluteJoint_SetMotorSpeed( jointId, 2.0f ) );
+	ObserveRejectedJoint( jointId );
 
 	for ( int i = 0; i < 30; ++i )
 	{
@@ -402,6 +552,7 @@ static int CreateInputTest( void )
 	{
 		float bad = badValues[i];
 		b2Vec2 badVec = { bad, 0.0f };
+		uint64_t constructionHash = b2World_GetStateHash( worldId );
 
 		b2WorldDef badWorldDef = b2DefaultWorldDef();
 		badWorldDef.gravity = badVec;
@@ -411,30 +562,54 @@ static int CreateInputTest( void )
 
 		b2BodyDef badBodyDef = b2DefaultBodyDef();
 		badBodyDef.position = (b2Pos){ bad, 0.0f };
-		ENSURE( b2Body_IsValid( b2CreateBody( worldId, &badBodyDef ) ) == false );
-	ORACLE_I32( "check.357", logCount );
+		bool bodyRejected = b2Body_IsValid( b2CreateBody( worldId, &badBodyDef ) ) == false;
+		ENSURE( bodyRejected );
+		ORACLE_I32( "check.357", logCount );
+		ORACLE_BOOL( "check.357.result", bodyRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2ShapeDef badShapeDef = b2DefaultShapeDef();
 		badShapeDef.density = bad;
-		ENSURE( b2Shape_IsValid( b2CreatePolygonShape( bodyId, &badShapeDef, &box ) ) == false );
-	ORACLE_I32( "check.361", logCount );
+		bool shapeRejected = b2Shape_IsValid( b2CreatePolygonShape( bodyId, &badShapeDef, &box ) ) == false;
+		ENSURE( shapeRejected );
+		ORACLE_I32( "check.361", logCount );
+		ORACLE_BOOL( "check.361.result", shapeRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2Circle badCircle = { badVec, 1.0f };
-		ENSURE( b2Shape_IsValid( b2CreateCircleShape( bodyId, &shapeDef, &badCircle ) ) == false );
-	ORACLE_I32( "check.364", logCount );
+		bool circleRejected = b2Shape_IsValid( b2CreateCircleShape( bodyId, &shapeDef, &badCircle ) ) == false;
+		ENSURE( circleRejected );
+		ORACLE_I32( "check.364", logCount );
+		ORACLE_BOOL( "check.364.result", circleRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2Capsule badCapsule = { { -0.5f, 0.0f }, { 0.5f, 0.0f }, bad };
-		ENSURE( b2Shape_IsValid( b2CreateCapsuleShape( bodyId, &shapeDef, &badCapsule ) ) == false );
-	ORACLE_I32( "check.367", logCount );
+		bool capsuleRejected = b2Shape_IsValid( b2CreateCapsuleShape( bodyId, &shapeDef, &badCapsule ) ) == false;
+		ENSURE( capsuleRejected );
+		ORACLE_I32( "check.367", logCount );
+		ORACLE_BOOL( "check.367.result", capsuleRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2Segment badSegment = { badVec, { 1.0f, 0.0f } };
-		ENSURE( b2Shape_IsValid( b2CreateSegmentShape( bodyId, &shapeDef, &badSegment ) ) == false );
-	ORACLE_I32( "check.370", logCount );
+		bool segmentRejected = b2Shape_IsValid( b2CreateSegmentShape( bodyId, &shapeDef, &badSegment ) ) == false;
+		ENSURE( segmentRejected );
+		ORACLE_I32( "check.370", logCount );
+		ORACLE_BOOL( "check.370.result", segmentRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2Polygon badPolygon = box;
 		badPolygon.radius = bad;
-		ENSURE( b2Shape_IsValid( b2CreatePolygonShape( bodyId, &shapeDef, &badPolygon ) ) == false );
-	ORACLE_I32( "check.374", logCount );
+		bool polygonRejected = b2Shape_IsValid( b2CreatePolygonShape( bodyId, &shapeDef, &badPolygon ) ) == false;
+		ENSURE( polygonRejected );
+		ORACLE_I32( "check.374", logCount );
+		ORACLE_BOOL( "check.374.result", polygonRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2Vec2 chainPoints[4] = { { -4.0f, 0.0f }, { 0.0f, 0.0f }, { 4.0f, 0.0f }, { 8.0f, 0.0f } };
 		chainPoints[2] = badVec;
@@ -445,19 +620,30 @@ static int CreateInputTest( void )
 		badChainDef.materials = &material;
 		badChainDef.materialCount = 1;
 		badChainDef.isLoop = true;
-		ENSURE( b2Chain_IsValid( b2CreateChain( bodyId, &badChainDef ) ) == false );
-	ORACLE_I32( "check.385", logCount );
+		bool chainRejected = b2Chain_IsValid( b2CreateChain( bodyId, &badChainDef ) ) == false;
+		ENSURE( chainRejected );
+		ORACLE_I32( "check.385", logCount );
+		ORACLE_BOOL( "check.385.result", chainRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2RevoluteJointDef badJointDef = b2DefaultRevoluteJointDef();
 		badJointDef.base.bodyIdA = bodyId;
 		badJointDef.base.bodyIdB = b2CreateBody( worldId, &bodyDef );
 		badJointDef.hertz = bad;
-		ENSURE( b2Joint_IsValid( b2CreateRevoluteJoint( worldId, &badJointDef ) ) == false );
-	ORACLE_I32( "check.391", logCount );
+		constructionHash = b2World_GetStateHash( worldId );
+		bool jointRejected = b2Joint_IsValid( b2CreateRevoluteJoint( worldId, &badJointDef ) ) == false;
+		ENSURE( jointRejected );
+		ORACLE_I32( "check.391", logCount );
+		ORACLE_BOOL( "check.391.result", jointRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2ExplosionDef badExplosionDef = b2DefaultExplosionDef();
 		badExplosionDef.radius = bad;
 		REJECTS( b2World_Explode( worldId, &badExplosionDef ) );
+		ENSURE( ObserveConstructionCounts( worldId, 2 + i ) );
+		IndependentWorld();
 	}
 
 	for ( int i = 0; i < 10; ++i )
@@ -522,8 +708,13 @@ static int RecordReplayTest( void )
 
 		b2ShapeDef badShapeDef = b2DefaultShapeDef();
 		badShapeDef.density = bad;
-		ENSURE( b2Shape_IsValid( b2CreatePolygonShape( bodyId, &badShapeDef, &box ) ) == false );
-	ORACLE_I32( "check.449", logCount );
+		uint64_t constructionHash = b2World_GetStateHash( worldId );
+		bool shapeRejected = b2Shape_IsValid( b2CreatePolygonShape( bodyId, &badShapeDef, &box ) ) == false;
+		ENSURE( shapeRejected );
+		ORACLE_I32( "check.449", logCount );
+		ORACLE_BOOL( "check.449.result", shapeRejected );
+		ORACLE_U64( "construction.state", b2World_GetStateHash( worldId ) );
+		ENSURE( b2World_GetStateHash( worldId ) == constructionHash );
 
 		b2Body_ApplyForceToCenter( bodyId, (b2Vec2){ 0.0f, 1.0f }, true );
 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
@@ -544,10 +735,14 @@ static int RecordReplayTest( void )
 	int size = b2Recording_GetSize( recording );
 	ORACLE_BOOL( "check.462", size > 0 );
 	ENSURE( size > 0 );
-	ENSURE( b2ValidateReplay( data, size, 0 ) );
+	bool replay0 = b2ValidateReplay( data, size, 0 );
+	ENSURE( replay0 );
 	ORACLE_I32( "check.463", logCount );
-	ENSURE( b2ValidateReplay( data, size, 4 ) );
+	ORACLE_BOOL( "check.463.result", replay0 );
+	bool replay4 = b2ValidateReplay( data, size, 4 );
+	ENSURE( replay4 );
 	ORACLE_I32( "check.464", logCount );
+	ORACLE_BOOL( "check.464.result", replay4 );
 
 	EndRejectCount();
 

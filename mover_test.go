@@ -22,6 +22,7 @@ func TestMover(t *testing.T) {
 		r := oracle.Open(t, "mover/NoPlanesTest")
 		targetDelta := box2d.Vec2{0.5, -0.25}
 		result := box2d.SolvePlanes(targetDelta, nil)
+		geometryMoverObserve(r, result, nil)
 
 		r.F32("mover:27/value0", result.Delta.X)
 		r.F32("mover:27/value1", targetDelta.X)
@@ -48,6 +49,7 @@ func TestMover(t *testing.T) {
 		r := oracle.Open(t, "mover/SolvePlaneTest")
 		planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32))}
 		result := box2d.SolvePlanes(box2d.Vec2{0.0, -1.0}, planes)
+		geometryMoverObserve(r, result, planes)
 
 		// An overshoot would eject the mover out the far side of the floor
 		r.F32("mover:43/value0", result.Delta.Y)
@@ -79,6 +81,7 @@ func TestMover(t *testing.T) {
 		r := oracle.Open(t, "mover/PushLimitTest")
 		planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, 0.1)}
 		result := box2d.SolvePlanes(box2d.Vec2{0.0, -1.0}, planes)
+		geometryMoverObserve(r, result, planes)
 
 		// Soft collision, so the mover sinks once the limit is spent
 		r.F32("mover:61/value0", planes[0].Push)
@@ -99,6 +102,7 @@ func TestMover(t *testing.T) {
 		planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), collisionMakePlane(box2d.Vec2{1.0, 0.0}, float32(math.MaxFloat32))}
 
 		result := box2d.SolvePlanes(box2d.Vec2{-1.0, -1.0}, planes)
+		geometryMoverObserve(r, result, planes)
 
 		// Both planes hold at once, rather than the second relaxing the first
 		for i := int(0); i < len(planes); i++ {
@@ -121,6 +125,7 @@ func TestMover(t *testing.T) {
 		planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), collisionMakePlane(box2d.Vec2{0.8, 0.6}, float32(math.MaxFloat32))}
 
 		result := box2d.SolvePlanes(box2d.Vec2{-1.0, -1.0}, planes)
+		geometryMoverObserve(r, result, planes)
 
 		// Settling means resting on both faces. Stopping early leaves the mover shoved
 		// clear of one of them, which reads as a large positive separation
@@ -140,6 +145,7 @@ func TestMover(t *testing.T) {
 		planes[0].Push = 0.5
 
 		v := box2d.ClipVector(box2d.Vec2{1.0, -1.0}, planes)
+		geometryMoverClipObserve(r, v)
 		r.F32("mover:120/value0", v.X)
 		r.F32("mover:120", v.X-1.0)
 		if v := v.X - 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
@@ -153,6 +159,7 @@ func TestMover(t *testing.T) {
 
 		// Separating velocity passes through untouched
 		v = box2d.ClipVector(box2d.Vec2{1.0, 1.0}, planes)
+		geometryMoverClipObserve(r, v)
 		r.F32("mover:125/value0", v.X)
 		r.F32("mover:125", v.X-1.0)
 		if v := v.X - 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
@@ -166,6 +173,7 @@ func TestMover(t *testing.T) {
 
 		planes[0].ClipVelocity = false
 		v = box2d.ClipVector(box2d.Vec2{1.0, -1.0}, planes)
+		geometryMoverClipObserve(r, v)
 		r.F32("mover:130/value0", v.Y)
 		r.F32("mover:130", v.Y+1.0)
 		if v := v.Y + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
@@ -176,6 +184,7 @@ func TestMover(t *testing.T) {
 		planes[0].ClipVelocity = true
 		planes[0].Push = 0.0
 		v = box2d.ClipVector(box2d.Vec2{1.0, -1.0}, planes)
+		geometryMoverClipObserve(r, v)
 		r.F32("mover:136/value0", v.Y)
 		r.F32("mover:136", v.Y+1.0)
 		if v := v.Y + 1.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {

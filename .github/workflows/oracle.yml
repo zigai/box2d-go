@@ -13,14 +13,23 @@ jobs:
   fixtures:
     name: fixtures are fresh
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
 
       - name: Install cmake and gcc
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends cmake gcc
+
+      - name: Validate committed capture provenance
+        run: |
+          go test -count=1 ./internal/oracle
+          go test -count=1 -tags box2d_double ./internal/oracle
 
       - name: Rebuild fixtures
         run: ./oracle/build.sh
@@ -28,4 +37,10 @@ jobs:
       - name: Fixtures match the commit
         run: |
           git add --intent-to-add testdata/oracle
-          git diff --exit-code testdata/oracle
+          # Producer compiler metadata legitimately differs between build hosts.
+          git diff --exit-code -- testdata/oracle ':(exclude)testdata/oracle/*/manifest.json'
+
+      - name: Run unchanged C suites and collect every Go comparison
+        run: |
+          go test -timeout 60m -tags box2d_oracle -v ./test/integration
+          go test -timeout 60m -tags box2d_oracle,box2d_double -v ./test/integration

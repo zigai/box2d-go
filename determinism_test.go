@@ -159,6 +159,69 @@ func (trace *inputTransformTrace) read(r *oracle.Reader, worldID box2d.World, ke
 		hash = oracle.HashTransform(hash, transform.P.X, transform.P.Y, transform.Q.C, transform.Q.S)
 	}
 	r.U64(key, hash)
+	r.U64(key+".canonical", worldID.StateHash())
+	counters := worldID.Counters()
+	r.I32(key+".bodies", int32(counters.BodyCount))
+	r.I32(key+".shapes", int32(counters.ShapeCount))
+	r.I32(key+".contacts", int32(counters.ContactCount))
+	r.I32(key+".joints", int32(counters.JointCount))
+	bodies := box2d.InputBodies(worldID)
+	moveCount := 0
+	for event := range worldID.BodyMoveEvents() {
+		moveCount++
+		if !fullState {
+			continue
+		}
+		ordinal := -1
+		for i, body := range bodies {
+			if event.BodyID == body {
+				ordinal = i
+				break
+			}
+		}
+		r.I32(key+".move.body", int32(ordinal))
+		r.Bool(key+".move.sleep", event.FellAsleep)
+		r.Pos(key+".move.p", event.Transform.P.X, event.Transform.P.Y)
+		r.Rot(key+".move.q", event.Transform.Q.C, event.Transform.Q.S)
+	}
+	r.I32(key+".move.count", int32(moveCount))
+	for _, body := range bodies {
+		if fullState {
+			v := body.LinearVelocity()
+			r.Vec2(key+".body.velocity", v.X, v.Y)
+			r.F32(key+".body.angular", body.AngularVelocity())
+			r.Bool(key+".body.awake", body.IsAwake())
+			m := body.MassData()
+			r.F32(key+".body.mass", m.Mass)
+			r.Vec2(key+".body.center", m.Center.X, m.Center.Y)
+			r.F32(key+".body.inertia", m.RotationalInertia)
+		}
+	}
+	contactBegin, contactEnd, contactHit, sensorBegin, sensorEnd, jointEvents := 0, 0, 0, 0, 0, 0
+	for range worldID.ContactBeginEvents() {
+		contactBegin++
+	}
+	for range worldID.ContactEndEvents() {
+		contactEnd++
+	}
+	for range worldID.ContactHitEvents() {
+		contactHit++
+	}
+	for range worldID.SensorBeginEvents() {
+		sensorBegin++
+	}
+	for range worldID.SensorEndEvents() {
+		sensorEnd++
+	}
+	for range worldID.JointEvents() {
+		jointEvents++
+	}
+	r.I32(key+".contact.begin", int32(contactBegin))
+	r.I32(key+".contact.end", int32(contactEnd))
+	r.I32(key+".contact.hit", int32(contactHit))
+	r.I32(key+".sensor.begin", int32(sensorBegin))
+	r.I32(key+".sensor.end", int32(sensorEnd))
+	r.I32(key+".joint.events", int32(jointEvents))
 	if !fullState {
 		return
 	}

@@ -24,6 +24,7 @@ func TestShape(t *testing.T) {
 
 		{
 			md := box2d.ComputeCircleMass(&circle, 1.0)
+			geometryOriginalMass(o, md)
 			o.F32("shape:23/value0", md.Mass)
 			o.F32("shape:23", md.Mass-box2d.Pi)
 			if v := md.Mass - box2d.Pi; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
@@ -47,10 +48,12 @@ func TestShape(t *testing.T) {
 			length := box2d.Distance(capsule.Center1, capsule.Center2)
 
 			md := box2d.ComputeCapsuleMass(&capsule, 1.0)
+			geometryOriginalMass(o, md)
 
 			// Box that full contains capsule
 			r := box2d.MakeBox(radius+float32(0.5*length), radius)
 			mdUpper := box2d.ComputePolygonMass(&r, 1.0)
+			geometryOriginalMass(o, mdUpper)
 
 			// Approximate capsule using convex hull
 			var points [2 * collisionShapeN]box2d.Vec2
@@ -68,10 +71,16 @@ func TestShape(t *testing.T) {
 				points[i].Y = radius * float32(math.Sin(float64(angle)))
 				angle += d
 			}
+			for i := range len(points) {
+				o.Vec2("full/capsule-input", points[i].X, points[i].Y)
+			}
 
 			hull := box2d.ComputeHull(points[:], 2*collisionShapeN)
+			geometryOriginalHull(o, hull)
 			ac := box2d.MakePolygon(&hull, 0.0)
+			geometryOriginalPolygon(o, ac)
 			mdLower := box2d.ComputePolygonMass(&ac, 1.0)
+			geometryOriginalMass(o, mdLower)
 
 			o.F32("shape:60/value0", mdLower.Mass)
 			o.F32("shape:60/value1", md.Mass)
@@ -92,6 +101,7 @@ func TestShape(t *testing.T) {
 
 		{
 			md := box2d.ComputePolygonMass(&box, 1.0)
+			geometryOriginalMass(o, md)
 			o.F32("shape:67/value0", md.Mass)
 			o.F32("shape:67", md.Mass-4.0)
 			if v := md.Mass - 4.0; v < -(float32(0x1p-23)) || (float32(0x1p-23)) < v {
@@ -121,6 +131,8 @@ func TestShape(t *testing.T) {
 
 			m1 := box2d.ComputePolygonMass(&b1, 1.0)
 			m2 := box2d.ComputePolygonMass(&b2, 1.0)
+			geometryOriginalMass(o, m1)
+			geometryOriginalMass(o, m2)
 
 			o.F32("shape:80/value0", m1.Mass)
 			o.F32("shape:80/value1", m2.Mass)
@@ -279,6 +291,7 @@ func TestShape(t *testing.T) {
 
 		{
 			output := box2d.RayCastCircle(&circle, &input)
+			geometryOriginalCast(o, output)
 			o.Bool("shape:155/value0", output.Hit)
 			o.Bool("shape:155", output.Hit)
 			if !(output.Hit) {
@@ -303,6 +316,7 @@ func TestShape(t *testing.T) {
 
 		{
 			output := box2d.RayCastPolygon(&box, &input)
+			geometryOriginalCast(o, output)
 			o.Bool("shape:163/value0", output.Hit)
 			o.Bool("shape:163", output.Hit)
 			if !(output.Hit) {
@@ -327,6 +341,7 @@ func TestShape(t *testing.T) {
 
 		{
 			output := box2d.RayCastSegment(&segment, &input, true)
+			geometryOriginalCast(o, output)
 			o.Bool("shape:171/value0", output.Hit)
 			o.Bool("shape:171", output.Hit)
 			if !(output.Hit) {

@@ -64,6 +64,7 @@ static size_t scenes_transform(uint8_t* bytes, b2WorldTransform transform)
 }
 
 #include "codec.h"
+#include "state.h"
 
 static void scenes_dump(b2WorldId worldId, int step)
 {
@@ -91,6 +92,7 @@ static void scenes_dump(b2WorldId worldId, int step)
   size += count;
  }
  ORACLE_U64(scenes_key(step, "h"), hash);
- if (step == -1 || step%60 == 59) scenes_full(step, full, size);
+ if (step == -1 || (step < 300 && step%60 == 59)) scenes_full(step, full, size);
  free(full);
+ scenes_state(worldId, step);
 }

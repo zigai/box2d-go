@@ -50,19 +50,67 @@ func report(pass *analysis.Pass, operand ast.Expr, consumer string) {
 	if mul == nil {
 		return
 	}
-	typ := types.TypeString(pass.TypesInfo.TypeOf(mul), types.RelativeTo(pass.Pkg))
-	pass.Report(analysis.Diagnostic{
+	typ := roundingType(pass, mul)
+	diagnostic := analysis.Diagnostic{
 		Pos:     mul.Pos(),
 		End:     mul.End(),
-		Message: "float32 product feeds " + consumer + " without explicit rounding; wrap it in " + typ + "(...) to prevent fused multiply-add",
-		SuggestedFixes: []analysis.SuggestedFix{{
+		Message: "float32 product feeds " + consumer + " without explicit rounding",
+	}
+	if typ != "" {
+		diagnostic.Message += "; wrap it in " + typ + "(...) to prevent fused multiply-add"
+		diagnostic.SuggestedFixes = []analysis.SuggestedFix{{
 			Message: "Round the product with " + typ + "(...)",
 			TextEdits: []analysis.TextEdit{
 				{Pos: mul.Pos(), End: mul.Pos(), NewText: []byte(typ + "(")},
 				{Pos: mul.End(), End: mul.End(), NewText: []byte(")")},
 			},
-		}},
-	})
+		}}
+	}
+	pass.Report(diagnostic)
+}
+
+// A type's declared package name is not necessarily its spelling at the edit
+// site: imports can be renamed or dotted, and type names can be shadowed.
+func roundingType(pass *analysis.Pass, product ast.Expr) string {
+	target := pass.TypesInfo.TypeOf(product)
+	scope := pass.Pkg.Scope().Innermost(product.Pos())
+	if scope == nil {
+		return ""
+	}
+	qualifier := func(pkg *types.Package) string {
+		if pkg.Path() == pass.Pkg.Path() {
+			return ""
+		}
+		for s := scope; s != nil; s = s.Parent() {
+			for _, name := range s.Names() {
+				obj, ok := s.Lookup(name).(*types.PkgName)
+				if !ok || obj.Imported().Path() != pkg.Path() {
+					continue
+				}
+				if _, visible := scope.LookupParent(name, product.Pos()); visible == obj {
+					return name
+				}
+			}
+		}
+		return "" // A dot-imported type is unqualified; Eval checks visibility.
+	}
+	name := types.TypeString(target, qualifier)
+	if value, err := types.Eval(pass.Fset, pass.Pkg, product.Pos(), name); err == nil &&
+		value.IsType() && types.Identical(value.Type, target) {
+		return name
+	}
+	for s := scope; s != nil; s = s.Parent() {
+		for _, name := range s.Names() {
+			obj, ok := s.Lookup(name).(*types.TypeName)
+			if !ok || !types.Identical(obj.Type(), target) {
+				continue
+			}
+			if _, visible := scope.LookupParent(name, product.Pos()); visible == obj {
+				return name
+			}
+		}
+	}
+	return "" // Report the defect without offering a conversion that cannot compile.
 }
 
 func product(info *types.Info, e ast.Expr) *ast.BinaryExpr {

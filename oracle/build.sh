@@ -70,9 +70,18 @@ check_run() {
 	[ "$count" -gt 0 ] || die "$prog wrote no fixtures (ORACLE_OPEN missing?)"
 	size=$(find "$run" -type f -exec cat {} + | wc -c | tr -d ' ')
 	budget=$BUDGET_BYTES
-	[ "$prog" != tests_scenes_benchmarks ] || budget=16777216
+	case $prog in
+	tests_world_world | tests_restitution_restitution | tests_input_determinism | tests_api_events | tests_dynamics | tests_api_joints)
+		budget=67108864 ;;
+	tests_scenes_benchmarks) budget=134217728 ;;
+	tests_api_bodies | tests_recording_recording | tests_recording_mutations | tests_recording_parity) budget=33554432 ;;
+	tests_scenes_human | tests_scenes_determinism | tests_scenes_helpers_extended | tests_input_invalid_input | tests_api_draw | tests_snapshot_parity)
+		budget=16777216 ;;
+	tests_api_lifecycle | tests_scenes_query_payload | tests_differential_corpus) budget=2097152 ;;
+	esac
 	[ "$size" -le "$budget" ] ||
 		die "$prog wrote $size bytes of fixtures, over the $budget byte budget; hash large scenes per step"
+	echo "oracle:     $prog completed $count fixtures / $size bytes (budget $budget)"
 }
 
 build_variant() {
@@ -106,6 +115,14 @@ build_variant() {
 	}
 	[ "${ORACLE_BENCH_ONLY:-0}" != 1 ] || return 0
 
+	echo "oracle:   running unchanged upstream suite ($name)"
+	"$dir/upstream/upstream_tests" >"$build/$name.upstream.log" 2>&1 || {
+		cat "$build/$name.upstream.log" >&2
+		die "original upstream tests failed in $name"
+	}
+	cmake -DLOG="$build/$name.upstream.log" -DINVENTORY="$here/cases.json" \
+		-DOUTPUT="$dir/upstream-results.json" -P "$here/check-upstream.cmake"
+
 	mkdir -p "$out"
 	for exe in "$dir"/bin/*; do
 		[ -x "$exe" ] || continue
@@ -122,14 +139,50 @@ build_variant() {
 			cp "$run/$file" "$out/$file"
 		done
 	done
+
+	debug_dir="$build/$name-debug"
+	debug_run="$build/run/$name-debug"
+	debug_out="$build/out/$name-debug"
+	echo "oracle: building requested distance diagnostics ($name-debug)"
+	cmake -S "$here" -B "$debug_dir" ${ORACLE_GENERATOR:+-G "$ORACLE_GENERATOR"} \
+		-DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$cc" \
+		-DBOX2D_UPSTREAM_DIR="$upstream" -DBOX2D_DISABLE_SIMD="$disable_simd" \
+		-DBOX2D_DOUBLE_PRECISION="$double" -DBOX2D_VALIDATE=OFF \
+		>"$debug_dir.configure.log" 2>&1 || {
+		cat "$debug_dir.configure.log" >&2
+		die "Debug configure failed for $name"
+	}
+	cmake --build "$debug_dir" --parallel --target \
+		tests_collision_distance_public tests_collision_distance_debug_public >"$debug_dir.build.log" 2>&1 || {
+		cat "$debug_dir.build.log" >&2
+		die "Debug distance build failed for $name"
+	}
+	mkdir -p "$debug_out"
+	for prog in tests_collision_distance_public tests_collision_distance_debug_public; do
+		run="$debug_run/$prog"
+		mkdir -p "$run"
+		ORACLE_OUT="$run" "$debug_dir/tools/$prog" || die "$prog failed in $name-debug"
+		check_run "$run" "$prog"
+		(cd "$run" && find . -type f | sort) | while read -r file; do
+			[ ! -e "$debug_out/$file" ] || die "duplicate Debug capture $file"
+			[ ! -e "$out/$file" ] || die "Debug capture collides with release capture $file"
+			mkdir -p "$debug_out/$(dirname "$file")" "$out/$(dirname "$file")"
+			cp "$run/$file" "$debug_out/$file"
+			cp "$run/$file" "$out/$file"
+		done
+	done
+	cmake -DRUN_DIR="$debug_run" -DPROFILE_DIR="$debug_dir" -DOUTPUT_DIR="$debug_out" -P "$here/capture.cmake"
+	cmake -DRUN_DIR="$build/run/$name" -DPROFILE_DIR="$dir" -DOUTPUT_DIR="$out" \
+		-DDEBUG_MANIFEST="$debug_out/manifest.json" -DNATIVE_RESULTS="$dir/upstream-results.json" \
+		-P "$here/capture.cmake"
 }
 
 compare() {
-	if diff -r -q "$build/out/$1" "$build/out/$2" >"$build/diff.txt" 2>&1; then
+	if diff -r -q -x manifest.json "$build/out/$1" "$build/out/$2" >"$build/$1-vs-$2.diff.txt" 2>&1; then
 		echo "oracle: check passed: $3 gives identical fixtures"
 		return
 	fi
-	cat "$build/diff.txt" >&2
+	cat "$build/$1-vs-$2.diff.txt" >&2
 	if [ "$ORACLE_STRICT" = 1 ]; then
 		die "check failed: $3 gives different fixtures (listed above)"
 	fi

@@ -9,7 +9,7 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
-	analysistest.Run(t, analysistest.TestData(), fmaround.Analyzer, "a", "clean")
+	analysistest.Run(t, analysistest.TestData(), fmaround.Analyzer, "a", "clean", "partitions")
 }
 
 func TestSuggestedFixes(t *testing.T) {

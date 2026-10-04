@@ -6,8 +6,11 @@
 
 int main(void)
 {
- ORACLE_OPEN("scenes/FallingHinges");
+ for (int workers = 1; workers <= 4; workers += 3) {
+ char fixture[64]; snprintf(fixture, sizeof(fixture), "scenes/FallingHinges_workers%d", workers);
+ ORACLE_OPEN(fixture);
  b2WorldDef def = b2DefaultWorldDef();
+ def.workerCount = workers;
  b2WorldId world = b2CreateWorld(&def);
  FallingHingeData data = CreateFallingHinges(world);
  scenes_dump(world, -1);
@@ -25,5 +28,6 @@ int main(void)
  b2DestroyWorld(world);
  scenes_flush();
  ORACLE_CLOSE();
+ }
  return 0;
 }

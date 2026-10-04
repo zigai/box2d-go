@@ -1,3 +1,8 @@
+{"k":"full/cast/hit","t":"bool","v":"1"}
+{"k":"full/cast/iterations","t":"i32","v":"00000002"}
+{"k":"full/cast/fraction","t":"f32","v":"3efeb852"}
+{"k":"full/cast/normal","t":"vec2","v":"3f800000,80000000"}
+{"k":"full/cast/point","t":"vec2","v":"3f800000,bf800000"}
 {"k":"distance:78/value0","t":"bool","v":"1"}
 {"k":"distance:78","t":"bool","v":"1"}
 {"k":"distance:80/value0","t":"f32","v":"3efeb852"}

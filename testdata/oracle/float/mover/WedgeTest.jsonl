@@ -1,2 +1,7 @@
+{"k":"full/delta","t":"vec2","v":"bb5711ba,bb81b076"}
+{"k":"full/iterations","t":"i32","v":"00000006"}
+{"k":"full/plane-count","t":"i32","v":"00000002"}
+{"k":"full/plane0/push","t":"f32","v":"3e7e77b0"}
+{"k":"full/plane1/push","t":"f32","v":"3f9f7995"}
 {"k":"mover:106","t":"f32","v":"3a889a50"}
 {"k":"mover:106","t":"f32","v":"b3280000"}

@@ -15,6 +15,7 @@
 #define ORACLE_U64( ... ) ( (void)0 )
 #else
 #include "oracle.h"
+#include "dynamics_observe.h"
 
 static uint8_t restitution_steps[4000 * 8];
 static uint8_t restitution_transform_steps[4000 * 8];
@@ -36,6 +37,9 @@ static void restitution_pack( uint8_t* data, size_t* size, uint64_t value, int w
 
 static void restitution_step( b2WorldId worldId )
 {
+	char observation[128];
+	snprintf( observation, sizeof( observation ), "observation/%zu/", restitution_step_count + 1 );
+	dynamics_trace_add( dynamics_observe( worldId, observation, restitution_step_count == 0 || ( restitution_step_count + 1 ) % 60 == 0 ) );
 	b2World* world = b2GetWorldFromId( worldId );
 	uint64_t hash = ORACLE_HASH_INIT;
 	uint64_t transformHash = ORACLE_HASH_INIT;
@@ -138,6 +142,7 @@ static void restitution_step( b2WorldId worldId )
 static void restitution_end( b2WorldId worldId )
 {
 	(void)worldId;
+	dynamics_trace_end();
 	ORACLE_BYTES( "transforms/steps", restitution_transform_steps, 8 * restitution_step_count );
 	ORACLE_BYTES( "transforms/full", restitution_full_states, restitution_full_size );
 	ORACLE_BYTES( "steps", restitution_steps, 8 * restitution_step_count );

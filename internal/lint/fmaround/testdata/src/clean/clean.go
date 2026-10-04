@@ -2,6 +2,9 @@ package clean
 
 type Vec2 struct{ X, Y float32 }
 
+type Real = float32
+type Meters float32
+
 const k = 3.0
 
 func rounded(a, b, c float32, v Vec2, s []float32) float32 {
@@ -16,6 +19,15 @@ func rounded(a, b, c float32, v Vec2, s []float32) float32 {
 	c -= float32(a * b)
 	s[0] += float32(a * b)
 	return c
+}
+
+func roundedTypes(a, b, c Real, m, n, p Meters) {
+	_ = Real(a*b) + c
+	_ = c - +(Real(a*b))
+	c += -Real(a*b)
+	_ = Meters(m*n) + p
+	_ = p - +(Meters(m*n))
+	p -= -Meters(m*n)
 }
 
 func notFusable(a, b, c float32, x, y, z float64, i, j, n int) {

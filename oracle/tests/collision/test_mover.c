@@ -19,11 +19,20 @@ static b2CollisionPlane MakePlane( b2Vec2 normal, float pushLimit )
 	};
 }
 
+static void collisionObserveSolver( b2PlaneSolverResult result, const b2CollisionPlane* planes, int count )
+{
+	ORACLE_VEC2( "full/delta", result.delta );
+	ORACLE_I32( "full/iterations", result.iterationCount );
+	ORACLE_I32( "full/plane-count", count );
+	for ( int i = 0; i < count; ++i ) ORACLE_F32( ORACLE_KEY( "full/plane%d/push", i ), planes[i].push );
+}
+
 static int NoPlanesTest( void )
 {
 	ORACLE_OPEN( "mover/NoPlanesTest" );
 	b2Vec2 targetDelta = { 0.5f, -0.25f };
 	b2PlaneSolverResult result = b2SolvePlanes( targetDelta, NULL, 0 );
+	collisionObserveSolver( result, NULL, 0 );
 
 	ORACLE_F32( "mover:27/value0", result.delta.x );
 	ORACLE_F32( "mover:27/value1", targetDelta.x );
@@ -46,6 +55,7 @@ static int SolvePlaneTest( void )
 	ORACLE_OPEN( "mover/SolvePlaneTest" );
 	b2CollisionPlane plane = MakePlane( ( b2Vec2 ){ 0.0f, 1.0f }, FLT_MAX );
 	b2PlaneSolverResult result = b2SolvePlanes( ( b2Vec2 ){ 0.0f, -1.0f }, &plane, 1 );
+	collisionObserveSolver( result, &plane, 1 );
 
 	// An overshoot would eject the mover out the far side of the floor
 	ORACLE_F32( "mover:43/value0", result.delta.y );
@@ -72,6 +82,7 @@ static int PushLimitTest( void )
 	ORACLE_OPEN( "mover/PushLimitTest" );
 	b2CollisionPlane plane = MakePlane( ( b2Vec2 ){ 0.0f, 1.0f }, 0.1f );
 	b2PlaneSolverResult result = b2SolvePlanes( ( b2Vec2 ){ 0.0f, -1.0f }, &plane, 1 );
+	collisionObserveSolver( result, &plane, 1 );
 
 	// Soft collision, so the mover sinks once the limit is spent
 	ORACLE_F32( "mover:61/value0", plane.push );
@@ -94,6 +105,7 @@ static int CornerTest( void )
 	};
 
 	b2PlaneSolverResult result = b2SolvePlanes( ( b2Vec2 ){ -1.0f, -1.0f }, planes, ARRAY_COUNT( planes ) );
+	collisionObserveSolver( result, planes, ARRAY_COUNT( planes ) );
 
 	// Both planes hold at once, rather than the second relaxing the first
 	for ( int i = 0; i < ARRAY_COUNT( planes ); ++i )
@@ -119,6 +131,7 @@ static int WedgeTest( void )
 	};
 
 	b2PlaneSolverResult result = b2SolvePlanes( ( b2Vec2 ){ -1.0f, -1.0f }, planes, ARRAY_COUNT( planes ) );
+	collisionObserveSolver( result, planes, ARRAY_COUNT( planes ) );
 
 	// Settling means resting on both faces. Stopping early leaves the mover shoved
 	// clear of one of them, which reads as a large positive separation
@@ -140,6 +153,7 @@ static int ClipVectorTest( void )
 	plane.push = 0.5f;
 
 	b2Vec2 v = b2ClipVector( ( b2Vec2 ){ 1.0f, -1.0f }, &plane, 1 );
+	ORACLE_VEC2( "full/clip", v );
 	ORACLE_F32( "mover:120/value0", v.x );
 	ORACLE_F32( "mover:120", v.x - 1.0f );
 	ENSURE_SMALL( v.x - 1.0f, FLT_EPSILON );
@@ -149,6 +163,7 @@ static int ClipVectorTest( void )
 
 	// Separating velocity passes through untouched
 	v = b2ClipVector( ( b2Vec2 ){ 1.0f, 1.0f }, &plane, 1 );
+	ORACLE_VEC2( "full/clip", v );
 	ORACLE_F32( "mover:125/value0", v.x );
 	ORACLE_F32( "mover:125", v.x - 1.0f );
 	ENSURE_SMALL( v.x - 1.0f, FLT_EPSILON );
@@ -158,6 +173,7 @@ static int ClipVectorTest( void )
 
 	plane.clipVelocity = false;
 	v = b2ClipVector( ( b2Vec2 ){ 1.0f, -1.0f }, &plane, 1 );
+	ORACLE_VEC2( "full/clip", v );
 	ORACLE_F32( "mover:130/value0", v.y );
 	ORACLE_F32( "mover:130", v.y + 1.0f );
 	ENSURE_SMALL( v.y + 1.0f, FLT_EPSILON );
@@ -166,6 +182,7 @@ static int ClipVectorTest( void )
 	plane.clipVelocity = true;
 	plane.push = 0.0f;
 	v = b2ClipVector( ( b2Vec2 ){ 1.0f, -1.0f }, &plane, 1 );
+	ORACLE_VEC2( "full/clip", v );
 	ORACLE_F32( "mover:136/value0", v.y );
 	ORACLE_F32( "mover:136", v.y + 1.0f );
 	ENSURE_SMALL( v.y + 1.0f, FLT_EPSILON );

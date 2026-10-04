@@ -21,3 +21,27 @@ func InputBodyTransforms(worldID World) []WorldTransform {
 	}
 	return transforms
 }
+
+// InputBodies preserves creation-slot order for the original upstream scene traces.
+func InputBodies(worldID World) []Body {
+	w := getWorldFromId(worldID)
+	bodies := make([]Body, 0, len(w.bodies))
+	for i := range w.bodies {
+		if w.bodies[i].id != nullIndex {
+			bodies = append(bodies, makeBodyId(w, i))
+		}
+	}
+	return bodies
+}
+
+// The public API has no contact-tuning getter; observe the rejected stored settings.
+func InputWorldTuning(worldID World) (float32, float32, float32) {
+	w := getWorldFromId(worldID)
+	return w.contactHertz, w.contactDampingRatio, w.contactSpeed
+}
+
+func InputChainCount(worldID World) int {
+	return getIDCount(&getWorldFromId(worldID).chainIDPool)
+}
+
+func InputAssertsEnabled() bool { return assertsEnabled }

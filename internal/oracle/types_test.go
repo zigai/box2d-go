@@ -1,12 +1,18 @@
 package oracle
 
 import (
+	"bytes"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestTypes(t *testing.T) {
-	r := Open(t, "types")
+	checkTypes(Open(t, "types"))
+}
+
+func checkTypes(r *Reader) {
 
 	r.F32("f32/one", 1)
 	r.F32("f32/neg_zero", float32(math.Copysign(0, -1)))
@@ -56,4 +62,42 @@ func TestTypes(t *testing.T) {
 	r.U64("hash/pos", HashPos(HashInit, 1.5, -2.25))
 	r.U64("hash/rot", HashRot(HashInit, 0.6, -0.8))
 	r.U64("hash/transform", HashTransform(HashInit, 1.5, -2.25, 0.6, -0.8))
+}
+
+func TestTypesRealCaptureComparisonIsReadOnly(t *testing.T) {
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	capture, err := os.ReadFile(filepath.Join(root, "testdata", "oracle", config, "types.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "types.jsonl")
+	if err := os.WriteFile(path, capture, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkTypes(Read(t, path, data))
+	afterData, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(capture, afterData) || !bytes.Equal(capture, data) {
+		t.Fatal("comparison modified real C capture or caller-owned input bytes")
+	}
+	if !os.SameFile(before, after) || before.Mode() != after.Mode() || !before.ModTime().Equal(after.ModTime()) {
+		t.Fatal("comparison replaced or modified read-only real C capture")
+	}
 }

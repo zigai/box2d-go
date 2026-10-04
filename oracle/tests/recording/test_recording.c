@@ -607,6 +607,10 @@ int RecordingTest( void )
 		while ( b2Replay_StepFrame( player ) )
 		{
 			ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 576", b2Replay_GetFrame( player ) );
+			if ( b2Replay_GetFrame( player ) == 1 || b2Replay_GetFrame( player ) == 16 || b2Replay_GetFrame( player ) == 60 )
+			{
+				replay_observe_queries( player, ORACLE_KEY( "inspect/%d", b2Replay_GetFrame( player ) ) );
+			}
 			// Exercise the draw path on every other frame
 			if ( frames % 2 == 0 )
 			{
@@ -1157,7 +1161,8 @@ int RecordingQueryScrubTest( void )
 // sample) and run `test.exe ReplayFileScrubDiag` to pinpoint it. No-op when the file is absent.
 int ReplayFileScrubDiag( void )
 {
-	const char* path = "diverge.b2rec";
+	// The oracle substitutes an isolated path; the original diagnostic default is unchanged.
+	const char* path = recording_diagPath;
 	b2Recording* rec = b2LoadRecordingFromFile( path );
 	if ( rec == NULL )
 	{

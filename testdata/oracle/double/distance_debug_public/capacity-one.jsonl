@@ -1,0 +1,16 @@
+{"k":"output/pointA","t":"vec2","v":"3f800000,bf800000"}
+{"k":"output/pointB","t":"vec2","v":"40400000,bf800000"}
+{"k":"output/distance","t":"f32","v":"40000000"}
+{"k":"output/normal","t":"vec2","v":"3f800000,80000000"}
+{"k":"output/iterations","t":"i32","v":"00000002"}
+{"k":"output/simplexCount","t":"i32","v":"00000001"}
+{"k":"output/cache/count","t":"u32","v":"00000001"}
+{"k":"output/cache/0/indexA","t":"u32","v":"00000001"}
+{"k":"output/cache/0/indexB","t":"u32","v":"00000000"}
+{"k":"output/simplex/0/count","t":"i32","v":"00000001"}
+{"k":"output/simplex/0/vertex/0/wA","t":"vec2","v":"bf800000,bf800000"}
+{"k":"output/simplex/0/vertex/0/wB","t":"vec2","v":"40400000,bf800000"}
+{"k":"output/simplex/0/vertex/0/w","t":"vec2","v":"c0800000,00000000"}
+{"k":"output/simplex/0/vertex/0/a","t":"f32","v":"3f800000"}
+{"k":"output/simplex/0/vertex/0/indexA","t":"i32","v":"00000000"}
+{"k":"output/simplex/0/vertex/0/indexB","t":"i32","v":"00000000"}

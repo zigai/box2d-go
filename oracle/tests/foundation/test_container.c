@@ -1,6 +1,20 @@
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "oracle.h"
+
+// Observe values, not allocation addresses or native array layout.
+#define OBSERVE_ARRAY( a )                                                                                                       \
+	do                                                                                                                           \
+	{                                                                                                                            \
+		ORACLE_I32( "count", ( a ).count );                                                                                      \
+		for ( int observerIndex = 0; observerIndex < ( a ).count; ++observerIndex )                                              \
+		{                                                                                                                        \
+			ORACLE_I32( "element", ( a ).data[observerIndex] );                                                                  \
+		}                                                                                                                        \
+	}                                                                                                                            \
+	while ( 0 )
+
 #include "container.h"
 #include "core.h"
 #include "test_macros.h"
@@ -18,6 +32,16 @@ typedef struct Foo
 
 b2DeclareArray( Foo );
 
+static void ObserveFooArray( const Foo* data, int count )
+{
+	ORACLE_I32( "count", count );
+	for ( int i = 0; i < count; ++i )
+	{
+		ORACLE_I32( "a", data[i].a );
+		ORACLE_F32( "b", data[i].b );
+	}
+}
+
 typedef struct Bar
 {
 	b2Array( int ) a;
@@ -25,25 +49,45 @@ typedef struct Bar
 
 static int TestCreateDestroy( void )
 {
+	ORACLE_OPEN( "container/TestCreateDestroy" );
 	b2Array( int ) a;
 	b2Array_Create( a );
 	b2Array_Destroy( a );
+	// The original create/free is native allocation evidence. These additional
+	// lifecycles compare usable helper behavior without inventing a Go free API.
+	for ( int i = 0; i < 2; ++i )
+	{
+		b2Array_CreateN( a, 16 );
+		OBSERVE_ARRAY( a );
+		b2Array_Push( a, i == 0 ? 42 : 99 );
+		OBSERVE_ARRAY( a );
+		int popped = b2Array_Pop( a );
+		ORACLE_I32( "popped", popped );
+		OBSERVE_ARRAY( a );
+		b2Array_Destroy( a );
+	}
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestAccess( void )
 {
+	ORACLE_OPEN( "container/TestAccess" );
 	b2Array( int ) a;
 	b2Array_Create( a );
 	b2Array_Push( a, 42 );
 	int* element = b2Array_Get( a, 0 );
 	ENSURE( *element == 42 );
+	ORACLE_I32( "access", *element );
+	OBSERVE_ARRAY( a );
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestIteration( void )
 {
+	ORACLE_OPEN( "container/TestIteration" );
 	b2Array( int ) a = { 0 };
 	b2Array_Push( a, 1 );
 	b2Array_Push( a, 2 );
@@ -56,12 +100,16 @@ static int TestIteration( void )
 	}
 
 	ENSURE( sum == 6 );
+	ORACLE_I32( "sum", sum );
+	OBSERVE_ARRAY( a );
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayOfStruct( void )
 {
+	ORACLE_OPEN( "container/TestArrayOfStruct" );
 	b2Array( Foo ) a;
 	b2Array_Create( a );
 	b2Array_Push( a, ( (Foo){ .a = 1, .b = 5.0f } ) );
@@ -78,13 +126,18 @@ static int TestArrayOfStruct( void )
 
 	ENSURE( sum1 == 6 );
 	ENSURE( sum2 == 18.0f );
+	ORACLE_I32( "sum", sum1 );
+	ORACLE_F32( "sumFloat", sum2 );
+	ObserveFooArray( a.data, a.count );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestStructWithArray( void )
 {
+	ORACLE_OPEN( "container/TestStructWithArray" );
 	Bar a;
 	b2Array_Create( a.a );
 	b2Array_Push( a.a, 1 );
@@ -98,13 +151,17 @@ static int TestStructWithArray( void )
 	}
 
 	ENSURE( sum1 == 6 );
+	ORACLE_I32( "sum", sum1 );
+	OBSERVE_ARRAY( a.a );
 
 	b2Array_Destroy( a.a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayEmplace( void )
 {
+	ORACLE_OPEN( "container/TestArrayEmplace" );
 	b2Array( uint64_t ) a = { 0 };
 
 	for ( int i = 0; i < 100; ++i )
@@ -120,18 +177,27 @@ static int TestArrayEmplace( void )
 	}
 
 	ENSURE( sum == 100 * 99 / 2 );
+	ORACLE_I32( "sum", sum );
+	ORACLE_I32( "count", a.count );
+	for ( int i = 0; i < a.count; ++i )
+	{
+		ORACLE_U64( "element", a.data[i] );
+	}
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayRemove( void )
 {
+	ORACLE_OPEN( "container/TestArrayRemove" );
 	b2Array( int16_t ) a = { 0 };
 
 	int n = 10;
 	b2Array_Reserve( a, n );
 	ENSURE( a.capacity == n && a.count == 0 );
+	OBSERVE_ARRAY( a );
 
 	for ( int i = 0; i < n; ++i )
 	{
@@ -139,27 +205,35 @@ static int TestArrayRemove( void )
 	}
 
 	ENSURE( a.count == n );
+	OBSERVE_ARRAY( a );
 
 	int sum = 0;
 	for ( int i = 0; i < n; ++i )
 	{
 		int temp = b2Array_RemoveSwap( a, 0 );
 		sum += temp;
+		ORACLE_I32( "moved", temp );
+		OBSERVE_ARRAY( a );
 	}
 
 	ENSURE( sum == n * ( n - 1 ) / 2 - 1 );
+	ORACLE_I32( "sum", sum );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayPop( void )
 {
+	ORACLE_OPEN( "container/TestArrayPop" );
 	b2Array( uint8_t ) a = { 0 };
 
 	int n = 100;
 	b2Array_Resize( a, n );
 	ENSURE( a.capacity == n && a.count == n );
+	// Resize leaves native C slots uninitialized; observe count, not those bytes.
+	ORACLE_I32( "resizedCount", a.count );
 
 	for ( int i = 0; i < n; ++i )
 	{
@@ -169,12 +243,17 @@ static int TestArrayPop( void )
 	int sum = 0;
 	for ( int i = 0; i < n; ++i )
 	{
-		sum += b2Array_Pop( a );
+		int popped = b2Array_Pop( a );
+		sum += popped;
+		ORACLE_I32( "popped", popped );
+		ORACLE_I32( "count", a.count );
 	}
 
 	ENSURE( sum == 100 * 99 / 2 );
+	ORACLE_I32( "sum", sum );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
@@ -202,39 +281,61 @@ b2DeclareArray( Body );
 
 static int TestEmptyArrayProperties( void )
 {
+	ORACLE_OPEN( "container/TestEmptyArrayProperties" );
 	b2Array( int ) a;
 	b2Array_Create( a );
 	ENSURE( a.count == 0 );
+	ORACLE_I32( "count", a.count );
 	b2Array_Destroy( a );
 	ENSURE( a.count == 0 );
 	ENSURE( a.capacity == 0 );
 	ENSURE( a.data == NULL );
+	ORACLE_I32( "count", a.count );
+	// Above destruction assertions are C-internal; prove fresh helper usability.
+	b2Array_Create( a );
+	b2Array_Push( a, 7 );
+	OBSERVE_ARRAY( a );
+	int popped = b2Array_Pop( a );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
+	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayReserveNoop( void )
 {
+	ORACLE_OPEN( "container/TestArrayReserveNoop" );
 	b2Array( int ) a = { 0 };
 	b2Array_Reserve( a, 16 );
 	ENSURE( a.capacity >= 16 );
+	OBSERVE_ARRAY( a );
 	int oldCapacity = a.capacity;
 	// Reserve with smaller or equal capacity should be a no-op
 	b2Array_Reserve( a, 8 );
 	ENSURE( a.capacity == oldCapacity );
+	ORACLE_BOOL( "capacityUnchanged", a.capacity == oldCapacity );
+	OBSERVE_ARRAY( a );
 	b2Array_Reserve( a, oldCapacity );
 	ENSURE( a.capacity == oldCapacity );
+	ORACLE_BOOL( "capacityUnchanged", a.capacity == oldCapacity );
+	b2Array_Push( a, 42 );
+	OBSERVE_ARRAY( a );
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayResizeDown( void )
 {
+	ORACLE_OPEN( "container/TestArrayResizeDown" );
 	b2Array( int ) a = { 0 };
 	for ( int i = 0; i < 10; ++i )
 	{
 		b2Array_Push( a, i * 10 );
 	}
 	ENSURE( a.count == 10 );
+	OBSERVE_ARRAY( a );
 
 	b2Array_Resize( a, 5 );
 	ENSURE( a.count == 5 );
@@ -244,32 +345,46 @@ static int TestArrayResizeDown( void )
 	{
 		ENSURE( *b2Array_Get( a, i ) == i * 10 );
 	}
+	OBSERVE_ARRAY( a );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayPopOrder( void )
 {
+	ORACLE_OPEN( "container/TestArrayPopOrder" );
 	b2Array( int ) a = { 0 };
 	b2Array_Push( a, 10 );
 	b2Array_Push( a, 20 );
 	b2Array_Push( a, 30 );
 
 	// Pop returns the last element (LIFO)
-	ENSURE( b2Array_Pop( a ) == 30 );
+	int popped = b2Array_Pop( a );
+	ENSURE( popped == 30 );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 2 );
-	ENSURE( b2Array_Pop( a ) == 20 );
+	popped = b2Array_Pop( a );
+	ENSURE( popped == 20 );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 1 );
-	ENSURE( b2Array_Pop( a ) == 10 );
+	popped = b2Array_Pop( a );
+	ENSURE( popped == 10 );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 0 );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayRemoveSwapContents( void )
 {
+	ORACLE_OPEN( "container/TestArrayRemoveSwapContents" );
 	b2Array( int ) a = { 0 };
 	b2Array_Push( a, 100 );
 	b2Array_Push( a, 200 );
@@ -277,33 +392,43 @@ static int TestArrayRemoveSwapContents( void )
 	b2Array_Push( a, 400 );
 
 	// Remove middle element: last element swaps into its place
-	b2Array_RemoveSwap( a, 1 );
+	int moved = b2Array_RemoveSwap( a, 1 );
+	ORACLE_I32( "moved", moved );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 3 );
 	ENSURE( *b2Array_Get( a, 0 ) == 100 );
 	ENSURE( *b2Array_Get( a, 1 ) == 400 ); // swapped from end
 	ENSURE( *b2Array_Get( a, 2 ) == 300 );
 
 	// Remove last element: no swap needed
-	b2Array_RemoveSwap( a, 2 );
+	moved = b2Array_RemoveSwap( a, 2 );
+	ORACLE_I32( "moved", moved );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 2 );
 	ENSURE( *b2Array_Get( a, 0 ) == 100 );
 	ENSURE( *b2Array_Get( a, 1 ) == 400 );
 
 	// Remove first element
-	b2Array_RemoveSwap( a, 0 );
+	moved = b2Array_RemoveSwap( a, 0 );
+	ORACLE_I32( "moved", moved );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 1 );
 	ENSURE( *b2Array_Get( a, 0 ) == 400 );
 
 	// Remove sole element
-	b2Array_RemoveSwap( a, 0 );
+	moved = b2Array_RemoveSwap( a, 0 );
+	ORACLE_I32( "moved", moved );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 0 );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayGrowthIntegrity( void )
 {
+	ORACLE_OPEN( "container/TestArrayGrowthIntegrity" );
 	b2Array( int ) a = { 0 };
 
 	// Push many elements to trigger multiple reallocations
@@ -320,39 +445,58 @@ static int TestArrayGrowthIntegrity( void )
 	{
 		ENSURE( *b2Array_Get( a, i ) == i );
 	}
+	OBSERVE_ARRAY( a );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayInterleavedPushPop( void )
 {
+	ORACLE_OPEN( "container/TestArrayInterleavedPushPop" );
 	b2Array( int ) a = { 0 };
 
 	b2Array_Push( a, 1 );
 	b2Array_Push( a, 2 );
-	ENSURE( b2Array_Pop( a ) == 2 );
+	int popped = b2Array_Pop( a );
+	ENSURE( popped == 2 );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 1 );
 
 	b2Array_Push( a, 3 );
 	b2Array_Push( a, 4 );
 	ENSURE( a.count == 3 );
-	ENSURE( b2Array_Pop( a ) == 4 );
-	ENSURE( b2Array_Pop( a ) == 3 );
-	ENSURE( b2Array_Pop( a ) == 1 );
+	OBSERVE_ARRAY( a );
+	popped = b2Array_Pop( a );
+	ENSURE( popped == 4 );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
+	popped = b2Array_Pop( a );
+	ENSURE( popped == 3 );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
+	popped = b2Array_Pop( a );
+	ENSURE( popped == 1 );
+	ORACLE_I32( "popped", popped );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 0 );
 
 	// Re-use after emptying
 	b2Array_Push( a, 99 );
 	ENSURE( a.count == 1 );
 	ENSURE( *b2Array_Get( a, 0 ) == 99 );
+	OBSERVE_ARRAY( a );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayEmplaceStruct( void )
 {
+	ORACLE_OPEN( "container/TestArrayEmplaceStruct" );
 	b2Array( Foo ) a = { 0 };
 
 	for ( int i = 0; i < 50; ++i )
@@ -370,18 +514,22 @@ static int TestArrayEmplaceStruct( void )
 		ENSURE( f->a == i );
 		ENSURE( f->b == (float)i * 2.0f );
 	}
+	ObserveFooArray( a.data, a.count );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayResizeUp( void )
 {
+	ORACLE_OPEN( "container/TestArrayResizeUp" );
 	b2Array( int ) a = { 0 };
 
 	b2Array_Resize( a, 10 );
 	ENSURE( a.count == 10 );
 	ENSURE( a.capacity >= 10 );
+	ORACLE_I32( "resizedCount", a.count );
 
 	// Write values into resized slots
 	for ( int i = 0; i < 10; ++i )
@@ -396,19 +544,28 @@ static int TestArrayResizeUp( void )
 	{
 		ENSURE( a.data[i] == i + 1 );
 	}
+	ORACLE_I32( "resizedCount", a.count );
+	// Only the initialized prefix is defined in both engines.
+	for ( int i = 0; i < 10; ++i )
+	{
+		ORACLE_I32( "element", a.data[i] );
+	}
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayPushAfterReserve( void )
 {
+	ORACLE_OPEN( "container/TestArrayPushAfterReserve" );
 	b2Array( int ) a = { 0 };
 
 	// Reserve doesn't change count
 	b2Array_Reserve( a, 50 );
 	ENSURE( a.count == 0 );
 	ENSURE( a.capacity >= 50 );
+	OBSERVE_ARRAY( a );
 
 	// Push within reserved capacity (no reallocation expected)
 	for ( int i = 0; i < 50; ++i )
@@ -421,37 +578,48 @@ static int TestArrayPushAfterReserve( void )
 	{
 		ENSURE( *b2Array_Get( a, i ) == i * 3 );
 	}
+	OBSERVE_ARRAY( a );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayRemoveSwapAllFromEnd( void )
 {
+	ORACLE_OPEN( "container/TestArrayRemoveSwapAllFromEnd" );
 	b2Array( int ) a = { 0 };
 	b2Array_Push( a, 1 );
 	b2Array_Push( a, 2 );
 	b2Array_Push( a, 3 );
 
 	// Always remove the last element (no swap path)
-	b2Array_RemoveSwap( a, a.count - 1 );
+	int moved = b2Array_RemoveSwap( a, a.count - 1 );
+	ORACLE_I32( "moved", moved );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 2 );
 	ENSURE( *b2Array_Get( a, 0 ) == 1 );
 	ENSURE( *b2Array_Get( a, 1 ) == 2 );
 
-	b2Array_RemoveSwap( a, a.count - 1 );
+	moved = b2Array_RemoveSwap( a, a.count - 1 );
+	ORACLE_I32( "moved", moved );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 1 );
 	ENSURE( *b2Array_Get( a, 0 ) == 1 );
 
-	b2Array_RemoveSwap( a, a.count - 1 );
+	moved = b2Array_RemoveSwap( a, a.count - 1 );
+	ORACLE_I32( "moved", moved );
+	OBSERVE_ARRAY( a );
 	ENSURE( a.count == 0 );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArraySingleElement( void )
 {
+	ORACLE_OPEN( "container/TestArraySingleElement" );
 	b2Array( Foo ) a = { 0 };
 
 	Foo* f = b2Array_Emplace( a );
@@ -461,23 +629,31 @@ static int TestArraySingleElement( void )
 	ENSURE( a.count == 1 );
 	ENSURE( b2Array_Get( a, 0 )->a == 7 );
 	ENSURE( b2Array_Get( a, 0 )->b == 3.14f );
+	ObserveFooArray( a.data, a.count );
 
 	Foo popped = b2Array_Pop( a );
 	ENSURE( popped.a == 7 );
 	ENSURE( popped.b == 3.14f );
 	ENSURE( a.count == 0 );
+	ORACLE_I32( "poppedA", popped.a );
+	ORACLE_F32( "poppedB", popped.b );
+	ObserveFooArray( a.data, a.count );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 
 static int TestArrayCreateN( void )
 {
+	ORACLE_OPEN( "container/TestArrayCreateN" );
 	b2Array( int ) a;
 	b2Array_CreateN( a, 16 );
 	ENSURE( a.count == 0 );
 	ENSURE( a.capacity == 16 );
 	ENSURE( a.data != NULL );
+	// Capacity and pointer assertions above preserve the native allocator case.
+	OBSERVE_ARRAY( a );
 
 	// Verify it behaves like a normal array after creation
 	for ( int i = 0; i < 16; ++i )
@@ -490,8 +666,10 @@ static int TestArrayCreateN( void )
 	{
 		ENSURE( *b2Array_Get( a, i ) == i * 5 );
 	}
+	OBSERVE_ARRAY( a );
 
 	b2Array_Destroy( a );
+	ORACLE_CLOSE();
 	return 0;
 }
 

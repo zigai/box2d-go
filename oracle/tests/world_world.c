@@ -11,6 +11,7 @@
 
 #ifndef WORLD_NO_ORACLE
 #include "oracle.h"
+#include "dynamics_observe.h"
 static uint8_t world_steps[1048576];
 static size_t world_step_size;
 static uint32_t world_step_count;
@@ -26,6 +27,9 @@ static void world_flush( void )
 }
 static void world_step( b2WorldId worldId, const char* source )
 {
+    char observation[128];
+    snprintf( observation, sizeof( observation ), "observation/%u/%s/", world_step_count + 1, source );
+    dynamics_trace_add( dynamics_observe( worldId, observation, world_step_count == 0 || ( world_step_count + 1 ) % 60 == 0 || source[0] == 't' ) );
     b2World* world = b2GetWorldFromId( worldId );
     uint64_t hash = ORACLE_HASH_INIT;
     for ( int i = 0; i < world->bodies.count; ++i )
@@ -101,6 +105,7 @@ int main( void )
     if ( HelloWorld() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -113,6 +118,7 @@ int main( void )
     if ( EmptyWorld() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -125,6 +131,7 @@ int main( void )
     if ( DestroyAllBodiesWorld() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -137,6 +144,7 @@ int main( void )
     if ( TestIsValid() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -149,6 +157,7 @@ int main( void )
     if ( TestWorldRecycle() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -161,6 +170,7 @@ int main( void )
     if ( TestWorldCoverage() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -173,6 +183,7 @@ int main( void )
     if ( TestSensor() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -185,6 +196,7 @@ int main( void )
     if ( TestSetWorkerCount() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -197,6 +209,7 @@ int main( void )
     if ( ChainSegmentShapeTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -209,6 +222,7 @@ int main( void )
     if ( SetBulletDriftTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -221,6 +235,7 @@ int main( void )
     if ( DeferredMassFlagSyncTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -233,6 +248,7 @@ int main( void )
     if ( EnableSleepFlagSyncTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -245,6 +261,7 @@ int main( void )
     if ( EnableContactRecyclingTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -257,6 +274,7 @@ int main( void )
     if ( EnlargedProxyDestroyedTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -269,6 +287,7 @@ int main( void )
     if ( BroadPhasePairsTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -281,6 +300,7 @@ int main( void )
     if ( BodySimLocatorTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif
@@ -293,6 +313,7 @@ int main( void )
     if ( NonDynamicJointDisableTest() != 0 ) return 1;
 #ifndef WORLD_NO_ORACLE
     world_flush();
+    dynamics_trace_end();
     ORACLE_BYTES( "steps/rle-u32-u64-le", world_steps, world_step_size );
     ORACLE_CLOSE();
 #endif

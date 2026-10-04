@@ -101,35 +101,6 @@ func TestScheduler(t *testing.T) {
 			t.Fatalf("count = %d, want 0", count)
 		}
 	})
-	t.Run("WorldLifecycle", func(t *testing.T) {
-		for _, initial := range []int{1, 4} {
-			def := DefaultWorldDef()
-			def.WorkerCount = initial
-			for range 8 {
-				w := CreateWorld(&def)
-				state := getWorldFromId(w)
-				scheduler := state.scheduler
-				callback := reflect.ValueOf(state.enqueueTaskFcn).Pointer()
-				if initial == 1 && scheduler != nil {
-					t.Fatal("serial world has a scheduler")
-				}
-				if initial == 4 && (scheduler == nil || scheduler.threadCount != 3) {
-					t.Fatal("parallel scheduler missing")
-				}
-				for _, count := range []int{4, 1, 8, 2} {
-					w.SetWorkerCount(count)
-					if state.scheduler != scheduler || reflect.ValueOf(state.enqueueTaskFcn).Pointer() != callback {
-						t.Fatal("worker count changed scheduler or callback")
-					}
-					if w.WorkerCount() != count || len(state.taskContexts) != count {
-						t.Fatal("worker contexts do not match count")
-					}
-					w.Step(1.0/60, 4)
-				}
-				w.Destroy()
-			}
-		}
-	})
 }
 
 func enqueueSchedulerContext(s *scheduler, count *atomic.Int32) func() {
@@ -250,4 +221,56 @@ func TestSchedulerCallbackLifetime(t *testing.T) {
 		}
 		requireSchedulerCallbacksReleased(t, s)
 	})
+}
+
+// Observe actual worker exits, not scheduler addresses, callback identities, or
+// the number of internal contexts used to implement a public worker setting.
+func TestSchedulerWorldOwnedWorkersShutdown(t *testing.T) {
+	for _, initial := range []int{1, 4} {
+		for range 8 {
+			def := DefaultWorldDef()
+			def.WorkerCount = initial
+			w := CreateWorld(&def)
+			t.Cleanup(func() {
+				if w.IsValid() {
+					w.Destroy()
+				}
+			})
+			bodyDef := DefaultBodyDef()
+			bodyDef.Type = DynamicBody
+			body := w.CreateBody(&bodyDef)
+			shapeDef := DefaultShapeDef()
+			circle := Circle{Radius: 1}
+			body.CreateCircleShape(&shapeDef, &circle)
+			started := map[<-chan struct{}]bool{}
+			observeWorkers := func() {
+				s := getWorldFromId(w).scheduler
+				if s == nil {
+					return
+				}
+				for _, worker := range s.threads {
+					if worker != nil {
+						started[worker.done] = true
+					}
+				}
+			}
+			observeWorkers()
+			for _, count := range []int{4, 1, 8, 2} {
+				w.SetWorkerCount(count)
+				observeWorkers()
+				w.Step(1.0/60, 4)
+				if s := getWorldFromId(w).scheduler; s != nil {
+					requireSchedulerCallbacksReleased(t, s)
+				}
+			}
+			w.Destroy()
+			for done := range started {
+				select {
+				case <-done:
+				default:
+					t.Fatal("World.Destroy returned before an owned worker exited")
+				}
+			}
+		}
+	}
 }

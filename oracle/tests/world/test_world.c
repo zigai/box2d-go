@@ -468,7 +468,7 @@ static int TestSetWorkerCount( void )
 
 	CreateJunkyard( worldId );
 	StepJunkyard( worldId, 1 );
-	ORACLE_WORLD_STEP( worldId, "L408" );
+	ORACLE_WORLD_STEP( worldId, "target/L408" );
 
 	b2World_SetWorkerCount( worldId, 4 );
 	ENSURE( b2World_GetWorkerCount( worldId ) == 4 );
@@ -476,7 +476,7 @@ static int TestSetWorkerCount( void )
 	ORACLE_I32( "L411:value", b2World_GetWorkerCount( worldId ) );
 
 	StepJunkyard( worldId, 2 );
-	ORACLE_WORLD_STEP( worldId, "L413" );
+	ORACLE_WORLD_STEP( worldId, "target/L413" );
 
 	b2World_SetWorkerCount( worldId, 4 );
 	ENSURE( b2World_GetWorkerCount( worldId ) == 4 );
@@ -484,7 +484,7 @@ static int TestSetWorkerCount( void )
 	ORACLE_I32( "L416:value", b2World_GetWorkerCount( worldId ) );
 
 	StepJunkyard( worldId, 3 );
-	ORACLE_WORLD_STEP( worldId, "L418" );
+	ORACLE_WORLD_STEP( worldId, "target/L418" );
 
 	b2World_SetWorkerCount( worldId, 0 );
 	ENSURE( b2World_GetWorkerCount( worldId ) == 1 );
@@ -492,7 +492,7 @@ static int TestSetWorkerCount( void )
 	ORACLE_I32( "L421:value", b2World_GetWorkerCount( worldId ) );
 
 	StepJunkyard( worldId, 4 );
-	ORACLE_WORLD_STEP( worldId, "L423" );
+	ORACLE_WORLD_STEP( worldId, "target/L423" );
 
 	b2World_SetWorkerCount( worldId, -5 );
 	ENSURE( b2World_GetWorkerCount( worldId ) == 1 );
@@ -500,7 +500,7 @@ static int TestSetWorkerCount( void )
 	ORACLE_I32( "L426:value", b2World_GetWorkerCount( worldId ) );
 
 	StepJunkyard( worldId, 5 );
-	ORACLE_WORLD_STEP( worldId, "L428" );
+	ORACLE_WORLD_STEP( worldId, "target/L428" );
 
 	b2World_SetWorkerCount( worldId, B2_MAX_WORKERS + 10 );
 	ENSURE( b2World_GetWorkerCount( worldId ) == B2_MAX_WORKERS );
@@ -508,7 +508,7 @@ static int TestSetWorkerCount( void )
 	ORACLE_I32( "L431:value", b2World_GetWorkerCount( worldId ) );
 
 	StepJunkyard( worldId, 2 );
-	ORACLE_WORLD_STEP( worldId, "L433" );
+	ORACLE_WORLD_STEP( worldId, "target/L433" );
 
 	b2DestroyWorld( worldId );
 

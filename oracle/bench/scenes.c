@@ -9,12 +9,35 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <errno.h>
+#include <limits.h>
+
+static int positive_integer(const char* text) {
+ char* end = NULL; errno = 0;
+ long value = strtol(text, &end, 10);
+ if (errno != 0 || end == text || *end != '\0' || value < 1 || value > INT_MAX) return 0;
+ return (int)value;
+}
 
 int main(int argc, char** argv) {
- int samples = argc > 1 ? atoi(argv[1]) : 6;
- int workers = argc > 2 ? atoi(argv[2]) : 1;
- int cpus = argc > 3 ? atoi(argv[3]) : 2;
- if (samples < 1 || workers < 1 || workers > B2_MAX_WORKERS || cpus < 1) return 1;
+ if (argc > 4) { fprintf(stderr, "usage: bench_scenes [samples] [workers] [cpus]\n"); return 2; }
+ int samples = argc > 1 ? positive_integer(argv[1]) : 6;
+ int workers = argc > 2 ? positive_integer(argv[2]) : 1;
+ int cpus = argc > 3 ? positive_integer(argv[3]) : 2;
+ if (samples < 1 || workers < 1 || workers > B2_MAX_WORKERS || cpus < 1) { fprintf(stderr, "samples/cpus must be positive integers; workers must be in 1..%d\n", B2_MAX_WORKERS); return 2; }
+ // Matched custom workload: all 300 steps from step zero, no timed setup/teardown.
+#if defined(BOX2D_DOUBLE_PRECISION)
+ const char* precision = "double";
+#else
+ const char* precision = "float";
+#endif
+#if defined(NDEBUG)
+ const char* scene_config = "release";
+#else
+ const char* scene_config = "debug";
+#endif
+ printf("box2d-bench: precision=%s scene-config=%s steps=300 timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, scene_config, cpus);
  const char* names[] = {"JointGrid","LargePyramid","ManyPyramids","Rain","Spinner","Smash","Tumbler","Washer","Junkyard","Sleep","Compounds","Queries","TreeCast","TileWorld","FallingHinges","Human"};
  for (int scene = 0; scene < 16; ++scene) {
   for (int sample = 0; sample < samples; ++sample) {
@@ -70,6 +93,7 @@ case 15:
  if (scene == 14) UpdateFallingHinges(world,&hinges);
  }
  double nanoseconds = 1000000.0 * b2GetMilliseconds(ticks);
+ if (!isfinite(nanoseconds) || nanoseconds <= 0) { fprintf(stderr, "invalid timing for %s workers=%d sample=%d\n", names[scene], workers, sample); return 1; }
  if (scene == 14) DestroyFallingHinges(&hinges);
  if (scene == 15) DestroyHuman(&human);
  if (scene == 12) DestroyTreeCast();

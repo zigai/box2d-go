@@ -8,12 +8,12 @@ import "math"
 // A begin touch event is generated when two shapes begin touching.
 type ContactBeginTouchEvent struct {
 	// Id of the first shape
-	ShapeIDA Shape
+	ShapeA Shape
 	// Id of the second shape
-	ShapeIDB Shape
+	ShapeB Shape
 	// The transient contact id. This contact maybe destroyed automatically when the world is modified or simulated.
 	// Used Contact.IsValid before using this id.
-	ContactID Contact
+	Contact Contact
 }
 
 // An end touch event is generated when two shapes stop touching.
@@ -25,28 +25,28 @@ type ContactEndTouchEvent struct {
 	// Id of the first shape
 	// 	Warning: this shape may have been destroyed
 	// 	See: Shape.IsValid
-	ShapeIDA Shape
+	ShapeA Shape
 	// Id of the second shape
 	// 	Warning: this shape may have been destroyed
 	// 	See: Shape.IsValid
-	ShapeIDB Shape
+	ShapeB Shape
 	// Id of the contact.
 	// 	Warning: this contact may have been destroyed
 	// 	See: Contact.IsValid
-	ContactID Contact
+	Contact Contact
 }
 
 // A hit touch event is generated when two shapes collide with a speed faster than the hit speed threshold.
 // This may be reported for speculative contacts that have a confirmed impulse.
 type ContactHitEvent struct {
 	// Id of the first shape
-	ShapeIDA Shape
+	ShapeA Shape
 	// Id of the second shape
-	ShapeIDB Shape
+	ShapeB Shape
 	// Id of the contact.
 	// 	Warning: this contact may have been destroyed
 	// 	See: Contact.IsValid
-	ContactID Contact
+	Contact Contact
 	// Point where the shapes hit. This is a mid-point between the two surfaces. It could be
 	// a speculative point where the shapes were not touching at the beginning of the time
 	// step. The point is reconstructed after the step, so when both bodies are moving it may
@@ -82,11 +82,11 @@ type ContactEvents struct {
 type ContactData struct {
 	// The contact id. You may hold onto this to track a contact across time steps.
 	// This id may become orphaned. Use Contact.IsValid before using it for other functions.
-	ContactID Contact
+	Contact Contact
 	// The first shape id.
-	ShapeIDA Shape
+	ShapeA Shape
 	// The second shape id.
-	ShapeIDB Shape
+	ShapeB Shape
 	// The manifold copied from the contact.
 	Manifold Manifold
 }
@@ -250,25 +250,30 @@ func chainSegmentAndPolygonManifold(shapeA, shapeB *shape, xf Transform, cache *
 	return CollideChainSegmentAndPolygon(&shapeA.chainSegment, &shapeB.polygon, xf, cache)
 }
 
-func getContactFullId(world *world, contactID Contact) *contact {
+func getContactFullId(world *World, contactID Contact) *contact {
 	id := int(contactID.index1) - 1
 	contact := &world.contacts[id]
 	assert(contact.contactID == id && contact.generation == contactID.generation, "contact.contactID == id && contact.generation == contactID.generation")
 	return contact
 }
 
+// Get the world that owns this contact
+func (c Contact) World() *World {
+	return c.world
+}
+
 // Get the data for a contact. The manifold may have no points if the contact is not touching.
 func (c Contact) Data() ContactData {
-	world := getWorld(int(c.world0))
+	world := c.world
 	contact := getContactFullId(world, c)
 	contactSim := getContactSim(world, contact)
 	shapeA := &world.shapes[contact.shapeIDA]
 	shapeB := &world.shapes[contact.shapeIDB]
 	return ContactData{
-		ContactID: c,
-		ShapeIDA:  Shape{index1: int32(shapeA.id + 1), world0: c.world0, generation: shapeA.generation},
-		ShapeIDB:  Shape{index1: int32(shapeB.id + 1), world0: c.world0, generation: shapeB.generation},
-		Manifold:  contactSim.manifold,
+		Contact:  c,
+		ShapeA:   Shape{index1: int32(shapeA.id + 1), world: c.world, generation: shapeA.generation},
+		ShapeB:   Shape{index1: int32(shapeB.id + 1), world: c.world, generation: shapeB.generation},
+		Manifold: contactSim.manifold,
 	}
 }
 
@@ -276,7 +281,7 @@ func canCollide(typeA ShapeType, typeB ShapeType) bool {
 	return contactRegistry[typeA][typeB].fcn != nil
 }
 
-func createContact(world *world, shapeA *shape, shapeB *shape) {
+func createContact(world *World, shapeA *shape, shapeB *shape) {
 	type1 := shapeA.shapeType
 	type2 := shapeB.shapeType
 
@@ -425,7 +430,7 @@ func createContact(world *world, shapeA *shape, shapeB *shape) {
 	}
 }
 
-func destroyContact(world *world, contact *contact) {
+func destroyContact(world *World, contact *contact) {
 	// Remove pair from set
 	pairKey := shapePairKey(contact.shapeIDA, contact.shapeIDB)
 	removeKey(&world.broadPhase.pairSet, pairKey)
@@ -443,15 +448,14 @@ func destroyContact(world *world, contact *contact) {
 
 	// End touch event
 	if touching && (flags&contactEnableContactEvents) != 0 {
-		worldID := world.worldID
 		shapeA := &world.shapes[contact.shapeIDA]
 		shapeB := &world.shapes[contact.shapeIDB]
-		shapeIDA := Shape{index1: int32(shapeA.id + 1), world0: worldID, generation: shapeA.generation}
-		shapeIDB := Shape{index1: int32(shapeB.id + 1), world0: worldID, generation: shapeB.generation}
+		shapeIDA := Shape{index1: int32(shapeA.id + 1), world: world, generation: shapeA.generation}
+		shapeIDB := Shape{index1: int32(shapeB.id + 1), world: world, generation: shapeB.generation}
 
-		contactID := Contact{index1: int32(contact.contactID + 1), world0: world.worldID, generation: contact.generation}
+		contactID := Contact{index1: int32(contact.contactID + 1), world: world, generation: contact.generation}
 
-		event := ContactEndTouchEvent{ShapeIDA: shapeIDA, ShapeIDB: shapeIDB, ContactID: contactID}
+		event := ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: contactID}
 
 		world.contactEndEvents[world.endEventArrayIndex] = arrayPush(world.contactEndEvents[world.endEventArrayIndex], event)
 	}
@@ -534,7 +538,7 @@ func destroyContact(world *world, contact *contact) {
 	}
 }
 
-func getContactSim(world *world, contact *contact) *contactSim {
+func getContactSim(world *World, contact *contact) *contactSim {
 	if contact.setIndex == awakeSet && contact.colorIndex != nullIndex {
 		// contact lives in constraint graph
 		assert(0 <= contact.colorIndex && contact.colorIndex < GraphColorCount, "0 <= contact.colorIndex && contact.colorIndex < GraphColorCount")
@@ -546,7 +550,7 @@ func getContactSim(world *world, contact *contact) *contactSim {
 	return &set.contactSims[contact.localIndex]
 }
 
-func updateContact(world *world, contactSim *contactSim, shapeA *shape, transformA WorldTransform, centerOffsetA Vec2, shapeB *shape, transformB WorldTransform, centerOffsetB Vec2) bool {
+func updateContact(world *World, contactSim *contactSim, shapeA *shape, transformA WorldTransform, centerOffsetA Vec2, shapeB *shape, transformB WorldTransform, centerOffsetB Vec2) bool {
 	// Save old manifold
 	oldManifold := contactSim.manifold
 
@@ -554,19 +558,19 @@ func updateContact(world *world, contactSim *contactSim, shapeA *shape, transfor
 	// The relative pose differences the two world positions before the narrow phase runs in frame A,
 	// so precision is retained far from the origin.
 	// anchorB = worldPoint - pB = rot(qA, localAnchorA) + pA - pB = anchorA + (pA - pB)
-	relativeTransform := InvMulWorldTransforms(transformA, transformB)
+	relativeTransform := transformA.InvMul(transformB)
 	fcn := contactRegistry[shapeA.shapeType][shapeB.shapeType].fcn
 	local := fcn(shapeA, shapeB, relativeTransform, &contactSim.cache)
 
 	contactSim.manifold = Manifold{}
-	contactSim.manifold.Normal = RotateVector(transformA.Q, local.Normal)
+	contactSim.manifold.Normal = transformA.Q.Rotate(local.Normal)
 	contactSim.manifold.PointCount = local.PointCount
 
-	originDelta := SubPos(transformA.P, transformB.P)
+	originDelta := transformA.P.Sub(transformB.P)
 	for i := 0; i < local.PointCount; i++ {
 		mp := &contactSim.manifold.Points[i]
-		mp.AnchorA = RotateVector(transformA.Q, local.Points[i].Point)
-		mp.AnchorB = Add(mp.AnchorA, originDelta)
+		mp.AnchorA = transformA.Q.Rotate(local.Points[i].Point)
+		mp.AnchorB = mp.AnchorA.Add(originDelta)
 		mp.Separation = local.Points[i].Separation
 		mp.ID = local.Points[i].ID
 	}
@@ -589,9 +593,9 @@ func updateContact(world *world, contactSim *contactSim, shapeA *shape, transfor
 	if shapeA.material.RollingResistance > 0.0 || shapeB.material.RollingResistance > 0.0 {
 		radiusA := getShapeRadius(shapeA)
 		radiusB := getShapeRadius(shapeB)
-		maxRadius := MaxFloat(radiusA, radiusB)
+		maxRadius := maxFloat(radiusA, radiusB)
 		contactSim.rollingResistance =
-			MaxFloat(shapeA.material.RollingResistance, shapeB.material.RollingResistance) * maxRadius
+			maxFloat(shapeA.material.RollingResistance, shapeB.material.RollingResistance) * maxRadius
 	} else {
 		contactSim.rollingResistance = 0.0
 	}
@@ -602,8 +606,8 @@ func updateContact(world *world, contactSim *contactSim, shapeA *shape, transfor
 	touching := pointCount > 0
 
 	if touching && world.preSolveFcn != nil && (contactSim.simFlags&simEnablePreSolveEvents) != 0 {
-		shapeIDA := Shape{index1: int32(shapeA.id + 1), world0: world.worldID, generation: shapeA.generation}
-		shapeIDB := Shape{index1: int32(shapeB.id + 1), world0: world.worldID, generation: shapeB.generation}
+		shapeIDA := Shape{index1: int32(shapeA.id + 1), world: world, generation: shapeA.generation}
+		shapeIDB := Shape{index1: int32(shapeB.id + 1), world: world, generation: shapeB.generation}
 
 		// This call assumes thread safety.
 		world.preSolveFcn(shapeIDA, shapeIDB, &contactSim.manifold)
@@ -629,8 +633,8 @@ func updateContact(world *world, contactSim *contactSim, shapeA *shape, transfor
 			mp2 := &contactSim.manifold.Points[i]
 
 			// shift anchors to be center of mass relative
-			mp2.AnchorA = Sub(mp2.AnchorA, centerOffsetA)
-			mp2.AnchorB = Sub(mp2.AnchorB, centerOffsetB)
+			mp2.AnchorA = mp2.AnchorA.Sub(centerOffsetA)
+			mp2.AnchorB = mp2.AnchorB.Sub(centerOffsetB)
 
 			mp2.NormalImpulse = 0.0
 			mp2.TangentImpulse = 0.0
@@ -674,5 +678,5 @@ func mixFriction(frictionA float32, frictionB float32) float32 {
 }
 
 func mixRestitution(restitutionA float32, restitutionB float32) float32 {
-	return MaxFloat(restitutionA, restitutionB)
+	return maxFloat(restitutionA, restitutionB)
 }

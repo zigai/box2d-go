@@ -16,14 +16,14 @@ import (
 // Native Go format validation is supplemental, not interchange with C's native image.
 // Only known-good serialized state is truncated; arbitrary ids/physics payloads are
 // never dispatched into APIs whose preconditions require valid objects.
-func malformedInputSource(t testing.TB) (box2d.World, []byte, []byte) {
+func malformedInputSource(t testing.TB) (*box2d.World, []byte, []byte) {
 	t.Helper()
 	def := box2d.DefaultWorldDef()
 	def.WorkerCount = 4
-	world := box2d.CreateWorld(&def)
+	world := box2d.NewWorld(&def)
 	t.Cleanup(func() {
 		if world.IsValid() {
-			world.Destroy()
+			world.Close()
 		}
 	})
 	bodyDef := box2d.DefaultBodyDef()
@@ -34,12 +34,11 @@ func malformedInputSource(t testing.TB) (box2d.World, []byte, []byte) {
 	box := box2d.MakeBox(0.5, 0.5)
 	body.CreatePolygonShape(&shapeDef, &box)
 	world.Step(1.0/60.0, 4)
-	image := world.Snapshot()
-	recording := box2d.CreateRecording(0)
+	image := box2d.BTSnapshot(world)
+	recording := box2d.NewRecording(0)
 	world.StartRecording(recording)
 	world.StopRecording()
 	data := bytes.Clone(recording.Data())
-	recording.Destroy()
 	return world, image, data
 }
 
@@ -63,25 +62,25 @@ func checkMalformedSnapshotHeader(t testing.TB, selector uint8, delta uint32) {
 	binary.LittleEndian.PutUint32(bad[offset:], binary.LittleEndian.Uint32(bad[offset:])^(delta|1))
 	original := bytes.Clone(bad)
 	category := []error{box2d.ErrBadMagic, box2d.ErrVersion, box2d.ErrLayout}[selector%3]
-	err := world.Restore(bad)
+	err := world.UnmarshalBinary(bad)
 	requireSnapshotCategory(t, err, category)
 	if world.StateHash() != before {
 		t.Fatal("header rejection changed populated world")
 	}
-	failed, err := box2d.CreateWorldFromSnapshot(bad, 4)
+	failed, err := box2d.NewWorldFromSnapshot(bad, 4)
 	if failed.IsValid() {
-		failed.Destroy()
+		failed.Close()
 		t.Fatal("bad header returned valid world")
 	}
 	requireSnapshotCategory(t, err, category)
 	if !bytes.Equal(bad, original) {
 		t.Fatal("snapshot rejection mutated input bytes")
 	}
-	clone, err := box2d.CreateWorldFromSnapshot(image, 4)
+	clone, err := box2d.NewWorldFromSnapshot(image, 4)
 	if err != nil {
 		t.Fatalf("independent valid construction after rejection: %v", err)
 	}
-	defer clone.Destroy()
+	defer clone.Close()
 	world.Step(1.0/60.0, 4)
 	clone.Step(1.0/60.0, 4)
 	if clone.StateHash() != world.StateHash() {
@@ -99,9 +98,9 @@ func checkMalformedSavedPayload(t testing.TB, cut uint32) {
 	end := 16 + int(cut%uint32(len(image)-16))
 	bad := bytes.Clone(image[:end])
 	original := bytes.Clone(bad)
-	failed, err := box2d.CreateWorldFromSnapshot(bad, 4)
+	failed, err := box2d.NewWorldFromSnapshot(bad, 4)
 	if failed.IsValid() {
-		failed.Destroy()
+		failed.Close()
 		t.Fatalf("truncated payload accepted at byte %d/%d", end, len(image))
 	}
 	requireSnapshotCategory(t, err, nil)
@@ -111,17 +110,17 @@ func checkMalformedSavedPayload(t testing.TB, cut uint32) {
 
 	// In-place rebuilds retain their original world until the caller destroys it.
 	// Teardown must also tolerate a partially replaced id pool or solver-set array.
-	restored, err := box2d.CreateWorldFromSnapshot(image, 4)
+	restored, err := box2d.NewWorldFromSnapshot(image, 4)
 	if err != nil {
 		t.Fatalf("valid restore target construction: %v", err)
 	}
 	t.Cleanup(func() {
 		if restored.IsValid() {
-			restored.Destroy()
+			restored.Close()
 		}
 	})
-	requireSnapshotCategory(t, restored.Restore(bad), nil)
-	restored.Destroy()
+	requireSnapshotCategory(t, restored.UnmarshalBinary(bad), nil)
+	restored.Close()
 	if restored.IsValid() {
 		t.Fatal("failed restore cleanup left world valid")
 	}
@@ -133,16 +132,16 @@ func checkMalformedSavedPayload(t testing.TB, cut uint32) {
 	// must preserve the SnapshotError cause and restore its global length scale.
 	data := append(bytes.Clone(recording[:32]), bad...)
 	binary.LittleEndian.PutUint64(data[24:], uint64(len(bad)))
-	scale := box2d.GetLengthUnitsPerMeter()
+	scale := box2d.LengthUnitsPerMeter()
 	binary.LittleEndian.PutUint32(data[12:], math.Float32bits(scale*2))
 	originalReplay := bytes.Clone(data)
-	player, err := box2d.CreateReplay(data, 4)
+	player, err := box2d.NewReplay(data, 4)
 	if player != nil {
-		player.Destroy()
+		player.Close()
 		t.Fatal("truncated embedded snapshot returned usable player")
 	}
 	requireSnapshotCategory(t, err, nil)
-	if box2d.GetLengthUnitsPerMeter() != scale {
+	if box2d.LengthUnitsPerMeter() != scale {
 		t.Fatal("failed replay leaked recording length scale")
 	}
 	if !bytes.Equal(data, originalReplay) {
@@ -152,18 +151,18 @@ func checkMalformedSavedPayload(t testing.TB, cut uint32) {
 		t.Fatal("failed constructors changed independent live world")
 	}
 
-	valid, err := box2d.CreateReplay(recording, 4)
+	valid, err := box2d.NewReplay(recording, 4)
 	if err != nil {
 		t.Fatalf("valid replay after failure: %v", err)
 	}
-	valid.WorldID().Step(1.0/60.0, 4)
+	valid.World().Step(1.0/60.0, 4)
 	world.Step(1.0/60.0, 4)
-	if valid.WorldID().StateHash() != world.StateHash() {
-		valid.Destroy()
+	if valid.World().StateHash() != world.StateHash() {
+		valid.Close()
 		t.Fatal("failed replay poisoned independent simulation")
 	}
-	valid.Destroy()
-	if box2d.GetLengthUnitsPerMeter() != scale {
+	valid.Close()
+	if box2d.LengthUnitsPerMeter() != scale {
 		t.Fatal("valid replay cleanup changed length scale")
 	}
 }
@@ -182,34 +181,30 @@ func TestMalformedSavedInputCorpus(t *testing.T) {
 	}
 }
 
-func TestMalformedSavedPayloadReleasesWorldSlots(t *testing.T) {
+func TestMalformedSavedPayloadLeavesWorldsIntact(t *testing.T) {
 	world, image, _ := malformedInputSource(t)
 	bad := bytes.Clone(image[:16])
 	original := bytes.Clone(bad)
 	before := world.StateHash()
-	scale := box2d.GetLengthUnitsPerMeter()
-	// More failures than available slots detect retained worlds even when the
-	// failed constructor returns the correct zero World and typed error.
-	for attempt := range box2d.MaxWorlds + 1 {
-		failed, err := box2d.CreateWorldFromSnapshot(bad, 4)
-		if failed.IsValid() {
-			failed.Destroy()
-			t.Fatalf("attempt %d returned usable world", attempt)
-		}
-		requireSnapshotCategory(t, err, nil)
+	scale := box2d.LengthUnitsPerMeter()
+	failed, err := box2d.NewWorldFromSnapshot(bad, 4)
+	if failed.IsValid() {
+		failed.Close()
+		t.Fatal("failed constructor returned usable world")
 	}
-	if !bytes.Equal(bad, original) || world.StateHash() != before || box2d.GetLengthUnitsPerMeter() != scale {
-		t.Fatal("repeated failed constructors changed input, independent world, or length scale")
+	requireSnapshotCategory(t, err, nil)
+	if !bytes.Equal(bad, original) || world.StateHash() != before || box2d.LengthUnitsPerMeter() != scale {
+		t.Fatal("failed constructor changed input, independent world, or length scale")
 	}
-	valid, err := box2d.CreateWorldFromSnapshot(image, 4)
+	valid, err := box2d.NewWorldFromSnapshot(image, 4)
 	if err != nil {
-		t.Fatalf("valid constructor after repeated failures: %v", err)
+		t.Fatalf("valid constructor after failure: %v", err)
 	}
-	defer valid.Destroy()
+	defer valid.Close()
 	valid.Step(1.0/60.0, 4)
 	world.Step(1.0/60.0, 4)
 	if valid.StateHash() != world.StateHash() {
-		t.Fatal("repeated failed constructors poisoned subsequent simulation")
+		t.Fatal("failed constructor poisoned subsequent simulation")
 	}
 }
 
@@ -229,48 +224,28 @@ func FuzzMalformedSavedPayload(f *testing.F) {
 	f.Fuzz(func(t *testing.T, cut uint32) { checkMalformedSavedPayload(t, cut) })
 }
 
-// Panic metadata and build-tag behavior are Go-defined evidence. The paired
-// TestInvalidInput retains the C guard return/state/log contract.
+// Panic metadata is Go-defined evidence. The paired TestInvalidInput retains the C
+// guard rejection and state contract.
 func TestInputGuardAssertionErrorNative(t *testing.T) {
-	restore := box2d.InputSaveInputHooks()
-	t.Cleanup(restore)
 	world, _, _ := malformedInputSource(t)
 	before, gravity := world.StateHash(), world.Gravity()
 	for _, bad := range inputBadValues {
-		logs, assertions := 0, 0
-		var condition, file string
-		var line int
-		box2d.SetLogFunc(func(string) { logs++ })
-		box2d.SetAssertFunc(func(c, f string, l int) bool {
-			assertions++
-			condition, file, line = c, f, l
-			return true
-		})
 		var caught any
 		func() {
 			defer func() { caught = recover() }()
 			world.SetGravity(box2d.Vec2{X: bad})
 		}()
-		if logs != 1 {
-			t.Fatalf("guard log multiplicity: %d, want 1", logs)
+		assertion, ok := caught.(*box2d.AssertError)
+		if !ok {
+			t.Fatalf("guard panic: got %T, want *AssertError", caught)
 		}
-		if box2d.InputAssertsEnabled() {
-			assertion, ok := caught.(*box2d.AssertError)
-			if !ok {
-				t.Fatalf("guard panic: got %T, want *AssertError", caught)
-			}
-			if assertions != 1 || condition == "" || file == "" || line <= 0 ||
-				assertion.Condition != condition || assertion.File != file || assertion.Line != line {
-				t.Fatalf("assertion metadata/count: %#v, count=%d", assertion, assertions)
-			}
-		} else if caught != nil || assertions != 0 {
-			t.Fatalf("noassert guard invoked assertion: panic=%v calls=%d", caught, assertions)
+		if assertion.Condition == "" || assertion.File == "" || assertion.Line <= 0 {
+			t.Fatalf("assertion metadata: %#v", assertion)
 		}
 		if world.StateHash() != before || world.Gravity() != gravity {
 			t.Fatal("rejected guarded setter changed world")
 		}
 	}
-	restore()
 	world.Step(1.0/60.0, 4)
 	if world.StateHash() == before {
 		t.Fatal("valid step did not advance populated world after guard failures")

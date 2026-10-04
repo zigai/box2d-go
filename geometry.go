@@ -139,8 +139,8 @@ type Hull struct {
 }
 
 // Validate ray cast input data (NaN, etc)
-func IsValidRay(input *RayCastInput) bool {
-	isValid := IsValidVec2(input.Origin) && IsValidVec2(input.Translation) &&
+func (input *RayCastInput) IsValid() bool {
+	isValid := input.Origin.IsValid() && input.Translation.IsValid() &&
 		IsValidFloat(input.MaxFraction) && 0.0 <= input.MaxFraction && input.MaxFraction < Huge()
 	return isValid
 }
@@ -157,12 +157,12 @@ func computePolygonCentroid(vertices []Vec2, count int) Vec2 {
 
 	for i := 1; i < count-1; i++ {
 		// Triangle edges
-		e1 := Sub(vertices[i], origin)
-		e2 := Sub(vertices[i+1], origin)
-		var a float32 = float32(0.5 * Cross(e1, e2))
+		e1 := vertices[i].Sub(origin)
+		e2 := vertices[i+1].Sub(origin)
+		var a float32 = float32(0.5 * e1.Cross(e2))
 
 		// Area weighted centroid
-		center = MulAdd(center, a*inv3, Add(e1, e2))
+		center = center.MulAdd(a*inv3, e1.Add(e2))
 		area += a
 	}
 
@@ -171,7 +171,7 @@ func computePolygonCentroid(vertices []Vec2, count int) Vec2 {
 	center.X = float32(center.X * invArea)
 	center.Y = float32(center.Y * invArea)
 	// Restore offset
-	center = Add(origin, center)
+	center = origin.Add(center)
 	return center
 }
 
@@ -199,9 +199,9 @@ func MakePolygon(hull *Hull, radius float32) Polygon {
 		if i2 == shape.Count {
 			i2 = 0
 		}
-		edge := Sub(shape.Vertices[i2], shape.Vertices[i1])
-		assert(Dot(edge, edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
-		shape.Normals[i] = Normalize(CrossVS(edge, 1.0))
+		edge := shape.Vertices[i2].Sub(shape.Vertices[i1])
+		assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
+		shape.Normals[i] = edge.CrossScalar(1.0).Normalize()
 	}
 
 	shape.Centroid = computePolygonCentroid(shape.Vertices[:], shape.Count)
@@ -230,7 +230,7 @@ func MakeOffsetRoundedPolygon(hull *Hull, position Vec2, rotation Rot, radius fl
 	shape.Radius = radius
 	// Copy vertices
 	for i := 0; i < shape.Count; i++ {
-		shape.Vertices[i] = TransformPoint(transform, hull.Points[i])
+		shape.Vertices[i] = transform.Apply(hull.Points[i])
 	}
 
 	// Compute normals. Ensure the edges have non-zero length.
@@ -240,9 +240,9 @@ func MakeOffsetRoundedPolygon(hull *Hull, position Vec2, rotation Rot, radius fl
 		if i2 == shape.Count {
 			i2 = 0
 		}
-		edge := Sub(shape.Vertices[i2], shape.Vertices[i1])
-		assert(Dot(edge, edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
-		shape.Normals[i] = Normalize(CrossVS(edge, 1.0))
+		edge := shape.Vertices[i2].Sub(shape.Vertices[i1])
+		assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
+		shape.Normals[i] = edge.CrossScalar(1.0).Normalize()
 	}
 
 	shape.Centroid = computePolygonCentroid(shape.Vertices[:], shape.Count)
@@ -297,14 +297,14 @@ func MakeOffsetBox(halfWidth float32, halfHeight float32, center Vec2, rotation 
 
 	var shape Polygon
 	shape.Count = 4
-	shape.Vertices[0] = TransformPoint(xf, Vec2{-halfWidth, -halfHeight})
-	shape.Vertices[1] = TransformPoint(xf, Vec2{halfWidth, -halfHeight})
-	shape.Vertices[2] = TransformPoint(xf, Vec2{halfWidth, halfHeight})
-	shape.Vertices[3] = TransformPoint(xf, Vec2{-halfWidth, halfHeight})
-	shape.Normals[0] = RotateVector(xf.Q, Vec2{0.0, -1.0})
-	shape.Normals[1] = RotateVector(xf.Q, Vec2{1.0, 0.0})
-	shape.Normals[2] = RotateVector(xf.Q, Vec2{0.0, 1.0})
-	shape.Normals[3] = RotateVector(xf.Q, Vec2{-1.0, 0.0})
+	shape.Vertices[0] = xf.Apply(Vec2{-halfWidth, -halfHeight})
+	shape.Vertices[1] = xf.Apply(Vec2{halfWidth, -halfHeight})
+	shape.Vertices[2] = xf.Apply(Vec2{halfWidth, halfHeight})
+	shape.Vertices[3] = xf.Apply(Vec2{-halfWidth, halfHeight})
+	shape.Normals[0] = xf.Q.Rotate(Vec2{0.0, -1.0})
+	shape.Normals[1] = xf.Q.Rotate(Vec2{1.0, 0.0})
+	shape.Normals[2] = xf.Q.Rotate(Vec2{0.0, 1.0})
+	shape.Normals[3] = xf.Q.Rotate(Vec2{-1.0, 0.0})
 	shape.Radius = 0.0
 	shape.Centroid = xf.P
 	return shape
@@ -322,14 +322,14 @@ func MakeOffsetRoundedBox(halfWidth float32, halfHeight float32, center Vec2, ro
 
 	var shape Polygon
 	shape.Count = 4
-	shape.Vertices[0] = TransformPoint(xf, Vec2{-halfWidth, -halfHeight})
-	shape.Vertices[1] = TransformPoint(xf, Vec2{halfWidth, -halfHeight})
-	shape.Vertices[2] = TransformPoint(xf, Vec2{halfWidth, halfHeight})
-	shape.Vertices[3] = TransformPoint(xf, Vec2{-halfWidth, halfHeight})
-	shape.Normals[0] = RotateVector(xf.Q, Vec2{0.0, -1.0})
-	shape.Normals[1] = RotateVector(xf.Q, Vec2{1.0, 0.0})
-	shape.Normals[2] = RotateVector(xf.Q, Vec2{0.0, 1.0})
-	shape.Normals[3] = RotateVector(xf.Q, Vec2{-1.0, 0.0})
+	shape.Vertices[0] = xf.Apply(Vec2{-halfWidth, -halfHeight})
+	shape.Vertices[1] = xf.Apply(Vec2{halfWidth, -halfHeight})
+	shape.Vertices[2] = xf.Apply(Vec2{halfWidth, halfHeight})
+	shape.Vertices[3] = xf.Apply(Vec2{-halfWidth, halfHeight})
+	shape.Normals[0] = xf.Q.Rotate(Vec2{0.0, -1.0})
+	shape.Normals[1] = xf.Q.Rotate(Vec2{1.0, 0.0})
+	shape.Normals[2] = xf.Q.Rotate(Vec2{0.0, 1.0})
+	shape.Normals[3] = xf.Q.Rotate(Vec2{-1.0, 0.0})
 	shape.Radius = radius
 	shape.Centroid = xf.P
 	return shape
@@ -340,11 +340,11 @@ func TransformPolygon(transform Transform, polygon *Polygon) Polygon {
 	p := *polygon
 
 	for i := 0; i < p.Count; i++ {
-		p.Vertices[i] = TransformPoint(transform, p.Vertices[i])
-		p.Normals[i] = RotateVector(transform.Q, p.Normals[i])
+		p.Vertices[i] = transform.Apply(p.Vertices[i])
+		p.Normals[i] = transform.Q.Rotate(p.Normals[i])
 	}
 
-	p.Centroid = TransformPoint(transform, p.Centroid)
+	p.Centroid = transform.Apply(p.Centroid)
 	return p
 }
 
@@ -366,7 +366,7 @@ func ComputeCapsuleMass(shape *Capsule, density float32) MassData {
 	var rr float32 = float32(radius * radius)
 	p1 := shape.Center1
 	p2 := shape.Center2
-	var length float32 = Length(Sub(p2, p1))
+	var length float32 = p2.Sub(p1).Length()
 	var ll float32 = float32(length * length)
 
 	var circleMass float32 = float32(density * (Pi * radius * radius))
@@ -454,8 +454,8 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 			n1 := shape.Normals[j]
 			n2 := shape.Normals[i]
 
-			mid := Normalize(Add(n1, n2))
-			vertices[i] = MulAdd(shape.Vertices[i], sqrt2*radius, mid)
+			mid := n1.Add(n2).Normalize()
+			vertices[i] = shape.Vertices[i].MulAdd(sqrt2*radius, mid)
 		}
 	} else {
 		for i := 0; i < count; i++ {
@@ -475,15 +475,15 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 
 	for i := 1; i < count-1; i++ {
 		// Triangle edges
-		e1 := Sub(vertices[i], r)
-		e2 := Sub(vertices[i+1], r)
+		e1 := vertices[i].Sub(r)
+		e2 := vertices[i+1].Sub(r)
 
-		var D float32 = Cross(e1, e2)
+		var D float32 = e1.Cross(e2)
 
 		var triangleArea float32 = float32(0.5 * D)
 		area += triangleArea
 		// Area weighted centroid, r at origin
-		center = MulAdd(center, triangleArea*inv3, Add(e1, e2))
+		center = center.MulAdd(triangleArea*inv3, e1.Add(e2))
 		ex1, ey1 := e1.X, e1.Y
 		ex2, ey2 := e2.X, e2.Y
 
@@ -502,18 +502,18 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 	var invArea float32 = 1.0 / area
 	center.X = float32(center.X * invArea)
 	center.Y = float32(center.Y * invArea)
-	massData.Center = Add(r, center)
+	massData.Center = r.Add(center)
 	// Inertia tensor relative to the local origin (point s).
 	massData.RotationalInertia = float32(density * rotationalInertia)
 	// Shift inertia to center of mass
-	massData.RotationalInertia -= float32(massData.Mass * Dot(center, center))
+	massData.RotationalInertia -= float32(massData.Mass * center.Dot(center))
 	// If this goes negative we are hosed
 	assert(massData.RotationalInertia >= 0.0, "massData.rotationalInertia >= 0.0f")
 	return massData
 }
 
 func computeCircleFatAABB(shape *Circle, xf WorldTransform, extra float32) AABB {
-	c := TransformWorldPoint(xf, shape.Center)
+	c := xf.Apply(shape.Center)
 	r := float64(shape.Radius) + float64(extra)
 	return AABB{
 		Vec2{RoundDownFloat(float64(c.X) - r), RoundDownFloat(float64(c.Y) - r)},
@@ -523,8 +523,8 @@ func computeCircleFatAABB(shape *Circle, xf WorldTransform, extra float32) AABB 
 }
 
 func computeCapsuleFatAABB(shape *Capsule, xf WorldTransform, extra float32) AABB {
-	v1 := TransformWorldPoint(xf, shape.Center1)
-	v2 := TransformWorldPoint(xf, shape.Center2)
+	v1 := xf.Apply(shape.Center1)
+	v2 := xf.Apply(shape.Center2)
 	lx, ly := v2.X, v2.Y
 	ux, uy := v2.X, v2.Y
 	if v1.X < v2.X {
@@ -549,10 +549,10 @@ func computeCapsuleFatAABB(shape *Capsule, xf WorldTransform, extra float32) AAB
 
 func computePolygonFatAABB(shape *Polygon, xf WorldTransform, extra float32) AABB {
 	assert(shape.Count > 0, "shape->count > 0")
-	v := TransformWorldPoint(xf, shape.Vertices[0])
+	v := xf.Apply(shape.Vertices[0])
 	lx, ly, ux, uy := float64(v.X), float64(v.Y), float64(v.X), float64(v.Y)
 	for i := 1; i < shape.Count; i++ {
-		v = TransformWorldPoint(xf, shape.Vertices[i])
+		v = xf.Apply(shape.Vertices[i])
 		if float64(v.X) < lx {
 			lx = float64(v.X)
 		}
@@ -575,8 +575,8 @@ func computePolygonFatAABB(shape *Polygon, xf WorldTransform, extra float32) AAB
 }
 
 func computeSegmentFatAABB(shape *Segment, xf WorldTransform, extra float32) AABB {
-	v1 := TransformWorldPoint(xf, shape.Point1)
-	v2 := TransformWorldPoint(xf, shape.Point2)
+	v1 := xf.Apply(shape.Point1)
+	v2 := xf.Apply(shape.Point2)
 	lx, ly := v2.X, v2.Y
 	ux, uy := v2.X, v2.Y
 	if v1.X < v2.X {
@@ -645,7 +645,7 @@ func computeFatShapeAABB(shape *shape, xf WorldTransform, extra float32) AABB {
 // Test a point for overlap with a circle in local space
 func PointInCircle(shape *Circle, point Vec2) bool {
 	center := shape.Center
-	return DistanceSquared(point, center) <= shape.Radius*shape.Radius
+	return point.DistanceSquared(center) <= shape.Radius*shape.Radius
 }
 
 // Test a point for overlap with a capsule in local space
@@ -654,11 +654,11 @@ func PointInCapsule(shape *Capsule, point Vec2) bool {
 	p1 := shape.Center1
 	p2 := shape.Center2
 
-	d := Sub(p2, p1)
-	var dd float32 = Dot(d, d)
+	d := p2.Sub(p1)
+	var dd float32 = d.Dot(d)
 	if dd == 0.0 {
 		// Capsule is really a circle
-		return DistanceSquared(point, p1) <= rr
+		return point.DistanceSquared(p1) <= rr
 	}
 
 	// Get closest point on capsule segment
@@ -666,12 +666,12 @@ func PointInCapsule(shape *Capsule, point Vec2) bool {
 	// dot(point - c, d) = 0
 	// dot(point - p1 - t * d, d) = 0
 	// t = dot(point - p1, d) / dot(d, d)
-	var t float32 = Dot(Sub(point, p1), d) / dd
-	t = ClampFloat(t, 0.0, 1.0)
-	c := MulAdd(p1, t, d)
+	var t float32 = point.Sub(p1).Dot(d) / dd
+	t = clampFloat(t, 0.0, 1.0)
+	c := p1.MulAdd(t, d)
 
 	// Is query point within radius around closest point?
-	return DistanceSquared(point, c) <= rr
+	return point.DistanceSquared(c) <= rr
 }
 
 // Test a point for overlap with a convex polygon in local space
@@ -689,23 +689,22 @@ func PointInPolygon(shape *Polygon, point Vec2) bool {
 
 // Ray cast versus circle shape in local space.
 func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
-	assert(IsValidRay(input), "b2IsValidRay( input )")
+	assert(input.IsValid(), "b2IsValidRay( input )")
 	p := shape.Center
 
 	var output CastOutput
 
 	// Shift ray so circle center is the origin
-	s := Sub(input.Origin, p)
+	s := input.Origin.Sub(p)
 
 	var r float32 = shape.Radius
 	var rr float32 = float32(r * r)
 
-	var length float32
-	d := GetLengthAndNormalize(&length, input.Translation)
+	length, d := input.Translation.LengthAndNormalize()
 	if length == 0.0 {
 		// zero length ray
 
-		if LengthSquared(s) < rr {
+		if s.LengthSquared() < rr {
 			// initial overlap
 			output.Point = input.Origin
 			output.Hit = true
@@ -717,12 +716,12 @@ func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
 	// Find closest point on ray to origin
 
 	// solve: dot(s + t * d, d) = 0
-	var t float32 = -Dot(s, d)
+	var t float32 = -s.Dot(d)
 
 	// c is the closest point on the line to the origin
-	c := MulAdd(s, t, d)
+	c := s.MulAdd(t, d)
 
-	var cc float32 = Dot(c, c)
+	var cc float32 = c.Dot(c)
 
 	if cc > rr {
 		// closest point is outside the circle
@@ -737,7 +736,7 @@ func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
 	if fraction < 0.0 || input.MaxFraction*length < fraction {
 		// intersection is point outside the range of the ray segment
 
-		if LengthSquared(s) < rr {
+		if s.LengthSquared() < rr {
 			// initial overlap
 			output.Point = input.Origin
 			output.Hit = true
@@ -747,27 +746,26 @@ func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
 	}
 
 	// hit point relative to center
-	hitPoint := MulAdd(s, fraction, d)
+	hitPoint := s.MulAdd(fraction, d)
 
 	output.Fraction = fraction / length
-	output.Normal = Normalize(hitPoint)
-	output.Point = MulAdd(p, shape.Radius, output.Normal)
+	output.Normal = hitPoint.Normalize()
+	output.Point = p.MulAdd(shape.Radius, output.Normal)
 	output.Hit = true
 	return output
 }
 
 // Ray cast versus capsule shape in local space.
 func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
-	assert(IsValidRay(input), "b2IsValidRay( input )")
+	assert(input.IsValid(), "b2IsValidRay( input )")
 	var output CastOutput
 
 	v1 := shape.Center1
 	v2 := shape.Center2
 
-	e := Sub(v2, v1)
+	e := v2.Sub(v1)
 
-	var capsuleLength float32
-	a := GetLengthAndNormalize(&capsuleLength, e)
+	capsuleLength, a := e.LengthAndNormalize()
 
 	if capsuleLength < float32(0x1p-23) {
 		// Capsule is really a circle
@@ -779,16 +777,16 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 	d := input.Translation
 
 	// Ray from capsule start to ray start
-	q := Sub(p1, v1)
-	var qa float32 = Dot(q, a)
+	q := p1.Sub(v1)
+	var qa float32 = q.Dot(a)
 
 	// Vector to ray start that is perpendicular to capsule axis
-	qp := MulAdd(q, -qa, a)
+	qp := q.MulAdd(-qa, a)
 
 	var radius float32 = shape.Radius
 
 	// Does the ray start within the infinite length capsule?
-	if Dot(qp, qp) < radius*radius {
+	if qp.Dot(qp) < radius*radius {
 		if qa < 0.0 {
 			// start point behind capsule segment
 			circle := Circle{v1, shape.Radius}
@@ -810,8 +808,7 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 	// Perpendicular to capsule axis, pointing right
 	n := Vec2{a.Y, -a.X}
 
-	var rayLength float32
-	u := GetLengthAndNormalize(&rayLength, d)
+	rayLength, u := d.LengthAndNormalize()
 
 	// Intersect ray with infinite length capsule
 	// v1 + radius * n + s1 * a = p1 + s2 * u
@@ -829,8 +826,8 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 		return output
 	}
 
-	b1 := MulSub(q, radius, n)
-	b2 := MulAdd(q, radius, n)
+	b1 := q.MulSub(radius, n)
+	b2 := q.MulAdd(radius, n)
 
 	var invDen float32 = 1.0 / den
 
@@ -848,7 +845,7 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 	} else {
 		s2 = s22
 		b = b2
-		n = Neg(n)
+		n = n.Neg()
 	}
 
 	if s2 < 0.0 || input.MaxFraction*rayLength < s2 {
@@ -869,7 +866,7 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 	} else {
 		// ray hits capsule side
 		output.Fraction = s2 / rayLength
-		output.Point = Add(Lerp(v1, v2, s1/capsuleLength), MulSV(shape.Radius, n))
+		output.Point = v1.Lerp(v2, s1/capsuleLength).Add(n.Scale(shape.Radius))
 		output.Normal = n
 		output.Hit = true
 		return output
@@ -881,7 +878,7 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 func RayCastSegment(shape *Segment, input *RayCastInput, oneSided bool) CastOutput {
 	if oneSided {
 		// Skip left-side collision
-		var offset float32 = Cross(Sub(input.Origin, shape.Point1), Sub(shape.Point2, shape.Point1))
+		var offset float32 = input.Origin.Sub(shape.Point1).Cross(shape.Point2.Sub(shape.Point1))
 		if offset < 0.0 {
 			var output CastOutput
 			return output
@@ -894,26 +891,25 @@ func RayCastSegment(shape *Segment, input *RayCastInput, oneSided bool) CastOutp
 
 	v1 := shape.Point1
 	v2 := shape.Point2
-	e := Sub(v2, v1)
+	e := v2.Sub(v1)
 
 	var output CastOutput
 
-	var length float32
-	eUnit := GetLengthAndNormalize(&length, e)
+	length, eUnit := e.LengthAndNormalize()
 	if length == 0.0 {
 		return output
 	}
 
 	// Normal points to the right, looking from v1 towards v2
-	normal := RightPerp(eUnit)
+	normal := eUnit.RightPerp()
 
 	// Intersect ray with infinite segment using normal
 	// Similar to intersecting a ray with an infinite plane
 	// p = p1 + t * d
 	// dot(normal, p - v1) = 0
 	// dot(normal, p1 - v1) + t * dot(normal, d) = 0
-	var numerator float32 = Dot(normal, Sub(v1, p1))
-	var denominator float32 = Dot(normal, d)
+	var numerator float32 = normal.Dot(v1.Sub(p1))
+	var denominator float32 = normal.Dot(d)
 
 	if denominator == 0.0 {
 		// parallel
@@ -927,20 +923,20 @@ func RayCastSegment(shape *Segment, input *RayCastInput, oneSided bool) CastOutp
 	}
 
 	// Intersection point on infinite segment
-	p := MulAdd(p1, t, d)
+	p := p1.MulAdd(t, d)
 
 	// Compute position of p along segment
 	// p = v1 + s * e
 	// s = dot(p - v1, e) / dot(e, e)
 
-	var s float32 = Dot(Sub(p, v1), eUnit)
+	var s float32 = p.Sub(v1).Dot(eUnit)
 	if s < 0.0 || length < s {
 		// out of segment range
 		return output
 	}
 
 	if numerator > 0.0 {
-		normal = Neg(normal)
+		normal = normal.Neg()
 	}
 
 	output.Fraction = t
@@ -952,13 +948,13 @@ func RayCastSegment(shape *Segment, input *RayCastInput, oneSided bool) CastOutp
 
 // Ray cast versus polygon shape in local space.
 func RayCastPolygon(shape *Polygon, input *RayCastInput) CastOutput {
-	assert(IsValidRay(input), "b2IsValidRay( input )")
+	assert(input.IsValid(), "b2IsValidRay( input )")
 	if shape.Radius == 0.0 {
 		// Shift all math to first vertex since the polygon may be far
 		// from the origin.
 		base := shape.Vertices[0]
 
-		p1 := Sub(input.Origin, base)
+		p1 := input.Origin.Sub(base)
 		d := input.Translation
 
 		var lower float32
@@ -972,9 +968,9 @@ func RayCastPolygon(shape *Polygon, input *RayCastInput) CastOutput {
 			// p = p1 + a * d
 			// dot(normal, p - v) = 0
 			// dot(normal, p1 - v) + a * dot(normal, d) = 0
-			vertex := Sub(shape.Vertices[edgeIndex], base)
-			var numerator float32 = Dot(shape.Normals[edgeIndex], Sub(vertex, p1))
-			var denominator float32 = Dot(shape.Normals[edgeIndex], d)
+			vertex := shape.Vertices[edgeIndex].Sub(base)
+			var numerator float32 = shape.Normals[edgeIndex].Dot(vertex.Sub(p1))
+			var denominator float32 = shape.Normals[edgeIndex].Dot(d)
 
 			if denominator == 0.0 {
 				// Parallel and runs outside edge
@@ -1008,7 +1004,7 @@ func RayCastPolygon(shape *Polygon, input *RayCastInput) CastOutput {
 		if index >= 0 {
 			output.Fraction = lower
 			output.Normal = shape.Normals[index]
-			output.Point = MulAdd(input.Origin, lower, d)
+			output.Point = input.Origin.MulAdd(lower, d)
 			output.Hit = true
 		} else {
 			// initial overlap

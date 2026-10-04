@@ -6,24 +6,24 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
-func recordingEventValues(w box2d.World) [11]uint64 {
+func recordingEventValues(w *box2d.World) [11]uint64 {
 	var row [11]uint64
 	hash := uint64(oracle.HashInit)
-	id := func(packed uint64) {
+	id := func(packed uint64, world *box2d.World) {
 		hash = oracle.HashU32(hash, uint32(packed>>32))
 		hash = oracle.HashU32(hash, uint32(uint16(packed)))
 		owner := uint32(0)
-		if uint16(packed>>16) == uint16(w.Store()>>16)-1 {
+		if world == w {
 			owner = 1
 		}
 		hash = oracle.HashU32(hash, owner)
 	}
 	contact := func(c box2d.Contact) {
-		packed := c.Store()
-		hash = oracle.HashU32(hash, packed[0])
-		hash = oracle.HashU32(hash, packed[2])
+		packed := c.ID()
+		hash = oracle.HashU32(hash, uint32(packed>>32))
+		hash = oracle.HashU32(hash, uint32(packed))
 		owner := uint32(0)
-		if uint16(packed[1]) == uint16(w.Store()>>16)-1 {
+		if c.World() == w {
 			owner = 1
 		}
 		hash = oracle.HashU32(hash, owner)
@@ -31,7 +31,7 @@ func recordingEventValues(w box2d.World) [11]uint64 {
 	count := 0
 	for e := range w.BodyMoveEvents() {
 		count++
-		id(e.BodyID.Store())
+		id(e.Body.ID(), e.Body.World())
 		hash = oracle.HashTransform(hash, oracle.Real(e.Transform.P.X), oracle.Real(e.Transform.P.Y), e.Transform.Q.C, e.Transform.Q.S)
 		asleep := uint32(0)
 		if e.FellAsleep {
@@ -45,13 +45,13 @@ func recordingEventValues(w box2d.World) [11]uint64 {
 	begin, end := 0, 0
 	for e := range w.SensorBeginEvents() {
 		begin++
-		id(e.SensorShapeID.Store())
-		id(e.VisitorShapeID.Store())
+		id(e.SensorShape.ID(), e.SensorShape.World())
+		id(e.VisitorShape.ID(), e.VisitorShape.World())
 	}
 	for e := range w.SensorEndEvents() {
 		end++
-		id(e.SensorShapeID.Store())
-		id(e.VisitorShapeID.Store())
+		id(e.SensorShape.ID(), e.SensorShape.World())
+		id(e.VisitorShape.ID(), e.VisitorShape.World())
 	}
 	row[2] = uint64(begin)
 	row[3] = uint64(end)
@@ -60,21 +60,21 @@ func recordingEventValues(w box2d.World) [11]uint64 {
 	begin, end, hits := 0, 0, 0
 	for e := range w.ContactBeginEvents() {
 		begin++
-		id(e.ShapeIDA.Store())
-		id(e.ShapeIDB.Store())
-		contact(e.ContactID)
+		id(e.ShapeA.ID(), e.ShapeA.World())
+		id(e.ShapeB.ID(), e.ShapeB.World())
+		contact(e.Contact)
 	}
 	for e := range w.ContactEndEvents() {
 		end++
-		id(e.ShapeIDA.Store())
-		id(e.ShapeIDB.Store())
-		contact(e.ContactID)
+		id(e.ShapeA.ID(), e.ShapeA.World())
+		id(e.ShapeB.ID(), e.ShapeB.World())
+		contact(e.Contact)
 	}
 	for e := range w.ContactHitEvents() {
 		hits++
-		id(e.ShapeIDA.Store())
-		id(e.ShapeIDB.Store())
-		contact(e.ContactID)
+		id(e.ShapeA.ID(), e.ShapeA.World())
+		id(e.ShapeB.ID(), e.ShapeB.World())
+		contact(e.Contact)
 		hash = oracle.HashPos(hash, oracle.Real(e.Point.X), oracle.Real(e.Point.Y))
 		hash = oracle.HashF32(hash, e.Normal.X)
 		hash = oracle.HashF32(hash, e.Normal.Y)
@@ -88,14 +88,14 @@ func recordingEventValues(w box2d.World) [11]uint64 {
 	count = 0
 	for e := range w.JointEvents() {
 		count++
-		id(e.JointID.Store())
+		id(e.Joint.ID(), e.Joint.World())
 	}
 	row[9] = uint64(count)
 	row[10] = uint64(hash)
 	return row
 }
 
-func recordingEvents(r *oracle.Reader, w box2d.World, prefix string) {
+func recordingEvents(r *oracle.Reader, w *box2d.World, prefix string) {
 	row := recordingEventValues(w)
 	r.I32(prefix+"/events/moveCount", int32(row[0]))
 	r.U64(prefix+"/events/moveHash", row[1])

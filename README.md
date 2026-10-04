@@ -29,8 +29,8 @@ import (
 
 func main() {
 	definition := box2d.DefaultWorldDef()
-	world := box2d.CreateWorld(&definition)
-	defer world.Destroy()
+	world := box2d.NewWorld(&definition)
+	defer world.Close()
 	bodyDefinition := box2d.DefaultBodyDef()
 	bodyDefinition.Type = box2d.DynamicBody
 	bodyDefinition.Position = box2d.Pos{Y: 10}

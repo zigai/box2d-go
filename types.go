@@ -3,39 +3,12 @@
 
 package box2d
 
-import "math"
+import (
+	"log/slog"
+	"math"
+)
 
 var defaultMaterial = SurfaceMaterial{Friction: 0.6}
-
-func emptyDrawPolygon(transform WorldTransform, vertices []Vec2, color HexColor) {
-}
-
-func emptyDrawSolidPolygon(transform WorldTransform, vertices []Vec2, radius float32, color HexColor) {
-}
-
-func emptyDrawCircle(center Pos, radius float32, color HexColor) {
-}
-
-func emptyDrawSolidCircle(transform WorldTransform, center Vec2, radius float32, color HexColor) {
-}
-
-func emptyDrawSolidCapsule(p1 Pos, p2 Pos, radius float32, color HexColor) {
-}
-
-func emptyDrawSegment(p1 Pos, p2 Pos, color HexColor) {
-}
-
-func emptyDrawTransform(transform WorldTransform) {
-}
-
-func emptyDrawPoint(p Pos, size float32, color HexColor) {
-}
-
-func emptyDrawString(p Pos, s string, color HexColor) {
-}
-
-func emptyDrawBounds(aabb AABB, color HexColor) {
-}
 
 // Use this to initialize your world definition
 // @ingroup world
@@ -51,6 +24,7 @@ func DefaultWorldDef() WorldDef {
 		MaximumLinearSpeed:    400 * lengthUnitsPerMeter,
 		EnableSleep:           true,
 		EnableContinuous:      true,
+		Logger:                slog.Default(),
 		internalValue:         secretCookie,
 	}
 }
@@ -109,7 +83,6 @@ func DefaultChainDef() ChainDef {
 	infinity := float32(math.Inf(1))
 	return ChainDef{
 		Materials:     []SurfaceMaterial{defaultMaterial},
-		MaterialCount: 1,
 		Ghost1:        Vec2{X: infinity, Y: infinity},
 		Ghost2:        Vec2{X: infinity, Y: infinity},
 		Filter:        DefaultFilter(),
@@ -121,16 +94,6 @@ func DefaultChainDef() ChainDef {
 // of the drawing functions.
 func DefaultDebugDraw() DebugDraw {
 	return DebugDraw{
-		DrawPolygonFunc:      emptyDrawPolygon,
-		DrawSolidPolygonFunc: emptyDrawSolidPolygon,
-		DrawCircleFunc:       emptyDrawCircle,
-		DrawSolidCircleFunc:  emptyDrawSolidCircle,
-		DrawSolidCapsuleFunc: emptyDrawSolidCapsule,
-		DrawLineFunc:         emptyDrawSegment,
-		DrawTransformFunc:    emptyDrawTransform,
-		DrawPointFunc:        emptyDrawPoint,
-		DrawStringFunc:       emptyDrawString,
-		DrawBoundsFunc:       emptyDrawBounds,
 		DrawingBounds: AABB{
 			LowerBound: Vec2{X: -math.MaxFloat32, Y: -math.MaxFloat32},
 			UpperBound: Vec2{X: math.MaxFloat32, Y: math.MaxFloat32},

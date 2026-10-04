@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func addSolverArenaBody(w World, x Pos) (Body, Body) {
+func addSolverArenaBody(w *World, x Pos) (Body, Body) {
 	groundDef := DefaultBodyDef()
 	groundDef.Position = Pos{X: x.X, Y: -0.5}
 	ground := w.CreateBody(&groundDef)
@@ -24,11 +24,11 @@ func addSolverArenaBody(w World, x Pos) (Body, Body) {
 	body := w.CreateBody(&bodyDef)
 	box := MakeBox(0.5, 0.5)
 	body.CreatePolygonShape(&shapeDef, &box)
-	body.EnableSleep(false)
+	body.SetSleepEnabled(false)
 	return body, ground
 }
 
-func checkSolverArenaCapacity(t *testing.T, state *world) {
+func checkSolverArenaCapacity(t *testing.T, state *World) {
 	t.Helper()
 	wideCount := 0
 	for i := 0; i < overflowIndex; i++ {
@@ -41,9 +41,9 @@ func checkSolverArenaCapacity(t *testing.T, state *world) {
 	}
 }
 
-func stepSolverArenaZero(t *testing.T, w World) {
+func stepSolverArenaZero(t *testing.T, w *World) {
 	t.Helper()
-	state := getWorldFromId(w)
+	state := w
 	enqueue := state.enqueueTaskFcn
 	checked := false
 	state.enqueueTaskFcn = func(task func()) func() {
@@ -80,7 +80,7 @@ func stepSolverArenaZero(t *testing.T, w World) {
 	checkSolverScratchReleased(t, w)
 }
 
-func poisonSolverArena(state *world) {
+func poisonSolverArena(state *World) {
 	for i := range state.solverWideScratch {
 		state.solverWideScratch[i] = contactConstraintWide{
 			indexA:              [simdWidth]int{91, 92, 93, 94},
@@ -105,7 +105,7 @@ func TestSolverArena(t *testing.T) {
 			t.Run("Reuse", func(t *testing.T) {
 				w, body, observed := newSolverScratchWorld(t, workers)
 				w.SetGravity(Vec2{})
-				body.EnableSleep(false)
+				body.SetSleepEnabled(false)
 				w.Step(1.0/60.0, 4)
 				if len(observed.wide) == 0 || len(observed.overflow) == 0 {
 					t.Fatal("contact world did not expose both constraint buffers")
@@ -126,12 +126,12 @@ func TestSolverArena(t *testing.T) {
 			t.Run("Zero", func(t *testing.T) {
 				w, body, _ := newSolverScratchWorld(t, workers)
 				w.SetGravity(Vec2{})
-				body.EnableSleep(false)
+				body.SetSleepEnabled(false)
 				for i := 1; i < 5; i++ {
 					addSolverArenaBody(w, Pos{X: posScalar(10 * i)})
 				}
 				w.Step(1.0/60.0, 4)
-				state := getWorldFromId(w)
+				state := w
 				checkSolverArenaCapacity(t, state)
 				fullSlot := false
 				for i := 0; i < overflowIndex; i++ {
@@ -140,14 +140,14 @@ func TestSolverArena(t *testing.T) {
 				if !fullSlot {
 					t.Fatal("scene did not exercise a full wide slot in addition to tail lanes")
 				}
-				image := w.Snapshot()
-				clone, err := CreateWorldFromSnapshot(image, workers)
+				image := BTSnapshot(w)
+				clone, err := NewWorldFromSnapshot(image, workers)
 				if err != nil {
 					t.Fatal(err)
 				}
-				t.Cleanup(clone.Destroy)
+				t.Cleanup(clone.Close)
 				poisonSolverArena(state)
-				if !bytes.Equal(image, w.Snapshot()) {
+				if !bytes.Equal(image, BTSnapshot(w)) {
 					t.Fatal("transient scratch affected snapshot bytes")
 				}
 				stepSolverArenaZero(t, w)
@@ -159,9 +159,9 @@ func TestSolverArena(t *testing.T) {
 			t.Run("GrowthShrink", func(t *testing.T) {
 				w, body, _ := newSolverScratchWorld(t, workers)
 				w.SetGravity(Vec2{})
-				body.EnableSleep(false)
+				body.SetSleepEnabled(false)
 				w.Step(1.0/60.0, 4)
-				state := getWorldFromId(w)
+				state := w
 				checkSolverArenaCapacity(t, state)
 				wideCap, overflowCap := cap(state.solverWideScratch), cap(state.solverOverflowScratch)
 				var added []Body
@@ -195,7 +195,7 @@ func TestSolverArena(t *testing.T) {
 				w, body, _ := newSolverScratchWorld(t, workers)
 				w.SetGravity(Vec2{})
 				w.Step(1.0/60.0, 4)
-				state := getWorldFromId(w)
+				state := w
 				wide, overflow := state.solverWideScratch, state.solverOverflowScratch
 				body.SetAwake(false)
 				if w.AwakeBodyCount() != 0 {
@@ -214,7 +214,7 @@ func TestSolverArena(t *testing.T) {
 				}
 			})
 			t.Run("RestoreDestroy", func(t *testing.T) {
-				var state *world
+				var state *World
 				t.Cleanup(func() {
 					if state != nil && (state.solverWideScratch != nil || state.solverOverflowScratch != nil) {
 						t.Error("destroyed world retains owned scratch")
@@ -222,22 +222,22 @@ func TestSolverArena(t *testing.T) {
 				})
 				w, body, _ := newSolverScratchWorld(t, workers)
 				w.SetGravity(Vec2{})
-				body.EnableSleep(false)
+				body.SetSleepEnabled(false)
 				w.Step(1.0/60.0, 4)
-				state = getWorldFromId(w)
+				state = w
 				wide, overflow := state.solverWideScratch, state.solverOverflowScratch
-				image := w.Snapshot()
-				clone, err := CreateWorldFromSnapshot(image, workers)
+				image := BTSnapshot(w)
+				clone, err := NewWorldFromSnapshot(image, workers)
 				if err != nil {
 					t.Fatal(err)
 				}
-				t.Cleanup(clone.Destroy)
-				other := getWorldFromId(clone)
+				t.Cleanup(clone.Close)
+				other := clone
 				if other.solverWideScratch != nil || other.solverOverflowScratch != nil {
 					t.Fatal("snapshot created scratch ownership")
 				}
 				poisonSolverArena(state)
-				if err := w.Restore(image); err != nil {
+				if err := w.UnmarshalBinary(image); err != nil {
 					t.Fatal(err)
 				}
 				checkSolverScratchReleased(t, w)

@@ -13,8 +13,8 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
-func snapshotTransformTrace(r *oracle.Reader, worldID World, key string, step int) {
-	w := getWorldFromId(worldID)
+func snapshotTransformTrace(r *oracle.Reader, worldID *World, key string, step int) {
+	w := worldID
 	full := step == 0 || (step+1)%60 == 0
 	count := 0
 	for i := range w.bodies {
@@ -55,10 +55,10 @@ func snapshotTransformTrace(r *oracle.Reader, worldID World, key string, step in
 	r.U64(key, hash.Sum64())
 }
 
-func snapshotBodyRelativeCenter(worldID World, bodyID Body, base Pos) Vec2 {
-	w := getWorldFromId(worldID)
+func snapshotBodyRelativeCenter(worldID *World, bodyID Body, base Pos) Vec2 {
+	w := worldID
 	b := getBodyFullId(w, bodyID)
-	return SubPos(getBodySim(w, b).center, base)
+	return getBodySim(w, b).center.Sub(base)
 }
 
 type snapshotPyramidResult struct {
@@ -69,7 +69,7 @@ type snapshotPyramidResult struct {
 func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyramidResult {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
-	w := CreateWorld(&wd)
+	w := NewWorld(&wd)
 	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Position = base
@@ -105,14 +105,14 @@ func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyrami
 	for i := range bodies {
 		result.rel[i] = snapshotBodyRelativeCenter(w, bodies[i], base)
 	}
-	w.Destroy()
+	w.Close()
 	return result
 }
 
 func snapshotRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
-	w := CreateWorld(&wd)
+	w := NewWorld(&wd)
 	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Type = StaticBody
@@ -136,14 +136,14 @@ func snapshotRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
 		snapshotTransformTrace(r, w, fmt.Sprintf("L150/step/%d", step), step)
 	}
 	x := snapshotBodyRelativeCenter(w, bullet, base).X
-	w.Destroy()
+	w.Close()
 	return x
 }
 
 func snapshotRunRayCast(t *testing.T, base Pos) Vec2 {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
-	w := CreateWorld(&wd)
+	w := NewWorld(&wd)
 	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Position = base
@@ -153,8 +153,8 @@ func snapshotRunRayCast(t *testing.T, base Pos) Vec2 {
 	body.CreatePolygonShape(&sd, &box)
 	origin := Pos{X: base.X - 5, Y: base.Y}
 	result := w.CastRayClosest(origin, Vec2{X: 10}, DefaultQueryFilter())
-	rel := SubPos(result.Point, base)
-	w.Destroy()
+	rel := result.Point.Sub(base)
+	w.Close()
 	return rel
 }
 
@@ -172,7 +172,7 @@ type snapshotOriginQueryData struct {
 func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
-	w := CreateWorld(&wd)
+	w := NewWorld(&wd)
 	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Position = base
@@ -197,10 +197,10 @@ func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
 	touching := Capsule{Center1: Vec2{X: -0.9, Y: -0.2}, Center2: Vec2{X: -0.9, Y: 0.2}, Radius: 0.5}
 	w.CollideMover(base, &touching, filter, func(_ Shape, _ *PlaneResult) bool { data.planeCount++; return true })
 	data.insidePoint = shape.TestPoint(base)
-	ray := shape.RayCast(OffsetPos(base, Vec2{X: -5}), Vec2{X: 10})
+	ray := shape.RayCast(base.Add(Vec2{X: -5}), Vec2{X: 10})
 	data.shapeRayHit = ray.Hit
 	data.shapeRayPoint = ray.Point
-	w.Destroy()
+	w.Close()
 	return data
 }
 
@@ -309,12 +309,12 @@ func TestLargeWorld(t *testing.T) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L316", origin.shapeRayHit)
-		castRel := SubPos(origin.castPoint, Pos{})
+		castRel := origin.castPoint.Sub(Pos{})
 		if v := castRel.X + 0.5; v < -(float32(1e-3)) || (float32(1e-3)) < v {
 			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
 		}
 		r.F32("L319", castRel.X+0.5)
-		rayRel := SubPos(origin.shapeRayPoint, Pos{})
+		rayRel := origin.shapeRayPoint.Sub(Pos{})
 		if v := rayRel.X + 0.5; v < -(float32(1e-3)) || (float32(1e-3)) < v {
 			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
 		}
@@ -350,7 +350,7 @@ func TestLargeWorld(t *testing.T) {
 				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
 			}
 			r.F32("L333", large.moverFraction-origin.moverFraction)
-			largeCast := SubPos(large.castPoint, base)
+			largeCast := large.castPoint.Sub(base)
 			if v := largeCast.X - castRel.X; v < -(float32(1e-3)) || (float32(1e-3)) < v {
 				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
 			}
@@ -359,7 +359,7 @@ func TestLargeWorld(t *testing.T) {
 				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
 			}
 			r.F32("L337", largeCast.Y-castRel.Y)
-			largeRay := SubPos(large.shapeRayPoint, base)
+			largeRay := large.shapeRayPoint.Sub(base)
 			if v := largeRay.X - rayRel.X; v < -(float32(1e-3)) || (float32(1e-3)) < v {
 				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
 			}
@@ -375,13 +375,13 @@ func TestLargeWorld(t *testing.T) {
 		r := oracle.Open(t, "large_world/LargeWorldRecordingTest")
 		wd := DefaultWorldDef()
 		wd.WorkerCount = 1
-		w := CreateWorld(&wd)
+		w := NewWorld(&wd)
 		BTWorldCleanup(t, w)
 		base := Pos{}
 		if IsDoublePrecision() {
 			base = Pos{X: 1e7}
 		}
-		rec := CreateRecording(0)
+		rec := NewRecording(0)
 		w.StartRecording(rec)
 		groundDef := DefaultBodyDef()
 		groundDef.Position = base
@@ -415,21 +415,20 @@ func TestLargeWorld(t *testing.T) {
 			snapshotTransformTrace(r, w, fmt.Sprintf("L409/step/%d", step), step+30)
 		}
 		w.StopRecording()
-		w.Destroy()
+		w.Close()
 		data := rec.Data()
 		size := rec.Size()
 		if !(size > 0) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L417", size > 0)
-		if !(ValidateReplay(data, 0)) {
+		if !(ValidateReplay(data, 0) == nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L421", true)
-		if !(ValidateReplay(data, 4)) {
+		if !(ValidateReplay(data, 4) == nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L422", true)
-		rec.Destroy()
 	})
 }

@@ -14,7 +14,7 @@ func snapshotVec2(r *oracle.Reader, key string, v Vec2) { r.Vec2(key, v.X, v.Y) 
 func snapshotPos(r *oracle.Reader, key string, v Pos)   { r.Pos(key, v.X, v.Y) }
 
 // Native images never cross this boundary: only typed public observations do.
-func snapshotEvents(r *oracle.Reader, w World, key string) {
+func snapshotEvents(r *oracle.Reader, w *World, key string) {
 	r.U64(key+"/state", w.StateHash())
 	var sb []SensorBeginTouchEvent
 	for e := range w.SensorBeginEvents() {
@@ -23,10 +23,10 @@ func snapshotEvents(r *oracle.Reader, w World, key string) {
 	r.I32(key+"/sensorBegin", int32(len(sb)))
 	for i, e := range sb {
 		p := fmt.Sprintf("%s/sensorBegin/%d", key, i)
-		r.I32(p+"/sensor", e.SensorShapeID.index1)
-		r.U32(p+"/sensorGeneration", uint32(e.SensorShapeID.generation))
-		r.I32(p+"/visitor", e.VisitorShapeID.index1)
-		r.U32(p+"/visitorGeneration", uint32(e.VisitorShapeID.generation))
+		r.I32(p+"/sensor", e.SensorShape.index1)
+		r.U32(p+"/sensorGeneration", uint32(e.SensorShape.generation))
+		r.I32(p+"/visitor", e.VisitorShape.index1)
+		r.U32(p+"/visitorGeneration", uint32(e.VisitorShape.generation))
 	}
 	var se []SensorEndTouchEvent
 	for e := range w.SensorEndEvents() {
@@ -35,10 +35,10 @@ func snapshotEvents(r *oracle.Reader, w World, key string) {
 	r.I32(key+"/sensorEnd", int32(len(se)))
 	for i, e := range se {
 		p := fmt.Sprintf("%s/sensorEnd/%d", key, i)
-		r.I32(p+"/sensor", e.SensorShapeID.index1)
-		r.U32(p+"/sensorGeneration", uint32(e.SensorShapeID.generation))
-		r.I32(p+"/visitor", e.VisitorShapeID.index1)
-		r.U32(p+"/visitorGeneration", uint32(e.VisitorShapeID.generation))
+		r.I32(p+"/sensor", e.SensorShape.index1)
+		r.U32(p+"/sensorGeneration", uint32(e.SensorShape.generation))
+		r.I32(p+"/visitor", e.VisitorShape.index1)
+		r.U32(p+"/visitorGeneration", uint32(e.VisitorShape.generation))
 	}
 	var cb []ContactBeginTouchEvent
 	for e := range w.ContactBeginEvents() {
@@ -47,12 +47,12 @@ func snapshotEvents(r *oracle.Reader, w World, key string) {
 	r.I32(key+"/contactBegin", int32(len(cb)))
 	for i, e := range cb {
 		p := fmt.Sprintf("%s/contactBegin/%d", key, i)
-		r.I32(p+"/a", e.ShapeIDA.index1)
-		r.U32(p+"/aGeneration", uint32(e.ShapeIDA.generation))
-		r.I32(p+"/b", e.ShapeIDB.index1)
-		r.U32(p+"/bGeneration", uint32(e.ShapeIDB.generation))
-		r.I32(p+"/contact", e.ContactID.index1)
-		r.U32(p+"/contactGeneration", e.ContactID.generation)
+		r.I32(p+"/a", e.ShapeA.index1)
+		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
+		r.I32(p+"/b", e.ShapeB.index1)
+		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
+		r.I32(p+"/contact", e.Contact.index1)
+		r.U32(p+"/contactGeneration", e.Contact.generation)
 	}
 	var ce []ContactEndTouchEvent
 	for e := range w.ContactEndEvents() {
@@ -61,12 +61,12 @@ func snapshotEvents(r *oracle.Reader, w World, key string) {
 	r.I32(key+"/contactEnd", int32(len(ce)))
 	for i, e := range ce {
 		p := fmt.Sprintf("%s/contactEnd/%d", key, i)
-		r.I32(p+"/a", e.ShapeIDA.index1)
-		r.U32(p+"/aGeneration", uint32(e.ShapeIDA.generation))
-		r.I32(p+"/b", e.ShapeIDB.index1)
-		r.U32(p+"/bGeneration", uint32(e.ShapeIDB.generation))
-		r.I32(p+"/contact", e.ContactID.index1)
-		r.U32(p+"/contactGeneration", e.ContactID.generation)
+		r.I32(p+"/a", e.ShapeA.index1)
+		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
+		r.I32(p+"/b", e.ShapeB.index1)
+		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
+		r.I32(p+"/contact", e.Contact.index1)
+		r.U32(p+"/contactGeneration", e.Contact.generation)
 	}
 	var ch []ContactHitEvent
 	for e := range w.ContactHitEvents() {
@@ -75,12 +75,12 @@ func snapshotEvents(r *oracle.Reader, w World, key string) {
 	r.I32(key+"/contactHit", int32(len(ch)))
 	for i, e := range ch {
 		p := fmt.Sprintf("%s/contactHit/%d", key, i)
-		r.I32(p+"/a", e.ShapeIDA.index1)
-		r.I32(p+"/b", e.ShapeIDB.index1)
-		r.U32(p+"/aGeneration", uint32(e.ShapeIDA.generation))
-		r.U32(p+"/bGeneration", uint32(e.ShapeIDB.generation))
-		r.I32(p+"/contact", e.ContactID.index1)
-		r.U32(p+"/contactGeneration", e.ContactID.generation)
+		r.I32(p+"/a", e.ShapeA.index1)
+		r.I32(p+"/b", e.ShapeB.index1)
+		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
+		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
+		r.I32(p+"/contact", e.Contact.index1)
+		r.U32(p+"/contactGeneration", e.Contact.generation)
 		snapshotPos(r, p+"/point", e.Point)
 		snapshotVec2(r, p+"/normal", e.Normal)
 		r.F32(p+"/speed", e.ApproachSpeed)
@@ -92,13 +92,13 @@ func snapshotEvents(r *oracle.Reader, w World, key string) {
 	r.I32(key+"/jointEvents", int32(len(je)))
 	for i, e := range je {
 		p := fmt.Sprintf("%s/jointEvent/%d", key, i)
-		r.I32(p+"/id", e.JointID.index1)
-		r.U32(p+"/generation", uint32(e.JointID.generation))
+		r.I32(p+"/id", e.Joint.index1)
+		r.U32(p+"/generation", uint32(e.Joint.generation))
 		r.Bool(p+"/userDataNil", e.UserData == nil)
 	}
 }
 
-func snapshotQuery(t *testing.T, r *oracle.Reader, w World, origin Pos, key string) {
+func snapshotQuery(t *testing.T, r *oracle.Reader, w *World, origin Pos, key string) {
 	t.Helper()
 	var mask uint64
 	var generations [64]uint32
@@ -138,7 +138,7 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 			origin := tc.origin
 			wd := DefaultWorldDef()
 			wd.Gravity = Vec2{0, -2}
-			w := CreateWorld(&wd)
+			w := NewWorld(&wd)
 			BTWorldCleanup(t, w)
 			bd := DefaultBodyDef()
 			bd.Position = origin
@@ -165,8 +165,8 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 					shapes[i] = bodies[i].CreateCapsuleShape(&sd, &c)
 				}
 				base := DefaultFilterJointDef().Base
-				base.BodyIDA = ground
-				base.BodyIDB = bodies[i]
+				base.BodyA = ground
+				base.BodyB = bodies[i]
 				base.LocalFrameA.P = Vec2{float32(3 * i), 3}
 				base.ForceThreshold = 0.5
 				base.TorqueThreshold = 0.5
@@ -249,12 +249,12 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 			for range 20 {
 				w.Step(float32(1.0)/60, 4)
 			}
-			image := w.Snapshot()
+			image := BTSnapshot(w)
 			initial := w.StateHash()
 			var tail [90]uint64
 			r.U64("capture/state", initial)
-			r.Bool("capture/disabled", disabled.IsEnabled())
-			r.Bool("capture/sleeping", sleeping.IsAwake())
+			r.Bool("capture/disabled", disabled.Enabled())
+			r.Bool("capture/sleeping", sleeping.Awake())
 			for i := range 90 {
 				if i == 5 {
 					disabled.Enable()
@@ -285,13 +285,13 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 			w.Step(float32(1.0)/60, 4)
 			visitor.Disable()
 			w.Step(float32(1.0)/60, 4)
-			internal := getWorldFromId(w)
+			internal := w
 			queuedSensorEnds := len(internal.sensorEndEvents[0]) + len(internal.sensorEndEvents[1])
 			if queuedSensorEnds < 1 {
 				t.Fatal("sensor corruption history did not queue a real end event")
 			}
 			r.I32("mutation/queuedSensorEnds", int32(queuedSensorEnds))
-			if err := w.Restore(image); err != nil {
+			if err := w.UnmarshalBinary(image); err != nil {
 				t.Fatalf("restore family image: %v", err)
 			}
 			if w.StateHash() != initial {
@@ -303,8 +303,8 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 			if len(internal.sensorEndEvents[0]) != 0 || len(internal.sensorEndEvents[1]) != 0 {
 				t.Fatal("restore retained queued sensor ends")
 			}
-			r.Bool("restore/disabled", disabled.IsEnabled())
-			r.Bool("restore/sleeping", sleeping.IsAwake())
+			r.Bool("restore/disabled", disabled.Enabled())
+			r.Bool("restore/sleeping", sleeping.Awake())
 			r.F32("restore/wheelMotor", WheelJoint{joints[0]}.MotorSpeed())
 			snapshotVec2(r, "restore/motorVelocity", MotorJoint{joints[1]}.LinearVelocity())
 			snapshotVec2(r, "restore/moverVelocity", MoverJoint{joints[2]}.LinearVelocity())
@@ -346,7 +346,7 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 	r := oracle.Open(t, "snapshot/Handles")
 	wd := DefaultWorldDef()
-	w := CreateWorld(&wd)
+	w := NewWorld(&wd)
 	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	ground := w.CreateBody(&bd)
@@ -357,31 +357,29 @@ func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 	c := Circle{Radius: 0.5}
 	shape := body.CreateCircleShape(&sd, &c)
 	jd := DefaultFilterJointDef()
-	jd.Base.BodyIDA = ground
-	jd.Base.BodyIDB = body
+	jd.Base.BodyA = ground
+	jd.Base.BodyB = body
 	joint := w.CreateFilterJoint(&jd).Joint
 	mat := DefaultSurfaceMaterial()
 	cd := DefaultChainDef()
 	cd.Points = []Vec2{{-2, 0}, {0, 0}, {2, 0}}
-	cd.PointCount = 3
 	cd.Ghost1 = Vec2{-4, 0}
 	cd.Ghost2 = Vec2{4, 0}
 	cd.Materials = []SurfaceMaterial{mat}
-	cd.MaterialCount = 1
 	chain := ground.CreateChain(&cd)
-	image := w.Snapshot()
+	image := BTSnapshot(w)
 	joint.Destroy()
 	chain.Destroy()
 	shape.Destroy(true)
 	body.Destroy()
 	replacement := w.CreateBody(&bd)
 	replacementShape := replacement.CreateCircleShape(&sd, &c)
-	jd.Base.BodyIDB = replacement
+	jd.Base.BodyB = replacement
 	replacementJoint := w.CreateFilterJoint(&jd).Joint
 	replacementChain := ground.CreateChain(&cd)
 	extra := w.CreateBody(&bd)
 	extraShape := extra.CreateCircleShape(&sd, &c)
-	jd.Base.BodyIDB = extra
+	jd.Base.BodyB = extra
 	extraJoint := w.CreateFilterJoint(&jd).Joint
 	extraChain := ground.CreateChain(&cd)
 	r.Bool("reuse/bodySlot", body.index1 == replacement.index1)
@@ -392,7 +390,7 @@ func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 	r.Bool("reuse/jointGeneration", joint.generation != replacementJoint.generation)
 	r.Bool("reuse/chainSlot", chain.index1 == replacementChain.index1)
 	r.Bool("reuse/chainGeneration", chain.generation != replacementChain.generation)
-	if err := w.Restore(image); err != nil {
+	if err := w.UnmarshalBinary(image); err != nil {
 		t.Fatalf("restore destroyed/reused handles: %v", err)
 	}
 	r.Bool("held/body", body.IsValid())
@@ -422,22 +420,22 @@ func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 	r.Bool("held/collide", joint.CollideConnected())
 	r.U64("held/state", w.StateHash())
 	for _, workers := range []int{0, 4} {
-		clone, err := CreateWorldFromSnapshot(image, workers)
+		clone, err := NewWorldFromSnapshot(image, workers)
 		if err != nil {
 			t.Fatalf("load workers %d: %v", workers, err)
 		}
 		BTWorldCleanup(t, clone)
 		key := fmt.Sprintf("new/%d", workers)
-		r.Bool(key+"/identity", clone.index1 != w.index1)
-		r.I32(key+"/workers", int32(getWorldFromId(clone).workerCount))
+		r.Bool(key+"/identity", clone != w)
+		r.I32(key+"/workers", int32(clone.workerCount))
 		mappedBody := body
-		mappedBody.world0 = clone.index1 - 1
+		mappedBody.world = clone
 		mappedShape := shape
-		mappedShape.world0 = clone.index1 - 1
+		mappedShape.world = clone
 		mappedJoint := joint
-		mappedJoint.world0 = clone.index1 - 1
+		mappedJoint.world = clone
 		mappedChain := chain
-		mappedChain.world0 = clone.index1 - 1
+		mappedChain.world = clone
 		r.Bool(key+"/bodyValid", mappedBody.IsValid())
 		r.Bool(key+"/shapeBody", mappedShape.Body() == mappedBody)
 		r.Bool(key+"/jointBody", mappedJoint.BodyB() == mappedBody)
@@ -448,14 +446,14 @@ func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 		r.Bool(key+"/originOwner", body.World() == w)
 		clone.Step(float32(1.0)/60, 4)
 		r.U64(key+"/state", clone.StateHash())
-		clone.Destroy()
+		clone.Close()
 	}
 }
 
 func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 	r := oracle.Open(t, "snapshot/Headers")
 	wd := DefaultWorldDef()
-	w := CreateWorld(&wd)
+	w := NewWorld(&wd)
 	BTWorldCleanup(t, w)
 	bd := DefaultBodyDef()
 	bd.Type = DynamicBody
@@ -469,20 +467,18 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 	staticDef := DefaultBodyDef()
 	anchor := w.CreateBody(&staticDef)
 	jd := DefaultFilterJointDef()
-	jd.Base.BodyIDA = anchor
-	jd.Base.BodyIDB = body
+	jd.Base.BodyA = anchor
+	jd.Base.BodyB = body
 	joint := w.CreateFilterJoint(&jd).Joint
 	material := DefaultSurfaceMaterial()
 	material.Friction = 0.375
 	cd := DefaultChainDef()
 	cd.Points = []Vec2{{-2, 0}, {0, 0}, {2, 0}}
-	cd.PointCount = 3
 	cd.Ghost1 = Vec2{-4, 0}
 	cd.Ghost2 = Vec2{4, 0}
 	cd.Materials = []SurfaceMaterial{material}
-	cd.MaterialCount = 1
 	chain := anchor.CreateChain(&cd)
-	image := w.Snapshot()
+	image := BTSnapshot(w)
 	hash := w.StateHash()
 	cases := []struct {
 		name     string
@@ -504,7 +500,7 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 			}
 			binary.LittleEndian.PutUint32(bad[tc.offset:], value^bit)
 		}
-		err := w.Restore(bad)
+		err := w.UnmarshalBinary(bad)
 		var snapshotErr *SnapshotError
 		if err == nil || !errors.As(err, &snapshotErr) {
 			t.Fatalf("%s restore error category: %v", tc.name, err)
@@ -527,7 +523,7 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 		r.Bool(tc.name+"/jointBody", joint.BodyB() == body)
 		r.F32(tc.name+"/chainFriction", chain.SurfaceMaterial(0).Friction)
 		snapshotVec2(r, tc.name+"/gravity", w.Gravity())
-		invalid, err := CreateWorldFromSnapshot(bad, 0)
+		invalid, err := NewWorldFromSnapshot(bad, 0)
 		r.Bool(tc.name+"/newRejected", !invalid.IsValid())
 		if err == nil || !errors.As(err, &snapshotErr) {
 			t.Fatalf("%s new-world error category: %v", tc.name, err)
@@ -537,27 +533,27 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 		}
 	}
 	// Each engine truncates its own native image at the final payload boundary.
-	err := w.Restore(image[:len(image)-1])
+	err := w.UnmarshalBinary(image[:len(image)-1])
 	var snapshotErr *SnapshotError
 	r.Bool("late/rejected", err != nil)
 	if err == nil || !errors.As(err, &snapshotErr) {
 		t.Fatalf("late restore: %v", err)
 	}
-	w.Destroy()
-	invalid, err := CreateWorldFromSnapshot(image[:len(image)-1], 0)
+	w.Close()
+	invalid, err := NewWorldFromSnapshot(image[:len(image)-1], 0)
 	r.Bool("late/newRejected", !invalid.IsValid())
 	if err == nil || !errors.As(err, &snapshotErr) {
 		t.Fatalf("late load: %v", err)
 	}
 	wd = DefaultWorldDef()
-	fresh := CreateWorld(&wd)
+	fresh := NewWorld(&wd)
 	BTWorldCleanup(t, fresh)
 	body = fresh.CreateBody(&bd)
 	r.Bool("cleanup/newBody", body.IsValid())
 }
 
-func snapshotContactMaterials(r *oracle.Reader, id World, key string) {
-	w := getWorldFromId(id)
+func snapshotContactMaterials(r *oracle.Reader, id *World, key string) {
+	w := id
 	count := 0
 	for i := range w.contacts {
 		if w.contacts[i].contactID == i {
@@ -589,7 +585,7 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	wd.EnqueueTask = func(task func()) func() { tasks++; task(); return func() { finishes++ } }
 	wd.FrictionCallback = func(float32, uint64, float32, uint64) float32 { oldFriction++; return 0.9 }
 	wd.RestitutionCallback = func(float32, uint64, float32, uint64) float32 { oldRestitution++; return 0.9 }
-	w := CreateWorld(&wd)
+	w := NewWorld(&wd)
 	BTWorldCleanup(t, w)
 	w.SetCustomFilterCallback(func(Shape, Shape) bool { oldFilter++; return false })
 	w.SetPreSolveCallback(func(Shape, Shape, *Manifold) { oldPre++ }, nil)
@@ -608,12 +604,12 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	ground.CreatePolygonShape(&sd, &box)
 	shape := body.CreatePolygonShape(&sd, &box)
 	jd := DefaultFilterJointDef()
-	jd.Base.BodyIDA = ground
-	jd.Base.BodyIDB = body
+	jd.Base.BodyA = ground
+	jd.Base.BodyB = body
 	jd.Base.CollideConnected = true
 	jd.Base.UserData = &oldTag
 	joint := w.CreateFilterJoint(&jd).Joint
-	image := w.Snapshot()
+	image := BTSnapshot(w)
 	w.SetUserData(&liveTag)
 	body.SetUserData(&liveTag)
 	shape.SetUserData(&liveTag)
@@ -622,14 +618,14 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	w.SetPreSolveCallback(func(_ Shape, _ Shape, m *Manifold) { livePre++; m.PointCount = 0 }, nil)
 	w.SetFrictionCallback(func(float32, uint64, float32, uint64) float32 { liveFriction++; return 0.125 })
 	w.SetRestitutionCallback(func(float32, uint64, float32, uint64) float32 { liveRestitution++; return 0.375 })
-	if err := w.Restore(image); err != nil {
+	if err := w.UnmarshalBinary(image); err != nil {
 		t.Fatalf("restore wired destination: %v", err)
 	}
 	r.Bool("restore/worldData", w.UserData() == &liveTag)
 	r.Bool("restore/bodyData", body.UserData() == nil)
 	r.Bool("restore/shapeData", shape.UserData() == nil)
 	r.Bool("restore/jointData", joint.UserData() == nil)
-	r.I32("restore/workers", int32(getWorldFromId(w).workerCount))
+	r.I32("restore/workers", int32(w.workerCount))
 	w.Step(float32(1.0)/60, 4)
 	if tasks == 0 || tasks != finishes || liveFilter == 0 || livePre == 0 || liveFriction == 0 || liveRestitution == 0 {
 		t.Fatalf("restored wiring inactive: tasks %d finished %d filter %d pre %d friction %d restitution %d", tasks, finishes, liveFilter, livePre, liveFriction, liveRestitution)
@@ -648,22 +644,22 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	r.U64("live/state", w.StateHash())
 	snapshotContactMaterials(r, w, "live")
 	beforeFilter, beforePre, beforeFriction, beforeRestitution, beforeTasks := liveFilter, livePre, liveFriction, liveRestitution, tasks
-	clone, err := CreateWorldFromSnapshot(image, 0)
+	clone, err := NewWorldFromSnapshot(image, 0)
 	if err != nil {
 		t.Fatalf("load default wiring: %v", err)
 	}
 	BTWorldCleanup(t, clone)
 	cb := body
-	cb.world0 = clone.index1 - 1
+	cb.world = clone
 	cs := shape
-	cs.world0 = clone.index1 - 1
+	cs.world = clone
 	cj := joint
-	cj.world0 = clone.index1 - 1
+	cj.world = clone
 	r.Bool("new/worldData", clone.UserData() == nil)
 	r.Bool("new/bodyData", cb.UserData() == nil)
 	r.Bool("new/shapeData", cs.UserData() == nil)
 	r.Bool("new/jointData", cj.UserData() == nil)
-	r.I32("new/workers", int32(getWorldFromId(clone).workerCount))
+	r.I32("new/workers", int32(clone.workerCount))
 	clone.Step(float32(1.0)/60, 4)
 	r.Bool("new/noLiveCalls", liveFilter == beforeFilter && livePre == beforePre && liveFriction == beforeFriction && liveRestitution == beforeRestitution && tasks == beforeTasks)
 	snapshotPos(r, "new/position", cb.Position())

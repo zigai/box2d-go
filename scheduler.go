@@ -115,7 +115,7 @@ func schedulerFinishTask(task *schedulerTask, s *scheduler) {
 	}
 	for task.status.Load() != int32(schedulerComplete) {
 		if !schedulerExecuteOne(s) {
-			Yield()
+			yieldThread()
 		}
 	}
 }

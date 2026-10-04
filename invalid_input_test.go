@@ -15,10 +15,10 @@ import (
 var inputBadValues = []float32{float32(math.NaN()), float32(math.Inf(1)), float32(math.Inf(-1))}
 
 func inputIsBodyFinite(bodyID box2d.Body) bool {
-	return box2d.IsValidPosition(bodyID.Position()) && box2d.IsValidRotation(bodyID.Rotation()) && box2d.IsValidVec2(bodyID.LinearVelocity()) && box2d.IsValidFloat(bodyID.AngularVelocity())
+	return bodyID.Position().IsValid() && bodyID.Rotation().IsValid() && bodyID.LinearVelocity().IsValid() && box2d.IsValidFloat(bodyID.AngularVelocity())
 }
 
-func inputReadBodyStep(r *oracle.Reader, trace *inputTransformTrace, worldID box2d.World, bodyID box2d.Body, step int) {
+func inputReadBodyStep(r *oracle.Reader, trace *inputTransformTrace, worldID *box2d.World, bodyID box2d.Body, step int) {
 	trace.read(r, worldID, fmt.Sprintf("step.%d.hash", step), true)
 	p := bodyID.Position()
 	r.Pos(fmt.Sprintf("step.%d.position", step), p.X, p.Y)
@@ -29,7 +29,7 @@ func inputReadBodyStep(r *oracle.Reader, trace *inputTransformTrace, worldID box
 	r.F32(fmt.Sprintf("step.%d.angular", step), bodyID.AngularVelocity())
 }
 
-func inputReadRejectedSettings(r *oracle.Reader, world box2d.World) {
+func inputReadRejectedSettings(r *oracle.Reader, world *box2d.World) {
 	hertz, damping, push := box2d.InputWorldTuning(world)
 	r.F32("settings.contact.hertz", hertz)
 	r.F32("settings.contact.damping", damping)
@@ -95,7 +95,7 @@ func inputReadRejectedJoint(r *oracle.Reader, joint box2d.RevoluteJoint) {
 	r.F32("joint.motorSpeed", joint.MotorSpeed())
 	r.F32("joint.maxTorque", joint.MaxMotorTorque())
 }
-func inputReadConstructionCounts(t *testing.T, r *oracle.Reader, world box2d.World, bodyCount int) {
+func inputReadConstructionCounts(t *testing.T, r *oracle.Reader, world *box2d.World, bodyCount int) {
 	t.Helper()
 	counts := world.Counters()
 	r.I32("construction.bodies", int32(counts.BodyCount))
@@ -136,7 +136,7 @@ func inputIndependentWorld(t *testing.T, r *oracle.Reader) {
 	def := box2d.DefaultWorldDef()
 	def.WorkerCount = 4
 	def.Gravity = box2d.Vec2{X: 3, Y: -7}
-	world := box2d.CreateWorld(&def)
+	world := box2d.NewWorld(&def)
 	box2d.BTWorldCleanup(t, world)
 	r.Bool("independent.world.valid", world.IsValid())
 	if !world.IsValid() {
@@ -159,7 +159,7 @@ func inputIndependentWorld(t *testing.T, r *oracle.Reader) {
 		world.Step(1.0/60.0, 4)
 		trace.read(r, world, fmt.Sprintf("independent.%d", i), false)
 	}
-	world.Destroy()
+	world.Close()
 	r.Bool("independent.world.destroyed", !world.IsValid())
 	if world.IsValid() {
 		t.Fatal("independent world remains valid after destroy")
@@ -172,25 +172,17 @@ func TestInvalidInput(t *testing.T) {
 
 		r := oracle.Open(t, "input/invalid_input/WorldInputTest")
 		trace := inputTransformTrace{}
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		logCount := 0
-		beginRejectCount := func() {
-			logCount = 0
-			box2d.SetLogFunc(func(string) { logCount++ })
-			box2d.SetAssertFunc(func(string, string, int) bool { return false })
-		}
-		endRejectCount := restore
-		var observedWorld box2d.World
+		rejectCount := 0
+		var observedWorld *box2d.World
 		checkCall := func(kind string, want int, call func()) {
 			t.Helper()
-			before := logCount
+			before := rejectCount
 			stateBefore := observedWorld.StateHash()
 			if want == 1 {
 				r.U64("reject.before", stateBefore)
 			}
-			call()
-			r.I32(kind, int32(logCount-before))
+			inputRejected(&rejectCount, call)
+			r.I32(kind, int32(rejectCount-before))
 			if want == 1 {
 				stateAfter := observedWorld.StateHash()
 				r.U64("reject.after", stateAfter)
@@ -199,12 +191,12 @@ func TestInvalidInput(t *testing.T) {
 				}
 				inputReadRejectedSettings(r, observedWorld)
 			}
-			if !(logCount == before+want) {
+			if !(rejectCount == before+want) {
 				t.Fatal("condition false")
 			}
 		}
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		observedWorld = worldID
 		box2d.BTWorldCleanup(t, worldID)
 		bodyDef := box2d.DefaultBodyDef()
@@ -222,7 +214,7 @@ func TestInvalidInput(t *testing.T) {
 		maximumLinearSpeed := float32(worldID.MaximumLinearSpeed())
 		restitutionIterations := worldID.RestitutionIterations()
 
-		beginRejectCount()
+		rejectCount = 0
 
 		for i, bad := range inputBadValues {
 
@@ -245,8 +237,6 @@ func TestInvalidInput(t *testing.T) {
 		trace.read(r, worldID, "step.hash", true)
 		gravityStep := worldID.Gravity()
 		r.Vec2("step.gravity", gravityStep.X, gravityStep.Y)
-
-		endRejectCount()
 
 		{
 			ok := worldID.Gravity().X == gravity.X && worldID.Gravity().Y == gravity.Y
@@ -291,31 +281,23 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 	})
 	t.Run("BodyInputTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/invalid_input/BodyInputTest")
 		trace := inputTransformTrace{}
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		logCount := 0
-		beginRejectCount := func() {
-			logCount = 0
-			box2d.SetLogFunc(func(string) { logCount++ })
-			box2d.SetAssertFunc(func(string, string, int) bool { return false })
-		}
-		endRejectCount := restore
-		var observedWorld box2d.World
+		rejectCount := 0
+		var observedWorld *box2d.World
 		checkCall := func(kind string, want int, call func()) {
 			t.Helper()
-			before := logCount
+			before := rejectCount
 			stateBefore := observedWorld.StateHash()
 			if want == 1 {
 				r.U64("reject.before", stateBefore)
 			}
-			call()
-			r.I32(kind, int32(logCount-before))
+			inputRejected(&rejectCount, call)
+			r.I32(kind, int32(rejectCount-before))
 			if want == 1 {
 				stateAfter := observedWorld.StateHash()
 				r.U64("reject.after", stateAfter)
@@ -324,12 +306,12 @@ func TestInvalidInput(t *testing.T) {
 				}
 				inputReadRejectedSettings(r, observedWorld)
 			}
-			if !(logCount == before+want) {
+			if !(rejectCount == before+want) {
 				t.Fatal("condition false")
 			}
 		}
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		observedWorld = worldID
 		box2d.BTWorldCleanup(t, worldID)
 
@@ -341,7 +323,7 @@ func TestInvalidInput(t *testing.T) {
 		box := box2d.MakeBox(0.5, 0.5)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
-		beginRejectCount()
+		rejectCount = 0
 
 		for _, bad := range inputBadValues {
 			badVec := box2d.Vec2{X: bad, Y: 0.0}
@@ -386,8 +368,6 @@ func TestInvalidInput(t *testing.T) {
 			inputReadBodyStep(r, &trace, worldID, bodyID, i)
 		}
 
-		endRejectCount()
-
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.188", ok)
@@ -396,31 +376,23 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 	})
 	t.Run("ShapeInputTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/invalid_input/ShapeInputTest")
 		trace := inputTransformTrace{}
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		logCount := 0
-		beginRejectCount := func() {
-			logCount = 0
-			box2d.SetLogFunc(func(string) { logCount++ })
-			box2d.SetAssertFunc(func(string, string, int) bool { return false })
-		}
-		endRejectCount := restore
-		var observedWorld box2d.World
+		rejectCount := 0
+		var observedWorld *box2d.World
 		checkCall := func(kind string, want int, call func()) {
 			t.Helper()
-			before := logCount
+			before := rejectCount
 			stateBefore := observedWorld.StateHash()
 			if want == 1 {
 				r.U64("reject.before", stateBefore)
 			}
-			call()
-			r.I32(kind, int32(logCount-before))
+			inputRejected(&rejectCount, call)
+			r.I32(kind, int32(rejectCount-before))
 			if want == 1 {
 				stateAfter := observedWorld.StateHash()
 				r.U64("reject.after", stateAfter)
@@ -429,12 +401,12 @@ func TestInvalidInput(t *testing.T) {
 				}
 				inputReadRejectedSettings(r, observedWorld)
 			}
-			if !(logCount == before+want) {
+			if !(rejectCount == before+want) {
 				t.Fatal("condition false")
 			}
 		}
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		observedWorld = worldID
 		box2d.BTWorldCleanup(t, worldID)
 
@@ -450,7 +422,7 @@ func TestInvalidInput(t *testing.T) {
 		friction := float32(shapeID.Friction())
 		restitution := float32(shapeID.Restitution())
 
-		beginRejectCount()
+		rejectCount = 0
 
 		for _, bad := range inputBadValues {
 			badVec := box2d.Vec2{X: bad, Y: 0.0}
@@ -491,8 +463,6 @@ func TestInvalidInput(t *testing.T) {
 			inputReadBodyStep(r, &trace, worldID, bodyID, i)
 		}
 
-		endRejectCount()
-
 		// The rejected geometry never reached the shape, so the proxy is still the original box
 		{
 			ok := shapeID.Type() == box2d.PolygonShape
@@ -502,14 +472,14 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 		{
-			ok := box2d.IsValidAABB(shapeID.AABB())
+			ok := shapeID.AABB().IsValid()
 			r.Bool("check.258", ok)
 			if !(ok) {
 				t.Fatal("condition false")
 			}
 		}
 		{
-			ok := box2d.IsValidAABB(worldID.Bounds())
+			ok := worldID.Bounds().IsValid()
 			r.Bool("check.259", ok)
 			if !(ok) {
 				t.Fatal("condition false")
@@ -544,31 +514,23 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 	})
 	t.Run("JointInputTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/invalid_input/JointInputTest")
 		trace := inputTransformTrace{}
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		logCount := 0
-		beginRejectCount := func() {
-			logCount = 0
-			box2d.SetLogFunc(func(string) { logCount++ })
-			box2d.SetAssertFunc(func(string, string, int) bool { return false })
-		}
-		endRejectCount := restore
-		var observedWorld box2d.World
+		rejectCount := 0
+		var observedWorld *box2d.World
 		checkCall := func(kind string, want int, call func()) {
 			t.Helper()
-			before := logCount
+			before := rejectCount
 			stateBefore := observedWorld.StateHash()
 			if want == 1 {
 				r.U64("reject.before", stateBefore)
 			}
-			call()
-			r.I32(kind, int32(logCount-before))
+			inputRejected(&rejectCount, call)
+			r.I32(kind, int32(rejectCount-before))
 			if want == 1 {
 				stateAfter := observedWorld.StateHash()
 				r.U64("reject.after", stateAfter)
@@ -577,12 +539,12 @@ func TestInvalidInput(t *testing.T) {
 				}
 				inputReadRejectedSettings(r, observedWorld)
 			}
-			if !(logCount == before+want) {
+			if !(rejectCount == before+want) {
 				t.Fatal("condition false")
 			}
 		}
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		observedWorld = worldID
 		box2d.BTWorldCleanup(t, worldID)
 
@@ -598,12 +560,12 @@ func TestInvalidInput(t *testing.T) {
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
 		jointDef := box2d.DefaultRevoluteJointDef()
-		jointDef.Base.BodyIDA = groundID
-		jointDef.Base.BodyIDB = bodyID
+		jointDef.Base.BodyA = groundID
+		jointDef.Base.BodyB = bodyID
 		jointDef.Base.LocalFrameB.P = box2d.Vec2{X: 0.0, Y: 1.0}
 		jointID := worldID.CreateRevoluteJoint(&jointDef)
 
-		beginRejectCount()
+		rejectCount = 0
 
 		for _, bad := range inputBadValues {
 			badFrame := box2d.Transform{P: box2d.Vec2{X: bad, Y: 0.0}, Q: box2d.RotIdentity}
@@ -632,8 +594,6 @@ func TestInvalidInput(t *testing.T) {
 			inputReadBodyStep(r, &trace, worldID, bodyID, i)
 		}
 
-		endRejectCount()
-
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.322", ok)
@@ -642,7 +602,7 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 		{
-			ok := box2d.IsValidVec2(jointID.ConstraintForce())
+			ok := jointID.ConstraintForce().IsValid()
 			r.Bool("check.323", ok)
 			if !(ok) {
 				t.Fatal("condition false")
@@ -656,31 +616,23 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 	})
 	t.Run("CreateInputTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/invalid_input/CreateInputTest")
 		trace := inputTransformTrace{}
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		logCount := 0
-		beginRejectCount := func() {
-			logCount = 0
-			box2d.SetLogFunc(func(string) { logCount++ })
-			box2d.SetAssertFunc(func(string, string, int) bool { return false })
-		}
-		endRejectCount := restore
-		var observedWorld box2d.World
+		rejectCount := 0
+		var observedWorld *box2d.World
 		checkCall := func(kind string, want int, call func()) {
 			t.Helper()
-			before := logCount
+			before := rejectCount
 			stateBefore := observedWorld.StateHash()
 			if want == 1 {
 				r.U64("reject.before", stateBefore)
 			}
-			call()
-			r.I32(kind, int32(logCount-before))
+			inputRejected(&rejectCount, call)
+			r.I32(kind, int32(rejectCount-before))
 			if want == 1 {
 				stateAfter := observedWorld.StateHash()
 				r.U64("reject.after", stateAfter)
@@ -689,12 +641,12 @@ func TestInvalidInput(t *testing.T) {
 				}
 				inputReadRejectedSettings(r, observedWorld)
 			}
-			if !(logCount == before+want) {
+			if !(rejectCount == before+want) {
 				t.Fatal("condition false")
 			}
 		}
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		observedWorld = worldID
 		box2d.BTWorldCleanup(t, worldID)
 
@@ -706,7 +658,7 @@ func TestInvalidInput(t *testing.T) {
 		box := box2d.MakeBox(0.5, 0.5)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
-		beginRejectCount()
+		rejectCount = 0
 
 		for i, bad := range inputBadValues {
 			badVec := box2d.Vec2{X: bad, Y: 0.0}
@@ -714,10 +666,8 @@ func TestInvalidInput(t *testing.T) {
 
 			badWorldDef := box2d.DefaultWorldDef()
 			badWorldDef.Gravity = badVec
-			badWorldID := box2d.CreateWorld(&badWorldDef)
-			box2d.BTWorldCleanup(t, badWorldID)
 			{
-				ok := badWorldID.IsValid() == false
+				ok := inputRejected(&rejectCount, func() { box2d.NewWorld(&badWorldDef) })
 				r.Bool("check.353", ok)
 				if !(ok) {
 					t.Fatal("condition false")
@@ -727,8 +677,8 @@ func TestInvalidInput(t *testing.T) {
 			badBodyDef := box2d.DefaultBodyDef()
 			badBodyDef.Position = box2d.Pos{X: oracle.Real(bad), Y: 0.0}
 			{
-				ok := worldID.CreateBody(&badBodyDef).IsValid() == false
-				r.I32("check.357", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { worldID.CreateBody(&badBodyDef) })
+				r.I32("check.357", int32(rejectCount))
 				r.Bool("check.357.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -742,8 +692,8 @@ func TestInvalidInput(t *testing.T) {
 			badShapeDef := box2d.DefaultShapeDef()
 			badShapeDef.Density = bad
 			{
-				ok := bodyID.CreatePolygonShape(&badShapeDef, &box).IsValid() == false
-				r.I32("check.361", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { bodyID.CreatePolygonShape(&badShapeDef, &box) })
+				r.I32("check.361", int32(rejectCount))
 				r.Bool("check.361.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -756,8 +706,8 @@ func TestInvalidInput(t *testing.T) {
 
 			badCircle := box2d.Circle{Center: badVec, Radius: 1.0}
 			{
-				ok := bodyID.CreateCircleShape(&shapeDef, &badCircle).IsValid() == false
-				r.I32("check.364", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { bodyID.CreateCircleShape(&shapeDef, &badCircle) })
+				r.I32("check.364", int32(rejectCount))
 				r.Bool("check.364.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -770,8 +720,8 @@ func TestInvalidInput(t *testing.T) {
 
 			badCapsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: bad}
 			{
-				ok := bodyID.CreateCapsuleShape(&shapeDef, &badCapsule).IsValid() == false
-				r.I32("check.367", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { bodyID.CreateCapsuleShape(&shapeDef, &badCapsule) })
+				r.I32("check.367", int32(rejectCount))
 				r.Bool("check.367.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -784,8 +734,8 @@ func TestInvalidInput(t *testing.T) {
 
 			badSegment := box2d.Segment{Point1: badVec, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
 			{
-				ok := bodyID.CreateSegmentShape(&shapeDef, &badSegment).IsValid() == false
-				r.I32("check.370", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { bodyID.CreateSegmentShape(&shapeDef, &badSegment) })
+				r.I32("check.370", int32(rejectCount))
 				r.Bool("check.370.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -799,8 +749,8 @@ func TestInvalidInput(t *testing.T) {
 			badPolygon := box
 			badPolygon.Radius = bad
 			{
-				ok := bodyID.CreatePolygonShape(&shapeDef, &badPolygon).IsValid() == false
-				r.I32("check.374", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { bodyID.CreatePolygonShape(&shapeDef, &badPolygon) })
+				r.I32("check.374", int32(rejectCount))
 				r.Bool("check.374.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -816,13 +766,11 @@ func TestInvalidInput(t *testing.T) {
 			material := box2d.DefaultSurfaceMaterial()
 			badChainDef := box2d.DefaultChainDef()
 			badChainDef.Points = chainPoints
-			badChainDef.PointCount = 4
 			badChainDef.Materials = []box2d.SurfaceMaterial{material}
-			badChainDef.MaterialCount = 1
 			badChainDef.IsLoop = true
 			{
-				ok := bodyID.CreateChain(&badChainDef).IsValid() == false
-				r.I32("check.385", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { bodyID.CreateChain(&badChainDef) })
+				r.I32("check.385", int32(rejectCount))
 				r.Bool("check.385.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -834,13 +782,13 @@ func TestInvalidInput(t *testing.T) {
 			}
 
 			badJointDef := box2d.DefaultRevoluteJointDef()
-			badJointDef.Base.BodyIDA = bodyID
-			badJointDef.Base.BodyIDB = worldID.CreateBody(&bodyDef)
+			badJointDef.Base.BodyA = bodyID
+			badJointDef.Base.BodyB = worldID.CreateBody(&bodyDef)
 			badJointDef.Hertz = bad
 			constructionHash = worldID.StateHash()
 			{
-				ok := worldID.CreateRevoluteJoint(&badJointDef).IsValid() == false
-				r.I32("check.391", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { worldID.CreateRevoluteJoint(&badJointDef) })
+				r.I32("check.391", int32(rejectCount))
 				r.Bool("check.391.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -863,8 +811,6 @@ func TestInvalidInput(t *testing.T) {
 			inputReadBodyStep(r, &trace, worldID, bodyID, i)
 		}
 
-		endRejectCount()
-
 		{
 			ok := inputIsBodyFinite(bodyID)
 			r.Bool("check.405", ok)
@@ -873,38 +819,30 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 		{
-			ok := box2d.IsValidAABB(worldID.Bounds())
+			ok := worldID.Bounds().IsValid()
 			r.Bool("check.406", ok)
 			if !(ok) {
 				t.Fatal("condition false")
 			}
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 	})
 	t.Run("RecordReplayTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/invalid_input/RecordReplayTest")
 		trace := inputTransformTrace{}
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		logCount := 0
-		beginRejectCount := func() {
-			logCount = 0
-			box2d.SetLogFunc(func(string) { logCount++ })
-			box2d.SetAssertFunc(func(string, string, int) bool { return false })
-		}
-		endRejectCount := restore
-		var observedWorld box2d.World
+		rejectCount := 0
+		var observedWorld *box2d.World
 		checkCall := func(kind string, want int, call func()) {
 			t.Helper()
-			before := logCount
+			before := rejectCount
 			stateBefore := observedWorld.StateHash()
 			if want == 1 {
 				r.U64("reject.before", stateBefore)
 			}
-			call()
-			r.I32(kind, int32(logCount-before))
+			inputRejected(&rejectCount, call)
+			r.I32(kind, int32(rejectCount-before))
 			if want == 1 {
 				stateAfter := observedWorld.StateHash()
 				r.U64("reject.after", stateAfter)
@@ -913,18 +851,18 @@ func TestInvalidInput(t *testing.T) {
 				}
 				inputReadRejectedSettings(r, observedWorld)
 			}
-			if !(logCount == before+want) {
+			if !(rejectCount == before+want) {
 				t.Fatal("condition false")
 			}
 		}
 		worldDef := box2d.DefaultWorldDef()
 		worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
 		worldDef.WorkerCount = 1
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		observedWorld = worldID
 		box2d.BTWorldCleanup(t, worldID)
 
-		recording := box2d.CreateRecording(0)
+		recording := box2d.NewRecording(0)
 		worldID.StartRecording(recording)
 
 		bodyDef := box2d.DefaultBodyDef()
@@ -941,10 +879,10 @@ func TestInvalidInput(t *testing.T) {
 		box := box2d.MakeBox(0.5, 0.5)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
-		beginRejectCount()
+		rejectCount = 0
 
-		// Interleave turned away calls with real ones so the op stream carries both. A mutator is
-		// rejected before it is recorded, while a create is recorded with the null id it returned.
+		// Interleave turned away calls with real ones. A rejected call panics before it is recorded,
+		// so the op stream carries only the accepted calls.
 		for i := range 30 {
 			bad := float32(inputBadValues[i%len(inputBadValues)])
 
@@ -955,8 +893,8 @@ func TestInvalidInput(t *testing.T) {
 			badShapeDef.Density = bad
 			constructionHash := worldID.StateHash()
 			{
-				ok := bodyID.CreatePolygonShape(&badShapeDef, &box).IsValid() == false
-				r.I32("check.449", int32(logCount))
+				ok := inputRejected(&rejectCount, func() { bodyID.CreatePolygonShape(&badShapeDef, &box) })
+				r.I32("check.449", int32(rejectCount))
 				r.Bool("check.449.result", ok)
 				r.U64("construction.state", worldID.StateHash())
 				if worldID.StateHash() != constructionHash {
@@ -981,7 +919,7 @@ func TestInvalidInput(t *testing.T) {
 		}
 
 		worldID.StopRecording()
-		worldID.Destroy()
+		worldID.Close()
 
 		data := recording.Data()
 		size := recording.Size()
@@ -993,24 +931,36 @@ func TestInvalidInput(t *testing.T) {
 			}
 		}
 		{
-			ok := box2d.ValidateReplay(data, 0)
-			r.I32("check.463", int32(logCount))
+			ok := box2d.ValidateReplay(data, 0) == nil
+			r.I32("check.463", int32(rejectCount))
 			r.Bool("check.463.result", ok)
 			if !(ok) {
 				t.Fatal("condition false")
 			}
 		}
 		{
-			ok := box2d.ValidateReplay(data, 4)
-			r.I32("check.464", int32(logCount))
+			ok := box2d.ValidateReplay(data, 4) == nil
+			r.I32("check.464", int32(rejectCount))
 			r.Bool("check.464.result", ok)
 			if !(ok) {
 				t.Fatal("condition false")
 			}
 		}
 
-		endRejectCount()
-
-		recording.Destroy()
 	})
+}
+
+// inputRejected reports whether call panicked on invalid input and counts each rejection.
+func inputRejected(count *int, call func()) (rejected bool) {
+	defer func() {
+		if v := recover(); v != nil {
+			if _, ok := v.(*box2d.AssertError); !ok {
+				panic(v)
+			}
+			*count++
+			rejected = true
+		}
+	}()
+	call()
+	return false
 }

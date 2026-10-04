@@ -12,7 +12,7 @@ import (
 func helperKey(family string, op, item int, field string) string {
 	return fmt.Sprintf("%s.%d.%d.%s", family, op, item, field)
 }
-func helperCounts(r *oracle.Reader, w box2d.World, family string, op int) {
+func helperCounts(r *oracle.Reader, w *box2d.World, family string, op int) {
 	c := w.Counters()
 	r.I32(helperKey(family, op, 0, "bodies"), int32(c.BodyCount))
 	r.I32(helperKey(family, op, 0, "shapes"), int32(c.ShapeCount))
@@ -27,7 +27,7 @@ func observeHumanHelper(r *oracle.Reader, h *Human, op int) {
 		key := func(field string) string { return helperKey("human", op, i, field) }
 		r.Bool(key("bodyValid"), b.IsValid())
 		r.Bool(key("jointValid"), j.IsValid())
-		if b.IsNonNull() {
+		if b != (box2d.Body{}) {
 			v := b.LinearVelocity()
 			r.Vec2(key("velocity"), v.X, v.Y)
 			r.F32(key("angular"), b.AngularVelocity())
@@ -42,7 +42,7 @@ func observeHumanHelper(r *oracle.Reader, h *Human, op int) {
 			r.I32(key("shapes"), int32(len(shapes)))
 			for _, s := range shapes {
 				r.I32(key("shapeType"), int32(s.Type()))
-				r.Bool(key("sensor"), s.AreSensorEventsEnabled())
+				r.Bool(key("sensor"), s.SensorEventsEnabled())
 				switch s.Type() {
 				case box2d.CapsuleShape:
 					c := s.Capsule()
@@ -61,11 +61,11 @@ func observeHumanHelper(r *oracle.Reader, h *Human, op int) {
 				}
 			}
 		}
-		if j.IsNonNull() {
+		if j != (box2d.Joint{}) {
 			revolute := box2d.RevoluteJoint{Joint: j}
-			r.Bool(key("motor"), revolute.IsMotorEnabled())
+			r.Bool(key("motor"), revolute.MotorEnabled())
 			r.F32(key("torque"), revolute.MaxMotorTorque())
-			r.Bool(key("spring"), revolute.IsSpringEnabled())
+			r.Bool(key("spring"), revolute.SpringEnabled())
 			r.F32(key("hertz"), revolute.SpringHertz())
 			r.F32(key("damping"), revolute.SpringDampingRatio())
 			a, b := j.LocalFrameA(), j.LocalFrameB()
@@ -77,8 +77,8 @@ func observeHumanHelper(r *oracle.Reader, h *Human, op int) {
 	}
 }
 func rainHelperOutcomes(r *oracle.Reader, def *box2d.WorldDef) {
-	w := box2d.CreateWorld(def)
-	defer w.Destroy()
+	w := box2d.NewWorld(def)
+	defer w.Close()
 	CreateRain(w)
 	var first box2d.Body
 	var firstJoint box2d.Joint
@@ -100,8 +100,8 @@ func rainHelperOutcomes(r *oracle.Reader, def *box2d.WorldDef) {
 	}
 }
 func sleepHelperOutcomes(r *oracle.Reader, def *box2d.WorldDef) {
-	w := box2d.CreateWorld(def)
-	defer w.Destroy()
+	w := box2d.NewWorld(def)
+	defer w.Close()
 	CreateSleep(w)
 	w.Step(float32(1)/60, 4)
 	for i := range sleepPyramidCount {
@@ -112,19 +112,19 @@ func sleepHelperOutcomes(r *oracle.Reader, def *box2d.WorldDef) {
 			r.F32(helperKey("sleep", op, 0, "result"), StepSleep(w, op))
 		}
 		for i := range sleepPyramidCount {
-			r.Bool(helperKey("sleep", op, i, "a"), gSleepData.bodyIDA[i].IsAwake())
-			r.Bool(helperKey("sleep", op, i, "b"), gSleepData.bodyIDB[i].IsAwake())
+			r.Bool(helperKey("sleep", op, i, "a"), gSleepData.bodyIDA[i].Awake())
+			r.Bool(helperKey("sleep", op, i, "b"), gSleepData.bodyIDB[i].Awake())
 		}
 		helperCounts(r, w, "sleep", op)
 	}
 }
 func lifecycleHelperOutcomes(t *testing.T, r *oracle.Reader, def *box2d.WorldDef) {
 	t.Helper()
-	create := func() box2d.World {
-		w := box2d.CreateWorld(def)
+	create := func() *box2d.World {
+		w := box2d.NewWorld(def)
 		t.Cleanup(func() {
 			if w.IsValid() {
-				w.Destroy()
+				w.Close()
 			}
 		})
 		return w
@@ -147,7 +147,7 @@ func lifecycleHelperOutcomes(t *testing.T, r *oracle.Reader, def *box2d.WorldDef
 		s = GetTreeCastBenchmarkStats()
 		r.I32(helperKey("tree", cycle, 0, "retainedNodes"), int32(s.NodeVisits))
 		r.I32(helperKey("tree", cycle, 0, "retainedLeaves"), int32(s.LeafVisits))
-		w.Destroy()
+		w.Close()
 		w = create()
 		CreateTileWorld(w)
 		gTileWorld.groundHead = gTileWorld.groundCount - 1
@@ -167,12 +167,12 @@ func lifecycleHelperOutcomes(t *testing.T, r *oracle.Reader, def *box2d.WorldDef
 		s = GetTileWorldBenchmarkStats()
 		r.I32(helperKey("tile", cycle, 0, "retainedNodes"), int32(s.NodeVisits))
 		r.I32(helperKey("tile", cycle, 0, "retainedLeaves"), int32(s.LeafVisits))
-		w.Destroy()
+		w.Close()
 	}
 }
 func humanHelperOutcomes(r *oracle.Reader, def *box2d.WorldDef) {
-	w := box2d.CreateWorld(def)
-	defer w.Destroy()
+	w := box2d.NewWorld(def)
+	defer w.Close()
 	var h Human
 	CreateHuman(&h, w, box2d.Pos{Y: 5}, 1, .05, 5, .5, 1, nil, true)
 	observeHumanHelper(r, &h, 0)
@@ -214,7 +214,7 @@ func humanHelperOutcomes(r *oracle.Reader, def *box2d.WorldDef) {
 	r.Vec2("human.sparse.hip", v.X, v.Y)
 	v = sparse.Bones[BoneHead].BodyID.LinearVelocity()
 	r.Vec2("human.sparse.head", v.X, v.Y)
-	r.Bool("human.sparse.torsoNull", sparse.Bones[BoneTorso].BodyID.IsNull())
+	r.Bool("human.sparse.torsoNull", sparse.Bones[BoneTorso].BodyID == (box2d.Body{}))
 }
 
 func TestSceneHelperImmediateOutcomesAndNormalRecycle(t *testing.T) {

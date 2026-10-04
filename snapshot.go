@@ -36,9 +36,11 @@ type SnapshotError struct {
 }
 
 var (
-	ErrBadMagic = errors.New("box2d: invalid snapshot magic")
-	ErrVersion  = errors.New("box2d: snapshot version mismatch")
-	ErrLayout   = errors.New("box2d: snapshot layout mismatch")
+	ErrBadMagic = errors.New("box2d: invalid magic")
+	ErrVersion  = errors.New("box2d: version mismatch")
+	ErrLayout   = errors.New("box2d: layout mismatch")
+	ErrCorrupt  = errors.New("box2d: corrupt data")
+	ErrDiverged = errors.New("box2d: replay diverged")
 )
 
 func computeLayoutHash() uint32 {
@@ -195,10 +197,9 @@ func desTree(r *snapReader, tree *DynamicTree) {
 	proxyFreeList := snapRI32(r)
 	ordered := snapRI32(r)
 	valid := nodeEnd >= 2 && nodeEnd&1 == 0 && nodeCapacity >= nodeEnd && proxyCount >= 0 && proxyCapacity >= 1 && proxyCapacity >= proxyCount && snapCheckCount(r, nodeEnd, int(unsafe.Sizeof(TreeNode{})), 28) && snapCheckCount(r, proxyCapacity, 24, 24)
-	tree.Destroy()
 	if !r.ok || !valid {
 		r.ok = false
-		*tree = CreateDynamicTree(0)
+		*tree = NewDynamicTree(0)
 		return
 	}
 	nodeCapacity = int(min(int64(nodeCapacity), 2*int64(nodeEnd)))
@@ -260,7 +261,7 @@ func desGraphColor(r *snapReader, color *graphColor, isOverflow bool) {
 	color.wideConstraintCount = 0
 }
 
-func serWorldConfig(buf *recBuffer, world *world) {
+func serWorldConfig(buf *recBuffer, world *World) {
 	snapWriteVec2(buf, world.gravity)
 	recWF32(buf, world.hitEventThreshold)
 	recWF32(buf, world.restitutionThreshold)
@@ -292,7 +293,7 @@ func serWorldConfig(buf *recBuffer, world *world) {
 	recWU8(buf, flags)
 }
 
-func desWorldConfig(r *snapReader, world *world) {
+func desWorldConfig(r *snapReader, world *World) {
 	snapReadVec2(r, &world.gravity)
 	world.hitEventThreshold = math.Float32frombits(snapRU32(r))
 	world.restitutionThreshold = math.Float32frombits(snapRU32(r))
@@ -315,7 +316,7 @@ func desWorldConfig(r *snapReader, world *world) {
 	world.enableRestitutionPropagation = flags&16 != 0
 }
 
-func serializeWorld(world *world, buf *recBuffer) {
+func serializeWorld(world *World, buf *recBuffer) {
 	snapWU32(buf, snapMagic)
 	snapWU32(buf, snapVersion)
 	snapWU32(buf, computeLayoutHash())
@@ -383,7 +384,7 @@ func serializeWorld(world *world, buf *recBuffer) {
 	}
 }
 
-func freeLiveSimElements(world *world) {
+func freeLiveSimElements(world *World) {
 	for i := range world.chainShapes {
 		world.chainShapes[i].shapeIndices = nil
 	}
@@ -399,7 +400,7 @@ func freeLiveSimElements(world *world) {
 	}
 }
 
-func deserializeIntoShell(r *snapReader, world *world) bool {
+func deserializeIntoShell(r *snapReader, world *World) bool {
 	desWorldConfig(r, world)
 	desIDPool(r, &world.bodyIDPool)
 	desIDPool(r, &world.shapeIDPool)
@@ -511,70 +512,64 @@ func openSnapshotImage(image []byte, size int, r *snapReader) bool {
 }
 
 // Create a new world from a snapshot image. Use this to load a saved world when there is
-// no existing world to restore into. The new world gets a fresh slot and id, so ids held
-// from the origin world will not match it. Host wiring is reset to defaults.
+// no existing world to restore into. Handles held from the origin world do not reference
+// the new world. Host wiring is reset to defaults.
 // A rejected image returns a SnapshotError and releases the new world's resources.
-func CreateWorldFromSnapshot(image []byte, workerCount int) (World, error) {
+func NewWorldFromSnapshot(image []byte, workerCount int) (*World, error) {
 	if err := snapshotHeaderError(image, len(image)); err != nil {
-		return World{}, err
+		return nil, err
 	}
 	var r snapReader
 	openSnapshotImage(image, len(image), &r)
 	def := DefaultWorldDef()
 	def.WorkerCount = workerCount
-	id := CreateWorld(&def)
-	if !id.IsValid() {
-		return World{}, &SnapshotError{Err: errors.New("box2d: cannot create snapshot world")}
-	}
-	world := getWorldFromId(id)
+	world := NewWorld(&def)
 	if !deserializeIntoShell(&r, world) {
-		id.Destroy()
-		return World{}, &SnapshotError{Err: errors.New("box2d: corrupt snapshot payload")}
+		world.Close()
+		return nil, &SnapshotError{Err: ErrCorrupt}
 	}
 	world.preSolveFcn = nil
 	world.customFilterFcn = nil
 	world.userData = nil
-	return id, nil
+	return world, nil
 }
 
-// Restore a world's simulation state from a snapshot image, in place. The world keeps
-// its slot and generation, so this World and any ids held from this same world stay
-// valid for objects that existed at the snapshot instant. Host wiring is preserved.
-// Restore into the same world the snapshot came from to keep held ids valid. Must be
-// called at a step boundary.
+// UnmarshalBinary restores a world's simulation state from a snapshot image, in place. Handles
+// held from this same world stay valid for objects that existed at the snapshot instant. Host
+// wiring is preserved. Restore into the same world the snapshot came from to keep held handles
+// valid. Must be called at a step boundary.
 // On a rejected image (bad magic, version, or layout) the world is left unchanged.
 // A corrupt payload detected after the rebuild begins returns an error and leaves
-// the world unusable, so the caller must destroy it.
-// Destroy remains safe even when only part of the payload was rebuilt.
-func (w World) Restore(image []byte) error {
+// the world unusable, so the caller must close it.
+// Close remains safe even when only part of the payload was rebuilt.
+func (w *World) UnmarshalBinary(image []byte) error {
 	if err := snapshotHeaderError(image, len(image)); err != nil {
 		return err
 	}
 	var r snapReader
 	openSnapshotImage(image, len(image), &r)
-	world := getWorldFromId(w)
-	assert(!world.locked, "world->locked == false")
-	if world.locked {
-		return &SnapshotError{Err: errors.New("box2d: world locked")}
-	}
+	world := w
+	checkInput(!world.locked, "world->locked == false")
 	freeLiveSimElements(world)
 	if !deserializeIntoShell(&r, world) {
-		return &SnapshotError{Err: errors.New("box2d: corrupt snapshot payload")}
+		return &SnapshotError{Err: ErrCorrupt}
 	}
 	return nil
 }
 
-// Write a snapshot of the world's simulation state into a caller-owned byte slice.
-// Must be called at a step boundary.
-func (w World) Snapshot() []byte {
-	world := getWorldFromId(w)
-	assert(!world.locked, "world->locked == false")
-	if world.locked {
-		return nil
-	}
-	buf := recBuffer{}
-	serializeWorld(world, &buf)
-	return buf.data[:buf.size]
+// AppendBinary appends a snapshot of the world's simulation state to b. Must be called at a
+// step boundary.
+func (w *World) AppendBinary(b []byte) ([]byte, error) {
+	checkInput(!w.locked, "world->locked == false")
+	buf := recBuffer{data: b[:cap(b)], capacity: cap(b), size: len(b)}
+	serializeWorld(w, &buf)
+	return buf.data[:buf.size], nil
+}
+
+// MarshalBinary returns a snapshot of the world's simulation state. Must be called at a step
+// boundary.
+func (w *World) MarshalBinary() ([]byte, error) {
+	return w.AppendBinary(nil)
 }
 
 func fnvMixBytes(hash uint64, data []byte, n int) uint64 {
@@ -592,7 +587,7 @@ func fnvMixInt(hash uint64, v int) uint64 {
 	return (hash ^ uint64(uint32(v))) * snapFNVPrime
 }
 
-func hashWorldStateDeep(world *world) uint64 {
+func hashWorldStateDeep(world *World) uint64 {
 	hash := snapFNVInit
 	for i := range world.bodies {
 		b := &world.bodies[i]
@@ -716,8 +711,8 @@ func hashWorldStateDeep(world *world) uint64 {
 // counts and ignores struct padding and free slots, so two worlds that simulate identically always
 // agree. Use this to detect desyncs (for example rollback resimulation) instead of comparing
 // serialized world bytes, which carry non-canonical padding.
-func (r World) StateHash() uint64 {
-	return hashWorldStateDeep(getWorldFromId(r))
+func (r *World) StateHash() uint64 {
+	return hashWorldStateDeep(r)
 }
 
 func (e *SnapshotError) Error() string {
@@ -2024,7 +2019,7 @@ func snapReadCount(r *snapReader, memSize, streamSize int) int {
 }
 func snapshotHeaderError(image []byte, size int) error {
 	if size < 16 || size > len(image) {
-		return &SnapshotError{Err: errors.New("box2d: truncated snapshot header")}
+		return &SnapshotError{Err: ErrCorrupt}
 	}
 	if binary.LittleEndian.Uint32(image) != snapMagic {
 		return &SnapshotError{Err: ErrBadMagic}

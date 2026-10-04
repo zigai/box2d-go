@@ -66,7 +66,7 @@ func TestShapePublicHullAndConstructors(t *testing.T) {
 	o := oracle.Open(t, "shape_public/HullAndConstructors")
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := box2d.ComputeHull(tc.points, tc.count)
+			h := box2d.ComputeHull(tc.points[:tc.count])
 			o.I32(tc.name+"/count", int32(h.Count))
 			for i := range h.Count {
 				o.Vec2(fmt.Sprintf("%s/point/%d", tc.name, i), h.Points[i].X, h.Points[i].Y)
@@ -101,7 +101,7 @@ func TestShapePublicMass(t *testing.T) {
 		{Center1: box2d.Vec2{2, -3}, Center2: box2d.Vec2{5, 1}, Radius: 0.75},
 		{Center1: box2d.Vec2{1, 2}, Center2: box2d.Vec2{1, 2}, Radius: 0.5},
 	}
-	h := box2d.ComputeHull([]box2d.Vec2{{0, 2}, {-2, -1}, {2, -1}}, 3)
+	h := box2d.ComputeHull([]box2d.Vec2{{0, 2}, {-2, -1}, {2, -1}})
 	if !box2d.ValidateHull(&h) {
 		t.Fatal("mass input triangle hull is invalid")
 	}

@@ -17,14 +17,14 @@ func TestSceneHelperBoundaries(t *testing.T) {
 	t.Cleanup(func() { gRainData, gQueryBenchmark, gRandomSeed = rain, queries, seed })
 	gRandomSeed = randSeed
 	def := box2d.DefaultWorldDef()
-	cleanupWorld := func(id box2d.World) {
+	cleanupWorld := func(id *box2d.World) {
 		t.Cleanup(func() {
 			if id.IsValid() {
-				id.Destroy()
+				id.Close()
 			}
 		})
 	}
-	world := box2d.CreateWorld(&def)
+	world := box2d.NewWorld(&def)
 	cleanupWorld(world)
 	r := oracle.Open(t, "scenes/Helpers")
 	counts := func(step int) {
@@ -83,8 +83,8 @@ func TestSceneHelperBoundaries(t *testing.T) {
 	if !(gRainData.columnIndex == 0 && gRainData.columnCount == rainColumnCount) {
 		t.Fatal("condition false")
 	}
-	world.Destroy()
-	world = box2d.CreateWorld(&def)
+	world.Close()
+	world = box2d.NewWorld(&def)
 	cleanupWorld(world)
 	CreateQueries(world)
 	positions := [4]float32{gQueryBenchmark.paddleMaxX + 1, gQueryBenchmark.paddleMaxX, gQueryBenchmark.paddleMinX - 1, gQueryBenchmark.paddleMinX}
@@ -93,7 +93,7 @@ func TestSceneHelperBoundaries(t *testing.T) {
 		if i >= 2 {
 			velocity = -5
 		}
-		gQueryBenchmark.paddleID.SetTransform(box2d.ToPos(box2d.Vec2{X: x}), box2d.Rot{C: 1})
+		gQueryBenchmark.paddleID.SetTransform(box2d.Vec2{X: x}.Pos(), box2d.Rot{C: 1})
 		gQueryBenchmark.paddleID.SetLinearVelocity(box2d.Vec2{X: velocity})
 		r.F32(fmt.Sprintf("%d.q", i), StepQueries(world, i))
 		p := gQueryBenchmark.paddleID.Position()

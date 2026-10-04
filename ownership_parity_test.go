@@ -14,7 +14,7 @@ import (
 )
 
 type ownershipScene struct {
-	w      box2d.World
+	w      *box2d.World
 	bodies [12]box2d.Body
 	shapes [14]box2d.Shape
 	joint  box2d.Joint
@@ -32,7 +32,7 @@ func newOwnershipScene(t *testing.T, variant, workers int, enqueue box2d.Enqueue
 		wd.Gravity = box2d.Vec2{X: 2, Y: -6}
 	}
 	wd.UserData = variant
-	s.w = box2d.CreateWorld(&wd)
+	s.w = box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, s.w)
 	bd := box2d.DefaultBodyDef()
 	bd.Position = box2d.Pos{Y: -0.5}
@@ -51,7 +51,7 @@ func newOwnershipScene(t *testing.T, variant, workers int, enqueue box2d.Enqueue
 	box = box2d.MakeBox(0.4, 0.4)
 	bd.Type = box2d.DynamicBody
 	for i := range 12 {
-		bd.Position = box2d.ToPos(box2d.Vec2{X: float32(i%4-2) * 1.1, Y: 0.5 + float32(float32(i/4)*1.1)})
+		bd.Position = box2d.Vec2{X: float32(i%4-2) * 1.1, Y: 0.5 + float32(float32(i/4)*1.1)}.Pos()
 		bd.LinearVelocity = box2d.Vec2{X: -0.2}
 		if variant == 1 {
 			bd.LinearVelocity.X = 0.3
@@ -76,20 +76,20 @@ func observeOwnershipScene(r *oracle.Reader, s ownershipScene, step int) {
 		r.Rot("rotation", q.C, q.S)
 		r.Vec2("velocity", v.X, v.Y)
 		r.F32("angular", b.AngularVelocity())
-		r.Bool("awake", b.IsAwake())
+		r.Bool("awake", b.Awake())
 	}
 	begins := slices.Collect(s.w.ContactBeginEvents())
 	r.I32("begin.count", int32(len(begins)))
 	for _, e := range begins {
-		r.U64("begin.a", lifecycleShapeKey(e.ShapeIDA))
-		r.U64("begin.b", lifecycleShapeKey(e.ShapeIDB))
-		id := e.ContactID.Store()
-		r.U32("begin.contact.index", id[0])
-		r.U32("begin.contact.generation", id[2])
-		valid := e.ContactID.IsValid()
+		r.U64("begin.a", lifecycleShapeKey(e.ShapeA))
+		r.U64("begin.b", lifecycleShapeKey(e.ShapeB))
+		id := e.Contact.ID()
+		r.U32("begin.contact.index", uint32(id>>32))
+		r.U32("begin.contact.generation", uint32(id))
+		valid := e.Contact.IsValid()
 		r.Bool("begin.contact.valid", valid)
 		if valid {
-			data := e.ContactID.Data()
+			data := e.Contact.Data()
 			r.Vec2("begin.normal", data.Manifold.Normal.X, data.Manifold.Normal.Y)
 			r.I32("begin.points", int32(data.Manifold.PointCount))
 		}
@@ -97,21 +97,21 @@ func observeOwnershipScene(r *oracle.Reader, s ownershipScene, step int) {
 	ends := slices.Collect(s.w.ContactEndEvents())
 	r.I32("end.count", int32(len(ends)))
 	for _, e := range ends {
-		r.U64("end.a", lifecycleShapeKey(e.ShapeIDA))
-		r.U64("end.b", lifecycleShapeKey(e.ShapeIDB))
-		id := e.ContactID.Store()
-		r.U32("end.contact.index", id[0])
-		r.U32("end.contact.generation", id[2])
-		r.Bool("end.contact.valid", e.ContactID.IsValid())
+		r.U64("end.a", lifecycleShapeKey(e.ShapeA))
+		r.U64("end.b", lifecycleShapeKey(e.ShapeB))
+		id := e.Contact.ID()
+		r.U32("end.contact.index", uint32(id>>32))
+		r.U32("end.contact.generation", uint32(id))
+		r.Bool("end.contact.valid", e.Contact.IsValid())
 	}
 	hits := slices.Collect(s.w.ContactHitEvents())
 	r.I32("hit.count", int32(len(hits)))
 	for _, e := range hits {
-		r.U64("hit.a", lifecycleShapeKey(e.ShapeIDA))
-		r.U64("hit.b", lifecycleShapeKey(e.ShapeIDB))
-		id := e.ContactID.Store()
-		r.U32("hit.contact.index", id[0])
-		r.U32("hit.contact.generation", id[2])
+		r.U64("hit.a", lifecycleShapeKey(e.ShapeA))
+		r.U64("hit.b", lifecycleShapeKey(e.ShapeB))
+		id := e.Contact.ID()
+		r.U32("hit.contact.index", uint32(id>>32))
+		r.U32("hit.contact.generation", uint32(id))
 		r.Pos("hit.point", e.Point.X, e.Point.Y)
 		r.Vec2("hit.normal", e.Normal.X, e.Normal.Y)
 		r.F32("hit.speed", e.ApproachSpeed)
@@ -119,19 +119,19 @@ func observeOwnershipScene(r *oracle.Reader, s ownershipScene, step int) {
 	sb := slices.Collect(s.w.SensorBeginEvents())
 	r.I32("sensor.begin.count", int32(len(sb)))
 	for _, e := range sb {
-		r.U64("sensor.begin.sensor", lifecycleShapeKey(e.SensorShapeID))
-		r.U64("sensor.begin.visitor", lifecycleShapeKey(e.VisitorShapeID))
+		r.U64("sensor.begin.sensor", lifecycleShapeKey(e.SensorShape))
+		r.U64("sensor.begin.visitor", lifecycleShapeKey(e.VisitorShape))
 	}
 	se := slices.Collect(s.w.SensorEndEvents())
 	r.I32("sensor.end.count", int32(len(se)))
 	for _, e := range se {
-		r.U64("sensor.end.sensor", lifecycleShapeKey(e.SensorShapeID))
-		r.U64("sensor.end.visitor", lifecycleShapeKey(e.VisitorShapeID))
+		r.U64("sensor.end.sensor", lifecycleShapeKey(e.SensorShape))
+		r.U64("sensor.end.visitor", lifecycleShapeKey(e.VisitorShape))
 	}
 	moves := slices.Collect(s.w.BodyMoveEvents())
 	r.I32("move.count", int32(len(moves)))
 	for _, e := range moves {
-		r.U64("move.body", lifecycleBodyKey(e.BodyID))
+		r.U64("move.body", lifecycleBodyKey(e.Body))
 		r.Pos("move.position", e.Transform.P.X, e.Transform.P.Y)
 		r.Rot("move.rotation", e.Transform.Q.C, e.Transform.Q.S)
 		r.Bool("move.sleep", e.FellAsleep)
@@ -153,7 +153,7 @@ func TestOwnershipWorkerReconfiguration(t *testing.T) {
 					s.w.Step(1.0/60, 4)
 					observeOwnershipScene(r, s, step)
 				}
-				s.w.Destroy()
+				s.w.Close()
 			})
 		}
 	}
@@ -181,7 +181,7 @@ func TestOwnershipSynchronousNilFinish(t *testing.T) {
 	if enqueued.Load() == 0 {
 		t.Fatal("public Step never scheduled caller work")
 	}
-	s.w.Destroy()
+	s.w.Close()
 	if enqueued.Load() != completed.Load() {
 		t.Fatal("destroy left owned work incomplete")
 	}
@@ -267,7 +267,7 @@ func TestOwnershipAsyncStepWaitsForExplicitRelease(t *testing.T) {
 		}
 		observeOwnershipScene(r, s, step)
 	}
-	s.w.Destroy()
+	s.w.Close()
 	tasks.Wait()
 }
 func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
@@ -300,7 +300,7 @@ func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
 				}
 				observeOwnershipScene(r, s, step)
 			}
-			s.w.Destroy()
+			s.w.Close()
 			tasks.Wait()
 			if enqueued.Load() == 0 || enqueued.Load() != completed.Load() {
 				t.Fatalf("destroy completion: enqueued=%d completed=%d", enqueued.Load(), completed.Load())
@@ -368,7 +368,7 @@ func TestOwnershipConcurrentWorldsAgainstIndependentC(t *testing.T) {
 		if step == 24 {
 			temporary := newOwnershipScene(t, 0, 2, nil)
 			temporary.w.Step(1.0/60, 4)
-			temporary.w.Destroy()
+			temporary.w.Close()
 		}
 		release()
 		for variant := range 2 {

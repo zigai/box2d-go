@@ -735,13 +735,16 @@ static int RecordReplayTest( void )
 	int size = b2Recording_GetSize( recording );
 	ORACLE_BOOL( "check.462", size > 0 );
 	ENSURE( size > 0 );
+	// Rejections while recording. Replaying re-rejects the recorded failed creates, which the Go
+	// port never records because a rejected create panics before it returns.
+	int recordedRejects = logCount;
 	bool replay0 = b2ValidateReplay( data, size, 0 );
 	ENSURE( replay0 );
-	ORACLE_I32( "check.463", logCount );
+	ORACLE_I32( "check.463", recordedRejects );
 	ORACLE_BOOL( "check.463.result", replay0 );
 	bool replay4 = b2ValidateReplay( data, size, 4 );
 	ENSURE( replay4 );
-	ORACLE_I32( "check.464", logCount );
+	ORACLE_I32( "check.464", recordedRejects );
 	ORACLE_BOOL( "check.464.result", replay4 );
 
 	EndRejectCount();

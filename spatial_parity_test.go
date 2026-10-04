@@ -19,8 +19,7 @@ func spatialStats(r *oracle.Reader, s TreeStats) {
 }
 func TestPublicTreeHistory(t *testing.T) {
 	r := oracle.Open(t, "spatial/PublicTreeHistory")
-	tree := CreateDynamicTree(4)
-	defer tree.Destroy()
+	tree := NewDynamicTree(4)
 	var ids [4]int
 	var live [4]bool
 	observe := func() {
@@ -97,8 +96,7 @@ func TestPublicTreeHistory(t *testing.T) {
 }
 func TestTreeCallbackForwarding(t *testing.T) {
 	r := oracle.Open(t, "spatial/TreeCallbackForwarding")
-	tree := CreateDynamicTree(4)
-	defer tree.Destroy()
+	tree := NewDynamicTree(4)
 	for i := range 3 {
 		tree.CreateProxy(AABB{Vec2{.5 + float32(.25*float32(i)), -1}, Vec2{.75 + float32(.25*float32(i)), 1}}, 1, uint64(100+i))
 	}
@@ -150,7 +148,7 @@ type spatialHit struct {
 type spatialHits struct {
 	hits   []spatialHit
 	policy int
-	world  World
+	world  *World
 }
 
 func (h *spatialHits) overlap(id Shape) bool {
@@ -174,10 +172,10 @@ func (h *spatialHits) plane(id Shape, p *PlaneResult) bool {
 	h.hits = append(h.hits, spatialHit{id: id, plane: *p})
 	return h.policy != 2
 }
-func spatialIdentity(r *oracle.Reader, id Shape, w World) {
+func spatialIdentity(r *oracle.Reader, id Shape, w *World) {
 	r.I32("shape/index", id.index1)
 	r.U32("shape/generation", uint32(id.generation))
-	r.Bool("shape/owner", id.world0 == w.index1-1)
+	r.Bool("shape/owner", id.world == w)
 }
 func (h *spatialHits) observe(r *oracle.Reader, payload int) {
 	if h.policy < 2 {
@@ -199,7 +197,7 @@ func (h *spatialHits) observe(r *oracle.Reader, payload int) {
 		}
 	}
 }
-func spatialInspect(r *oracle.Reader, w World) {
+func spatialInspect(r *oracle.Reader, w *World) {
 	c := w.Counters()
 	r.I32("bodies", int32(c.BodyCount))
 	r.I32("shapes", int32(c.ShapeCount))
@@ -233,7 +231,7 @@ func TestWorldSpatialParity(t *testing.T) {
 			wd := DefaultWorldDef()
 			wd.Gravity = Vec2{}
 			wd.WorkerCount = 1
-			w := CreateWorld(&wd)
+			w := NewWorld(&wd)
 			BTWorldCleanup(t, w)
 			spatialInspect(r, w)
 			all := QueryFilter{math.MaxUint64, math.MaxUint64}
@@ -254,7 +252,7 @@ func TestWorldSpatialParity(t *testing.T) {
 			var shapes [8]Shape
 			for i := range 5 {
 				bd := DefaultBodyDef()
-				bd.Position = OffsetPos(base, Vec2{3 * float32(i), 0})
+				bd.Position = base.Add(Vec2{3 * float32(i), 0})
 				if i < 3 {
 					bd.Type = BodyType(i)
 				}
@@ -281,7 +279,6 @@ func TestWorldSpatialParity(t *testing.T) {
 				case 4:
 					cd := DefaultChainDef()
 					cd.Points = []Vec2{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}
-					cd.PointCount = 4
 					cd.IsLoop = true
 					cd.Filter = sd.Filter
 					chain := bodies[i].CreateChain(&cd)
@@ -305,7 +302,7 @@ func TestWorldSpatialParity(t *testing.T) {
 					h.observe(r, 0)
 				}
 				for i := range 5 {
-					origin := OffsetPos(base, Vec2{3 * float32(i), 0})
+					origin := base.Add(Vec2{3 * float32(i), 0})
 					h = spatialHits{world: w}
 					spatialStats(r, w.OverlapShape(origin, &proxy, filter, h.overlap))
 					h.observe(r, 0)
@@ -318,7 +315,7 @@ func TestWorldSpatialParity(t *testing.T) {
 					if start == 2 {
 						offset.Y = 4
 					}
-					origin := OffsetPos(base, offset)
+					origin := base.Add(offset)
 					for policy := range 4 {
 						h = spatialHits{world: w, policy: policy}
 						spatialStats(r, w.CastRay(origin, Vec2{18, 0}, filter, h.cast))
@@ -331,7 +328,7 @@ func TestWorldSpatialParity(t *testing.T) {
 					r.Bool("closest/hit", rr.Hit)
 					spatialStats(r, TreeStats{rr.NodeVisits, rr.LeafVisits})
 					if rr.Hit {
-						spatialIdentity(r, rr.ShapeID, w)
+						spatialIdentity(r, rr.Shape, w)
 						r.Pos("point", rr.Point.X, rr.Point.Y)
 						r.Vec2("normal", rr.Normal.X, rr.Normal.Y)
 						r.F32("fraction", rr.Fraction)
@@ -341,12 +338,12 @@ func TestWorldSpatialParity(t *testing.T) {
 			for i := range 8 {
 				x := 3 * float32(min(i, 4))
 				spatialIdentity(r, shapes[i], w)
-				r.Bool("inside", shapes[i].TestPoint(OffsetPos(base, Vec2{x, 0})))
-				r.Bool("outside", shapes[i].TestPoint(OffsetPos(base, Vec2{x, 4})))
+				r.Bool("inside", shapes[i].TestPoint(base.Add(Vec2{x, 0})))
+				r.Bool("outside", shapes[i].TestPoint(base.Add(Vec2{x, 4})))
 				origins := []Vec2{{x - 2, 0}, {x + 2, 0}, {x, -2}, {x, 2}}
 				translations := []Vec2{{4, 0}, {-4, 0}, {0, 4}, {0, -4}}
 				for direction := range 4 {
-					out := shapes[i].RayCast(OffsetPos(base, origins[direction]), translations[direction])
+					out := shapes[i].RayCast(base.Add(origins[direction]), translations[direction])
 					r.Bool("local/hit", out.Hit)
 					if out.Hit {
 						r.Pos("point", out.Point.X, out.Point.Y)
@@ -358,7 +355,7 @@ func TestWorldSpatialParity(t *testing.T) {
 			}
 			for i := range 5 {
 				mover := Capsule{Vec2{0, -.25}, Vec2{0, .25}, .4}
-				origin := OffsetPos(base, Vec2{float32(3*float32(i)) + .7, 0})
+				origin := base.Add(Vec2{float32(3*float32(i)) + .7, 0})
 				for stop := range 2 {
 					policy := 0
 					if stop != 0 {
@@ -394,9 +391,9 @@ func TestWorldSpatialParity(t *testing.T) {
 					clip := ClipVector(Vec2{-2, .3}, planes)
 					r.Vec2("clip", clip.X, clip.Y)
 				}
-				r.F32("mover/fraction", w.CastMover(OffsetPos(base, Vec2{float32(3*float32(i)) - 2, 0}), &mover, Vec2{4, 0}, all))
+				r.F32("mover/fraction", w.CastMover(base.Add(Vec2{float32(3*float32(i)) - 2, 0}), &mover, Vec2{4, 0}, all))
 			}
-			bodies[2].SetTransform(OffsetPos(base, Vec2{6, 2}), MakeRot(.25))
+			bodies[2].SetTransform(base.Add(Vec2{6, 2}), MakeRot(.25))
 			spatialInspect(r, w)
 			w.Step(float32(1)/60, 4)
 			spatialInspect(r, w)
@@ -427,7 +424,7 @@ func TestWorldMoverPlanesResolveAndClip(t *testing.T) {
 				wd := DefaultWorldDef()
 				wd.Gravity = Vec2{}
 				wd.WorkerCount = 1
-				w := CreateWorld(&wd)
+				w := NewWorld(&wd)
 				BTWorldCleanup(t, w)
 				filter := QueryFilter{2, 1 << 63}
 				if scenario != 0 {
@@ -458,7 +455,7 @@ func TestWorldMoverPlanesResolveAndClip(t *testing.T) {
 				if scenario == 3 {
 					offset.Y = -.25
 				}
-				origin := OffsetPos(base, offset)
+				origin := base.Add(offset)
 				h := spatialHits{world: w}
 				w.CollideMover(origin, &mover, filter, h.plane)
 				h.observe(r, 2)
@@ -487,7 +484,7 @@ func TestWorldMoverPlanesResolveAndClip(t *testing.T) {
 				}
 				r.F32("cast", w.CastMover(origin, &mover, Vec2{2, -1}, filter))
 				r.F32("filteredCast", w.CastMover(origin, &mover, Vec2{2, -1}, QueryFilter{1, 1 << 63}))
-				w.Destroy()
+				w.Close()
 			}
 		})
 	}

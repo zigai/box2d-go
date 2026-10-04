@@ -97,8 +97,8 @@ var gQueryRandomState uint32
 var gTreeCast treeCastBenchmark
 var gTileWorld tileWorldBenchmark
 
-func CreateJointGrid(worldID box2d.World) {
-	worldID.EnableSleeping(false)
+func CreateJointGrid(worldID *box2d.World) {
+	worldID.SetSleepingEnabled(false)
 	var N int = 100
 	var bodies []box2d.Body = make([]box2d.Body, N*N)
 	var index int = 0
@@ -119,19 +119,19 @@ func CreateJointGrid(worldID box2d.World) {
 			} else {
 				bodyDef.Type = box2d.DynamicBody
 			}
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: fk, Y: -fi})
+			bodyDef.Position = box2d.Vec2{X: fk, Y: -fi}.Pos()
 			var body box2d.Body = worldID.CreateBody(&bodyDef)
 			body.CreateCircleShape(&shapeDef, &circle)
 			if i > 0 {
-				jointDef.Base.BodyIDA = bodies[index-1]
-				jointDef.Base.BodyIDB = body
+				jointDef.Base.BodyA = bodies[index-1]
+				jointDef.Base.BodyB = body
 				jointDef.Base.LocalFrameA.P = box2d.Vec2{X: float32(0.0), Y: -float32(0.5)}
 				jointDef.Base.LocalFrameB.P = box2d.Vec2{X: float32(0.0), Y: float32(0.5)}
 				worldID.CreateRevoluteJoint(&jointDef)
 			}
 			if k > 0 {
-				jointDef.Base.BodyIDA = bodies[index-N]
-				jointDef.Base.BodyIDB = body
+				jointDef.Base.BodyA = bodies[index-N]
+				jointDef.Base.BodyB = body
 				jointDef.Base.LocalFrameA.P = box2d.Vec2{X: float32(0.5), Y: float32(0.0)}
 				jointDef.Base.LocalFrameB.P = box2d.Vec2{X: -float32(0.5), Y: float32(0.0)}
 				worldID.CreateRevoluteJoint(&jointDef)
@@ -142,12 +142,12 @@ func CreateJointGrid(worldID box2d.World) {
 	}
 }
 
-func CreateLargePyramid(worldID box2d.World) {
-	worldID.EnableSleeping(false)
+func CreateLargePyramid(worldID *box2d.World) {
+	worldID.SetSleepingEnabled(false)
 	var baseCount int = 100
 	{
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: float32(0.0), Y: -float32(1.0)})
+		bodyDef.Position = box2d.Vec2{X: float32(0.0), Y: -float32(1.0)}.Pos()
 		var groundID box2d.Body = worldID.CreateBody(&bodyDef)
 		var box box2d.Polygon = box2d.MakeBox(float32(100.0), float32(1.0))
 		var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
@@ -164,14 +164,14 @@ func CreateLargePyramid(worldID box2d.World) {
 		var y float32 = (float32(float32(2.0)*float32(i)) + float32(1.0)) * shift
 		for j := i; j < baseCount; j++ {
 			var x float32 = float32((float32(i)+float32(1.0))*shift) + float32(float32(2.0)*(float32(j)-float32(i))*shift) - float32(a*float32(baseCount))
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
 		}
 	}
 }
 
-func createSmallPyramid(worldID box2d.World, baseCount int, extent, centerX, baseY float32) {
+func createSmallPyramid(worldID *box2d.World, baseCount int, extent, centerX, baseY float32) {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
@@ -180,15 +180,15 @@ func createSmallPyramid(worldID box2d.World, baseCount int, extent, centerX, bas
 		var y float32 = float32((float32(float32(2.0)*float32(i))+float32(1.0))*extent) + baseY
 		for j := i; j < baseCount; j++ {
 			var x float32 = float32((float32(i)+float32(1.0))*extent) + float32(float32(2.0)*(float32(j)-float32(i))*extent) + centerX - float32(0.5)
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
 		}
 	}
 }
 
-func CreateManyPyramids(worldID box2d.World) {
-	worldID.EnableSleeping(false)
+func CreateManyPyramids(worldID *box2d.World) {
+	worldID.SetSleepingEnabled(false)
 	var baseCount int = 10
 	var extent float32 = float32(0.5)
 	var rowCount int = 20
@@ -220,7 +220,7 @@ func GetManyPyramidsCapacity() box2d.Capacity {
 	return c
 }
 
-func CreateRain(worldID box2d.World) {
+func CreateRain(worldID *box2d.World) {
 	gRainData = rainData{}
 	gRainData.gridSize = float32(0.5)
 	gRainData.gridCount = 500
@@ -245,7 +245,7 @@ func CreateRain(worldID box2d.World) {
 	gRainData.columnIndex = 0
 }
 
-func CreateGroup(worldID box2d.World, rowIndex, columnIndex int) {
+func CreateGroup(worldID *box2d.World, rowIndex, columnIndex int) {
 	if !(rowIndex < rainRowCount && columnIndex < rainColumnCount) {
 		panic(&box2d.AssertError{Condition: "rowIndex < RAIN_ROW_COUNT && columnIndex < RAIN_COLUMN_COUNT"})
 	}
@@ -253,8 +253,8 @@ func CreateGroup(worldID box2d.World, rowIndex, columnIndex int) {
 	var span float32 = float32(gRainData.gridCount) * gRainData.gridSize
 	var groupDistance float32 = float32(1.0) * span / float32(rainColumnCount)
 	var position box2d.Pos
-	position.X = box2d.ToPos(box2d.Vec2{X: float32(-float32(0.5)*span) + float32(groupDistance*(float32(columnIndex)+float32(0.5)))}).X
-	position.Y = box2d.ToPos(box2d.Vec2{Y: float32(40.0) + float32(float32(45.0)*float32(rowIndex))}).Y
+	position.X = box2d.Vec2{X: float32(-float32(0.5)*span) + float32(groupDistance*(float32(columnIndex)+float32(0.5)))}.Pos().X
+	position.Y = box2d.Vec2{Y: float32(40.0) + float32(float32(45.0)*float32(rowIndex))}.Pos().Y
 	var scale float32 = float32(1.0)
 	var jointFriction float32 = float32(0.05)
 	var jointHertz float32 = float32(5.0)
@@ -276,7 +276,7 @@ func DestroyGroup(rowIndex, columnIndex int) {
 	}
 }
 
-func StepRain(worldID box2d.World, stepCount int) float32 {
+func StepRain(worldID *box2d.World, stepCount int) float32 {
 	var delay int = 0x7
 	if (stepCount & delay) == 0 {
 		if gRainData.columnCount < rainColumnCount {
@@ -295,7 +295,7 @@ func StepRain(worldID box2d.World, stepCount int) float32 {
 	return float32(0.0)
 }
 
-func CreateSpinner(worldID box2d.World) {
+func CreateSpinner(worldID *box2d.World) {
 	var groundID box2d.Body
 	{
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -305,22 +305,20 @@ func CreateSpinner(worldID box2d.World) {
 		var p box2d.Vec2 = box2d.Vec2{X: float32(40.0), Y: float32(0.0)}
 		for i := 0; i < spinnerPointCount; i++ {
 			points[i] = box2d.Vec2{X: p.X, Y: p.Y + float32(32.0)}
-			p = box2d.RotateVector(q, p)
+			p = q.Rotate(p)
 		}
 		var material box2d.SurfaceMaterial = box2d.SurfaceMaterial{}
 		material.Friction = float32(0.1)
 		var chainDef box2d.ChainDef = box2d.DefaultChainDef()
 		chainDef.Points = points[:]
-		chainDef.PointCount = spinnerPointCount
 		chainDef.IsLoop = true
 		chainDef.Materials = []box2d.SurfaceMaterial{material}
-		chainDef.MaterialCount = 1
 		groundID.CreateChain(&chainDef)
 	}
 	{
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: 0.0, Y: float32(12.0)})
+		bodyDef.Position = box2d.Vec2{X: 0.0, Y: float32(12.0)}.Pos()
 		bodyDef.EnableSleep = false
 		var spinnerID box2d.Body = worldID.CreateBody(&bodyDef)
 		var box box2d.Polygon = box2d.MakeRoundedBox(float32(0.4), float32(20.0), float32(0.2))
@@ -330,8 +328,8 @@ func CreateSpinner(worldID box2d.World) {
 		var motorSpeed float32 = float32(5.0)
 		var maxMotorTorque float32 = float32(math.MaxFloat32)
 		var jointDef box2d.RevoluteJointDef = box2d.DefaultRevoluteJointDef()
-		jointDef.Base.BodyIDA = groundID
-		jointDef.Base.BodyIDB = spinnerID
+		jointDef.Base.BodyA = groundID
+		jointDef.Base.BodyB = spinnerID
 		jointDef.Base.LocalFrameA.P = groundID.LocalPoint(bodyDef.Position)
 		jointDef.EnableMotor = true
 		jointDef.MotorSpeed = motorSpeed
@@ -351,7 +349,7 @@ func CreateSpinner(worldID box2d.World) {
 	var x float32 = -float32(23.0)
 	var y float32 = float32(2.0)
 	for i := 0; i < bodyCount; i++ {
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x, Y: y})
+		bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 		var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 		var remainder int = i % 3
 		if remainder == 0 {
@@ -369,17 +367,17 @@ func CreateSpinner(worldID box2d.World) {
 	}
 }
 
-func StepSpinner(worldID box2d.World, stepCount int) float32 {
+func StepSpinner(worldID *box2d.World, stepCount int) float32 {
 	return box2d.RevoluteJoint{Joint: gSpinnerData.spinnerID}.Angle()
 }
 
-func CreateSmash(worldID box2d.World) {
+func CreateSmash(worldID *box2d.World) {
 	worldID.SetGravity(box2d.Vec2{})
 	{
 		var box box2d.Polygon = box2d.MakeBox(float32(4.0), float32(4.0))
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: -float32(20.0), Y: float32(0.0)})
+		bodyDef.Position = box2d.Vec2{X: -float32(20.0), Y: float32(0.0)}.Pos()
 		bodyDef.LinearVelocity = box2d.Vec2{X: float32(40.0), Y: float32(0.0)}
 		var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 		var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
@@ -396,15 +394,15 @@ func CreateSmash(worldID box2d.World) {
 	var rows int = 80
 	for i := 0; i < columns; i++ {
 		for j := 0; j < rows; j++ {
-			bodyDef.Position.X = box2d.ToPos(box2d.Vec2{X: float32(float32(i)*d) + float32(30.0)}).X
-			bodyDef.Position.Y = box2d.ToPos(box2d.Vec2{Y: (float32(j) - float32(rows)/float32(2.0)) * d}).Y
+			bodyDef.Position.X = box2d.Vec2{X: float32(float32(i)*d) + float32(30.0)}.Pos().X
+			bodyDef.Position.Y = box2d.Vec2{Y: (float32(j) - float32(rows)/float32(2.0)) * d}.Pos().Y
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
 		}
 	}
 }
 
-func CreateTumbler(worldID box2d.World) {
+func CreateTumbler(worldID *box2d.World) {
 	var groundID box2d.Body
 	{
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -413,7 +411,7 @@ func CreateTumbler(worldID box2d.World) {
 	{
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: float32(0.0), Y: float32(10.0)})
+		bodyDef.Position = box2d.Vec2{X: float32(0.0), Y: float32(10.0)}.Pos()
 		var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 		var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 		shapeDef.Density = float32(50.0)
@@ -428,8 +426,8 @@ func CreateTumbler(worldID box2d.World) {
 		bodyID.CreatePolygonShape(&shapeDef, &polygon)
 		var motorSpeed float32 = float32(25.0)
 		var jointDef box2d.RevoluteJointDef = box2d.DefaultRevoluteJointDef()
-		jointDef.Base.BodyIDA = groundID
-		jointDef.Base.BodyIDB = bodyID
+		jointDef.Base.BodyA = groundID
+		jointDef.Base.BodyB = bodyID
 		jointDef.Base.LocalFrameA.P = box2d.Vec2{X: float32(0.0), Y: float32(10.0)}
 		jointDef.Base.LocalFrameB.P = box2d.Vec2{X: float32(0.0), Y: float32(0.0)}
 		jointDef.MotorSpeed = (box2d.Pi / float32(180.0)) * motorSpeed
@@ -446,7 +444,7 @@ func CreateTumbler(worldID box2d.World) {
 	for i := 0; i < gridCount; i++ {
 		var x float32 = -float32(0.2) * float32(gridCount)
 		for j := 0; j < gridCount; j++ {
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &polygon)
 			x += float32(0.4)
@@ -455,7 +453,7 @@ func CreateTumbler(worldID box2d.World) {
 	}
 }
 
-func CreateWasher(worldID box2d.World) {
+func CreateWasher(worldID *box2d.World) {
 	var kinematic bool = true
 	var groundID box2d.Body
 	{
@@ -465,7 +463,7 @@ func CreateWasher(worldID box2d.World) {
 	{
 		var motorSpeed float32 = float32(25.0)
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: float32(0.0), Y: float32(10.0)})
+		bodyDef.Position = box2d.Vec2{X: float32(0.0), Y: float32(10.0)}.Pos()
 		if kinematic == true {
 			bodyDef.Type = box2d.KinematicBody
 			bodyDef.AngularVelocity = (box2d.Pi / float32(180.0)) * motorSpeed
@@ -489,27 +487,27 @@ func CreateWasher(worldID box2d.World) {
 			if i == 35 {
 				u2 = box2d.Vec2{X: float32(1.0), Y: float32(0.0)}
 			} else {
-				u2 = box2d.RotateVector(q, u1)
+				u2 = q.Rotate(u1)
 			}
 			{
-				var a1 box2d.Vec2 = box2d.InvRotateVector(qo, u1)
-				var a2 box2d.Vec2 = box2d.RotateVector(qo, u2)
-				var p1 box2d.Vec2 = box2d.MulSV(r1, a1)
-				var p2 box2d.Vec2 = box2d.MulSV(r2, a1)
-				var p3 box2d.Vec2 = box2d.MulSV(r1, a2)
-				var p4 box2d.Vec2 = box2d.MulSV(r2, a2)
+				var a1 box2d.Vec2 = qo.InvRotate(u1)
+				var a2 box2d.Vec2 = qo.Rotate(u2)
+				var p1 box2d.Vec2 = a1.Scale(r1)
+				var p2 box2d.Vec2 = a1.Scale(r2)
+				var p3 box2d.Vec2 = a2.Scale(r1)
+				var p4 box2d.Vec2 = a2.Scale(r2)
 				var points [4]box2d.Vec2 = [4]box2d.Vec2{p1, p2, p3, p4}
-				var hull box2d.Hull = box2d.ComputeHull(points[:], 4)
+				var hull box2d.Hull = box2d.ComputeHull(points[:])
 				var polygon box2d.Polygon = box2d.MakePolygon(&hull, float32(0.0))
 				bodyID.CreatePolygonShape(&shapeDef, &polygon)
 			}
 			if i%9 == 0 {
-				var p1 box2d.Vec2 = box2d.MulSV(r0, u1)
-				var p2 box2d.Vec2 = box2d.MulSV(r1, u1)
-				var p3 box2d.Vec2 = box2d.MulSV(r0, u2)
-				var p4 box2d.Vec2 = box2d.MulSV(r1, u2)
+				var p1 box2d.Vec2 = u1.Scale(r0)
+				var p2 box2d.Vec2 = u1.Scale(r1)
+				var p3 box2d.Vec2 = u2.Scale(r0)
+				var p4 box2d.Vec2 = u2.Scale(r1)
 				var points [4]box2d.Vec2 = [4]box2d.Vec2{p1, p2, p3, p4}
-				var hull box2d.Hull = box2d.ComputeHull(points[:], 4)
+				var hull box2d.Hull = box2d.ComputeHull(points[:])
 				var polygon box2d.Polygon = box2d.MakePolygon(&hull, float32(0.0))
 				bodyID.CreatePolygonShape(&shapeDef, &polygon)
 			}
@@ -517,8 +515,8 @@ func CreateWasher(worldID box2d.World) {
 		}
 		if kinematic == false {
 			var jointDef box2d.RevoluteJointDef = box2d.DefaultRevoluteJointDef()
-			jointDef.Base.BodyIDA = groundID
-			jointDef.Base.BodyIDB = bodyID
+			jointDef.Base.BodyA = groundID
+			jointDef.Base.BodyB = bodyID
 			jointDef.Base.LocalFrameA.P = box2d.Vec2{X: float32(0.0), Y: float32(10.0)}
 			jointDef.Base.LocalFrameB.P = box2d.Vec2{X: float32(0.0), Y: float32(0.0)}
 			jointDef.MotorSpeed = (box2d.Pi / float32(180.0)) * motorSpeed
@@ -538,7 +536,7 @@ func CreateWasher(worldID box2d.World) {
 	for i := 0; i < gridCount; i++ {
 		var x float32 = -float32(1.1) * a * float32(gridCount)
 		for j := 0; j < gridCount; j++ {
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &polygon)
 			x += float32(float32(2.1) * a)
@@ -547,7 +545,7 @@ func CreateWasher(worldID box2d.World) {
 	}
 }
 
-func CreateJunkyard(worldID box2d.World) {
+func CreateJunkyard(worldID *box2d.World) {
 	{
 		var gridSize float32 = float32(1.0)
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -588,7 +586,7 @@ func CreateJunkyard(worldID box2d.World) {
 			points[i].X = radius * cs.Cosine
 			points[i].Y = radius * cs.Sine
 		}
-		var hull box2d.Hull = box2d.ComputeHull(points[:], 5)
+		var hull box2d.Hull = box2d.ComputeHull(points[:])
 		polygon = box2d.MakePolygon(&hull, float32(0.0))
 	}
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -600,7 +598,7 @@ func CreateJunkyard(worldID box2d.World) {
 		var x float32 = float32(1.5) * (float32(float32(2.0)*float32(i)) - float32(columnCount)) * radius
 		for j := 0; j < rowCount; j++ {
 			var y float32 = float32(float32(4.0)*float32(j)*radius) + yStart
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x + side, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x + side, Y: y}.Pos()
 			side = -side
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &polygon)
@@ -613,16 +611,16 @@ func CreateJunkyard(worldID box2d.World) {
 	gJunkyardData.pusherID.CreatePolygonShape(&shapeDef, &box)
 }
 
-func StepJunkyard(worldID box2d.World, stepCount int) float32 {
+func StepJunkyard(worldID *box2d.World, stepCount int) float32 {
 	var timeStep float32 = float32(1.0) / float32(60.0)
 	var time float32 = timeStep * float32(stepCount)
 	var cs box2d.CosSin = box2d.ComputeCosSin(float32(0.2) * time)
-	var target box2d.WorldTransform = box2d.WorldTransform{P: box2d.ToPos(box2d.Vec2{X: float32(60.0) * cs.Sine, Y: float32(0.0)}), Q: box2d.Rot{C: 1}}
+	var target box2d.WorldTransform = box2d.WorldTransform{P: box2d.Vec2{X: float32(60.0) * cs.Sine, Y: float32(0.0)}.Pos(), Q: box2d.Rot{C: 1}}
 	gJunkyardData.pusherID.SetTargetTransform(target, timeStep, true)
 	return float32(0.0)
 }
 
-func createSleepPyramid(worldID box2d.World, baseCount int, extent, centerX float32, bodyIDA, bodyIDB *box2d.Body) {
+func createSleepPyramid(worldID *box2d.World, baseCount int, extent, centerX float32, bodyIDA, bodyIDB *box2d.Body) {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
 	bodyDef.SleepThreshold = float32(1.0)
@@ -632,7 +630,7 @@ func createSleepPyramid(worldID box2d.World, baseCount int, extent, centerX floa
 		var y float32 = (float32(float32(2.0)*float32(i)) + float32(1.0)) * extent
 		for j := i; j < baseCount; j++ {
 			var x float32 = float32((float32(i)+float32(1.0))*extent) + float32(float32(2.0)*(float32(j)-float32(i))*extent) + centerX
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
 			if i == 0 && j == 0 {
@@ -644,7 +642,7 @@ func createSleepPyramid(worldID box2d.World, baseCount int, extent, centerX floa
 	}
 }
 
-func CreateSleep(worldID box2d.World) {
+func CreateSleep(worldID *box2d.World) {
 	gSleepData = sleepData{}
 	var baseCount int = 60
 	var extent float32 = float32(0.5)
@@ -653,7 +651,7 @@ func CreateSleep(worldID box2d.World) {
 	var span float32 = pitch * (float32(sleepPyramidCount) - 1)
 	{
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: float32(0.0), Y: -float32(1.0)})
+		bodyDef.Position = box2d.Vec2{X: float32(0.0), Y: -float32(1.0)}.Pos()
 		var groundID box2d.Body = worldID.CreateBody(&bodyDef)
 		var box box2d.Polygon = box2d.MakeBox(float32(float32(0.5)*span)+baseWidth, float32(1.0))
 		var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
@@ -665,12 +663,12 @@ func CreateSleep(worldID box2d.World) {
 	}
 }
 
-func StepSleep(worldID box2d.World, stepCount int) float32 {
+func StepSleep(worldID *box2d.World, stepCount int) float32 {
 	for i := 0; i < sleepPyramidCount; i++ {
-		if gSleepData.bodyIDA[i].IsAwake() == false {
+		if gSleepData.bodyIDA[i].Awake() == false {
 			var jointDef box2d.FilterJointDef = box2d.DefaultFilterJointDef()
-			jointDef.Base.BodyIDA = gSleepData.bodyIDA[i]
-			jointDef.Base.BodyIDB = gSleepData.bodyIDB[i]
+			jointDef.Base.BodyA = gSleepData.bodyIDA[i]
+			jointDef.Base.BodyB = gSleepData.bodyIDB[i]
 			var jointID box2d.Joint = worldID.CreateFilterJoint(&jointDef).Joint
 			jointID.Destroy()
 			break
@@ -679,7 +677,7 @@ func StepSleep(worldID box2d.World, stepCount int) float32 {
 	return float32(0.0)
 }
 
-func CreateCompounds(worldID box2d.World) {
+func CreateCompounds(worldID *box2d.World) {
 	{
 		var gridSize float32 = float32(1.0)
 		var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -712,10 +710,10 @@ func CreateCompounds(worldID box2d.World) {
 	var columnCount int = 20
 	var rowCount int = 150
 	var leftPoints [3]box2d.Vec2 = [3]box2d.Vec2{box2d.Vec2{X: -float32(1.0), Y: float32(0.0)}, box2d.Vec2{X: float32(0.5), Y: float32(1.0)}, box2d.Vec2{X: float32(0.0), Y: float32(2.0)}}
-	var leftHull box2d.Hull = box2d.ComputeHull(leftPoints[:], 3)
+	var leftHull box2d.Hull = box2d.ComputeHull(leftPoints[:])
 	var left box2d.Polygon = box2d.MakePolygon(&leftHull, float32(0.0))
 	var rightPoints [3]box2d.Vec2 = [3]box2d.Vec2{box2d.Vec2{X: float32(1.0), Y: float32(0.0)}, box2d.Vec2{X: -float32(0.5), Y: float32(1.0)}, box2d.Vec2{X: float32(0.0), Y: float32(2.0)}}
-	var rightHull box2d.Hull = box2d.ComputeHull(rightPoints[:], 3)
+	var rightHull box2d.Hull = box2d.ComputeHull(rightPoints[:])
 	var right box2d.Polygon = box2d.MakePolygon(&rightHull, float32(0.0))
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
@@ -732,7 +730,7 @@ func CreateCompounds(worldID box2d.World) {
 		var x float32 = float32(float32(i)*shift) - centerx
 		for j := 0; j < rowCount; j++ {
 			var y float32 = float32(float32(j)*(shift+extray)) + centery + yStart
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x + side, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x + side, Y: y}.Pos()
 			side = -side
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &left)
@@ -747,7 +745,7 @@ func queryRandom(lower, upper float32) float32 {
 	return lower + float32((upper-lower)*unit)
 }
 
-func CreateQueries(worldID box2d.World) {
+func CreateQueries(worldID *box2d.World) {
 	gQueryRandomState = 1234
 	var extent float32 = float32(500.0)
 	var cellCount int = 500
@@ -772,7 +770,7 @@ func CreateQueries(worldID box2d.World) {
 			if clear.LowerBound.X <= x && x <= clear.UpperBound.X && clear.LowerBound.Y <= y && y <= clear.UpperBound.Y {
 				continue
 			}
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x, Y: y})
+			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 			var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 			var box box2d.Polygon
 			if orientation > float32(0.5) {
@@ -786,7 +784,7 @@ func CreateQueries(worldID box2d.World) {
 	}
 	shapeDef.Filter.CategoryBits = 1
 	{
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: float32(0.0), Y: float32(0.0)})
+		bodyDef.Position = box2d.Vec2{X: float32(0.0), Y: float32(0.0)}.Pos()
 		var groundID box2d.Body = worldID.CreateBody(&bodyDef)
 		var segment box2d.Segment = box2d.Segment{Point1: box2d.Vec2{X: pileX - float32(10.0), Y: pileY}, Point2: box2d.Vec2{X: pileX + float32(50.0), Y: pileY}}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
@@ -796,7 +794,7 @@ func CreateQueries(worldID box2d.World) {
 		sensorDef.IsSensor = true
 		var sensorBox box2d.Polygon = box2d.MakeSquare(float32(2.0))
 		for i := 0; i < 8; i++ {
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: pileX + float32(float32(4.0)*float32(i)), Y: pileY + float32(2.0)})
+			bodyDef.Position = box2d.Vec2{X: pileX + float32(float32(4.0)*float32(i)), Y: pileY + float32(2.0)}.Pos()
 			var sensorId box2d.Body = worldID.CreateBody(&bodyDef)
 			sensorId.CreatePolygonShape(&sensorDef, &sensorBox)
 		}
@@ -809,7 +807,7 @@ func CreateQueries(worldID box2d.World) {
 		bodyDef.Type = box2d.DynamicBody
 		for i := 0; i < rowCount; i++ {
 			for j := 0; j < columnCount; j++ {
-				bodyDef.Position = box2d.ToPos(box2d.Vec2{X: pileX + float32(spacing*float32(j)), Y: pileY + float32(1.0) + float32(spacing*float32(i))})
+				bodyDef.Position = box2d.Vec2{X: pileX + float32(spacing*float32(j)), Y: pileY + float32(1.0) + float32(spacing*float32(i))}.Pos()
 				var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 				bodyID.CreatePolygonShape(&shapeDef, &box)
 			}
@@ -817,7 +815,7 @@ func CreateQueries(worldID box2d.World) {
 	}
 	{
 		bodyDef.Type = box2d.KinematicBody
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: pileX - float32(5.0), Y: pileY + float32(1.2)})
+		bodyDef.Position = box2d.Vec2{X: pileX - float32(5.0), Y: pileY + float32(1.2)}.Pos()
 		bodyDef.LinearVelocity = box2d.Vec2{X: float32(5.0), Y: float32(0.0)}
 		gQueryBenchmark.paddleID = worldID.CreateBody(&bodyDef)
 		var paddle box2d.Polygon = box2d.MakeBox(float32(1.0), float32(1.0))
@@ -831,7 +829,7 @@ func CreateQueries(worldID box2d.World) {
 		var y1 float32 = queryRandom(float32(0.0), extent)
 		var x2 float32 = queryRandom(float32(0.0), extent)
 		var y2 float32 = queryRandom(float32(0.0), extent)
-		gQueryBenchmark.origins[i] = box2d.ToPos(box2d.Vec2{X: x1, Y: y1})
+		gQueryBenchmark.origins[i] = box2d.Vec2{X: x1, Y: y1}.Pos()
 		gQueryBenchmark.translations[i] = box2d.Vec2{X: x2 - x1, Y: y2 - y1}
 	}
 	gQueryBenchmark.stats = box2d.TreeStats{}
@@ -848,12 +846,12 @@ func queryOverlapCount(shapeID box2d.Shape, count *int) bool {
 	return true
 }
 
-func StepQueries(worldID box2d.World, stepCount int) float32 {
+func StepQueries(worldID *box2d.World, stepCount int) float32 {
 	var data *queryBenchmark = &gQueryBenchmark
 	var paddlePosition box2d.Pos = data.paddleID.Position()
-	if paddlePosition.X > box2d.ToPos(box2d.Vec2{X: data.paddleMaxX}).X {
+	if paddlePosition.X > (box2d.Vec2{X: data.paddleMaxX}).Pos().X {
 		data.paddleID.SetLinearVelocity(box2d.Vec2{X: -float32(5.0), Y: float32(0.0)})
-	} else if paddlePosition.X < box2d.ToPos(box2d.Vec2{X: data.paddleMinX}).X {
+	} else if paddlePosition.X < (box2d.Vec2{X: data.paddleMinX}).Pos().X {
 		data.paddleID.SetLinearVelocity(box2d.Vec2{X: float32(5.0), Y: float32(0.0)})
 	}
 	var filters [2]box2d.QueryFilter = [2]box2d.QueryFilter{box2d.DefaultQueryFilter(), box2d.DefaultQueryFilter()}
@@ -930,8 +928,12 @@ func treeCastRayBox(box box2d.AABB, p, d box2d.Vec2, maxFraction float32) float3
 			t1 = t2
 			t2 = t
 		}
-		tmin = box2d.MaxFloat(tmin, t1)
-		tmax = box2d.MinFloat(tmax, t2)
+		if !(tmin > t1) {
+			tmin = t1
+		}
+		if !(tmax < t2) {
+			tmax = t2
+		}
 		if tmin > tmax {
 			return -float32(1.0)
 		}
@@ -949,8 +951,12 @@ func treeCastRayBox(box box2d.AABB, p, d box2d.Vec2, maxFraction float32) float3
 			t1 = t2
 			t2 = t
 		}
-		tmin = box2d.MaxFloat(tmin, t1)
-		tmax = box2d.MinFloat(tmax, t2)
+		if !(tmin > t1) {
+			tmin = t1
+		}
+		if !(tmax < t2) {
+			tmax = t2
+		}
 		if tmin > tmax {
 			return -float32(1.0)
 		}
@@ -975,7 +981,7 @@ func treeCastBoxCallback(input *box2d.BoxCastInput, proxyID int, userData uint64
 	var cast *treeCastContext = context
 	var tight box2d.AABB = cast.tightBoxes[userData]
 	var extents box2d.Vec2 = (input.Box).Extents()
-	var grown box2d.AABB = box2d.AABB{LowerBound: box2d.Sub(tight.LowerBound, extents), UpperBound: box2d.Add(tight.UpperBound, extents)}
+	var grown box2d.AABB = box2d.AABB{LowerBound: tight.LowerBound.Sub(extents), UpperBound: tight.UpperBound.Add(extents)}
 	var fraction float32 = treeCastRayBox(grown, (input.Box).Center(), input.Translation, input.MaxFraction)
 	if fraction < float32(0.0) {
 		return -float32(1.0)
@@ -1000,14 +1006,13 @@ func treeCastAddBox(center box2d.Vec2, hx, hy float32, categoryBits uint64) {
 func DestroyTreeCast() {
 	var data *treeCastBenchmark = &gTreeCast
 	if data.created {
-		data.tree.Destroy()
 	}
 	var stats box2d.TreeStats = data.stats
 	*data = treeCastBenchmark{}
 	data.stats = stats
 }
 
-func CreateTreeCast(worldID box2d.World) {
+func CreateTreeCast(worldID *box2d.World) {
 	DestroyTreeCast()
 	var data *treeCastBenchmark = &gTreeCast
 	gQueryRandomState = 1234
@@ -1019,7 +1024,7 @@ func CreateTreeCast(worldID box2d.World) {
 	var clear box2d.AABB = box2d.AABB{LowerBound: box2d.Vec2{X: pileX - float32(10.0), Y: pileY - float32(10.0)}, UpperBound: box2d.Vec2{X: pileX + float32(50.0), Y: pileY + float32(60.0)}}
 	data.proxyCapacity = cellCount * cellCount / 5
 	data.tightBoxes = make([]box2d.AABB, data.proxyCapacity)
-	data.tree = box2d.CreateDynamicTree(data.proxyCapacity)
+	data.tree = box2d.NewDynamicTree(data.proxyCapacity)
 	data.created = true
 	for i := 0; i < cellCount; i++ {
 		var y float32 = float32(i)
@@ -1064,7 +1069,7 @@ func CreateTreeCast(worldID box2d.World) {
 		var t box2d.Vec2 = box2d.Vec2{X: x2 - x1, Y: y2 - y1}
 		data.origins[i] = box2d.Vec2{X: x1, Y: y1}
 		data.translations[0][i] = t
-		var length float32 = box2d.Length(t)
+		var length float32 = t.Length()
 		for k := 1; k < treeCastLengthCount; k++ {
 			var scale float32
 			if length > float32(0.0) {
@@ -1072,13 +1077,13 @@ func CreateTreeCast(worldID box2d.World) {
 			} else {
 				scale = float32(0.0)
 			}
-			data.translations[k][i] = box2d.MulSV(scale, t)
+			data.translations[k][i] = t.Scale(scale)
 		}
 	}
 	data.stats = box2d.TreeStats{}
 }
 
-func StepTreeCast(worldID box2d.World, stepCount int) float32 {
+func StepTreeCast(worldID *box2d.World, stepCount int) float32 {
 	var data *treeCastBenchmark = &gTreeCast
 	var tree *box2d.DynamicTree = &data.tree
 	var masks [2]uint64 = [2]uint64{box2d.DefaultMaskBits, 1}
@@ -1131,9 +1136,9 @@ func tileRandom(state *uint32, lower, upper float32) float32 {
 	return lower + float32((upper-lower)*unit)
 }
 
-func createTileGround(worldID box2d.World, xBody float32) box2d.Body {
+func createTileGround(worldID *box2d.World, xBody float32) box2d.Body {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
-	bodyDef.Position.X = box2d.ToPos(box2d.Vec2{X: xBody}).X
+	bodyDef.Position.X = box2d.Vec2{X: xBody}.Pos().X
 	var groundID box2d.Body = worldID.CreateBody(&bodyDef)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 	shapeDef.InvokeContactCreation = false
@@ -1160,7 +1165,7 @@ func DestroyTileWorld() {
 	data.stats = stats
 }
 
-func CreateTileWorld(worldID box2d.World) {
+func CreateTileWorld(worldID *box2d.World) {
 	DestroyTileWorld()
 	var data *tileWorldBenchmark = &gTileWorld
 	var gridCount int = int((tileCycleCount * tilePeriod / tileGridSize))
@@ -1180,15 +1185,15 @@ func CreateTileWorld(worldID box2d.World) {
 	var box box2d.Polygon = box2d.MakeBox(float32(0.3), float32(0.2))
 	for cycleIndex := tileCycleCount / 5; cycleIndex < tileCycleCount; cycleIndex += 12 {
 		var xBase float32 = float32((float32(0.5)+float32(cycleIndex))*tilePeriod) + data.xLeft
-		bodyDef.Position.X = box2d.ToPos(box2d.Vec2{X: xBase - float32(3.0)}).X
+		bodyDef.Position.X = box2d.Vec2{X: xBase - float32(3.0)}.Pos().X
 		for i := 0; i < 10; i++ {
-			bodyDef.Position.Y = box2d.ToPos(box2d.Vec2{Y: float32(10.0)}).Y
+			bodyDef.Position.Y = box2d.Vec2{Y: float32(10.0)}.Pos().Y
 			for j := 0; j < 5; j++ {
 				var bodyID box2d.Body = worldID.CreateBody(&bodyDef)
 				bodyID.CreatePolygonShape(&shapeDef, &box)
 				bodyDef.Position.Y += 0.5
 			}
-			bodyDef.Position.X += box2d.ToPos(box2d.Vec2{X: float32(0.6)}).X
+			bodyDef.Position.X += box2d.Vec2{X: float32(0.6)}.Pos().X
 		}
 	}
 	data.stats = box2d.TreeStats{}
@@ -1199,7 +1204,7 @@ func tileOverlapCount(shapeID box2d.Shape, count *int) bool {
 	return true
 }
 
-func StepTileWorld(worldID box2d.World, stepCount int) float32 {
+func StepTileWorld(worldID *box2d.World, stepCount int) float32 {
 	var data *tileWorldBenchmark = &gTileWorld
 	data.groundIDs[data.groundHead].Destroy()
 	data.groundIDs[data.groundHead] = createTileGround(worldID, data.xNext)
@@ -1213,7 +1218,7 @@ func StepTileWorld(worldID box2d.World, stepCount int) float32 {
 	var stats box2d.TreeStats = box2d.TreeStats{}
 	var hitCount int = 0
 	for i := 0; i < tileQueryCount; i++ {
-		var origin box2d.Pos = box2d.ToPos(box2d.Vec2{X: data.xLeft + tileRandom(&state, float32(0.0), span), Y: tileRandom(&state, -float32(2.0), float32(18.0))})
+		var origin box2d.Pos = box2d.Vec2{X: data.xLeft + tileRandom(&state, float32(0.0), span), Y: tileRandom(&state, -float32(2.0), float32(18.0))}.Pos()
 		var angle float32 = tileRandom(&state, float32(0.0), float32(2.0)*box2d.Pi)
 		sine, cosine := boundedSinCos(angle)
 		var translation box2d.Vec2 = box2d.Vec2{X: tileRayLength * cosine, Y: tileRayLength * sine}

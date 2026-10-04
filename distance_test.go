@@ -142,8 +142,8 @@ func TestDistance(t *testing.T) {
 			t.Fatal("condition false")
 		}
 		r.Vec2("distance:120/value0", output.Normal.X, output.Normal.Y)
-		r.Bool("distance:120", box2d.IsNormalized(output.Normal))
-		if !(box2d.IsNormalized(output.Normal)) {
+		r.Bool("distance:120", output.Normal.IsNormalized())
+		if !(output.Normal.IsNormalized()) {
 			t.Fatal("condition false")
 		}
 		r.F32("distance:121/value0", output.Distance)
@@ -177,9 +177,9 @@ func TestDistance(t *testing.T) {
 
 		r.Bool("distance:162/value0", output.Hit)
 		r.Vec2("distance:162/value1", output.Normal.X, output.Normal.Y)
-		r.Bool("distance:162", output.Hit == false || box2d.IsNormalized(output.Normal))
+		r.Bool("distance:162", output.Hit == false || output.Normal.IsNormalized())
 
-		if !(output.Hit == false || box2d.IsNormalized(output.Normal)) {
+		if !(output.Hit == false || output.Normal.IsNormalized()) {
 			t.Fatal("condition false")
 		}
 

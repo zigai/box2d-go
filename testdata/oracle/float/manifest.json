@@ -2,7 +2,7 @@
   "assertions" : true,
   "build_type" : "RelWithDebInfo",
   "compiler" : "GNU",
-  "compiler_target" : "x86_64-redhat-linux",
+  "compiler_target" : "x86_64-pc-linux-gnu",
   "compiler_version" : "16.2.1",
   "contraction" : "off",
   "debug" : 
@@ -10,7 +10,7 @@
     "assertions" : true,
     "build_type" : "Debug",
     "compiler" : "GNU",
-    "compiler_target" : "x86_64-redhat-linux",
+    "compiler_target" : "x86_64-pc-linux-gnu",
     "compiler_version" : "16.2.1",
     "contraction" : "off",
     "fixtures" : 
@@ -376,10 +376,10 @@
       "oracle/bench/scenes.c" : "826040ec9973cde02766bacf3b94ab1dfee244461354bdbe932c964631c27974",
       "oracle/build.sh" : "6faba992dc31cf48e1cb5f8eddd99562c1bdb8c23c64a2dec49b2df71f3cfa53",
       "oracle/capture.cmake" : "2ba17a91ca55fd9306f6f9b85fb9b22ae07b815660002dccc9b9e9508b821747",
-      "oracle/cases.json" : "a77c49d14c14d03b0c8bd25c1df1dabf4dfac000dbe05813023ac86191bb4673",
+      "oracle/cases.json" : "9cea0d320b45eb5ac75d5f4ae134d46a29a779de3bde64d52a141a5b993575a6",
       "oracle/check-upstream.cmake" : "71ed1b56feb390f47c7e16f9831c596c2a0e79053460cee801b0fb3857dac3ce",
       "oracle/debug/distance.c" : "d6ee24dfd7dc55e7a1a8c0241c6c60c80ab8e360b492934ec36050e061215bfd",
-      "oracle/differential.c" : "1596bde72ec3f4ef19fb89aa0b3d02c824e4870371022196c9bf7fd705fec2e1",
+      "oracle/differential.c" : "e3ce813ed035a1610e6cf857cb36e53e9ac73b29476c2d505d0b7a16defbbad9",
       "oracle/oracle.c" : "c20bcaaa85c5efa38999129c452cf162f031ec43bac839588b50e0150c19144c",
       "oracle/oracle.h" : "b2aa900972a8fe87bd638329c29c7d91dea692bbcf4b6f57b19559a7ca823b43",
       "oracle/reference.cmake" : "d7bc14dca64ac9fddaf53576a9c09631de4fb14bd6beefc21c5678112a2743d6",
@@ -390,8 +390,8 @@
       "oracle/tests/api_bodies.c" : "19af514fcc05b60463a0c8fb36d7fd5bf7eeea5a32c903a1338fc022bdefb6a2",
       "oracle/tests/api_draw.c" : "9ff672b4c896b416014ca25e08e5d8c7cd407097438d0184d9df5297cb3b59ca",
       "oracle/tests/api_events.c" : "926d0e60c94dd5bfd2105b1acde81fd6bfaa3e95abe31feb3d19809361695d4a",
-      "oracle/tests/api_joints.c" : "8b530e77ffe14b1cb3386562627d89d3e41d762ef1432fdab65268d9cca3a743",
-      "oracle/tests/api_lifecycle.c" : "a74b7daf387f9e7e84277431fee44085955b49e9b5203df49d94fa5aa960331c",
+      "oracle/tests/api_joints.c" : "20bd7ffad4f121575bf6d14dd09649ac973b65764f0f76e9e291d3ff9805af62",
+      "oracle/tests/api_lifecycle.c" : "185e7ed14c7e829473ac9c9176de680e747e5527335f2aa4337138d6456fbbc2",
       "oracle/tests/api_spatial.c" : "b7b098bf66d0087214e48ad2ccc1ffa6c1c3825edea2cecb7606dd7c17db487f",
       "oracle/tests/world_world.c" : "4ce7f91e209e56f8aa16a90a15b7382a33d4d93147e1a084258eb090106c4214",
       "oracle/tests/restitution/test_restitution.c" : "b3d7157fc56878d0180a6216adcb90dca7019b690685e1d6c7580073eb808282",
@@ -409,12 +409,10 @@
       "oracle/tests/snapshot_snapshot.c" : "b155f9476996544d8e7f10c2da251413701b8052fe113c33a4aae7761a92f1f3",
       "oracle/tests/foundation/test_bitset.c" : "fff8f84887f8803a995cb0b8d27f22ce7a38f9272e4cf79a0e27eb9c3fd6092a",
       "oracle/tests/foundation/test_container.c" : "92ba1309951338fd90377e8623be7741b6137308baa172d01a1e5d35c63a33ea",
-      "oracle/tests/foundation/test_id.c" : "fd34824de9b3912f7d4bab4ed524b21101754c19c670280f5d8d514eb8f77b38",
       "oracle/tests/foundation/test_table.c" : "c7c8517e91fe7db881fec074dfd1ea85c257a1ac269258bd5964e7e002ff8a8e",
       "oracle/tests/foundation/test_thread.c" : "5334da7f1186540f9296f4274211d5636ce7428a3fdbd1deb972c4a2d174ce91",
       "oracle/tests/foundation_bitset.c" : "bcd922f18eb1e9889c028d424bcbbde6fd50b2ab121311b94e6594d33151993c",
       "oracle/tests/foundation_container.c" : "a31cbfbf0f44e0d127221c6548b9a70073c7229dbf0de017c3595ec58bc59467",
-      "oracle/tests/foundation_id.c" : "878b21c6357b26b739882503c9be0965775591272c12e1127ef7cdc7554d4b4c",
       "oracle/tests/foundation_table.c" : "6301c229d291accb10531577b9e0a3ea79a3586a883912004fe367dc587935cd",
       "oracle/tests/foundation_thread.c" : "a3638ab5f05cc0a36ad217a185b7dedddb96a6eceaecf01435e4d7680fbe129a",
       "oracle/tests/collision/test_collision.c" : "708ca1c93e5be64c99ed8001ba4ca9ce84a86c405a40bd91227ffd9b1ab54357",
@@ -434,7 +432,7 @@
       "oracle/tests/collision_shape_public.c" : "f52114233bd71f270ae90984efd12fed29c216aea689de26c4401aca4054ea0d",
       "oracle/tests/input/test_chain.c" : "420faeec9cb38014078e8dbe95008b7efb34583b8cfb936ed79dbc450dc8e1ab",
       "oracle/tests/input/test_determinism.c" : "1732b926d576f7d57f8d59fb7f72a290769d0f7ed94eeafb8c412b168a8db3d1",
-      "oracle/tests/input/test_invalid_input.c" : "aa1d5e31ba099e42509f2431b0ab9df0a50fe2831da0d1d478138e658a4fc4ae",
+      "oracle/tests/input/test_invalid_input.c" : "bb498f054857d5743df8e785702edce568232164726dae88e2ed5a06c0de0325",
       "oracle/tests/input/trace.h" : "ec72f8860d8d3e452b66d561ca426770ac28342cc5ccc49388f2d6b9f10427c2",
       "oracle/tests/input_chain.c" : "d2a225f491a213b8a7e488d305f4e24b87889365b3926486c020aca40a5a2332",
       "oracle/tests/input_determinism.c" : "408dd76a4a7fbcc0289b47ce615632e0d4837b3fee98ac029c8ed929d6db2dab",
@@ -3060,7 +3058,7 @@
       "completed" : true,
       "producer" : "tests_input_invalid_input",
       "records" : 4806,
-      "sha256" : "3d986def6a0b5891d3178e706331b1cfa60e47fdc21cebdc927fea982a63440d"
+      "sha256" : "1bc74a9fe978a66d80f2eb48e5fd7b94392635cf546f32a0e4d43b53beeb55d0"
     },
     "input/invalid_input/ShapeInputTest" : 
     {
@@ -3563,57 +3561,57 @@
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 1962,
-      "sha256" : "abea9c1e1c7113721ebdabe7adcb25cdb331ce2104812a4dd1a94004222c9b33"
+      "records" : 1916,
+      "sha256" : "fa7c1c370d9fc21e822872c3e9b780bde679addb0118811ef32340fed44816cf"
     },
     "differential/corpus/empty" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 43,
-      "sha256" : "f5bc59f1805b29b1a96db2bd279cf9b048b00192c9f23da9beb9d849ee7ee8e6"
+      "records" : 41,
+      "sha256" : "c84614a8a7609f1c3f95a38f550c31fb4feefd5b390cf9dc6a10315d1328e6a9"
     },
     "differential/corpus/force_velocity_zero_step" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 585,
-      "sha256" : "e865c2b9ab75c411dc587403266116887f934ebf8ecc580cccf88d135fc64748"
+      "records" : 565,
+      "sha256" : "b6d8b68c7f8868729847cd96c894812e0c40373da81a0c9f53ef49f688b9ccdf"
     },
     "differential/corpus/lifecycle_reuse" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 1397,
-      "sha256" : "fa14cceaeab7ba0f37d10bbe85207443f68b10be7547501c1ca8df9506e9e608"
+      "records" : 1359,
+      "sha256" : "4e93566f849f096fa87863878e4bd82fe30932c346968440b2e7e71811249b84"
     },
     "differential/corpus/maximum_operands" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 12934,
-      "sha256" : "6fb7bc7aec0a067515baa3057010d99503fb5ddc997591106eca15c15f9a8f89"
+      "records" : 12804,
+      "sha256" : "2b6b9298a77a37e04282617a3cbba0bb67cc2239038a31f3fcba80e74c37fbe8"
     },
     "differential/corpus/replay_seek_restep" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 4191,
-      "sha256" : "3fafd4c83fbe3b29936d3e901712d57f4afb3abef67856f7fc1495e66ba000fe"
+      "records" : 4165,
+      "sha256" : "6bf3de4a1be7021bca0cf9881c763ae6857d5aee6f9fbe99f083b962024711a8"
     },
     "differential/corpus/snapshot_continuation" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 1698,
-      "sha256" : "abad6aff5d4e11aeb4d9b16d2e0fcf5ae6ff20b22367e2b16acc81808560079d"
+      "records" : 1662,
+      "sha256" : "01ba7413ab62f8918b694f1ff3082704f65cb6668230ff6498b1f5ee502cd3f5"
     },
     "differential/corpus/zero_partial" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 97,
-      "sha256" : "f30fb172d7e1305f4ed6e52806e6380cee6a2724abfa4910a42d7876c31eb98a"
+      "records" : 93,
+      "sha256" : "d5aabf301ab7057e9c18b03acfd664bacf5b55805f3d1b02eb2dcc3db3bf3cf8"
     },
     "distance/SegmentDistanceTest" : 
     {
@@ -5016,13 +5014,6 @@
       "records" : 2411,
       "sha256" : "1fa211b3fce4fdb76729004b06e98ac3d7f534b56d93d7dfc6d96a433b49710d"
     },
-    "id/IdTest" : 
-    {
-      "completed" : true,
-      "producer" : "tests_foundation_id",
-      "records" : 5,
-      "sha256" : "d948c8f20a435922a997628e2ac9251debf7bed4428155b801ff7f79e54c889c"
-    },
     "joints/0/partner0/loaded0/partition0" : 
     {
       "completed" : true,
@@ -5405,253 +5396,253 @@
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2940,
-      "sha256" : "008fa57f93b56ce3a28c86df89cfcf9654041406adddeb70220943b442336a76"
+      "records" : 2712,
+      "sha256" : "7a64a397c39ba5ab5dc13d4a2c612a5cfed2ef7e3befac1c6a1e160a09706382"
     },
     "joints/3/partner0/loaded0/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "bd1e08365255beb754da5a13418f3f0798eb24ff0816be4a89b54f433948aae4"
+      "records" : 2537,
+      "sha256" : "5c87400a5d34035f8e064d5bf3a67efc9f226e7d0ee25b96467cfe767d0aa4e1"
     },
     "joints/3/partner0/loaded0/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "e216f21746fe12c4d060c19590c555317ff9777e9907ae2ef9dac9589268d32a"
+      "records" : 2537,
+      "sha256" : "186eeefeac7c4a21174f3202a8a36e4ac534c6bb272d134223930dbb6d430129"
     },
     "joints/3/partner0/loaded1/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2940,
-      "sha256" : "f0c26f33618ce9c639977b2598b10aaa6d981643729397ad5eebcddd1d44ad9c"
+      "records" : 2712,
+      "sha256" : "42936e78bf21be607973d28bbec65e3c3bacf93f80fd126a2b5b00b0c6756e9d"
     },
     "joints/3/partner0/loaded1/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "211bf87a27b4a1ced19867d5e49bfab5916fbfcb5dccda683edf85347b0ce03d"
+      "records" : 2537,
+      "sha256" : "a992edd7b39be63c7537b283f76ed8d78b2721cc736d8cdeafaec64cede3a4e1"
     },
     "joints/3/partner0/loaded1/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "d752402bc90260c0f0185a97f67b2ec756736d166af6e51b9d2d287bd6c8470a"
+      "records" : 2537,
+      "sha256" : "947e15eca2ee9ddf067fd711b5ee67ef39c2988920d9f9274b843e6582423ea9"
     },
     "joints/3/partner1/loaded0/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2940,
-      "sha256" : "b9a37ecd9edf7db88b374f5d01eb369c2529da34b2ee6e3d3325ea59f9d3c475"
+      "records" : 2712,
+      "sha256" : "b2ba33a00ec3bbcd5efa086f29e68a6752255ebae4395f9b693d11f0ad87bfc5"
     },
     "joints/3/partner1/loaded0/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "c64576150de53233af32a7873f98a47e8b48b1ff219e02e29fb05340be76fb5c"
+      "records" : 2537,
+      "sha256" : "d654a2d74362ea5e64b509d592b0f944721f3d911b5d9cb905d9b17dd7520d3d"
     },
     "joints/3/partner1/loaded0/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "9961e5abd2d7fbf44d470e30df60cea5e2ee31c93e8c32094a8036a520cf528c"
+      "records" : 2537,
+      "sha256" : "774da0c2aac4c0c1d2ccc67cd308275782c4e6d322ece4a5130e1b0d2d17ae71"
     },
     "joints/3/partner1/loaded1/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2940,
-      "sha256" : "07208aadd3f924ba908906a206ada7cb0b9dffb27c2d70fc4b5a488ae7b61bc6"
+      "records" : 2712,
+      "sha256" : "fc436dc6858960440c48aa66054eba72826d009314a744bbb0073d5ff7a6d2a9"
     },
     "joints/3/partner1/loaded1/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "619fec640bf61316e1ae498b523e10199268401f636a1d43851f26b3e5884845"
+      "records" : 2537,
+      "sha256" : "eec76f4541262d7a86d70e5802b1b0759c7248984a659ae35db6896a8e740a65"
     },
     "joints/3/partner1/loaded1/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "910eb1fb66493a91e51a76a28b497ec68509813d988ba76dbf368c161df7ba06"
+      "records" : 2537,
+      "sha256" : "fab2d2a53ba61e1fd5f028b4f88c5c9de9fcc999ce89284592b28b05ebba87e6"
     },
     "joints/3/partner2/loaded0/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2940,
-      "sha256" : "0f128b2a0ae289df2fe4257b928861afb665633a5e8a101ad27bb0402eb9b273"
+      "records" : 2712,
+      "sha256" : "22f1753621d53a61748eebdf04cfcb533ff139211e0de4f5ba0badc31abf9268"
     },
     "joints/3/partner2/loaded0/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "a471560c1feb74b7ebc3729304f1b708fa59edf5491815af1cd4639d58bef822"
+      "records" : 2537,
+      "sha256" : "e20bd8269a2375fdb4e12a2fcad74337251310c077fd86ccfb0c63e160b9d79a"
     },
     "joints/3/partner2/loaded0/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "e3ba1b6ed8d3d75e00e1ca67b6aebd25aa2e854e03259add5e42d8949e8e6a2b"
+      "records" : 2537,
+      "sha256" : "c7f777908c07c2bfe9669207d71c1d19c58682772973a60b2c10560d4f1d5602"
     },
     "joints/3/partner2/loaded1/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2940,
-      "sha256" : "329e453793e680b78f0cb19f1e56df45de513e3cfb258f9d87c0422185990a1e"
+      "records" : 2712,
+      "sha256" : "829bddba7c48860c1e6bab90ef90ac7aba30328cd71901ba6ec131adcac8ac3e"
     },
     "joints/3/partner2/loaded1/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "0fae59f210bdd1a3d4b4d0d4b84690352b4e57b9e89524f2371a027d85bfb6e8"
+      "records" : 2537,
+      "sha256" : "7aa2d8430d1cf7040f769f04f58b86abe0f22b0348b2b79b8bd31ab5c2d7ab5f"
     },
     "joints/3/partner2/loaded1/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 2750,
-      "sha256" : "8e6e1e287d6c6235d33e0ef899c94fd92ea9662f062c303d0141658f07335998"
+      "records" : 2537,
+      "sha256" : "127efbd8f1471a983e365129e2276a34c469acc53240198ccc0b47cc9f82f8ef"
     },
     "joints/4/partner0/loaded0/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3244,
-      "sha256" : "b9e24005575212cb87bbed4ec50e3c21563814719a3fab5df7b9d52b515e899a"
+      "records" : 3016,
+      "sha256" : "3187193132b16319f274a170d150d612ed9b2003f875f4ab18e2bdd49767713c"
     },
     "joints/4/partner0/loaded0/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "688fb764b5a91e764947d4de04bd6f69fd1bcba4fe2819cf80eb00f3862137f1"
+      "records" : 2821,
+      "sha256" : "c55c9a97ee7177509136077d701dc4d4a5954d0f9addc69bb0ad424a6b42a9c7"
     },
     "joints/4/partner0/loaded0/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "580445d9c31f52fe3e8620983e022ea3c63036097ef06e2584b87655a495df92"
+      "records" : 2821,
+      "sha256" : "53a8cf5a6aeccf14673dac15d2691701bcbf11ec2186453d334ff626bef1832e"
     },
     "joints/4/partner0/loaded1/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3244,
-      "sha256" : "a3cc36b9405b465cd3dfe60cb623ec1be5ea86f535301c8d07a16bec497f841d"
+      "records" : 3016,
+      "sha256" : "640ec2c03bba81688c00cdcda7af4b65a2ae29d1f16ea97f4c1e8fd01b397813"
     },
     "joints/4/partner0/loaded1/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "32fa1b51a1540aa1412b3ddb284825d4dfe516bed989c24431e83dd073e56fde"
+      "records" : 2821,
+      "sha256" : "5d52b6f9281457fc43d7d40207db0ce8ddcf8d3898e91586ba9284033f99bd0d"
     },
     "joints/4/partner0/loaded1/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "0089b654e9b2571103bd3931b69d6ecae0c7e3239c02ea09a232cb8d0750537e"
+      "records" : 2821,
+      "sha256" : "b48fd537bee9c1b11f89f66ca2d0dcc349a70818bedb20ba4a8f2f50ba8a563c"
     },
     "joints/4/partner1/loaded0/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3244,
-      "sha256" : "e7e1d25dc11c391ae44ff85b04da4c7f415466b0af71683e5e5c88ecabe74004"
+      "records" : 3016,
+      "sha256" : "fa8b1464daf11a02805cc1300dd07e350f5cd639598a6179ad3d56b35c628d4f"
     },
     "joints/4/partner1/loaded0/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "4fbeeda14d2e1c7246a7489c8fa0fa5e29bb58d280a89bcf58a6533c971b7f52"
+      "records" : 2821,
+      "sha256" : "54d163fc942aae623273c6ab8e793b2a4cc40489b8bd28a8ab7efd7c814d1c43"
     },
     "joints/4/partner1/loaded0/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "7f8f98fa9f534787b8b6e2ece6a87226d5483963a7f522e43a2ba8c4a7bd349d"
+      "records" : 2821,
+      "sha256" : "af1af16f0d558d6532fd355f55a6f28f0722affc5b32c14a65dd84dddd22498f"
     },
     "joints/4/partner1/loaded1/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3244,
-      "sha256" : "c9af8f2d1d76b45615b396630e90c08880d365dc892d11c2a3175ffcb9f1a99a"
+      "records" : 3016,
+      "sha256" : "cbefa7b42e38c3fe542b8922d8fc79acabdad7719f89665db732ee21092be3ff"
     },
     "joints/4/partner1/loaded1/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "a74fdf91523052ffc914753d9e422a2d014b26722440f037b9bab6340466a594"
+      "records" : 2821,
+      "sha256" : "1dd0d57ec7065ab1c903d87098088b71a31055080d7542cf6e841e061f6ddd6b"
     },
     "joints/4/partner1/loaded1/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "580389e6dd64de99fd1e76fc0ec1f1060cd8e1c4acef4c25607234457a15ffa6"
+      "records" : 2821,
+      "sha256" : "1db6b07b951c5160b00507dc2b95284c9ca2a6a82d9d5b917d46f622298d015f"
     },
     "joints/4/partner2/loaded0/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3244,
-      "sha256" : "81c3ff654a24dc16a6165c0e0cceff1131c1f4816309aba5bc1e3fcd23af6cf0"
+      "records" : 3016,
+      "sha256" : "3dbaf8671df2f57b4ad3a2e99e5a8574eef275fd81898afd56e25144c770eac9"
     },
     "joints/4/partner2/loaded0/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "caefdd2703d207bbd8246850604a67a1be96c657cda3d95c460c2499addc46d0"
+      "records" : 2821,
+      "sha256" : "4b55029746e7055540477d75a921ca89ed4db1a62982ac57a02538e4beed071e"
     },
     "joints/4/partner2/loaded0/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "5ee8f298fb660c32c7c180c2048786b10ec74bbdaa197645bad364283456fcbe"
+      "records" : 2821,
+      "sha256" : "3f61d1215d861666c833c8e4c828ec2894da6c075530e19df5698b5e1693f333"
     },
     "joints/4/partner2/loaded1/partition0" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3244,
-      "sha256" : "3bb769e9cad28c96c0a3d95290b7e832f5475e4e752d4264a31f6d3d375d4be1"
+      "records" : 3016,
+      "sha256" : "451b64d0f52da773e8856cf620255aba14062787233137c333bf9ecd1daac20b"
     },
     "joints/4/partner2/loaded1/partition1" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "e3adc7918d76d27bf9488b01e1fd27c6500e9547f6fd06ac9269a3e9776663a2"
+      "records" : 2821,
+      "sha256" : "a53615078e1a17552d9d5c95e8922a0afe990820f3c2a53e9142ace5d2e0361f"
     },
     "joints/4/partner2/loaded1/partition2" : 
     {
       "completed" : true,
       "producer" : "tests_api_joints",
-      "records" : 3034,
-      "sha256" : "fdda3af1a22fa8048c1339ef15c202487d1747b5ac06caf702d1e9f65cec3616"
+      "records" : 2821,
+      "sha256" : "39de7c435e9840737e60502a7a79febb87c3407a94437bb69c8558715c93bf36"
     },
     "joints/5/partner0/loaded0/partition0" : 
     {
@@ -6269,19 +6260,19 @@
       "records" : 5778,
       "sha256" : "9df26f47d5bd96171638da42bcf2aa409d4e79e528dd8b0238b92293fd7bfebf"
     },
-    "lifecycle/ReuseAndDestruction" : 
+    "lifecycle/NullHandles" :
     {
       "completed" : true,
       "producer" : "tests_api_lifecycle",
-      "records" : 578,
-      "sha256" : "f10cc47e91215ed8dbacd98ae217870f38f3c3912d090f0f6180fc3929d791f1"
+      "records" : 6,
+      "sha256" : "e45d61f39a457648cc47a0c181059afbfae30465c0eb714cd15f36236299c654"
     },
-    "lifecycle/StoredIDs" : 
+    "lifecycle/ReuseAndDestruction" :
     {
       "completed" : true,
       "producer" : "tests_api_lifecycle",
-      "records" : 160,
-      "sha256" : "6d76a58589fd9f3846e3c538054020efb41bc1456a21608a7914cfa530f9daa9"
+      "records" : 572,
+      "sha256" : "89f31553bccd9432308862d1bfb45932df16468c614321aa54fcfd9c335827dc"
     },
     "make_rot" : 
     {
@@ -7300,10 +7291,10 @@
     "oracle/bench/scenes.c" : "826040ec9973cde02766bacf3b94ab1dfee244461354bdbe932c964631c27974",
     "oracle/build.sh" : "6faba992dc31cf48e1cb5f8eddd99562c1bdb8c23c64a2dec49b2df71f3cfa53",
     "oracle/capture.cmake" : "2ba17a91ca55fd9306f6f9b85fb9b22ae07b815660002dccc9b9e9508b821747",
-    "oracle/cases.json" : "a77c49d14c14d03b0c8bd25c1df1dabf4dfac000dbe05813023ac86191bb4673",
+    "oracle/cases.json" : "9cea0d320b45eb5ac75d5f4ae134d46a29a779de3bde64d52a141a5b993575a6",
     "oracle/check-upstream.cmake" : "71ed1b56feb390f47c7e16f9831c596c2a0e79053460cee801b0fb3857dac3ce",
     "oracle/debug/distance.c" : "d6ee24dfd7dc55e7a1a8c0241c6c60c80ab8e360b492934ec36050e061215bfd",
-    "oracle/differential.c" : "1596bde72ec3f4ef19fb89aa0b3d02c824e4870371022196c9bf7fd705fec2e1",
+    "oracle/differential.c" : "e3ce813ed035a1610e6cf857cb36e53e9ac73b29476c2d505d0b7a16defbbad9",
     "oracle/oracle.c" : "c20bcaaa85c5efa38999129c452cf162f031ec43bac839588b50e0150c19144c",
     "oracle/oracle.h" : "b2aa900972a8fe87bd638329c29c7d91dea692bbcf4b6f57b19559a7ca823b43",
     "oracle/reference.cmake" : "d7bc14dca64ac9fddaf53576a9c09631de4fb14bd6beefc21c5678112a2743d6",
@@ -7314,8 +7305,8 @@
     "oracle/tests/api_bodies.c" : "19af514fcc05b60463a0c8fb36d7fd5bf7eeea5a32c903a1338fc022bdefb6a2",
     "oracle/tests/api_draw.c" : "9ff672b4c896b416014ca25e08e5d8c7cd407097438d0184d9df5297cb3b59ca",
     "oracle/tests/api_events.c" : "926d0e60c94dd5bfd2105b1acde81fd6bfaa3e95abe31feb3d19809361695d4a",
-    "oracle/tests/api_joints.c" : "8b530e77ffe14b1cb3386562627d89d3e41d762ef1432fdab65268d9cca3a743",
-    "oracle/tests/api_lifecycle.c" : "a74b7daf387f9e7e84277431fee44085955b49e9b5203df49d94fa5aa960331c",
+    "oracle/tests/api_joints.c" : "20bd7ffad4f121575bf6d14dd09649ac973b65764f0f76e9e291d3ff9805af62",
+    "oracle/tests/api_lifecycle.c" : "185e7ed14c7e829473ac9c9176de680e747e5527335f2aa4337138d6456fbbc2",
     "oracle/tests/api_spatial.c" : "b7b098bf66d0087214e48ad2ccc1ffa6c1c3825edea2cecb7606dd7c17db487f",
     "oracle/tests/world_world.c" : "4ce7f91e209e56f8aa16a90a15b7382a33d4d93147e1a084258eb090106c4214",
     "oracle/tests/restitution/test_restitution.c" : "b3d7157fc56878d0180a6216adcb90dca7019b690685e1d6c7580073eb808282",
@@ -7333,12 +7324,10 @@
     "oracle/tests/snapshot_snapshot.c" : "b155f9476996544d8e7f10c2da251413701b8052fe113c33a4aae7761a92f1f3",
     "oracle/tests/foundation/test_bitset.c" : "fff8f84887f8803a995cb0b8d27f22ce7a38f9272e4cf79a0e27eb9c3fd6092a",
     "oracle/tests/foundation/test_container.c" : "92ba1309951338fd90377e8623be7741b6137308baa172d01a1e5d35c63a33ea",
-    "oracle/tests/foundation/test_id.c" : "fd34824de9b3912f7d4bab4ed524b21101754c19c670280f5d8d514eb8f77b38",
     "oracle/tests/foundation/test_table.c" : "c7c8517e91fe7db881fec074dfd1ea85c257a1ac269258bd5964e7e002ff8a8e",
     "oracle/tests/foundation/test_thread.c" : "5334da7f1186540f9296f4274211d5636ce7428a3fdbd1deb972c4a2d174ce91",
     "oracle/tests/foundation_bitset.c" : "bcd922f18eb1e9889c028d424bcbbde6fd50b2ab121311b94e6594d33151993c",
     "oracle/tests/foundation_container.c" : "a31cbfbf0f44e0d127221c6548b9a70073c7229dbf0de017c3595ec58bc59467",
-    "oracle/tests/foundation_id.c" : "878b21c6357b26b739882503c9be0965775591272c12e1127ef7cdc7554d4b4c",
     "oracle/tests/foundation_table.c" : "6301c229d291accb10531577b9e0a3ea79a3586a883912004fe367dc587935cd",
     "oracle/tests/foundation_thread.c" : "a3638ab5f05cc0a36ad217a185b7dedddb96a6eceaecf01435e4d7680fbe129a",
     "oracle/tests/collision/test_collision.c" : "708ca1c93e5be64c99ed8001ba4ca9ce84a86c405a40bd91227ffd9b1ab54357",
@@ -7358,7 +7347,7 @@
     "oracle/tests/collision_shape_public.c" : "f52114233bd71f270ae90984efd12fed29c216aea689de26c4401aca4054ea0d",
     "oracle/tests/input/test_chain.c" : "420faeec9cb38014078e8dbe95008b7efb34583b8cfb936ed79dbc450dc8e1ab",
     "oracle/tests/input/test_determinism.c" : "1732b926d576f7d57f8d59fb7f72a290769d0f7ed94eeafb8c412b168a8db3d1",
-    "oracle/tests/input/test_invalid_input.c" : "aa1d5e31ba099e42509f2431b0ab9df0a50fe2831da0d1d478138e658a4fc4ae",
+    "oracle/tests/input/test_invalid_input.c" : "bb498f054857d5743df8e785702edce568232164726dae88e2ed5a06c0de0325",
     "oracle/tests/input/trace.h" : "ec72f8860d8d3e452b66d561ca426770ac28342cc5ccc49388f2d6b9f10427c2",
     "oracle/tests/input_chain.c" : "d2a225f491a213b8a7e488d305f4e24b87889365b3926486c020aca40a5a2332",
     "oracle/tests/input_determinism.c" : "408dd76a4a7fbcc0289b47ce615632e0d4837b3fee98ac029c8ed929d6db2dab",

@@ -3,15 +3,8 @@
 
 package box2d
 
-func InputSaveInputHooks() func() {
-	oldAssert, oldLog := assertHandler, logHandler
-	return func() {
-		assertHandler, logHandler = oldAssert, oldLog
-	}
-}
-
-func InputBodyTransforms(worldID World) []WorldTransform {
-	w := getWorldFromId(worldID)
+func InputBodyTransforms(worldID *World) []WorldTransform {
+	w := worldID
 	transforms := make([]WorldTransform, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id == nullIndex {
@@ -23,8 +16,8 @@ func InputBodyTransforms(worldID World) []WorldTransform {
 }
 
 // InputBodies preserves creation-slot order for the original upstream scene traces.
-func InputBodies(worldID World) []Body {
-	w := getWorldFromId(worldID)
+func InputBodies(worldID *World) []Body {
+	w := worldID
 	bodies := make([]Body, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id != nullIndex {
@@ -35,13 +28,11 @@ func InputBodies(worldID World) []Body {
 }
 
 // The public API has no contact-tuning getter; observe the rejected stored settings.
-func InputWorldTuning(worldID World) (float32, float32, float32) {
-	w := getWorldFromId(worldID)
+func InputWorldTuning(worldID *World) (float32, float32, float32) {
+	w := worldID
 	return w.contactHertz, w.contactDampingRatio, w.contactSpeed
 }
 
-func InputChainCount(worldID World) int {
-	return getIDCount(&getWorldFromId(worldID).chainIDPool)
+func InputChainCount(worldID *World) int {
+	return getIDCount(&worldID.chainIDPool)
 }
-
-func InputAssertsEnabled() bool { return assertsEnabled }

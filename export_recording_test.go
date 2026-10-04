@@ -3,20 +3,20 @@
 
 package box2d
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"os"
+)
 
-var RecordingGetWorldFromID = getWorldFromId
 var RecordingHashWorldStateDeep = hashWorldStateDeep
-
-type RecordingWorld = world
 
 type RecordingBodyTransform struct {
 	Index     int
 	Transform WorldTransform
 }
 
-func RecordingBodyTransforms(id World) []RecordingBodyTransform {
-	w := getWorldFromId(id)
+func RecordingBodyTransforms(id *World) []RecordingBodyTransform {
+	w := id
 	transforms := make([]RecordingBodyTransform, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id == i {
@@ -58,7 +58,6 @@ func RecordingMismatch(source []byte, kind string) []byte {
 		if frame == 7 || frame == 12 {
 			rdr := recReader{data: data, size: start + size, cursor: start, ok: true}
 			if kind == "state" && op == 0xf1 {
-				_ = recRWORLDID(&rdr)
 				at := rdr.cursor
 				hash := recRU64(&rdr)
 				if !rdr.ok {
@@ -68,7 +67,6 @@ func RecordingMismatch(source []byte, kind string) []byte {
 				changed++
 			}
 			if kind == "query" && op == 0xe0 {
-				_ = recRWORLDID(&rdr)
 				_ = recRPOSITION(&rdr)
 				_ = recRAABB(&rdr)
 				_ = recRQUERYFILTER(&rdr)
@@ -80,7 +78,7 @@ func RecordingMismatch(source []byte, kind string) []byte {
 						panic("invalid test hit")
 					}
 					id.generation ^= 1
-					binary.LittleEndian.PutUint64(data[at:], id.Store())
+					binary.LittleEndian.PutUint64(data[at:], id.ID())
 					changed++
 				}
 			}
@@ -127,8 +125,8 @@ func RecordingMalformed(source []byte, name string) []byte {
 	return data
 }
 
-func RecordingBodies(id World) []Body {
-	w := getWorldFromId(id)
+func RecordingBodies(id *World) []Body {
+	w := id
 	var ids []Body
 	for i := range w.bodies {
 		if w.bodies[i].id == i {
@@ -138,29 +136,50 @@ func RecordingBodies(id World) []Body {
 	return ids
 }
 
-func RecordingShapes(id World) []Shape {
-	w := getWorldFromId(id)
+func RecordingShapes(id *World) []Shape {
+	w := id
 	var ids []Shape
 	for i := range w.shapes {
 		if w.shapes[i].id == i {
-			ids = append(ids, Shape{index1: int32(i + 1), world0: uint16(id.index1 - 1), generation: w.shapes[i].generation})
+			ids = append(ids, Shape{index1: int32(i + 1), world: id, generation: w.shapes[i].generation})
 		}
 	}
 	return ids
 }
 
-func RecordingJoints(id World) []Joint {
-	w := getWorldFromId(id)
+func RecordingJoints(id *World) []Joint {
+	w := id
 	var ids []Joint
 	for i := range w.joints {
 		if w.joints[i].jointId == i {
-			ids = append(ids, Joint{index1: int32(i + 1), world0: uint16(id.index1 - 1), generation: w.joints[i].generation})
+			ids = append(ids, Joint{index1: int32(i + 1), world: id, generation: w.joints[i].generation})
 		}
 	}
 	return ids
 }
 
-func RecordingContactTuning(id World) (float32, float32, float32) {
-	w := getWorldFromId(id)
+func RecordingContactTuning(id *World) (float32, float32, float32) {
+	w := id
 	return w.contactHertz, w.contactDampingRatio, w.contactSpeed
+}
+
+func RecordingSaveFile(rec *Recording, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if _, err := rec.WriteTo(f); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+func RecordingLoadFile(path string) (*Recording, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return ReadRecording(f)
 }

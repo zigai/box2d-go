@@ -24,12 +24,12 @@ const restitutionImpactSpeed float32 = 5.0
 
 func TestBTWorldCleanupSkipped(t *testing.T) {
 
-	var ids [2]World
+	var ids [2]*World
 	t.Run("skip", func(t *testing.T) {
 
 		def := DefaultWorldDef()
 		for i := range ids {
-			ids[i] = CreateWorld(&def)
+			ids[i] = NewWorld(&def)
 			BTWorldCleanup(t, ids[i])
 			if !(ids[i].IsValid()) {
 				t.Fatal("condition false")
@@ -46,25 +46,22 @@ func TestBTWorldCleanupSkipped(t *testing.T) {
 
 func TestBTWorldCleanupExplicitDestroy(t *testing.T) {
 
-	var replacement World
+	var replacement *World
 	t.Run("destroy and recycle", func(child *testing.T) {
 
 		def := DefaultWorldDef()
-		id := CreateWorld(&def)
+		id := NewWorld(&def)
 		BTWorldCleanup(child, id)
 		if !(id.IsValid()) {
 			child.Fatal("condition false")
 		}
-		id.Destroy()
+		id.Close()
 		if !(!id.IsValid()) {
 			child.Fatal("condition false")
 		}
-		replacement = CreateWorld(&def)
+		replacement = NewWorld(&def)
 		BTWorldCleanup(t, replacement)
 		if !(replacement.IsValid()) {
-			child.Fatal("condition false")
-		}
-		if !(replacement.index1 == id.index1) {
 			child.Fatal("condition false")
 		}
 	})
@@ -73,30 +70,30 @@ func TestBTWorldCleanupExplicitDestroy(t *testing.T) {
 	}
 	t.Run("null", func(t *testing.T) {
 
-		BTWorldCleanup(t, World{})
+		BTWorldCleanup(t, nil)
 	})
 }
 
-func restitutionMakeWorld(r *restitutionOracle, gravityY float32) World {
+func restitutionMakeWorld(r *restitutionOracle, gravityY float32) *World {
 	var worldDef WorldDef = DefaultWorldDef()
 	worldDef.Gravity = Vec2{float32(0.0), gravityY}
 	worldDef.EnableSleep = false
-	id := CreateWorld(&worldDef)
+	id := NewWorld(&worldDef)
 	BTWorldCleanup(r.t, id)
 	return id
 }
 
-func restitutionMakeWorldIterations(r *restitutionOracle, gravityY float32, restitutionIterations int) World {
+func restitutionMakeWorldIterations(r *restitutionOracle, gravityY float32, restitutionIterations int) *World {
 	var worldDef WorldDef = DefaultWorldDef()
 	worldDef.Gravity = Vec2{float32(0.0), gravityY}
 	worldDef.EnableSleep = false
 	worldDef.RestitutionIterations = restitutionIterations
-	id := CreateWorld(&worldDef)
+	id := NewWorld(&worldDef)
 	BTWorldCleanup(r.t, id)
 	return id
 }
 
-func restitutionMakeGround(r *restitutionOracle, worldID World, restitution float32) {
+func restitutionMakeGround(r *restitutionOracle, worldID *World, restitution float32) {
 	var bodyDef BodyDef = DefaultBodyDef()
 	bodyDef.Position = Pos{X: oracle.Real(float32(0.0)), Y: oracle.Real(-float32(1.0))}
 	var groundID Body = worldID.CreateBody(&bodyDef)
@@ -107,7 +104,7 @@ func restitutionMakeGround(r *restitutionOracle, worldID World, restitution floa
 	groundID.CreatePolygonShape(&shapeDef, &box)
 }
 
-func restitutionMakeBall(r *restitutionOracle, worldID World, x float32, y float32, velocityY float32, restitution float32) Body {
+func restitutionMakeBall(r *restitutionOracle, worldID *World, x float32, y float32, velocityY float32, restitution float32) Body {
 	var bodyDef BodyDef = DefaultBodyDef()
 	bodyDef.Type = DynamicBody
 	bodyDef.Position = Pos{X: oracle.Real(x), Y: oracle.Real(y)}
@@ -122,7 +119,7 @@ func restitutionMakeBall(r *restitutionOracle, worldID World, x float32, y float
 }
 
 func restitutionMeasureHeadOn(r *restitutionOracle, restitution float32, densityB float32, momentumError *float32) float32 {
-	var worldID World = restitutionMakeWorld(r, float32(0.0))
+	var worldID *World = restitutionMakeWorld(r, float32(0.0))
 	var circle Circle = Circle{Vec2{float32(0.0), float32(0.0)}, float32(0.5)}
 	var shapeDef ShapeDef = DefaultShapeDef()
 	shapeDef.Density = float32(1.0)
@@ -150,7 +147,7 @@ func restitutionMeasureHeadOn(r *restitutionOracle, restitution float32, density
 	var vB float32 = idB.LinearVelocity().X
 	var momentum1 float32 = (float32(massA*vA) + float32(massB*vB))
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	*momentumError = ((momentum1 - momentum0) / (massA + massB))
 	r.F32("MeasureHeadOn/momentumError", *momentumError)
 	r.F32("MeasureHeadOn/return", ((vB - vA) / restitutionImpactSpeed))
@@ -158,7 +155,7 @@ func restitutionMeasureHeadOn(r *restitutionOracle, restitution float32, density
 }
 
 func restitutionMeasureGroundBounce(r *restitutionOracle, restitution float32, gap float32) float32 {
-	var worldID World = restitutionMakeWorld(r, float32(0.0))
+	var worldID *World = restitutionMakeWorld(r, float32(0.0))
 	restitutionMakeGround(r, worldID, float32(0.0))
 	var ballID Body = restitutionMakeBall(r, worldID, float32(0.0), (float32(0.5) + gap), -restitutionImpactSpeed, restitution)
 	for i := 0; i < 60; i++ {
@@ -167,7 +164,7 @@ func restitutionMeasureGroundBounce(r *restitutionOracle, restitution float32, g
 	}
 	var speed float32 = ballID.LinearVelocity().Y
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.F32("MeasureGroundBounce/return", (speed / restitutionImpactSpeed))
 	return (speed / restitutionImpactSpeed)
 }
@@ -178,7 +175,7 @@ func restitutionMeasureSupportedBounce(r *restitutionOracle, restitution float32
 	worldDef.EnableSleep = false
 	worldDef.EnableRestitutionPropagation = propagate
 	worldDef.RestitutionIterations = restitutionRestitutionIterations
-	var worldID World = CreateWorld(&worldDef)
+	var worldID *World = NewWorld(&worldDef)
 	BTWorldCleanup(r.t, worldID)
 	restitutionMakeGround(r, worldID, float32(0.0))
 	for i := 0; i < supportCount; i++ {
@@ -192,13 +189,13 @@ func restitutionMeasureSupportedBounce(r *restitutionOracle, restitution float32
 	}
 	var speed float32 = ballID.LinearVelocity().Y
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.F32("MeasureSupportedBounce/return", (speed / restitutionImpactSpeed))
 	return (speed / restitutionImpactSpeed)
 }
 
 func restitutionMeasureFlatBounce(r *restitutionOracle, restitution float32, subStepCount int, spin *float32) float32 {
-	var worldID World = restitutionMakeWorldIterations(r, float32(0.0), restitutionRestitutionIterations)
+	var worldID *World = restitutionMakeWorldIterations(r, float32(0.0), restitutionRestitutionIterations)
 	restitutionMakeGround(r, worldID, float32(0.0))
 	var bodyDef BodyDef = DefaultBodyDef()
 	bodyDef.Type = DynamicBody
@@ -218,14 +215,14 @@ func restitutionMeasureFlatBounce(r *restitutionOracle, restitution float32, sub
 	var speed float32 = boxID.LinearVelocity().Y
 	*spin = boxID.AngularVelocity()
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.F32("MeasureFlatBounce/spin", *spin)
 	r.F32("MeasureFlatBounce/return", (speed / restitutionImpactSpeed))
 	return (speed / restitutionImpactSpeed)
 }
 
 func restitutionMeasureDrop(r *restitutionOracle, dropHeight float32, apexes []float32, capacity int) int {
-	var worldID World = restitutionMakeWorld(r, -float32(10.0))
+	var worldID *World = restitutionMakeWorld(r, -float32(10.0))
 	var groundDef BodyDef = DefaultBodyDef()
 	var groundID Body = worldID.CreateBody(&groundDef)
 	var groundShape ShapeDef = DefaultShapeDef()
@@ -246,7 +243,7 @@ func restitutionMeasureDrop(r *restitutionOracle, dropHeight float32, apexes []f
 		previousSpeed = speed
 	}
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.I32("MeasureDrop/return", int32(apexCount))
 	return apexCount
 }
@@ -262,11 +259,11 @@ func restitutionHeadOnTest(r *restitutionOracle) int {
 		for j := 0; j < len(restitutions); j++ {
 			var momentumError float32 = float32(0.0)
 			var measured float32 = restitutionMeasureHeadOn(r, restitutions[j], densities[i], &momentumError)
-			var error float32 = AbsFloat((measured - restitutions[j]))
+			var error float32 = absFloat((measured - restitutions[j]))
 			if error > worstError {
 				worstError = error
 			}
-			if AbsFloat(momentumError) > AbsFloat(worstMomentum) {
+			if absFloat(momentumError) > absFloat(worstMomentum) {
 				worstMomentum = momentumError
 			}
 			r.F32("check/277/value0", error)
@@ -278,8 +275,8 @@ func restitutionHeadOnTest(r *restitutionOracle) int {
 		}
 		r.F32("check/286/value0", worstError)
 		r.F32("check/286/value1", worstMomentum)
-		r.Bool("check/286", (AbsFloat(worstMomentum) > float32(1.0e-4)))
-		if AbsFloat(worstMomentum) > float32(1.0e-4) {
+		r.Bool("check/286", (absFloat(worstMomentum) > float32(1.0e-4)))
+		if absFloat(worstMomentum) > float32(1.0e-4) {
 			failed = 1
 		}
 	}
@@ -299,8 +296,8 @@ func restitutionPhaseTest(r *restitutionOracle) int {
 		for i := 0; i < sampleCount; i++ {
 			var gap float32 = float32(float32((float32(i)/float32(sampleCount))*restitutionImpactSpeed) * restitutionTimeStep)
 			var measured float32 = restitutionMeasureGroundBounce(r, restitutions[j], gap)
-			minimum = MinFloat(minimum, measured)
-			maximum = MaxFloat(maximum, measured)
+			minimum = minFloat(minimum, measured)
+			maximum = maxFloat(maximum, measured)
 			sum += measured
 		}
 		var mean float32 = (sum / float32(sampleCount))
@@ -310,8 +307,8 @@ func restitutionPhaseTest(r *restitutionOracle) int {
 		r.F32("check/323/value2", mean)
 		r.F32("check/323/value3", spread)
 		r.F32("check/323/value4", tolerance)
-		r.Bool("check/323", ((spread > tolerance) || (AbsFloat((mean - restitutions[j])) > tolerance)))
-		if (spread > tolerance) || (AbsFloat((mean - restitutions[j])) > tolerance) {
+		r.Bool("check/323", ((spread > tolerance) || (absFloat((mean - restitutions[j])) > tolerance)))
+		if (spread > tolerance) || (absFloat((mean - restitutions[j])) > tolerance) {
 			failed = 1
 		}
 	}
@@ -362,8 +359,8 @@ func restitutionTwoPointTest(r *restitutionOracle) int {
 			r.F32("check/396/value2", spin)
 			r.F32("check/396/value3", speedTolerance)
 			r.F32("check/396/value4", spinTolerance)
-			r.Bool("check/396", ((AbsFloat((measured - restitutions[j])) > speedTolerance) || (AbsFloat(spin) > spinTolerance)))
-			if (AbsFloat((measured - restitutions[j])) > speedTolerance) || (AbsFloat(spin) > spinTolerance) {
+			r.Bool("check/396", ((absFloat((measured - restitutions[j])) > speedTolerance) || (absFloat(spin) > spinTolerance)))
+			if (absFloat((measured - restitutions[j])) > speedTolerance) || (absFloat(spin) > spinTolerance) {
 				failed = 1
 			}
 		}
@@ -376,7 +373,7 @@ func restitutionSpinTest(r *restitutionOracle) int {
 	var spins []float32 = []float32{float32(0.0), float32(0.5), float32(1.0), float32(2.0)}
 	var failed int = 0
 	for j := 0; j < len(spins); j++ {
-		var worldID World = restitutionMakeWorldIterations(r, float32(0.0), restitutionRestitutionIterations)
+		var worldID *World = restitutionMakeWorldIterations(r, float32(0.0), restitutionRestitutionIterations)
 		restitutionMakeGround(r, worldID, float32(0.0))
 		var bodyDef BodyDef = DefaultBodyDef()
 		bodyDef.Type = DynamicBody
@@ -397,11 +394,11 @@ func restitutionSpinTest(r *restitutionOracle) int {
 		var speed float32 = boxID.LinearVelocity().Y
 		var spin float32 = boxID.AngularVelocity()
 		r.end(worldID)
-		worldID.Destroy()
+		worldID.Close()
 		r.F32("SpinTest/speed", speed)
 		r.F32("SpinTest/spin", spin)
-		r.Bool("check/446", ((AbsFloat((speed - restitutionImpactSpeed)) > float32(0.05)) || (AbsFloat((spin + spins[j])) > float32(0.05))))
-		if (AbsFloat((speed - restitutionImpactSpeed)) > float32(0.05)) || (AbsFloat((spin + spins[j])) > float32(0.05)) {
+		r.Bool("check/446", ((absFloat((speed - restitutionImpactSpeed)) > float32(0.05)) || (absFloat((spin + spins[j])) > float32(0.05))))
+		if (absFloat((speed - restitutionImpactSpeed)) > float32(0.05)) || (absFloat((spin + spins[j])) > float32(0.05)) {
 			failed = 1
 		}
 	}
@@ -424,7 +421,7 @@ func restitutionDropTest(r *restitutionOracle) int {
 		}
 		var highest float32 = apexes[0]
 		for i := 1; i < apexCount; i++ {
-			highest = MaxFloat(highest, apexes[i])
+			highest = maxFloat(highest, apexes[i])
 		}
 		r.F32("check/491/value0", highest)
 		r.F32("check/491/value1", apexes[0])
@@ -440,7 +437,7 @@ func restitutionDropTest(r *restitutionOracle) int {
 }
 
 func restitutionSingleBoxTest(r *restitutionOracle) int {
-	var worldID World = restitutionMakeWorldIterations(r, -float32(10.0), restitutionRestitutionIterations)
+	var worldID *World = restitutionMakeWorldIterations(r, -float32(10.0), restitutionRestitutionIterations)
 	var groundDef BodyDef = DefaultBodyDef()
 	var groundID Body = worldID.CreateBody(&groundDef)
 	var groundShape ShapeDef = DefaultShapeDef()
@@ -468,11 +465,11 @@ func restitutionSingleBoxTest(r *restitutionOracle) int {
 		r.step(worldID)
 		var speed float32 = boxID.LinearVelocity().Y
 		if ((apexCount == 0) && (previousSpeed <= float32(0.0))) && (speed > float32(0.0)) {
-			firstSpin = AbsFloat(boxID.AngularVelocity())
+			firstSpin = absFloat(boxID.AngularVelocity())
 		}
 		if (previousSpeed > float32(0.0)) && (speed <= float32(0.0)) {
 			apexes[apexCount] = float32(boxID.Position().Y)
-			spins[apexCount] = AbsFloat(boxID.AngularVelocity())
+			spins[apexCount] = absFloat(boxID.AngularVelocity())
 			r.F32("SingleBoxTest/apex", apexes[apexCount])
 			r.F32("SingleBoxTest/spin", spins[apexCount])
 			apexCount += 1
@@ -480,7 +477,7 @@ func restitutionSingleBoxTest(r *restitutionOracle) int {
 		previousSpeed = speed
 	}
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 
 	r.F32("SingleBoxTest/firstSpin", firstSpin)
 	r.Bool("check/568", (apexCount == len(apexes)))
@@ -511,7 +508,7 @@ func restitutionThresholdTest(r *restitutionOracle) int {
 	var failed int = 0
 	for j := 0; j < len(scales); j++ {
 		var speed float32 = float32(scales[j] * threshold)
-		var worldID World = restitutionMakeWorld(r, float32(0.0))
+		var worldID *World = restitutionMakeWorld(r, float32(0.0))
 		restitutionMakeGround(r, worldID, float32(0.0))
 		var ballID Body = restitutionMakeBall(r, worldID, float32(0.0), (float32(0.5) + float32(float32(float32(0.5)*speed)*restitutionTimeStep)), -speed, float32(1.0))
 		for i := 0; i < 60; i++ {
@@ -520,7 +517,7 @@ func restitutionThresholdTest(r *restitutionOracle) int {
 		}
 		var ratio float32 = (ballID.LinearVelocity().Y / speed)
 		r.end(worldID)
-		worldID.Destroy()
+		worldID.Close()
 		r.F32("ThresholdTest/ratio", ratio)
 		r.F32("check/615/value0", scales[j])
 		r.F32("check/615/value1", threshold)
@@ -539,7 +536,7 @@ func restitutionThresholdTest(r *restitutionOracle) int {
 }
 
 func restitutionRestingTest(r *restitutionOracle) int {
-	var worldID World = restitutionMakeWorld(r, -float32(10.0))
+	var worldID *World = restitutionMakeWorld(r, -float32(10.0))
 	restitutionMakeGround(r, worldID, float32(0.9))
 	var boxCount int = 10
 	var boxIDs [10]Body
@@ -566,13 +563,13 @@ func restitutionRestingTest(r *restitutionOracle) int {
 		worldID.Step(restitutionTimeStep, restitutionSubStepCount)
 		r.step(worldID)
 		var y float32 = float32(boxIDs[(boxCount - 1)].Position().Y)
-		drift = MaxFloat(drift, AbsFloat((y - settled)))
+		drift = maxFloat(drift, absFloat((y - settled)))
 		for j := 0; j < boxCount; j++ {
-			peakSpeed = MaxFloat(peakSpeed, Length(boxIDs[j].LinearVelocity()))
+			peakSpeed = maxFloat(peakSpeed, boxIDs[j].LinearVelocity().Length())
 		}
 	}
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.F32("RestingTest/drift", drift)
 	r.F32("RestingTest/peakSpeed", peakSpeed)
 	r.Bool("check/679", (drift < float32(0.01)))
@@ -588,7 +585,7 @@ func restitutionRestingTest(r *restitutionOracle) int {
 }
 
 func restitutionMeasureFirstTouchNormalVelocity(r *restitutionOracle, enableHitEvents bool) float32 {
-	var worldID World = restitutionMakeWorld(r, float32(0.0))
+	var worldID *World = restitutionMakeWorld(r, float32(0.0))
 	restitutionMakeGround(r, worldID, float32(0.0))
 	var bodyDef BodyDef = DefaultBodyDef()
 	bodyDef.Type = DynamicBody
@@ -618,7 +615,7 @@ func restitutionMeasureFirstTouchNormalVelocity(r *restitutionOracle, enableHitE
 		}
 	}
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.F32("MeasureFirstTouchNormalVelocity/return", normalVelocity)
 	return normalVelocity
 }
@@ -641,15 +638,15 @@ func restitutionNormalVelocityTest(r *restitutionOracle) int {
 	return failed
 }
 
-func restitutionMeasureEnergy(r *restitutionOracle, bodyID Body, worldID World) float32 {
+func restitutionMeasureEnergy(r *restitutionOracle, bodyID Body, worldID *World) float32 {
 	var massData MassData = bodyID.MassData()
 	var v Vec2 = bodyID.LinearVelocity()
 	var w float32 = bodyID.AngularVelocity()
-	var gravity Vec2 = MulSV(bodyID.GravityScale(), worldID.Gravity())
+	var gravity Vec2 = worldID.Gravity().Scale(bodyID.GravityScale())
 	var h float32 = (restitutionTimeStep / float32(restitutionSubStepCount))
-	var kinetic float32 = (float32(float32(float32(0.5)*massData.Mass)*Dot(v, v)) + float32(float32(float32(float32(0.5)*massData.RotationalInertia)*w)*w))
-	var potential float32 = float32(-massData.Mass * Dot(gravity, ToVec2(bodyID.WorldCenter())))
-	var phase float32 = float32(float32(float32(float32(0.5)*h)*massData.Mass) * Dot(v, gravity))
+	var kinetic float32 = (float32(float32(float32(0.5)*massData.Mass)*v.Dot(v)) + float32(float32(float32(float32(0.5)*massData.RotationalInertia)*w)*w))
+	var potential float32 = float32(-massData.Mass * gravity.Dot(bodyID.WorldCenter().Vec2()))
+	var phase float32 = float32(float32(float32(float32(0.5)*h)*massData.Mass) * v.Dot(gravity))
 	return ((kinetic + potential) + phase)
 }
 
@@ -662,7 +659,7 @@ type restitutionOvershootResult struct {
 }
 
 func restitutionMeasureOvershoot(r *restitutionOracle, continuous bool) restitutionOvershootResult {
-	var worldID World = restitutionMakeWorldIterations(r, -float32(10.0), restitutionRestitutionIterations)
+	var worldID *World = restitutionMakeWorldIterations(r, -float32(10.0), restitutionRestitutionIterations)
 	var floorDef BodyDef = DefaultBodyDef()
 	floorDef.Position = Pos{X: oracle.Real(float32(0.0)), Y: oracle.Real(-float32(0.25))}
 	var floorID Body = worldID.CreateBody(&floorDef)
@@ -715,7 +712,7 @@ func restitutionMeasureOvershoot(r *restitutionOracle, continuous bool) restitut
 		previousSpeed = speed
 	}
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	result.speedRatio = (reboundSpeed / impactSpeed)
 	r.F32("MeasureOvershoot/bounceHeight", bounceHeight)
 	r.F32("MeasureOvershoot/firstApex", result.firstApex)
@@ -763,10 +760,10 @@ type restitutionImpulseResult struct {
 }
 
 func restitutionMeasureDropImpulse(r *restitutionOracle, restitution float32, dropHeight float32) restitutionImpulseResult {
-	var worldID World = restitutionMakeWorld(r, -float32(10.0))
+	var worldID *World = restitutionMakeWorld(r, -float32(10.0))
 	restitutionMakeGround(r, worldID, float32(0.0))
 	var ballID Body = restitutionMakeBall(r, worldID, float32(0.0), (float32(0.5) + dropHeight), float32(0.0), restitution)
-	var world *world = getWorldFromId(worldID)
+	var world *World = worldID
 	var mass float32 = ballID.Mass()
 	var gravityY float32 = worldID.Gravity().Y
 	var result restitutionImpulseResult = restitutionImpulseResult{}
@@ -805,7 +802,7 @@ func restitutionMeasureDropImpulse(r *restitutionOracle, restitution float32, dr
 			continue
 		}
 		var expected float32 = (float32(mass*(speedAfter-speedBefore)) - float32(float32(mass*gravityY)*restitutionTimeStep))
-		result.worstError = MaxFloat(result.worstError, AbsFloat((measured - expected)))
+		result.worstError = maxFloat(result.worstError, absFloat((measured - expected)))
 		if contactCount > 0 {
 			if touched == false {
 				touched = true
@@ -822,7 +819,7 @@ func restitutionMeasureDropImpulse(r *restitutionOracle, restitution float32, dr
 		}
 	}
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.F32("MeasureDropImpulse/worstError", result.worstError)
 	r.F32("MeasureDropImpulse/approachSpeed", result.approachSpeed)
 	r.F32("MeasureDropImpulse/firstSeparation", result.firstSeparation)
@@ -839,12 +836,12 @@ func restitutionImpulseTest(r *restitutionOracle) int {
 	var mass float32
 	var fastSpeed float32
 	{
-		var worldID World = restitutionMakeWorld(r, -float32(10.0))
+		var worldID *World = restitutionMakeWorld(r, -float32(10.0))
 		var ballID Body = restitutionMakeBall(r, worldID, float32(0.0), float32(0.5), float32(0.0), float32(0.0))
 		mass = ballID.Mass()
 		fastSpeed = (float32(ballID.SafetyFactor()*ballID.MinExtent()) / restitutionTimeStep)
 		r.end(worldID)
-		worldID.Destroy()
+		worldID.Close()
 	}
 	var weightImpulse float32 = float32(float32(mass*float32(10.0)) * restitutionTimeStep)
 	var failed int = 0
@@ -903,7 +900,7 @@ type restitutionEnergyScene struct {
 }
 
 func restitutionMeasurePeakEnergy(r *restitutionOracle, scene *restitutionEnergyScene) float32 {
-	var worldID World = restitutionMakeWorld(r, -float32(10.0))
+	var worldID *World = restitutionMakeWorld(r, -float32(10.0))
 	var groundDef BodyDef = DefaultBodyDef()
 	var groundID Body = worldID.CreateBody(&groundDef)
 	var groundShape ShapeDef = DefaultShapeDef()
@@ -958,7 +955,7 @@ func restitutionMeasurePeakEnergy(r *restitutionOracle, scene *restitutionEnergy
 		}
 	}
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	var ratio float32 = (peak / start)
 	r.I32("MeasurePeakEnergy/peakStep", int32(peakStep))
 	r.F32("MeasurePeakEnergy/return", ratio)
@@ -1006,7 +1003,7 @@ func restitutionRunWorkerScene(r *restitutionOracle, workerCount int) uint64 {
 	worldDef.Gravity = Vec2{float32(0.0), -float32(10.0)}
 	worldDef.EnableSleep = false
 	worldDef.WorkerCount = workerCount
-	var worldID World = CreateWorld(&worldDef)
+	var worldID *World = NewWorld(&worldDef)
 	BTWorldCleanup(r.t, worldID)
 	restitutionMakeGround(r, worldID, float32(0.6))
 	for i := 0; i < 20; i++ {
@@ -1018,7 +1015,7 @@ func restitutionRunWorkerScene(r *restitutionOracle, workerCount int) uint64 {
 	}
 	var hash uint64 = worldID.StateHash()
 	r.end(worldID)
-	worldID.Destroy()
+	worldID.Close()
 	r.U64("RunWorkerScene/return", hash)
 	return hash
 }
@@ -1241,14 +1238,14 @@ func (r *restitutionOracle) snapshot(step int, full []restitutionTransform) {
 	r.previousTransforms = full
 }
 
-func (r *restitutionOracle) step(worldID World) {
+func (r *restitutionOracle) step(worldID *World) {
 	row := BTObserveDynamics(r.Reader, worldID, fmt.Sprintf("observation/%d/", len(r.steps)/8+1), len(r.steps) == 0 || (len(r.steps)/8+1)%60 == 0)
 	if r.richScenario >= len(r.richExpected) {
 		r.t.Fatal("unexpected dynamics scenario")
 	}
 	BTDynamicsCompare(r.t, fmt.Sprintf("restitution/%s/scenario/%d", r.t.Name(), r.richScenario+1), len(r.steps)/8+1, row, r.richExpected[r.richScenario])
 	r.richRows = append(r.richRows, row)
-	world := getWorldFromId(worldID)
+	world := worldID
 	hash := uint64(14695981039346656037)
 	transformHash := uint64(14695981039346656037)
 	step := len(r.steps)/8 + 1
@@ -1323,7 +1320,7 @@ func (r *restitutionOracle) step(worldID World) {
 	r.transformSteps = binary.LittleEndian.AppendUint64(r.transformSteps, transformHash)
 }
 
-func (r *restitutionOracle) end(worldID World) {
+func (r *restitutionOracle) end(worldID *World) {
 	if r.richScenario >= len(r.richExpected) || len(r.richRows) != len(r.richExpected[r.richScenario]) {
 		r.t.Fatal("dynamics scenario step count differs")
 	}

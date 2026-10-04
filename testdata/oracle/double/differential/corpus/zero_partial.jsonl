@@ -1,7 +1,5 @@
 {"k":"input","t":"bytes","v":"00"}
 {"k":"world.epoch","t":"u32","v":"00000000"}
-{"k":"world.generation.delta","t":"u32","v":"00000000"}
-{"k":"world.slot.reused","t":"bool","v":"1"}
 {"k":"world.bodies","t":"i32","v":"00000000"}
 {"k":"world.shapes","t":"i32","v":"00000000"}
 {"k":"world.joints","t":"i32","v":"00000000"}
@@ -43,8 +41,6 @@
 {"k":"operation.code","t":"u32","v":"00000000"}
 {"k":"operation.acted","t":"bool","v":"1"}
 {"k":"world.epoch","t":"u32","v":"00000000"}
-{"k":"world.generation.delta","t":"u32","v":"00000000"}
-{"k":"world.slot.reused","t":"bool","v":"1"}
 {"k":"world.bodies","t":"i32","v":"00000001"}
 {"k":"world.shapes","t":"i32","v":"00000000"}
 {"k":"world.joints","t":"i32","v":"00000000"}

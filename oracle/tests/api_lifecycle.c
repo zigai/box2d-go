@@ -14,60 +14,9 @@ static uint64_t body_key( b2BodyId id )
 {
 	return b2StoreBodyId( id ) & UINT64_C( 0xffffffff0000ffff );
 }
-static void stored_ids( void )
+static void null_handles( void )
 {
-	ORACLE_OPEN( "lifecycle/StoredIDs" );
-	uint32_t ws[] = { 0, 1, 0xffff, 0x10000, 0x7fffffff, 0x80000000, 0xffffffff };
-	for ( int i = 0; i < 7; ++i )
-	{
-		b2WorldId w = b2LoadWorldId( ws[i] );
-		ORACLE_U32( ORACLE_KEY( "w%d", i ), b2StoreWorldId( w ) );
-		ORACLE_BOOL( "null", B2_IS_NULL( w ) );
-		ORACLE_BOOL( "nonnull", B2_IS_NON_NULL( w ) );
-	}
-	uint64_t xs[] = { 0,
-					  1,
-					  0xffff,
-					  0x10000,
-					  0xffffffff,
-					  UINT64_C( 0x100000000 ),
-					  UINT64_C( 0x7fffffffffffffff ),
-					  UINT64_C( 0x8000000000000000 ),
-					  UINT64_MAX };
-	for ( int i = 0; i < 9; ++i )
-	{
-		b2BodyId b = b2LoadBodyId( xs[i] );
-		b2ShapeId s = b2LoadShapeId( xs[i] );
-		b2ChainId c = b2LoadChainId( xs[i] );
-		b2JointId j = b2LoadJointId( xs[i] );
-		ORACLE_U64( "body", b2StoreBodyId( b ) );
-		ORACLE_U64( "shape", b2StoreShapeId( s ) );
-		ORACLE_U64( "chain", b2StoreChainId( c ) );
-		ORACLE_U64( "joint", b2StoreJointId( j ) );
-		ORACLE_BOOL( "body.null", B2_IS_NULL( b ) );
-		ORACLE_BOOL( "shape.null", B2_IS_NULL( s ) );
-		ORACLE_BOOL( "chain.null", B2_IS_NULL( c ) );
-		ORACLE_BOOL( "joint.null", B2_IS_NULL( j ) );
-		ORACLE_BOOL( "body.nonnull", B2_IS_NON_NULL( b ) );
-		ORACLE_BOOL( "shape.nonnull", B2_IS_NON_NULL( s ) );
-		ORACLE_BOOL( "chain.nonnull", B2_IS_NON_NULL( c ) );
-		ORACLE_BOOL( "joint.nonnull", B2_IS_NON_NULL( j ) );
-	}
-	uint32_t values[][3] = { { 0, 0, 0 },
-							 { 1, 0, 1 },
-							 { 0xffffffff, 0xffff, 0xffffffff },
-							 { 0x80000000, 0xffffffff, 0x80000000 },
-							 { 0, 7, 0xffffffff } };
-	for ( int i = 0; i < 5; ++i )
-	{
-		b2ContactId c = b2LoadContactId( values[i] );
-		uint32_t out[3];
-		b2StoreContactId( c, out );
-		for ( int k = 0; k < 3; ++k )
-			ORACLE_U32( "contact", out[k] );
-		ORACLE_BOOL( "contact.null", B2_IS_NULL( c ) );
-		ORACLE_BOOL( "contact.nonnull", B2_IS_NON_NULL( c ) );
-	}
+	ORACLE_OPEN( "lifecycle/NullHandles" );
 	ORACLE_BOOL( "world.valid", b2World_IsValid( b2_nullWorldId ) );
 	ORACLE_BOOL( "body.valid", b2Body_IsValid( b2_nullBodyId ) );
 	ORACLE_BOOL( "shape.valid", b2Shape_IsValid( b2_nullShapeId ) );
@@ -152,11 +101,6 @@ static void lifetimes( void )
 		wd.gravity = (b2Vec2){ 0, 0 };
 		b2WorldId w = b2CreateWorld( &wd );
 		validity( oldw, oldb, olds, oldc, oldj, oldcontact );
-		if ( round )
-		{
-			ORACLE_BOOL( "world.reused", oldw.index1 == w.index1 );
-			ORACLE_U32( "world.generation.delta", (uint16_t)( w.generation - oldw.generation ) );
-		}
 		b2BodyDef bd = b2DefaultBodyDef();
 		b2BodyId ground = b2CreateBody( w, &bd );
 		b2ShapeDef sd = b2DefaultShapeDef();
@@ -512,7 +456,7 @@ static void collections( void )
 }
 int main( void )
 {
-	stored_ids();
+	null_handles();
 	lifetimes();
 	collections();
 	ownership();

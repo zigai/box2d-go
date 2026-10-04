@@ -18,7 +18,7 @@ func inputSingleMultithreading(t *testing.T, r *oracle.Reader, trace *inputTrans
 	t.Helper()
 	worldDef := box2d.DefaultWorldDef()
 	worldDef.WorkerCount = workerCount
-	worldID := box2d.CreateWorld(&worldDef)
+	worldID := box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldID)
 	data := scenes.CreateFallingHinges(worldID)
 	timeStep := float32(1.0 / 60.0)
@@ -32,7 +32,7 @@ func inputSingleMultithreading(t *testing.T, r *oracle.Reader, trace *inputTrans
 			break
 		}
 	}
-	worldID.Destroy()
+	worldID.Close()
 	r.I32("check.49", int32(data.SleepStep))
 	if !(data.SleepStep == scenes.ExpectedSleepStep) {
 		t.Fatal("condition false")
@@ -77,7 +77,7 @@ func TestDeterminism(t *testing.T) {
 		for workerCount := 2; workerCount <= 8; workerCount += 2 {
 			worldDef := box2d.DefaultWorldDef()
 			worldDef.WorkerCount = workerCount
-			worldID := box2d.CreateWorld(&worldDef)
+			worldID := box2d.NewWorld(&worldDef)
 			box2d.BTWorldCleanup(t, worldID)
 			data := scenes.CreateFallingHinges(worldID)
 			timeStep := float32(1.0 / 60.0)
@@ -91,7 +91,7 @@ func TestDeterminism(t *testing.T) {
 					break
 				}
 			}
-			worldID.Destroy()
+			worldID.Close()
 			r.I32("check.111", int32(data.SleepStep))
 			if !(data.SleepStep == scenes.ExpectedSleepStep) {
 				t.Fatal("condition false")
@@ -109,7 +109,7 @@ func TestDeterminism(t *testing.T) {
 		r := oracle.Open(t, "input/determinism/CrossPlatformTest")
 		trace := inputTransformTrace{}
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		box2d.BTWorldCleanup(t, worldID)
 		data := scenes.CreateFallingHinges(worldID)
 		timeStep := float32(1.0 / 60.0)
@@ -129,7 +129,7 @@ func TestDeterminism(t *testing.T) {
 			t.Fatal("condition false")
 		}
 		scenes.DestroyFallingHinges(&data)
-		worldID.Destroy()
+		worldID.Close()
 	})
 }
 
@@ -152,7 +152,7 @@ func inputSameTransforms(a, b []box2d.WorldTransform) bool {
 	return true
 }
 
-func (trace *inputTransformTrace) read(r *oracle.Reader, worldID box2d.World, key string, fullState bool) {
+func (trace *inputTransformTrace) read(r *oracle.Reader, worldID *box2d.World, key string, fullState bool) {
 	transforms := box2d.InputBodyTransforms(worldID)
 	hash := oracle.HashInit
 	for _, transform := range transforms {
@@ -174,7 +174,7 @@ func (trace *inputTransformTrace) read(r *oracle.Reader, worldID box2d.World, ke
 		}
 		ordinal := -1
 		for i, body := range bodies {
-			if event.BodyID == body {
+			if event.Body == body {
 				ordinal = i
 				break
 			}
@@ -190,7 +190,7 @@ func (trace *inputTransformTrace) read(r *oracle.Reader, worldID box2d.World, ke
 			v := body.LinearVelocity()
 			r.Vec2(key+".body.velocity", v.X, v.Y)
 			r.F32(key+".body.angular", body.AngularVelocity())
-			r.Bool(key+".body.awake", body.IsAwake())
+			r.Bool(key+".body.awake", body.Awake())
 			m := body.MassData()
 			r.F32(key+".body.mass", m.Mass)
 			r.Vec2(key+".body.center", m.Center.X, m.Center.Y)

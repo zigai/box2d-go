@@ -66,12 +66,12 @@ func dynamicsOpen(t *testing.T, name string) *dynamicsOracle {
 	return r
 }
 
-func dynamicsWorld(t *testing.T, def WorldDef) World {
-	w := CreateWorld(&def)
+func dynamicsWorld(t *testing.T, def WorldDef) *World {
+	w := NewWorld(&def)
 	BTWorldCleanup(t, w)
 	return w
 }
-func dynamicsBox(w World, typ BodyType, x, y float32, hx, hy float32, material SurfaceMaterial) (Body, Shape) {
+func dynamicsBox(w *World, typ BodyType, x, y float32, hx, hy float32, material SurfaceMaterial) (Body, Shape) {
 	bd := DefaultBodyDef()
 	bd.Type = typ
 	bd.Position = Pos{oracle.Real(x), oracle.Real(y)}
@@ -83,7 +83,7 @@ func dynamicsBox(w World, typ BodyType, x, y float32, hx, hy float32, material S
 	box := MakeBox(hx, hy)
 	return b, b.CreatePolygonShape(&sd, &box)
 }
-func dynamicsSteps(r *dynamicsOracle, w World, n int, prefix string) {
+func dynamicsSteps(r *dynamicsOracle, w *World, n int, prefix string) {
 	for i := range n {
 		w.Step(1.0/60.0, 4)
 		btDynamicsShort(r, w, fmt.Sprintf("%sstep/%d/", prefix, i+1), true)
@@ -174,7 +174,7 @@ func TestDynamicsContactTuning(t *testing.T) {
 			b.SetAngularVelocity(1)
 			switch partition {
 			case 0:
-				w.EnableWarmStarting(false)
+				w.SetWarmStartingEnabled(false)
 			case 1:
 				w.SetContactTuning(5, .2, .5)
 			case 2:
@@ -193,7 +193,7 @@ func TestDynamicsContactTuning(t *testing.T) {
 				m.RollingResistance = .4
 				shape.SetSurfaceMaterial(&m)
 			case 8:
-				b.EnableContactRecycling(false)
+				b.SetContactRecyclingEnabled(false)
 			case 9:
 				w.SetContactTuning(30, 1, 0)
 			case 10:
@@ -208,7 +208,7 @@ func TestDynamicsContactTuning(t *testing.T) {
 			m.RollingResistance = .2
 			m.TangentSpeed = -2
 			shape.SetSurfaceMaterial(&m)
-			w.EnableWarmStarting(true)
+			w.SetWarmStartingEnabled(true)
 			w.SetContactTuning(15, .5, 2)
 			w.SetFrictionCallback(nil)
 			dynamicsSteps(r, w, 30, "mutated/")
@@ -363,7 +363,7 @@ func TestDynamicsContinuous(t *testing.T) {
 						box := MakeBox(.15, .4)
 						b.CreatePolygonShape(&sd, &box)
 						dynamicsSteps(r, w, 30, "")
-						w.EnableContinuous(true)
+						w.SetContinuousEnabled(true)
 						b.SetBullet(true)
 						b.SetSafetyFactor(.1)
 						dynamicsSteps(r, w, 12, "mutated/")
@@ -391,7 +391,7 @@ func TestDynamicsSleepWake(t *testing.T) {
 				for i := range 900 {
 					w.Step(1.0/60.0, 4)
 					btDynamicsShort(r, w, fmt.Sprintf("settle/%d/", i+1), i == 0 || (i+1)%60 == 0)
-					if !lower.IsAwake() && !upper.IsAwake() {
+					if !lower.Awake() && !upper.Awake() {
 						asleep = true
 						r.I32("sleepStep", int32(i+1))
 						break
@@ -416,9 +416,9 @@ func TestDynamicsSleepWake(t *testing.T) {
 				case 6:
 					lower.SetAwake(true)
 				case 7:
-					lower.EnableSleep(false)
+					lower.SetSleepEnabled(false)
 				case 8:
-					w.EnableSleeping(false)
+					w.SetSleepingEnabled(false)
 				case 9:
 					lower.Disable()
 				case 10:

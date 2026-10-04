@@ -43,7 +43,7 @@ func parallelForTrampoline(task *parallelForTask) {
 	}
 }
 
-func parallelFor(w *world, callback parallelForFunc, itemCount, minRange int) {
+func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 	if itemCount <= 0 {
 		return
 	}

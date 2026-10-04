@@ -44,18 +44,16 @@ type DistanceJointDef struct {
 
 // Set the rest length of a distance joint
 func (d DistanceJoint) SetLength(length float32) {
-	if !(checkInput(IsValidFloat(length), "b2IsValidFloat( length )")) {
-		return
-	}
+	checkInput(IsValidFloat(length), "b2IsValidFloat( length )")
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointSetLength(world.recording, &recArgsDistanceJointSetLength{joint: d.Joint, length: length})
 	}
 	var base *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 	var jnt *distanceJoint = &base.distanceJoint
 
-	jnt.length = ClampFloat(length, LinearSlop(), Huge())
+	jnt.length = clampFloat(length, LinearSlop(), Huge())
 	jnt.impulse = 0.0
 	jnt.lowerImpulse = 0.0
 	jnt.upperImpulse = 0.0
@@ -70,8 +68,8 @@ func (d DistanceJoint) Length() float32 {
 
 // Enable joint limit. The limit only works if the joint spring is enabled. Otherwise the joint is rigid
 // and the limit has no effect.
-func (d DistanceJoint) EnableLimit(enableLimit bool) {
-	var world *world = getWorld(int(d.Joint.world0))
+func (d DistanceJoint) SetLimitEnabled(enableLimit bool) {
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointEnableLimit(world.recording, &recArgsDistanceJointEnableLimit{joint: d.Joint, enableLimit: enableLimit})
 	}
@@ -81,31 +79,27 @@ func (d DistanceJoint) EnableLimit(enableLimit bool) {
 }
 
 // Is the distance joint limit enabled?
-func (d DistanceJoint) IsLimitEnabled() bool {
+func (d DistanceJoint) LimitEnabled() bool {
 	var jnt *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 	return jnt.distanceJoint.enableLimit
 }
 
 // Set the minimum and maximum length parameters of a distance joint
 func (d DistanceJoint) SetLengthRange(minLength float32, maxLength float32) {
-	if !(checkInput(IsValidFloat(minLength), "b2IsValidFloat( minLength )")) {
-		return
-	}
-	if !(checkInput(IsValidFloat(maxLength), "b2IsValidFloat( maxLength )")) {
-		return
-	}
+	checkInput(IsValidFloat(minLength), "b2IsValidFloat( minLength )")
+	checkInput(IsValidFloat(maxLength), "b2IsValidFloat( maxLength )")
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointSetLengthRange(world.recording, &recArgsDistanceJointSetLengthRange{joint: d.Joint, minLength: minLength, maxLength: maxLength})
 	}
 	var base *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 	var jnt *distanceJoint = &base.distanceJoint
 
-	minLength = ClampFloat(minLength, LinearSlop(), Huge())
-	maxLength = ClampFloat(maxLength, LinearSlop(), Huge())
-	jnt.minLength = MinFloat(minLength, maxLength)
-	jnt.maxLength = MaxFloat(minLength, maxLength)
+	minLength = clampFloat(minLength, LinearSlop(), Huge())
+	maxLength = clampFloat(maxLength, LinearSlop(), Huge())
+	jnt.minLength = minFloat(minLength, maxLength)
+	jnt.maxLength = maxFloat(minLength, maxLength)
 }
 
 // Get the distance joint minimum length
@@ -126,7 +120,7 @@ func (d DistanceJoint) MaxLength() float32 {
 func (d DistanceJoint) CurrentLength() float32 {
 	var base *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	assert(world.locked == false, "world->locked == false")
 	if world.locked {
 		return 0.0
@@ -134,19 +128,19 @@ func (d DistanceJoint) CurrentLength() float32 {
 
 	// Relative to body A so the difference stays in float32 precision far from the origin
 	var wxfA WorldTransform = getBodyTransform(world, base.bodyIdA)
-	var transformA Transform = ToRelativeTransform(wxfA, wxfA.P)
-	var transformB Transform = ToRelativeTransform(getBodyTransform(world, base.bodyIdB), wxfA.P)
+	var transformA Transform = wxfA.Relative(wxfA.P)
+	var transformB Transform = getBodyTransform(world, base.bodyIdB).Relative(wxfA.P)
 
-	var pA Vec2 = TransformPoint(transformA, base.localFrameA.P)
-	var pB Vec2 = TransformPoint(transformB, base.localFrameB.P)
-	var delta Vec2 = Sub(pB, pA)
-	var length float32 = Length(delta)
+	var pA Vec2 = transformA.Apply(base.localFrameA.P)
+	var pB Vec2 = transformB.Apply(base.localFrameB.P)
+	var delta Vec2 = pB.Sub(pA)
+	var length float32 = delta.Length()
 	return length
 }
 
 // Enable/disable the distance joint spring. When disabled the distance joint is rigid.
-func (d DistanceJoint) EnableSpring(enableSpring bool) {
-	var world *world = getWorld(int(d.Joint.world0))
+func (d DistanceJoint) SetSpringEnabled(enableSpring bool) {
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointEnableSpring(world.recording, &recArgsDistanceJointEnableSpring{joint: d.Joint, enableSpring: enableSpring})
 	}
@@ -155,28 +149,24 @@ func (d DistanceJoint) EnableSpring(enableSpring bool) {
 }
 
 // Is the distance joint spring enabled?
-func (d DistanceJoint) IsSpringEnabled() bool {
+func (d DistanceJoint) SpringEnabled() bool {
 	var base *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 	return base.distanceJoint.enableSpring
 }
 
 // Set the force range for the spring.
 func (d DistanceJoint) SetSpringForceRange(lowerForce float32, upperForce float32) {
-	if !(checkInput(IsValidFloat(lowerForce), "b2IsValidFloat( lowerForce )")) {
-		return
-	}
-	if !(checkInput(IsValidFloat(upperForce), "b2IsValidFloat( upperForce )")) {
-		return
-	}
+	checkInput(IsValidFloat(lowerForce), "b2IsValidFloat( lowerForce )")
+	checkInput(IsValidFloat(upperForce), "b2IsValidFloat( upperForce )")
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointSetSpringForceRange(world.recording, &recArgsDistanceJointSetSpringForceRange{joint: d.Joint, lowerForce: lowerForce, upperForce: upperForce})
 	}
 	assert(lowerForce <= upperForce, "lowerForce <= upperForce")
 	var base *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
-	base.distanceJoint.lowerSpringForce = MinFloat(lowerForce, upperForce)
-	base.distanceJoint.upperSpringForce = MaxFloat(lowerForce, upperForce)
+	base.distanceJoint.lowerSpringForce = minFloat(lowerForce, upperForce)
+	base.distanceJoint.upperSpringForce = maxFloat(lowerForce, upperForce)
 }
 
 // Get the force range for the spring.
@@ -190,11 +180,9 @@ func (d DistanceJoint) SpringForceRange() (lowerForce float32, upperForce float3
 
 // Set the spring stiffness in Hertz
 func (d DistanceJoint) SetSpringHertz(hertz float32) {
-	if !(checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")) {
-		return
-	}
+	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointSetSpringHertz(world.recording, &recArgsDistanceJointSetSpringHertz{joint: d.Joint, hertz: hertz})
 	}
@@ -204,11 +192,9 @@ func (d DistanceJoint) SetSpringHertz(hertz float32) {
 
 // Set the spring damping ratio, non-dimensional
 func (d DistanceJoint) SetSpringDampingRatio(dampingRatio float32) {
-	if !(checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")) {
-		return
-	}
+	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointSetSpringDampingRatio(world.recording, &recArgsDistanceJointSetSpringDampingRatio{joint: d.Joint, dampingRatio: dampingRatio})
 	}
@@ -232,7 +218,7 @@ func (d DistanceJoint) SpringDampingRatio() float32 {
 
 // Get the current spring force.
 func (d DistanceJoint) SpringForce() float32 {
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	var base *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 	var jnt *distanceJoint = &base.distanceJoint
 	if jnt.enableSpring {
@@ -243,8 +229,8 @@ func (d DistanceJoint) SpringForce() float32 {
 }
 
 // Enable/disable the distance joint motor
-func (d DistanceJoint) EnableMotor(enableMotor bool) {
-	var world *world = getWorld(int(d.Joint.world0))
+func (d DistanceJoint) SetMotorEnabled(enableMotor bool) {
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointEnableMotor(world.recording, &recArgsDistanceJointEnableMotor{joint: d.Joint, enableMotor: enableMotor})
 	}
@@ -256,18 +242,16 @@ func (d DistanceJoint) EnableMotor(enableMotor bool) {
 }
 
 // Is the distance joint motor enabled?
-func (d DistanceJoint) IsMotorEnabled() bool {
+func (d DistanceJoint) MotorEnabled() bool {
 	var jnt *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 	return jnt.distanceJoint.enableMotor
 }
 
 // Set the distance joint motor speed, usually in meters per second
 func (d DistanceJoint) SetMotorSpeed(motorSpeed float32) {
-	if !(checkInput(IsValidFloat(motorSpeed), "b2IsValidFloat( motorSpeed )")) {
-		return
-	}
+	checkInput(IsValidFloat(motorSpeed), "b2IsValidFloat( motorSpeed )")
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointSetMotorSpeed(world.recording, &recArgsDistanceJointSetMotorSpeed{joint: d.Joint, motorSpeed: motorSpeed})
 	}
@@ -283,18 +267,16 @@ func (d DistanceJoint) MotorSpeed() float32 {
 
 // Get the distance joint current motor force, usually in newtons
 func (d DistanceJoint) MotorForce() float32 {
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	var base *jointSim = getJointSimCheckType(d.Joint, DistanceJointType)
 	return float32(world.invH * base.distanceJoint.motorImpulse)
 }
 
 // Set the distance joint maximum motor force, usually in newtons
 func (d DistanceJoint) SetMaxMotorForce(force float32) {
-	if !(checkInput(IsValidFloat(force), "b2IsValidFloat( force )")) {
-		return
-	}
+	checkInput(IsValidFloat(force), "b2IsValidFloat( force )")
 
-	var world *world = getWorld(int(d.Joint.world0))
+	var world *World = d.Joint.world
 	if world.recording != nil {
 		recWriteDistanceJointSetMaxMotorForce(world.recording, &recArgsDistanceJointSetMaxMotorForce{joint: d.Joint, force: force})
 	}
@@ -308,20 +290,20 @@ func (d DistanceJoint) MaxMotorForce() float32 {
 	return jnt.distanceJoint.maxMotorForce
 }
 
-func getDistanceJointForce(world *world, base *jointSim) Vec2 {
+func getDistanceJointForce(world *World, base *jointSim) Vec2 {
 	var jnt *distanceJoint = &base.distanceJoint
 
 	var worldTransformA WorldTransform = getBodyTransform(world, base.bodyIdA)
-	var transformA Transform = ToRelativeTransform(worldTransformA, worldTransformA.P)
+	var transformA Transform = worldTransformA.Relative(worldTransformA.P)
 	var worldTransformB WorldTransform = getBodyTransform(world, base.bodyIdB)
-	var transformB Transform = ToRelativeTransform(worldTransformB, worldTransformA.P)
+	var transformB Transform = worldTransformB.Relative(worldTransformA.P)
 
-	var pA Vec2 = TransformPoint(transformA, base.localFrameA.P)
-	var pB Vec2 = TransformPoint(transformB, base.localFrameB.P)
-	var d Vec2 = Sub(pB, pA)
-	var axis Vec2 = Normalize(d)
+	var pA Vec2 = transformA.Apply(base.localFrameA.P)
+	var pB Vec2 = transformB.Apply(base.localFrameB.P)
+	var d Vec2 = pB.Sub(pA)
+	var axis Vec2 = d.Normalize()
 	var force float32 = float32((jnt.impulse + jnt.lowerImpulse - jnt.upperImpulse + jnt.motorImpulse) * world.invH)
-	return MulSV(force, axis)
+	return axis.Scale(force)
 }
 
 func prepareDistanceJoint(base *jointSim, context *stepContext) {
@@ -331,7 +313,7 @@ func prepareDistanceJoint(base *jointSim, context *stepContext) {
 	var idA int = base.bodyIdA
 	var idB int = base.bodyIdB
 
-	var world *world = context.world
+	var world *World = context.world
 	var bodyA *body = &world.bodies[idA]
 	var bodyB *body = &world.bodies[idB]
 
@@ -370,18 +352,18 @@ func prepareDistanceJoint(base *jointSim, context *stepContext) {
 	}
 
 	// initial anchors in world space
-	jnt.anchorA = RotateVector(bodySimA.transform.Q, Sub(base.localFrameA.P, bodySimA.localCenter))
-	jnt.anchorB = RotateVector(bodySimB.transform.Q, Sub(base.localFrameB.P, bodySimB.localCenter))
-	jnt.deltaCenter = SubPos(bodySimB.center, bodySimA.center)
+	jnt.anchorA = bodySimA.transform.Q.Rotate(base.localFrameA.P.Sub(bodySimA.localCenter))
+	jnt.anchorB = bodySimB.transform.Q.Rotate(base.localFrameB.P.Sub(bodySimB.localCenter))
+	jnt.deltaCenter = bodySimB.center.Sub(bodySimA.center)
 
 	var rA Vec2 = jnt.anchorA
 	var rB Vec2 = jnt.anchorB
-	var separation Vec2 = Add(Sub(rB, rA), jnt.deltaCenter)
-	var axis Vec2 = Normalize(separation)
+	var separation Vec2 = rB.Sub(rA).Add(jnt.deltaCenter)
+	var axis Vec2 = separation.Normalize()
 
 	// compute effective mass
-	var crA float32 = Cross(rA, axis)
-	var crB float32 = Cross(rB, axis)
+	var crA float32 = rA.Cross(axis)
+	var crB float32 = rB.Cross(axis)
 	var k float32 = mA + mB + float32(float32(iA*crA)*crA) + float32(float32(iB*crB)*crB)
 	if k > 0.0 {
 		jnt.axialMass = 1.0 / k
@@ -424,24 +406,24 @@ func warmStartDistanceJoint(base *jointSim, context *stepContext) {
 		stateB = &context.states[jnt.indexB]
 	}
 
-	var rA Vec2 = RotateVector(stateA.deltaRotation, jnt.anchorA)
-	var rB Vec2 = RotateVector(stateB.deltaRotation, jnt.anchorB)
+	var rA Vec2 = stateA.deltaRotation.Rotate(jnt.anchorA)
+	var rB Vec2 = stateB.deltaRotation.Rotate(jnt.anchorB)
 
-	var ds Vec2 = Add(Sub(stateB.deltaPosition, stateA.deltaPosition), Sub(rB, rA))
-	var separation Vec2 = Add(jnt.deltaCenter, ds)
-	var axis Vec2 = Normalize(separation)
+	var ds Vec2 = stateB.deltaPosition.Sub(stateA.deltaPosition).Add(rB.Sub(rA))
+	var separation Vec2 = jnt.deltaCenter.Add(ds)
+	var axis Vec2 = separation.Normalize()
 
 	var axialImpulse float32 = jnt.impulse + jnt.lowerImpulse - jnt.upperImpulse + jnt.motorImpulse
-	var P Vec2 = MulSV(axialImpulse, axis)
+	var P Vec2 = axis.Scale(axialImpulse)
 
 	if stateA.flags&dynamicFlag != 0 {
-		stateA.linearVelocity = MulSub(stateA.linearVelocity, mA, P)
-		stateA.angularVelocity -= float32(iA * Cross(rA, P))
+		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, P)
+		stateA.angularVelocity -= float32(iA * rA.Cross(P))
 	}
 
 	if stateB.flags&dynamicFlag != 0 {
-		stateB.linearVelocity = MulAdd(stateB.linearVelocity, mB, P)
-		stateB.angularVelocity += float32(iB * Cross(rB, P))
+		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, P)
+		stateB.angularVelocity += float32(iB * rB.Cross(P))
 	}
 }
 
@@ -476,15 +458,15 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 	var wB float32 = stateB.angularVelocity
 
 	// current anchors
-	var rA Vec2 = RotateVector(stateA.deltaRotation, jnt.anchorA)
-	var rB Vec2 = RotateVector(stateB.deltaRotation, jnt.anchorB)
+	var rA Vec2 = stateA.deltaRotation.Rotate(jnt.anchorA)
+	var rB Vec2 = stateB.deltaRotation.Rotate(jnt.anchorB)
 
 	// current separation
-	var ds Vec2 = Add(Sub(stateB.deltaPosition, stateA.deltaPosition), Sub(rB, rA))
-	var separation Vec2 = Add(jnt.deltaCenter, ds)
+	var ds Vec2 = stateB.deltaPosition.Sub(stateA.deltaPosition).Add(rB.Sub(rA))
+	var separation Vec2 = jnt.deltaCenter.Add(ds)
 
-	var length float32 = Length(separation)
-	var axis Vec2 = Normalize(separation)
+	var length float32 = separation.Length()
+	var axis Vec2 = separation.Normalize()
 
 	// joint is soft if
 	// - spring is enabled
@@ -493,8 +475,8 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 		// spring
 		if jnt.hertz > 0.0 {
 			// Cdot = dot(u, v + cross(w, r))
-			var vr Vec2 = Add(Sub(vB, vA), Sub(CrossSV(wB, rB), CrossSV(wA, rA)))
-			var cdot float32 = Dot(axis, vr)
+			var vr Vec2 = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
+			var cdot float32 = axis.Dot(vr)
 			var c float32 = length - jnt.length
 			var bias float32 = float32(jnt.distanceSoftness.biasRate * c)
 
@@ -503,37 +485,37 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 			var impulse float32 = float32(-m*(cdot+bias)) - float32(jnt.distanceSoftness.impulseScale*oldImpulse)
 
 			var h float32 = context.h
-			jnt.impulse = ClampFloat(jnt.impulse+impulse, float32(jnt.lowerSpringForce*h), float32(jnt.upperSpringForce*h))
+			jnt.impulse = clampFloat(jnt.impulse+impulse, float32(jnt.lowerSpringForce*h), float32(jnt.upperSpringForce*h))
 			impulse = jnt.impulse - oldImpulse
 
-			var P Vec2 = MulSV(impulse, axis)
-			vA = MulSub(vA, mA, P)
-			wA -= float32(iA * Cross(rA, P))
-			vB = MulAdd(vB, mB, P)
-			wB += float32(iB * Cross(rB, P))
+			var P Vec2 = axis.Scale(impulse)
+			vA = vA.MulSub(mA, P)
+			wA -= float32(iA * rA.Cross(P))
+			vB = vB.MulAdd(mB, P)
+			wB += float32(iB * rB.Cross(P))
 		}
 
 		if jnt.enableMotor {
-			var vr Vec2 = Add(Sub(vB, vA), Sub(CrossSV(wB, rB), CrossSV(wA, rA)))
-			var Cdot float32 = Dot(axis, vr)
+			var vr Vec2 = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
+			var Cdot float32 = axis.Dot(vr)
 			var impulse float32 = float32(jnt.axialMass * (jnt.motorSpeed - Cdot))
 			var oldImpulse float32 = jnt.motorImpulse
 			var maxImpulse float32 = float32(context.h * jnt.maxMotorForce)
-			jnt.motorImpulse = ClampFloat(jnt.motorImpulse+impulse, -maxImpulse, maxImpulse)
+			jnt.motorImpulse = clampFloat(jnt.motorImpulse+impulse, -maxImpulse, maxImpulse)
 			impulse = jnt.motorImpulse - oldImpulse
 
-			var P Vec2 = MulSV(impulse, axis)
-			vA = MulSub(vA, mA, P)
-			wA -= float32(iA * Cross(rA, P))
-			vB = MulAdd(vB, mB, P)
-			wB += float32(iB * Cross(rB, P))
+			var P Vec2 = axis.Scale(impulse)
+			vA = vA.MulSub(mA, P)
+			wA -= float32(iA * rA.Cross(P))
+			vB = vB.MulAdd(mB, P)
+			wB += float32(iB * rB.Cross(P))
 		}
 
 		if jnt.enableLimit {
 			// lower limit
 			{
-				var vr Vec2 = Add(Sub(vB, vA), Sub(CrossSV(wB, rB), CrossSV(wA, rA)))
-				var cdot float32 = Dot(axis, vr)
+				var vr Vec2 = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
+				var cdot float32 = axis.Dot(vr)
 
 				var c float32 = length - jnt.minLength
 
@@ -550,21 +532,21 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 				}
 
 				var impulse float32 = float32(float32(-massScale*jnt.axialMass)*(cdot+bias)) - float32(impulseScale*jnt.lowerImpulse)
-				var newImpulse float32 = MaxFloat(0.0, jnt.lowerImpulse+impulse)
+				var newImpulse float32 = maxFloat(0.0, jnt.lowerImpulse+impulse)
 				impulse = newImpulse - jnt.lowerImpulse
 				jnt.lowerImpulse = newImpulse
 
-				var P Vec2 = MulSV(impulse, axis)
-				vA = MulSub(vA, mA, P)
-				wA -= float32(iA * Cross(rA, P))
-				vB = MulAdd(vB, mB, P)
-				wB += float32(iB * Cross(rB, P))
+				var P Vec2 = axis.Scale(impulse)
+				vA = vA.MulSub(mA, P)
+				wA -= float32(iA * rA.Cross(P))
+				vB = vB.MulAdd(mB, P)
+				wB += float32(iB * rB.Cross(P))
 			}
 
 			// upper
 			{
-				var vr Vec2 = Add(Sub(vA, vB), Sub(CrossSV(wA, rA), CrossSV(wB, rB)))
-				var Cdot float32 = Dot(axis, vr)
+				var vr Vec2 = vA.Sub(vB).Add(rA.ScalarCross(wA).Sub(rB.ScalarCross(wB)))
+				var Cdot float32 = axis.Dot(vr)
 
 				var C float32 = jnt.maxLength - length
 
@@ -581,21 +563,21 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 				}
 
 				var impulse float32 = float32(float32(-massScale*jnt.axialMass)*(Cdot+bias)) - float32(impulseScale*jnt.upperImpulse)
-				var newImpulse float32 = MaxFloat(0.0, jnt.upperImpulse+impulse)
+				var newImpulse float32 = maxFloat(0.0, jnt.upperImpulse+impulse)
 				impulse = newImpulse - jnt.upperImpulse
 				jnt.upperImpulse = newImpulse
 
-				var P Vec2 = MulSV(-impulse, axis)
-				vA = MulSub(vA, mA, P)
-				wA -= float32(iA * Cross(rA, P))
-				vB = MulAdd(vB, mB, P)
-				wB += float32(iB * Cross(rB, P))
+				var P Vec2 = axis.Scale(-impulse)
+				vA = vA.MulSub(mA, P)
+				wA -= float32(iA * rA.Cross(P))
+				vB = vB.MulAdd(mB, P)
+				wB += float32(iB * rB.Cross(P))
 			}
 		}
 	} else {
 		// rigid constraint
-		var vr Vec2 = Add(Sub(vB, vA), Sub(CrossSV(wB, rB), CrossSV(wA, rA)))
-		var Cdot float32 = Dot(axis, vr)
+		var vr Vec2 = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
+		var Cdot float32 = axis.Dot(vr)
 
 		var C float32 = length - jnt.length
 
@@ -611,11 +593,11 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 		var impulse float32 = float32(float32(-massScale*jnt.axialMass)*(Cdot+bias)) - float32(impulseScale*jnt.impulse)
 		jnt.impulse += impulse
 
-		var P Vec2 = MulSV(impulse, axis)
-		vA = MulSub(vA, mA, P)
-		wA -= float32(iA * Cross(rA, P))
-		vB = MulAdd(vB, mB, P)
-		wB += float32(iB * Cross(rB, P))
+		var P Vec2 = axis.Scale(impulse)
+		vA = vA.MulSub(mA, P)
+		wA -= float32(iA * rA.Cross(P))
+		vB = vB.MulAdd(mB, P)
+		wB += float32(iB * rB.Cross(P))
 	}
 
 	if stateA.flags&dynamicFlag != 0 {
@@ -634,35 +616,35 @@ func drawDistanceJoint(draw *DebugDraw, base *jointSim, transformA WorldTransfor
 
 	var jnt *distanceJoint = &base.distanceJoint
 
-	var pA Pos = TransformWorldPoint(transformA, base.localFrameA.P)
-	var pB Pos = TransformWorldPoint(transformB, base.localFrameB.P)
+	var pA Pos = transformA.Apply(base.localFrameA.P)
+	var pB Pos = transformB.Apply(base.localFrameB.P)
 
-	var axis Vec2 = Normalize(SubPos(pB, pA))
+	var axis Vec2 = pB.Sub(pA).Normalize()
 
 	if jnt.minLength < jnt.maxLength && jnt.enableLimit {
-		var pMin Pos = OffsetPos(pA, MulSV(jnt.minLength, axis))
-		var pMax Pos = OffsetPos(pA, MulSV(jnt.maxLength, axis))
-		var offset Vec2 = MulSV(float32(0.05*GetLengthUnitsPerMeter()), RightPerp(axis))
+		var pMin Pos = pA.Add(axis.Scale(jnt.minLength))
+		var pMax Pos = pA.Add(axis.Scale(jnt.maxLength))
+		var offset Vec2 = axis.RightPerp().Scale(float32(0.05 * LengthUnitsPerMeter()))
 
 		if jnt.minLength > LinearSlop() {
-			draw.DrawLineFunc(OffsetPos(pMin, Neg(offset)), OffsetPos(pMin, offset), ColorLightGreen)
+			draw.DrawLine(pMin.Add(offset.Neg()), pMin.Add(offset), ColorLightGreen)
 		}
 
 		if jnt.maxLength < Huge() {
-			draw.DrawLineFunc(OffsetPos(pMax, Neg(offset)), OffsetPos(pMax, offset), ColorRed)
+			draw.DrawLine(pMax.Add(offset.Neg()), pMax.Add(offset), ColorRed)
 		}
 
 		if jnt.minLength > LinearSlop() && jnt.maxLength < Huge() {
-			draw.DrawLineFunc(pMin, pMax, ColorGray)
+			draw.DrawLine(pMin, pMax, ColorGray)
 		}
 	}
 
-	draw.DrawLineFunc(pA, pB, ColorWhite)
-	draw.DrawPointFunc(pA, 4.0, ColorWhite)
-	draw.DrawPointFunc(pB, 4.0, ColorWhite)
+	draw.DrawLine(pA, pB, ColorWhite)
+	draw.DrawPoint(pA, 4.0, ColorWhite)
+	draw.DrawPoint(pB, 4.0, ColorWhite)
 
 	if jnt.hertz > 0.0 && jnt.enableSpring {
-		var pRest Pos = OffsetPos(pA, MulSV(jnt.length, axis))
-		draw.DrawPointFunc(pRest, 4.0, ColorBlue)
+		var pRest Pos = pA.Add(axis.Scale(jnt.length))
+		draw.DrawPoint(pRest, 4.0, ColorBlue)
 	}
 }

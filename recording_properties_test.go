@@ -11,7 +11,7 @@ import (
 
 // Keep small recordings directly readable; large scenes use named field
 // digests with the same typed getter calls, identity paths, and exact bits.
-func recordingProperties(r *oracle.Reader, world box2d.World, prefix string) {
+func recordingProperties(r *oracle.Reader, world *box2d.World, prefix string) {
 	if world.Counters().BodyCount <= 32 {
 		recordingObserveProperties(r, world, prefix)
 		return
@@ -21,11 +21,11 @@ func recordingProperties(r *oracle.Reader, world box2d.World, prefix string) {
 	fields.compare(r)
 }
 
-func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, prefix string) {
-	r.Bool(prefix+"/IsSleepingEnabled", world.IsSleepingEnabled())
-	r.Bool(prefix+"/IsContinuousEnabled", world.IsContinuousEnabled())
-	r.Bool(prefix+"/IsWarmStartingEnabled", world.IsWarmStartingEnabled())
-	r.Bool(prefix+"/IsRestitutionPropagationEnabled", world.IsRestitutionPropagationEnabled())
+func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
+	r.Bool(prefix+"/IsSleepingEnabled", world.SleepingEnabled())
+	r.Bool(prefix+"/IsContinuousEnabled", world.ContinuousEnabled())
+	r.Bool(prefix+"/IsWarmStartingEnabled", world.WarmStartingEnabled())
+	r.Bool(prefix+"/IsRestitutionPropagationEnabled", world.RestitutionPropagationEnabled())
 	r.F32(prefix+"/RestitutionThreshold", world.RestitutionThreshold())
 	r.I32(prefix+"/RestitutionIterations", int32(world.RestitutionIterations()))
 	r.F32(prefix+"/HitEventThreshold", world.HitEventThreshold())
@@ -38,8 +38,8 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 	r.F32(prefix+"/contactDamping", d)
 	r.F32(prefix+"/contactSpeed", s)
 	for _, id := range box2d.RecordingBodies(world) {
-		key := fmt.Sprintf("%s/body%d", prefix, id.Store()>>32)
-		r.U32(key+"/generation", uint32(uint16(id.Store())))
+		key := fmt.Sprintf("%s/body%d", prefix, id.ID()>>32)
+		r.U32(key+"/generation", uint32(uint16(id.ID())))
 		r.Bool(key+"/owner", id.World() == world)
 		r.I32(key+"/Type", int32(id.Type()))
 		r.F32(key+"/Mass", id.Mass())
@@ -54,11 +54,11 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 		r.F32(key+"/GravityScale", id.GravityScale())
 		r.F32(key+"/SleepThreshold", id.SleepThreshold())
 		r.F32(key+"/SafetyFactor", id.SafetyFactor())
-		r.Bool(key+"/IsEnabled", id.IsEnabled())
-		r.Bool(key+"/IsAwake", id.IsAwake())
-		r.Bool(key+"/IsSleepEnabled", id.IsSleepEnabled())
+		r.Bool(key+"/IsEnabled", id.Enabled())
+		r.Bool(key+"/IsAwake", id.Awake())
+		r.Bool(key+"/IsSleepEnabled", id.SleepEnabled())
 		r.Bool(key+"/IsBullet", id.IsBullet())
-		r.Bool(key+"/IsContactRecyclingEnabled", id.IsContactRecyclingEnabled())
+		r.Bool(key+"/IsContactRecyclingEnabled", id.ContactRecyclingEnabled())
 		r.Bytes(key+"/name", []byte(id.Name()))
 		locks := id.MotionLocks()
 		r.Bool(key+"/lockX", locks.LinearX)
@@ -66,17 +66,17 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 		r.Bool(key+"/lockZ", locks.AngularZ)
 	}
 	for _, id := range box2d.RecordingShapes(world) {
-		key := fmt.Sprintf("%s/shape%d", prefix, id.Store()>>32)
-		r.U32(key+"/generation", uint32(uint16(id.Store())))
+		key := fmt.Sprintf("%s/shape%d", prefix, id.ID()>>32)
+		r.U32(key+"/generation", uint32(uint16(id.ID())))
 		r.Bool(key+"/owner", id.World() == world)
 		r.I32(key+"/Type", int32(id.Type()))
 		r.F32(key+"/Density", id.Density())
 		r.U64(key+"/UserMaterial", id.UserMaterial())
 		r.Bool(key+"/IsSensor", id.IsSensor())
-		r.Bool(key+"/AreSensorEventsEnabled", id.AreSensorEventsEnabled())
-		r.Bool(key+"/AreContactEventsEnabled", id.AreContactEventsEnabled())
-		r.Bool(key+"/AreHitEventsEnabled", id.AreHitEventsEnabled())
-		r.Bool(key+"/ArePreSolveEventsEnabled", id.ArePreSolveEventsEnabled())
+		r.Bool(key+"/AreSensorEventsEnabled", id.SensorEventsEnabled())
+		r.Bool(key+"/AreContactEventsEnabled", id.ContactEventsEnabled())
+		r.Bool(key+"/AreHitEventsEnabled", id.HitEventsEnabled())
+		r.Bool(key+"/ArePreSolveEventsEnabled", id.PreSolveEventsEnabled())
 		m := id.SurfaceMaterial()
 		r.F32(key+"/material/Friction", m.Friction)
 		r.F32(key+"/material/Restitution", m.Restitution)
@@ -120,8 +120,8 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 		}
 	}
 	for _, id := range box2d.RecordingJoints(world) {
-		key := fmt.Sprintf("%s/joint%d", prefix, id.Store()>>32)
-		r.U32(key+"/generation", uint32(uint16(id.Store())))
+		key := fmt.Sprintf("%s/joint%d", prefix, id.ID()>>32)
+		r.U32(key+"/generation", uint32(uint16(id.ID())))
 		r.Bool(key+"/owner", id.World() == world)
 		r.I32(key+"/Type", int32(id.Type()))
 		r.Bool(key+"/CollideConnected", id.CollideConnected())
@@ -145,9 +145,9 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 			r.F32(key+"/SpringDampingRatio", v.SpringDampingRatio())
 			r.F32(key+"/MotorSpeed", v.MotorSpeed())
 			r.F32(key+"/MaxMotorForce", v.MaxMotorForce())
-			r.Bool(key+"/IsSpringEnabled", v.IsSpringEnabled())
-			r.Bool(key+"/IsLimitEnabled", v.IsLimitEnabled())
-			r.Bool(key+"/IsMotorEnabled", v.IsMotorEnabled())
+			r.Bool(key+"/IsSpringEnabled", v.SpringEnabled())
+			r.Bool(key+"/IsLimitEnabled", v.LimitEnabled())
+			r.Bool(key+"/IsMotorEnabled", v.MotorEnabled())
 			low, high := v.SpringForceRange()
 			r.F32(key+"/forceLow", low)
 			r.F32(key+"/forceHigh", high)
@@ -184,9 +184,9 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 			r.F32(key+"/UpperLimit", v.UpperLimit())
 			r.F32(key+"/MotorSpeed", v.MotorSpeed())
 			r.F32(key+"/MaxMotorForce", v.MaxMotorForce())
-			r.Bool(key+"/IsSpringEnabled", v.IsSpringEnabled())
-			r.Bool(key+"/IsLimitEnabled", v.IsLimitEnabled())
-			r.Bool(key+"/IsMotorEnabled", v.IsMotorEnabled())
+			r.Bool(key+"/IsSpringEnabled", v.SpringEnabled())
+			r.Bool(key+"/IsLimitEnabled", v.LimitEnabled())
+			r.Bool(key+"/IsMotorEnabled", v.MotorEnabled())
 		case box2d.RevoluteJointType:
 			v := box2d.RevoluteJoint{Joint: id}
 			r.F32(key+"/SpringHertz", v.SpringHertz())
@@ -196,9 +196,9 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 			r.F32(key+"/UpperLimit", v.UpperLimit())
 			r.F32(key+"/MotorSpeed", v.MotorSpeed())
 			r.F32(key+"/MaxMotorTorque", v.MaxMotorTorque())
-			r.Bool(key+"/IsSpringEnabled", v.IsSpringEnabled())
-			r.Bool(key+"/IsLimitEnabled", v.IsLimitEnabled())
-			r.Bool(key+"/IsMotorEnabled", v.IsMotorEnabled())
+			r.Bool(key+"/IsSpringEnabled", v.SpringEnabled())
+			r.Bool(key+"/IsLimitEnabled", v.LimitEnabled())
+			r.Bool(key+"/IsMotorEnabled", v.MotorEnabled())
 		case box2d.WeldJointType:
 			v := box2d.WeldJoint{Joint: id}
 			r.F32(key+"/LinearHertz", v.LinearHertz())
@@ -213,9 +213,9 @@ func recordingObserveProperties(r recordingPropertyObserver, world box2d.World, 
 			r.F32(key+"/UpperLimit", v.UpperLimit())
 			r.F32(key+"/MotorSpeed", v.MotorSpeed())
 			r.F32(key+"/MaxMotorTorque", v.MaxMotorTorque())
-			r.Bool(key+"/IsSpringEnabled", v.IsSpringEnabled())
-			r.Bool(key+"/IsLimitEnabled", v.IsLimitEnabled())
-			r.Bool(key+"/IsMotorEnabled", v.IsMotorEnabled())
+			r.Bool(key+"/IsSpringEnabled", v.SpringEnabled())
+			r.Bool(key+"/IsLimitEnabled", v.LimitEnabled())
+			r.Bool(key+"/IsMotorEnabled", v.MotorEnabled())
 		}
 	}
 }

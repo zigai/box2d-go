@@ -9,12 +9,12 @@ import (
 	"math/bits"
 )
 
-type OverlapResultFunc func(shapeID Shape) bool
-type CastResultFunc func(shapeID Shape, point Pos, normal Vec2, fraction float32) float32
-type PlaneResultFunc func(shapeID Shape, plane *PlaneResult) bool
+type OverlapResultFunc func(shape Shape) bool
+type CastResultFunc func(shape Shape, point Pos, normal Vec2, fraction float32) float32
+type PlaneResultFunc func(shape Shape, plane *PlaneResult) bool
 
 type RayResult struct {
-	ShapeID    Shape
+	Shape      Shape
 	Point      Pos
 	Normal     Vec2
 	Fraction   float32
@@ -181,50 +181,56 @@ const (
 	ColorBox2DYellow          HexColor = 0xFFEE8C
 )
 
+// Drawer receives debug drawing commands from World.Draw and Replay.DrawFrameQueries.
+type Drawer interface {
+	DrawPolygon(transform WorldTransform, vertices []Vec2, color HexColor)
+	DrawSolidPolygon(transform WorldTransform, vertices []Vec2, radius float32, color HexColor)
+	DrawCircle(center Pos, radius float32, color HexColor)
+	DrawSolidCircle(transform WorldTransform, center Vec2, radius float32, color HexColor)
+	DrawSolidCapsule(p1, p2 Pos, radius float32, color HexColor)
+	DrawLine(p1, p2 Pos, color HexColor)
+	DrawTransform(transform WorldTransform)
+	DrawPoint(p Pos, size float32, color HexColor)
+	DrawString(p Pos, s string, color HexColor)
+	DrawAABB(aabb AABB, color HexColor)
+}
+
+// DebugDraw selects what World.Draw draws and sends the commands to its Drawer.
 type DebugDraw struct {
-	DrawPolygonFunc      func(transform WorldTransform, vertices []Vec2, color HexColor)
-	DrawSolidPolygonFunc func(transform WorldTransform, vertices []Vec2, radius float32, color HexColor)
-	DrawCircleFunc       func(center Pos, radius float32, color HexColor)
-	DrawSolidCircleFunc  func(transform WorldTransform, center Vec2, radius float32, color HexColor)
-	DrawSolidCapsuleFunc func(p1, p2 Pos, radius float32, color HexColor)
-	DrawLineFunc         func(p1, p2 Pos, color HexColor)
-	DrawTransformFunc    func(transform WorldTransform)
-	DrawPointFunc        func(p Pos, size float32, color HexColor)
-	DrawStringFunc       func(p Pos, s string, color HexColor)
-	DrawBoundsFunc       func(aabb AABB, color HexColor)
-	DrawingBounds        AABB
-	ForceScale           float32
-	JointScale           float32
-	DrawContacts         bool
-	DrawAnchorA          bool
-	DrawShapes           bool
-	DrawChainNormals     bool
-	DrawJoints           bool
-	DrawJointExtras      bool
-	DrawBounds           bool
-	DrawMass             bool
-	DrawBodyNames        bool
-	DrawGraphColors      bool
-	DrawContactFeatures  bool
-	DrawContactNormals   bool
-	DrawContactForces    bool
-	DrawFrictionForces   bool
-	DrawIslands          bool
+	Drawer
+	DrawingBounds       AABB
+	ForceScale          float32
+	JointScale          float32
+	DrawContacts        bool
+	DrawAnchorA         bool
+	DrawShapes          bool
+	DrawChainNormals    bool
+	DrawJoints          bool
+	DrawJointExtras     bool
+	DrawBounds          bool
+	DrawMass            bool
+	DrawBodyNames       bool
+	DrawGraphColors     bool
+	DrawContactFeatures bool
+	DrawContactNormals  bool
+	DrawContactForces   bool
+	DrawFrictionForces  bool
+	DrawIslands         bool
 }
 
 type drawContext struct {
-	world *world
+	world *World
 	draw  *DebugDraw
 }
 
 type worldQueryContext struct {
-	world  *world
+	world  *World
 	fcn    OverlapResultFunc
 	filter QueryFilter
 }
 
 type worldOverlapContext struct {
-	world  *world
+	world  *World
 	fcn    OverlapResultFunc
 	filter QueryFilter
 	proxy  *ShapeProxy
@@ -232,7 +238,7 @@ type worldOverlapContext struct {
 }
 
 type worldRayCastContext struct {
-	world    *world
+	world    *World
 	fcn      CastResultFunc
 	filter   QueryFilter
 	fraction float32
@@ -240,7 +246,7 @@ type worldRayCastContext struct {
 }
 
 type worldShapeCastContext struct {
-	world    *world
+	world    *World
 	fcn      CastResultFunc
 	filter   QueryFilter
 	fraction float32
@@ -249,7 +255,7 @@ type worldShapeCastContext struct {
 }
 
 type worldMoverCastContext struct {
-	world    *world
+	world    *World
 	filter   QueryFilter
 	fraction float32
 	origin   Pos
@@ -257,7 +263,7 @@ type worldMoverCastContext struct {
 }
 
 type worldMoverContext struct {
-	world  *world
+	world  *World
 	fcn    PlaneResultFunc
 	filter QueryFilter
 	mover  Capsule
@@ -265,7 +271,7 @@ type worldMoverContext struct {
 }
 
 type explosionContext struct {
-	world            *world
+	world            *World
 	position         Pos
 	radius           float32
 	falloff          float32
@@ -276,32 +282,32 @@ func drawShape(draw *DebugDraw, s *shape, transform WorldTransform, color HexCol
 	switch s.shapeType {
 	case CapsuleShape:
 		capsule := &s.capsule
-		p1 := TransformWorldPoint(transform, capsule.Center1)
-		p2 := TransformWorldPoint(transform, capsule.Center2)
-		draw.DrawSolidCapsuleFunc(p1, p2, capsule.Radius, color)
+		p1 := transform.Apply(capsule.Center1)
+		p2 := transform.Apply(capsule.Center2)
+		draw.DrawSolidCapsule(p1, p2, capsule.Radius, color)
 	case CircleShape:
 		circle := &s.circle
-		draw.DrawSolidCircleFunc(transform, circle.Center, circle.Radius, color)
+		draw.DrawSolidCircle(transform, circle.Center, circle.Radius, color)
 	case PolygonShape:
 		poly := &s.polygon
-		draw.DrawSolidPolygonFunc(transform, poly.Vertices[:poly.Count], poly.Radius, color)
+		draw.DrawSolidPolygon(transform, poly.Vertices[:poly.Count], poly.Radius, color)
 	case SegmentShape:
 		segment := &s.segment
-		p1 := TransformWorldPoint(transform, segment.Point1)
-		p2 := TransformWorldPoint(transform, segment.Point2)
-		draw.DrawLineFunc(p1, p2, color)
+		p1 := transform.Apply(segment.Point1)
+		p2 := transform.Apply(segment.Point2)
+		draw.DrawLine(p1, p2, color)
 	case ChainSegmentShape:
 		segment := &s.chainSegment.Segment
-		p1 := TransformWorldPoint(transform, segment.Point1)
-		p2 := TransformWorldPoint(transform, segment.Point2)
-		draw.DrawLineFunc(p1, p2, color)
-		draw.DrawPointFunc(p2, 4, color)
+		p1 := transform.Apply(segment.Point1)
+		p2 := transform.Apply(segment.Point2)
+		draw.DrawLine(p1, p2, color)
+		draw.DrawPoint(p2, 4, color)
 		if drawChainNormals {
-			c := LerpPosition(p1, p2, 0.5)
-			e := Normalize(SubPos(p2, p1))
-			n := RightPerp(e)
-			L := float32(0.2) * GetLengthUnitsPerMeter()
-			draw.DrawLineFunc(c, OffsetPos(c, MulSV(L, n)), ColorPaleGreen)
+			c := p1.Lerp(p2, 0.5)
+			e := p2.Sub(p1).Normalize()
+			n := e.RightPerp()
+			L := float32(0.2) * LengthUnitsPerMeter()
+			draw.DrawLine(c, c.Add(n.Scale(L)), ColorPaleGreen)
 		}
 	}
 }
@@ -346,20 +352,21 @@ func drawQueryCallback(proxyID int, userData uint64, context *drawContext) bool 
 		drawShape(draw, shape, bodySim.transform, color, draw.DrawChainNormals)
 	}
 	if draw.DrawBounds {
-		draw.DrawBoundsFunc(world.fatAABBs[shapeID], ColorGold)
+		draw.DrawAABB(world.fatAABBs[shapeID], ColorGold)
 	}
 	return true
 }
 
 // todo this has varying order for moving shapes, causing flicker when overlapping shapes are moving
 // solution: display order by shape id modulus 3, keep 3 buckets in GLSolid* and flush in 3 passes.
-func (w World) Draw(draw *DebugDraw) {
-	world := getWorldFromId(w)
+func (w *World) Draw(draw *DebugDraw) {
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return
 	}
-	assert(IsValidAABB(draw.DrawingBounds), "b2IsValidAABB( draw->drawingBounds )")
+	checkInput(draw.Drawer != nil, "draw.Drawer != nil")
+	assert(draw.DrawingBounds.IsValid(), "b2IsValidAABB( draw->drawingBounds )")
 	const axisScale float32 = 0.3
 	speculativeColor := ColorGainsboro
 	addColor := ColorGreen
@@ -391,25 +398,25 @@ func (w World) Draw(draw *DebugDraw) {
 				offset := Vec2{X: 0.1, Y: 0.1}
 				bodySim := getBodySim(world, body)
 				transform := WorldTransform{P: bodySim.center, Q: bodySim.transform.Q}
-				p := TransformWorldPoint(transform, offset)
+				p := transform.Apply(offset)
 				nameLength := 0
 				for nameLength < len(body.name) && body.name[nameLength] != 0 {
 					nameLength++
 				}
-				draw.DrawStringFunc(p, string(body.name[:nameLength]), ColorWhiteSmoke)
+				draw.DrawString(p, string(body.name[:nameLength]), ColorWhiteSmoke)
 			}
 			if draw.DrawMass && body.bodyType == DynamicBody {
 				offset := Vec2{X: 0.1, Y: 0.1}
 				bodySim := getBodySim(world, body)
 				transform := WorldTransform{P: bodySim.center, Q: bodySim.transform.Q}
-				draw.DrawLineFunc(bodySim.center0, bodySim.center, ColorWhiteSmoke)
-				draw.DrawTransformFunc(transform)
-				p := TransformWorldPoint(transform, offset)
+				draw.DrawLine(bodySim.center0, bodySim.center, ColorWhiteSmoke)
+				draw.DrawTransform(transform)
+				p := transform.Apply(offset)
 				buffer := fmt.Sprintf("  %.2f", body.mass)
 				if len(buffer) > 31 {
 					buffer = buffer[:31]
 				}
-				draw.DrawStringFunc(p, buffer, ColorWhite)
+				draw.DrawString(p, buffer, ColorWhite)
 			}
 			if draw.DrawJoints {
 				jointKey := body.headJointKey
@@ -446,9 +453,9 @@ func (w World) Draw(draw *DebugDraw) {
 							mp := &contactSim.manifold.Points[j]
 							var p Pos
 							if draw.DrawAnchorA {
-								p = OffsetPos(bodySimA.center, mp.AnchorA)
+								p = bodySimA.center.Add(mp.AnchorA)
 							} else {
-								p = OffsetPos(bodySimB.center, mp.AnchorB)
+								p = bodySimB.center.Add(mp.AnchorB)
 							}
 							if draw.DrawGraphColors && contact.colorIndex != nullIndex {
 								// graph color
@@ -456,54 +463,54 @@ func (w World) Draw(draw *DebugDraw) {
 								if contact.colorIndex == overflowIndex {
 									pointSize = 7.5
 								}
-								draw.DrawPointFunc(p, pointSize, GetGraphColor(contact.colorIndex))
+								draw.DrawPoint(p, pointSize, colorForGraph(contact.colorIndex))
 							} else if mp.Separation > linearSlop {
 								// Speculative
-								draw.DrawPointFunc(p, 5, speculativeColor)
+								draw.DrawPoint(p, 5, speculativeColor)
 							} else if !mp.Persisted {
 								// Add
-								draw.DrawPointFunc(p, 10, addColor)
+								draw.DrawPoint(p, 10, addColor)
 							} else if mp.Persisted {
 								// Persist
-								draw.DrawPointFunc(p, 5, persistColor)
+								draw.DrawPoint(p, 5, persistColor)
 							}
 							if draw.DrawContactNormals {
 								p1 := p
-								p2 := OffsetPos(p1, MulSV(axisScale, normal))
-								draw.DrawLineFunc(p1, p2, normalColor)
+								p2 := p1.Add(normal.Scale(axisScale))
+								draw.DrawLine(p1, p2, normalColor)
 								buffer := fmt.Sprintf(" %.2f", mp.Separation)
 								if len(buffer) > 31 {
 									buffer = buffer[:31]
 								}
-								draw.DrawStringFunc(p1, buffer, ColorWhite)
+								draw.DrawString(p1, buffer, ColorWhite)
 							} else if draw.DrawContactForces {
 								// todo validate
 								// multiply by one-half due to relax iteration
 								force := float32(0.5) * mp.TotalNormalImpulse * world.invDT
 								p1 := p
-								p2 := OffsetPos(p1, MulSV(draw.ForceScale*force, normal))
-								draw.DrawLineFunc(p1, p2, impulseColor)
+								p2 := p1.Add(normal.Scale(draw.ForceScale * force))
+								draw.DrawLine(p1, p2, impulseColor)
 								buffer := fmt.Sprintf("%.1f", force)
 								if len(buffer) > 31 {
 									buffer = buffer[:31]
 								}
-								draw.DrawStringFunc(p1, buffer, ColorWhite)
+								draw.DrawString(p1, buffer, ColorWhite)
 							}
 							if draw.DrawContactFeatures {
 								buffer := fmt.Sprintf("%d", mp.ID)
-								draw.DrawStringFunc(p, buffer, ColorOrange)
+								draw.DrawString(p, buffer, ColorOrange)
 							}
 							if draw.DrawFrictionForces {
 								force := float32(0.5) * mp.TangentImpulse * world.invH
-								tangent := RightPerp(normal)
+								tangent := normal.RightPerp()
 								p1 := p
-								p2 := OffsetPos(p1, MulSV(draw.ForceScale*force, tangent))
-								draw.DrawLineFunc(p1, p2, frictionColor)
+								p2 := p1.Add(tangent.Scale(draw.ForceScale * force))
+								draw.DrawLine(p1, p2, frictionColor)
 								buffer := fmt.Sprintf("%.1f", force)
 								if len(buffer) > 31 {
 									buffer = buffer[:31]
 								}
-								draw.DrawStringFunc(p1, buffer, ColorWhite)
+								draw.DrawString(p1, buffer, ColorWhite)
 							}
 						}
 						setBit(&world.debugContactSet, uint32(contactID))
@@ -532,7 +539,7 @@ func (w World) Draw(draw *DebugDraw) {
 						}
 					}
 					if shapeCount > 0 {
-						draw.DrawBoundsFunc(aabb, ColorOrangeRed)
+						draw.DrawAABB(aabb, ColorOrangeRed)
 					}
 					setBit(&world.debugIslandSet, uint32(islandID))
 				}
@@ -550,24 +557,23 @@ func treeQueryCallback(proxyID int, userData uint64, context *worldQueryContext)
 	if !shouldQueryCollide(shape.filter, context.filter) {
 		return true
 	}
-	id := Shape{index1: int32(shapeID + 1), world0: world.worldID, generation: shape.generation}
+	id := Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation}
 	return context.fcn(id)
 }
 
-func (w World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn OverlapResultFunc) TreeStats {
+func (w *World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn OverlapResultFunc) TreeStats {
 	var treeStats TreeStats
-	world := getWorldFromId(w)
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return treeStats
 	}
-	assert(IsValidPosition(origin), "b2IsValidPosition( origin )")
-	assert(IsValidAABB(aabb), "b2IsValidAABB( aabb )")
+	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	assert(aabb.IsValid(), "b2IsValidAABB( aabb )")
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
 		recWriter.userFcn.overlapFcn = fcn
-		recWWORLDID(&recWriter.buf, w)
 		recWPOSITION(&recWriter.buf, origin)
 		recWAABB(&recWriter.buf, aabb)
 		recWQUERYFILTER(&recWriter.buf, filter)
@@ -599,7 +605,7 @@ func treeOverlapCallback(proxyID int, userData uint64, context *worldOverlapCont
 	}
 	// Re-center on the query origin so the distance test stays in float precision far from the world origin
 	body := &world.bodies[shape.bodyID]
-	transform := ToRelativeTransform(getBodyTransformQuick(world, body), context.origin)
+	transform := getBodyTransformQuick(world, body).Relative(context.origin)
 	input := DistanceInput{ProxyA: *context.proxy, ProxyB: makeShapeDistanceProxy(shape), Transform: transform, UseRadii: true}
 	var cache SimplexCache
 	output := ShapeDistance(&input, &cache, nil)
@@ -607,23 +613,22 @@ func treeOverlapCallback(proxyID int, userData uint64, context *worldOverlapCont
 	if output.Distance > tolerance {
 		return true
 	}
-	id := Shape{index1: int32(shape.id + 1), world0: world.worldID, generation: shape.generation}
+	id := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
 	return context.fcn(id)
 }
 
-func (w World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, fcn OverlapResultFunc) TreeStats {
+func (w *World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, fcn OverlapResultFunc) TreeStats {
 	var treeStats TreeStats
-	world := getWorldFromId(w)
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return treeStats
 	}
-	assert(IsValidPosition(origin), "b2IsValidPosition( origin )")
+	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
 		recWriter.userFcn.overlapFcn = fcn
-		recWWORLDID(&recWriter.buf, w)
 		recWPOSITION(&recWriter.buf, origin)
 		recWSHAPEPROXY(&recWriter.buf, *proxy)
 		recWQUERYFILTER(&recWriter.buf, filter)
@@ -631,7 +636,7 @@ func (w World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, f
 		fcn = func(id Shape) bool { return recOverlapTrampoline(id, &recWriter) }
 	}
 	// Relative box lifted to world float with outward rounding, conservative for the tree
-	aabb := offsetAABB(MakeAABB(proxy.Points[:], proxy.Count, proxy.Radius), origin)
+	aabb := offsetAABB(MakeAABB(proxy.Points[:proxy.Count], proxy.Radius), origin)
 	worldContext := worldOverlapContext{world: world, fcn: fcn, filter: filter, proxy: proxy, origin: origin}
 	for i := 0; i < int(BodyTypeCount); i++ {
 		treeResult := world.broadPhase.trees[i].Query(aabb, filter.MaskBits, func(proxyID int, userData uint64) bool { return treeOverlapCallback(proxyID, userData, &worldContext) })
@@ -655,13 +660,13 @@ func rayCastCallback(input *RayCastInput, proxyID int, userData uint64, context 
 	}
 	body := &world.bodies[shape.bodyID]
 	bodyTransform := getBodyTransformQuick(world, body)
-	transform := ToRelativeTransform(bodyTransform, context.origin)
+	transform := bodyTransform.Relative(context.origin)
 	localInput := *input
 	localInput.Origin = Vec2Zero
 	output := rayCastShape(&localInput, shape, transform)
 	if output.Hit {
-		id := Shape{index1: int32(shapeID + 1), world0: world.worldID, generation: shape.generation}
-		point := OffsetPos(context.origin, output.Point)
+		id := Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation}
+		point := context.origin.Add(output.Point)
 		fraction := context.fcn(id, point, output.Normal, output.Fraction)
 		// The user may return -1 to skip this shape
 		if 0 <= fraction && fraction <= 1 {
@@ -672,20 +677,19 @@ func rayCastCallback(input *RayCastInput, proxyID int, userData uint64, context 
 	return input.MaxFraction
 }
 
-func (w World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn CastResultFunc) TreeStats {
+func (w *World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn CastResultFunc) TreeStats {
 	var treeStats TreeStats
-	world := getWorldFromId(w)
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return treeStats
 	}
-	assert(IsValidPosition(origin), "b2IsValidPosition( origin )")
-	assert(IsValidVec2(translation), "b2IsValidVec2( translation )")
+	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
 		recWriter.userFcn.castFcn = fcn
-		recWWORLDID(&recWriter.buf, w)
 		recWPOSITION(&recWriter.buf, origin)
 		recWVEC2(&recWriter.buf, translation)
 		recWQUERYFILTER(&recWriter.buf, filter)
@@ -697,7 +701,7 @@ func (w World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn Cas
 	// Tree traversal sees the origin truncated to float, displacing the ray by up to one
 	// coordinate ULP, a graze sized miss tolerance at extreme range. Per-shape casts
 	// re-difference against the full precision origin carried on the context.
-	input := RayCastInput{Origin: ToVec2(origin), Translation: translation, MaxFraction: 1}
+	input := RayCastInput{Origin: origin.Vec2(), Translation: translation, MaxFraction: 1}
 	worldContext := worldRayCastContext{world: world, fcn: fcn, filter: filter, fraction: 1, origin: origin}
 	for i := 0; i < int(BodyTypeCount); i++ {
 		treeResult := world.broadPhase.trees[i].CastRay(&input, filter.MaskBits, func(input *RayCastInput, proxyID int, userData uint64) float32 {
@@ -724,7 +728,7 @@ func rayCastClosestFcn(shapeID Shape, point Pos, normal Vec2, fraction float32, 
 	if fraction == 0 {
 		return -1
 	}
-	result.ShapeID = shapeID
+	result.Shape = shapeID
 	result.Point = point
 	result.Normal = normal
 	result.Fraction = fraction
@@ -732,16 +736,16 @@ func rayCastClosestFcn(shapeID Shape, point Pos, normal Vec2, fraction float32, 
 	return fraction
 }
 
-func (w World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter) RayResult {
+func (w *World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter) RayResult {
 	var result RayResult
-	world := getWorldFromId(w)
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return result
 	}
-	assert(IsValidPosition(origin), "b2IsValidPosition( origin )")
-	assert(IsValidVec2(translation), "b2IsValidVec2( translation )")
-	input := RayCastInput{Origin: ToVec2(origin), Translation: translation, MaxFraction: 1}
+	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	assert(translation.IsValid(), "b2IsValidVec2( translation )")
+	input := RayCastInput{Origin: origin.Vec2(), Translation: translation, MaxFraction: 1}
 	worldContext := worldRayCastContext{world: world, fcn: func(id Shape, point Pos, normal Vec2, fraction float32) float32 {
 		return rayCastClosestFcn(id, point, normal, fraction, &result)
 	}, filter: filter, fraction: 1, origin: origin}
@@ -758,7 +762,6 @@ func (w World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter) 
 	}
 	if world.recording != nil {
 		var recBuf recBuffer
-		recWWORLDID(&recBuf, w)
 		recWPOSITION(&recBuf, origin)
 		recWVEC2(&recBuf, translation)
 		recWQUERYFILTER(&recBuf, filter)
@@ -782,11 +785,11 @@ func shapeCastCallback(input *BoxCastInput, proxyID int, userData uint64, contex
 	localInput.MaxFraction = input.MaxFraction
 	body := &world.bodies[shape.bodyID]
 	transform := getBodyTransformQuick(world, body)
-	localTransform := ToRelativeTransform(transform, context.origin)
+	localTransform := transform.Relative(context.origin)
 	output := shapeCastShape(&localInput, shape, localTransform)
 	if output.Hit {
-		id := Shape{index1: int32(shapeID + 1), world0: world.worldID, generation: shape.generation}
-		point := OffsetPos(context.origin, output.Point)
+		id := Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation}
+		point := context.origin.Add(output.Point)
 		fraction := context.fcn(id, point, output.Normal, output.Fraction)
 		// The user may return -1 to skip this shape
 		if 0 <= fraction && fraction <= 1 {
@@ -797,20 +800,19 @@ func shapeCastCallback(input *BoxCastInput, proxyID int, userData uint64, contex
 	return input.MaxFraction
 }
 
-func (w World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filter QueryFilter, fcn CastResultFunc) TreeStats {
+func (w *World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filter QueryFilter, fcn CastResultFunc) TreeStats {
 	var treeStats TreeStats
-	world := getWorldFromId(w)
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return treeStats
 	}
-	assert(IsValidPosition(origin), "b2IsValidPosition( origin )")
-	assert(IsValidVec2(translation), "b2IsValidVec2( translation )")
+	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
 		recWriter.userFcn.castFcn = fcn
-		recWWORLDID(&recWriter.buf, w)
 		recWPOSITION(&recWriter.buf, origin)
 		recWSHAPEPROXY(&recWriter.buf, *proxy)
 		recWVEC2(&recWriter.buf, translation)
@@ -822,7 +824,7 @@ func (w World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filter
 	}
 	worldContext := worldShapeCastContext{world: world, fcn: fcn, filter: filter, fraction: 1, origin: origin, input: ShapeCastInput{Proxy: *proxy, Translation: translation, MaxFraction: 1}}
 	// Create a conservative world space box from the proxy and origin.
-	localBox := MakeAABB(proxy.Points[:], proxy.Count, proxy.Radius)
+	localBox := MakeAABB(proxy.Points[:proxy.Count], proxy.Radius)
 	box := offsetAABB(localBox, origin)
 	treeInput := BoxCastInput{Box: box, Translation: translation, MaxFraction: 1}
 	for i := 0; i < int(BodyTypeCount); i++ {
@@ -856,7 +858,7 @@ func moverCastCallback(input *BoxCastInput, proxyID int, userData uint64, contex
 	localInput.MaxFraction = input.MaxFraction
 	body := &world.bodies[shape.bodyID]
 	bodyTransform := getBodyTransformQuick(world, body)
-	transform := ToRelativeTransform(bodyTransform, context.origin)
+	transform := bodyTransform.Relative(context.origin)
 	output := shapeCastShape(&localInput, shape, transform)
 	if output.Fraction == 0 {
 		// Ignore overlapping shapes
@@ -866,11 +868,11 @@ func moverCastCallback(input *BoxCastInput, proxyID int, userData uint64, contex
 	return output.Fraction
 }
 
-func (w World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter QueryFilter) float32 {
-	assert(IsValidPosition(origin), "b2IsValidPosition( origin )")
-	assert(IsValidVec2(translation), "b2IsValidVec2( translation )")
+func (w *World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter QueryFilter) float32 {
+	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 	assert(mover.Radius > float32(2)*LinearSlop(), "mover->radius > 2.0f * B2_LINEAR_SLOP")
-	world := getWorldFromId(w)
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return 1
@@ -885,7 +887,7 @@ func (w World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter Qu
 	worldContext.input.CanEncroach = true
 	// Bound the capsule in origin relative space then lift to a conservative world float box
 	centers := [2]Vec2{mover.Center1, mover.Center2}
-	box := offsetAABB(MakeAABB(centers[:], 2, mover.Radius), origin)
+	box := offsetAABB(MakeAABB(centers[:], mover.Radius), origin)
 	treeInput := BoxCastInput{Box: box, Translation: translation, MaxFraction: 1}
 	for i := 0; i < int(BodyTypeCount); i++ {
 		world.broadPhase.trees[i].CastBox(&treeInput, filter.MaskBits, func(input *BoxCastInput, proxyID int, userData uint64) float32 {
@@ -898,7 +900,6 @@ func (w World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter Qu
 	}
 	if world.recording != nil {
 		var recBuf recBuffer
-		recWWORLDID(&recBuf, w)
 		recWPOSITION(&recBuf, origin)
 		recWCAPSULE(&recBuf, *mover)
 		recWVEC2(&recBuf, translation)
@@ -919,11 +920,11 @@ func treeCollideCallback(proxyID int, userData uint64, context *worldMoverContex
 	}
 	// Re-center on the query origin, the mover and the resulting planes are origin relative
 	body := &world.bodies[shape.bodyID]
-	transform := ToRelativeTransform(getBodyTransformQuick(world, body), context.origin)
+	transform := getBodyTransformQuick(world, body).Relative(context.origin)
 	result := collideMover(&context.mover, shape, transform)
 	// todo handle deep overlap
-	if result.Hit && IsNormalized(result.Plane.Normal) {
-		id := Shape{index1: int32(shape.id + 1), world0: world.worldID, generation: shape.generation}
+	if result.Hit && result.Plane.Normal.IsNormalized() {
+		id := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
 		return context.fcn(id, &result)
 	}
 	return true
@@ -931,18 +932,17 @@ func treeCollideCallback(proxyID int, userData uint64, context *worldMoverContex
 
 // It is tempting to use a shape proxy for the mover, but this makes handling deep overlap difficult and the generality may
 // not be worth it.
-func (w World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn PlaneResultFunc) {
-	world := getWorldFromId(w)
+func (w *World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn PlaneResultFunc) {
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return
 	}
-	assert(IsValidPosition(origin), "b2IsValidPosition( origin )")
+	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
 		recWriter.userFcn.planeFcn = fcn
-		recWWORLDID(&recWriter.buf, w)
 		recWPOSITION(&recWriter.buf, origin)
 		recWCAPSULE(&recWriter.buf, *mover)
 		recWQUERYFILTER(&recWriter.buf, filter)
@@ -951,7 +951,7 @@ func (w World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn 
 	}
 	r := Vec2{X: mover.Radius, Y: mover.Radius}
 	// Relative box lifted to world float with outward rounding, conservative for the tree
-	relBox := AABB{LowerBound: Sub(Min(mover.Center1, mover.Center2), r), UpperBound: Add(Max(mover.Center1, mover.Center2), r)}
+	relBox := AABB{LowerBound: mover.Center1.Min(mover.Center2).Sub(r), UpperBound: mover.Center1.Max(mover.Center2).Add(r)}
 	aabb := offsetAABB(relBox, origin)
 	worldContext := worldMoverContext{world: world, fcn: fcn, filter: filter, mover: *mover, origin: origin}
 	for i := 0; i < int(BodyTypeCount); i++ {
@@ -973,7 +973,7 @@ func explosionCallback(proxyID int, userData uint64, context *explosionContext) 
 	xf := getBodyTransformQuick(world, body)
 	// Re-center the explosion into the shape local frame so distance and direction stay precise
 	// far from the origin. Everything below runs in that near-origin frame.
-	localPosition := InvTransformWorldPoint(xf, context.position)
+	localPosition := xf.InvApply(context.position)
 	input := DistanceInput{ProxyA: makeShapeDistanceProxy(shape), ProxyB: MakeProxy([]Vec2{localPosition}, 0), Transform: TransformIdentity, UseRadii: true}
 	var cache SimplexCache
 	output := ShapeDistance(&input, &cache, nil)
@@ -990,56 +990,48 @@ func explosionCallback(proxyID int, userData uint64, context *explosionContext) 
 	if output.Distance == 0 {
 		closestPoint = getShapeCentroid(shape)
 	}
-	direction := Sub(closestPoint, localPosition)
-	if LengthSquared(direction) > float32(100)*float32(0x1p-23)*float32(0x1p-23) {
-		direction = Normalize(direction)
+	direction := closestPoint.Sub(localPosition)
+	if direction.LengthSquared() > float32(100)*float32(0x1p-23)*float32(0x1p-23) {
+		direction = direction.Normalize()
 	} else {
 		direction = Vec2{X: 1}
 	}
-	localLine := LeftPerp(direction)
+	localLine := direction.LeftPerp()
 	perimeter := getShapeProjectedPerimeter(shape, localLine)
 	scale := float32(1)
 	if output.Distance > radius && falloff > 0 {
-		scale = ClampFloat((radius+falloff-output.Distance)/falloff, 0, 1)
+		scale = clampFloat((radius+falloff-output.Distance)/falloff, 0, 1)
 	}
 	magnitude := context.impulsePerLength * perimeter * scale
-	impulse := MulSV(magnitude, RotateVector(xf.Q, direction))
+	impulse := xf.Q.Rotate(direction).Scale(magnitude)
 	localIndex := body.localIndex
 	set := &world.solverSets[awakeSet]
 	state := &set.bodyStates[localIndex]
 	bodySim := &set.bodySims[localIndex]
-	state.linearVelocity = MulAdd(state.linearVelocity, bodySim.invMass, impulse)
+	state.linearVelocity = state.linearVelocity.MulAdd(bodySim.invMass, impulse)
 	// Lever arm from the center of mass to the closest point, rotated to world
-	r := RotateVector(xf.Q, Sub(closestPoint, bodySim.localCenter))
-	state.angularVelocity += float32(bodySim.invInertia * Cross(r, impulse))
+	r := xf.Q.Rotate(closestPoint.Sub(bodySim.localCenter))
+	state.angularVelocity += float32(bodySim.invInertia * r.Cross(impulse))
 	return true
 }
 
-func (w World) Explode(def *ExplosionDef) {
+func (w *World) Explode(def *ExplosionDef) {
 	maskBits := def.MaskBits
 	position := def.Position
 	radius := def.Radius
 	falloff := def.Falloff
 	impulsePerLength := def.ImpulsePerLength
-	if !checkInput(IsValidPosition(position), "b2IsValidPosition( position )") {
-		return
-	}
-	if !checkInput(IsValidFloat(radius) && radius >= 0, "b2IsValidFloat( radius ) && radius >= 0.0f") {
-		return
-	}
-	if !checkInput(IsValidFloat(falloff) && falloff >= 0, "b2IsValidFloat( falloff ) && falloff >= 0.0f") {
-		return
-	}
-	if !checkInput(IsValidFloat(impulsePerLength), "b2IsValidFloat( impulsePerLength )") {
-		return
-	}
-	world := getWorldFromId(w)
+	checkInput(position.IsValid(), "b2IsValidPosition( position )")
+	checkInput(IsValidFloat(radius) && radius >= 0, "b2IsValidFloat( radius ) && radius >= 0.0f")
+	checkInput(IsValidFloat(falloff) && falloff >= 0, "b2IsValidFloat( falloff ) && falloff >= 0.0f")
+	checkInput(IsValidFloat(impulsePerLength), "b2IsValidFloat( impulsePerLength )")
+	world := w
 	assert(!world.locked, "world->locked == false")
 	if world.locked {
 		return
 	}
 	if world.recording != nil {
-		recWriteWorldExplode(world.recording, &recArgsWorldExplode{world: w, def: *def})
+		recWriteWorldExplode(world.recording, &recArgsWorldExplode{def: *def})
 	}
 	explosionContext := explosionContext{world: world, position: position, radius: radius, falloff: falloff, impulsePerLength: impulsePerLength}
 	// The broad-phase tree is float, so translate a local query box out to world with outward rounding
@@ -1051,7 +1043,7 @@ func (w World) Explode(def *ExplosionDef) {
 	})
 }
 
-func validateConnectivity(world *world) {
+func validateConnectivity(world *World) {
 	if !validationEnabled {
 		return
 	}
@@ -1125,7 +1117,7 @@ func validateConnectivity(world *world) {
 
 }
 
-func validateSolverSets(world *world) {
+func validateSolverSets(world *World) {
 	if !validationEnabled {
 		return
 	}
@@ -1405,7 +1397,7 @@ func validateSolverSets(world *world) {
 
 }
 
-func validateContacts(world *world) {
+func validateContacts(world *World) {
 	if !validationEnabled {
 		return
 	}

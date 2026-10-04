@@ -34,14 +34,14 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateJointGrid(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -54,14 +54,14 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateLargePyramid(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -74,14 +74,14 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateManyPyramids(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -94,7 +94,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateRain(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -102,7 +102,7 @@ func BenchmarkScenes(b *testing.B) {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -115,7 +115,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateSpinner(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -123,7 +123,7 @@ func BenchmarkScenes(b *testing.B) {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -136,14 +136,14 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateSmash(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -156,14 +156,14 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateTumbler(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -176,14 +176,14 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateWasher(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -196,7 +196,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateJunkyard(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -204,7 +204,7 @@ func BenchmarkScenes(b *testing.B) {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -217,7 +217,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateSleep(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -225,7 +225,7 @@ func BenchmarkScenes(b *testing.B) {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -238,14 +238,14 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateCompounds(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -258,7 +258,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateQueries(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -266,7 +266,7 @@ func BenchmarkScenes(b *testing.B) {
 					world.Step(float32(1)/float32(60), 4)
 				}
 				b.StopTimer()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -279,7 +279,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateTreeCast(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -288,7 +288,7 @@ func BenchmarkScenes(b *testing.B) {
 				}
 				b.StopTimer()
 				scenes.DestroyTreeCast()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -301,7 +301,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				scenes.CreateTileWorld(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -310,7 +310,7 @@ func BenchmarkScenes(b *testing.B) {
 				}
 				b.StopTimer()
 				scenes.DestroyTileWorld()
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -323,7 +323,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				data := scenes.CreateFallingHinges(world)
 				b.StartTimer()
 				for step := 0; step < 300; step++ {
@@ -332,7 +332,7 @@ func BenchmarkScenes(b *testing.B) {
 				}
 				b.StopTimer()
 				scenes.DestroyFallingHinges(&data)
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})
@@ -345,7 +345,7 @@ func BenchmarkScenes(b *testing.B) {
 				randomSeed = 12345
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
+				world := box2d.NewWorld(&def)
 				var human scenes.Human
 				scenes.CreateHuman(&human, world, box2d.Pos{X: 0, Y: 5}, 1, 0.05, 5, 0.5, 1, nil, true)
 				b.StartTimer()
@@ -376,7 +376,7 @@ func BenchmarkScenes(b *testing.B) {
 				}
 				b.StopTimer()
 				scenes.DestroyHuman(&human)
-				world.Destroy()
+				world.Close()
 				b.StartTimer()
 			}
 		})

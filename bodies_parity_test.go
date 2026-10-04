@@ -38,7 +38,7 @@ func apiBody(r *oracle.Reader, key string, b box2d.Body) {
 	apiVec(r, key+"/velocity", b.LinearVelocity())
 	r.F32(key+"/omega", b.AngularVelocity())
 	r.I32(key+"/type", int32(b.Type()))
-	r.Bool(key+"/awake", b.IsAwake())
+	r.Bool(key+"/awake", b.Awake())
 	apiMass(r, key+"/massData", b.MassData())
 	r.F32(key+"/mass", b.Mass())
 	r.F32(key+"/inertia", b.RotationalInertia())
@@ -67,7 +67,7 @@ func apiShape(r *oracle.Reader, key string, s box2d.Shape, b box2d.Body) {
 	r.I32(key+"/user", int32(s.UserData().(int)))
 	r.Bool(key+"/body", s.Body() == b)
 	r.Bool(key+"/world", s.World() == b.World())
-	r.Bool(key+"/orphan", s.ParentChain().IsNull())
+	r.Bool(key+"/orphan", s.ParentChain() == (box2d.Chain{}))
 	switch s.Type() {
 	case box2d.CircleShape:
 		c := s.Circle()
@@ -108,10 +108,10 @@ func apiShape(r *oracle.Reader, key string, s box2d.Shape, b box2d.Body) {
 	r.U64(key+"/mask", f.MaskBits)
 	r.I32(key+"/group", int32(f.GroupIndex))
 	r.Bool(key+"/sensor", s.IsSensor())
-	r.Bool(key+"/sensorEvents", s.AreSensorEventsEnabled())
-	r.Bool(key+"/contactEvents", s.AreContactEventsEnabled())
-	r.Bool(key+"/hitEvents", s.AreHitEventsEnabled())
-	r.Bool(key+"/preSolveEvents", s.ArePreSolveEventsEnabled())
+	r.Bool(key+"/sensorEvents", s.SensorEventsEnabled())
+	r.Bool(key+"/contactEvents", s.ContactEventsEnabled())
+	r.Bool(key+"/hitEvents", s.HitEventsEnabled())
+	r.Bool(key+"/preSolveEvents", s.PreSolveEventsEnabled())
 	apiMass(r, key+"/massData", s.ComputeMassData())
 	apiBounds(r, key+"/bounds", s.AABB())
 }
@@ -131,16 +131,16 @@ func apiTag(s box2d.Shape) int32 {
 	}
 	return int32(s.UserData().(int))
 }
-func apiContacts(r *oracle.Reader, key string, w box2d.World, b box2d.Body) {
+func apiContacts(r *oracle.Reader, key string, w *box2d.World, b box2d.Body) {
 	count := 0
 	for c := range b.ContactData() {
 		p := fmt.Sprintf("%s/contact/%d", key, count)
-		r.I32(p+"/a", apiTag(c.ShapeIDA))
-		r.I32(p+"/b", apiTag(c.ShapeIDB))
-		r.Bool(p+"/valid", c.ContactID.IsValid())
-		data := c.ContactID.Data()
-		r.Bool(p+"/identity", data.ContactID == c.ContactID && data.ShapeIDA == c.ShapeIDA && data.ShapeIDB == c.ShapeIDB)
-		r.Bool(p+"/body", c.ShapeIDA.Body() == b || c.ShapeIDB.Body() == b)
+		r.I32(p+"/a", apiTag(c.ShapeA))
+		r.I32(p+"/b", apiTag(c.ShapeB))
+		r.Bool(p+"/valid", c.Contact.IsValid())
+		data := c.Contact.Data()
+		r.Bool(p+"/identity", data.Contact == c.Contact && data.ShapeA == c.ShapeA && data.ShapeB == c.ShapeB)
+		r.Bool(p+"/body", c.ShapeA.Body() == b || c.ShapeB.Body() == b)
 		m := c.Manifold
 		apiVec(r, p+"/normal", m.Normal)
 		r.F32(p+"/rolling", m.RollingImpulse)
@@ -176,32 +176,32 @@ func apiContacts(r *oracle.Reader, key string, w box2d.World, b box2d.Body) {
 	i := 0
 	for c := range w.ContactBeginEvents() {
 		p := fmt.Sprintf("%s/begin/%d", key, i)
-		r.I32(p+"/a", apiTag(c.ShapeIDA))
-		r.I32(p+"/b", apiTag(c.ShapeIDB))
-		r.Bool(p+"/valid", c.ContactID.IsValid())
+		r.I32(p+"/a", apiTag(c.ShapeA))
+		r.I32(p+"/b", apiTag(c.ShapeB))
+		r.Bool(p+"/valid", c.Contact.IsValid())
 		i++
 	}
 	i = 0
 	for c := range w.ContactEndEvents() {
 		p := fmt.Sprintf("%s/end/%d", key, i)
-		r.I32(p+"/a", apiTag(c.ShapeIDA))
-		r.I32(p+"/b", apiTag(c.ShapeIDB))
-		r.Bool(p+"/valid", c.ContactID.IsValid())
+		r.I32(p+"/a", apiTag(c.ShapeA))
+		r.I32(p+"/b", apiTag(c.ShapeB))
+		r.Bool(p+"/valid", c.Contact.IsValid())
 		i++
 	}
 	i = 0
 	for c := range w.ContactHitEvents() {
 		p := fmt.Sprintf("%s/hit/%d", key, i)
-		r.I32(p+"/a", apiTag(c.ShapeIDA))
-		r.I32(p+"/b", apiTag(c.ShapeIDB))
-		r.Bool(p+"/valid", c.ContactID.IsValid())
+		r.I32(p+"/a", apiTag(c.ShapeA))
+		r.I32(p+"/b", apiTag(c.ShapeB))
+		r.Bool(p+"/valid", c.Contact.IsValid())
 		apiPos(r, p+"/point", c.Point)
 		apiVec(r, p+"/normal", c.Normal)
 		r.F32(p+"/speed", c.ApproachSpeed)
 		i++
 	}
 }
-func apiQuery(r *oracle.Reader, key string, w box2d.World, base box2d.Pos, y float32, mask uint64) {
+func apiQuery(r *oracle.Reader, key string, w *box2d.World, base box2d.Pos, y float32, mask uint64) {
 	q := box2d.QueryFilter{CategoryBits: 1, MaskBits: mask}
 	n := 0
 	w.OverlapAABB(base, box2d.AABB{LowerBound: box2d.Vec2{X: -.1, Y: y - .1}, UpperBound: box2d.Vec2{X: .1, Y: y + .1}}, q, func(s box2d.Shape) bool {
@@ -211,12 +211,12 @@ func apiQuery(r *oracle.Reader, key string, w box2d.World, base box2d.Pos, y flo
 	})
 	r.I32(key+"/count", int32(n))
 }
-func apiWorld(t *testing.T, gravity box2d.Vec2) box2d.World {
+func apiWorld(t *testing.T, gravity box2d.Vec2) *box2d.World {
 	t.Helper()
 	wd := box2d.DefaultWorldDef()
 	wd.Gravity = gravity
 	wd.EnableContinuous = false
-	w := box2d.CreateWorld(&wd)
+	w := box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, w)
 	return w
 }
@@ -671,15 +671,15 @@ func TestShapesMutationBoundsQueriesAndCollisions(t *testing.T) {
 			apiQuery(r, "category8", w, base, 3, 8)
 			filter.CategoryBits = 4
 			s.SetFilter(filter)
-			s.EnableSensorEvents(true)
-			s.EnableContactEvents(false)
-			s.EnableHitEvents(false)
-			s.EnablePreSolveEvents(true)
+			s.SetSensorEventsEnabled(true)
+			s.SetContactEventsEnabled(false)
+			s.SetHitEventsEnabled(false)
+			s.SetPreSolveEventsEnabled(true)
 			impact("flagsOff", 3)
-			s.EnableSensorEvents(false)
-			s.EnableContactEvents(true)
-			s.EnableHitEvents(true)
-			s.EnablePreSolveEvents(false)
+			s.SetSensorEventsEnabled(false)
+			s.SetContactEventsEnabled(true)
+			s.SetHitEventsEnabled(true)
+			s.SetPreSolveEventsEnabled(false)
 			impact("flagsOn", 3)
 			// Every legal cross-family setter is also exercised on a live shape.
 			for next := range 5 {
@@ -832,11 +832,9 @@ func TestChainsOwnershipMaterialsWindingAndDestruction(t *testing.T) {
 				}
 				cd := box2d.DefaultChainDef()
 				cd.Points = points
-				cd.PointCount = len(points)
 				cd.Materials = materials
-				cd.MaterialCount = len(points) - 1
-				if loop {
-					cd.MaterialCount = len(points)
+				if !loop {
+					cd.Materials = materials[:len(points)-1]
 				}
 				cd.IsLoop = loop
 				cd.Ghost1 = box2d.Vec2{X: -4}
@@ -893,11 +891,11 @@ func TestChainsOwnershipMaterialsWindingAndDestruction(t *testing.T) {
 				visitor.CreateCircleShape(&sd, &g)
 				materialImpact := func(key string) {
 					edge := segments[0].ChainSegment().Segment
-					tangent := box2d.Normalize(box2d.Sub(edge.Point2, edge.Point1))
-					normal := box2d.RightPerp(tangent)
-					start := box2d.Add(box2d.Lerp(edge.Point1, edge.Point2, .5), box2d.MulSV(.3, normal))
+					tangent := edge.Point2.Sub(edge.Point1).Normalize()
+					normal := tangent.RightPerp()
+					start := edge.Point1.Lerp(edge.Point2, .5).Add(normal.Scale(.3))
 					visitor.SetTransform(ground.WorldPoint(start), box2d.Rot{C: 1})
-					visitor.SetLinearVelocity(box2d.Add(box2d.MulSV(-2, normal), box2d.MulSV(.5, tangent)))
+					visitor.SetLinearVelocity(normal.Scale(-2).Add(tangent.Scale(.5)))
 					visitor.SetAngularVelocity(.5)
 					for step := range 8 {
 						w.Step(1.0/60, 4)
@@ -947,11 +945,9 @@ func TestChainsOwnershipMaterialsWindingAndDestruction(t *testing.T) {
 				// Reallocated objects cannot resurrect saved full chain/segment handles.
 				cd = box2d.DefaultChainDef()
 				cd.Points = []box2d.Vec2{{X: -2}, {X: 2}}
-				cd.PointCount = 2
 				cd.Ghost1 = box2d.Vec2{X: -4}
 				cd.Ghost2 = box2d.Vec2{X: 4}
 				cd.Materials = []box2d.SurfaceMaterial{box2d.DefaultSurfaceMaterial()}
-				cd.MaterialCount = 1
 				replacement := ground.CreateChain(&cd)
 				r.Bool("replacementDifferent", replacement != chain)
 				r.Bool("oldChainStillInvalid", chain.IsValid())

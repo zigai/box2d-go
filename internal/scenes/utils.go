@@ -21,7 +21,7 @@ func RandomPolygon(extent float32) box2d.Polygon {
 	for i := 0; i < count; i++ {
 		points[i] = RandomVec2(-extent, extent)
 	}
-	hull := box2d.ComputeHull(points[:], count)
+	hull := box2d.ComputeHull(points[:count])
 	if hull.Count > 0 {
 		return box2d.MakePolygon(&hull, 0)
 	}
@@ -66,7 +66,7 @@ func RandomPos(lo, hi float32) box2d.Pos {
 	var v box2d.Vec2
 	v.X = RandomFloatRange(lo, hi)
 	v.Y = RandomFloatRange(lo, hi)
-	return box2d.ToPos(v)
+	return v.Pos()
 }
 
 func RandomRot() box2d.Rot {

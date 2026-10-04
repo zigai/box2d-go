@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"slices"
@@ -21,7 +22,7 @@ import (
 )
 
 const worldBodyCount = 10
-const worldWorldCount = box2d.MaxWorlds / 2
+const worldWorldCount = 64
 
 type worldPairBox struct {
 	BodyID  box2d.Body
@@ -131,7 +132,7 @@ func (o *worldOracle) finish(t *testing.T) {
 
 // step records a source observation, not an implicit World.Step. The six
 // TestSetWorkerCount target observations directly record velocity without stepping.
-func (o *worldOracle) step(w box2d.World, source string) {
+func (o *worldOracle) step(w *box2d.World, source string) {
 	row := box2d.BTObserveDynamics(o.Reader, w, fmt.Sprintf("observation/%d/%s/", len(o.hashes)+1, source), len(o.hashes) == 0 || (len(o.hashes)+1)%60 == 0 || o.name == "TestSetWorkerCount")
 	box2d.BTDynamicsCompare(o.t, "world/"+o.name+"/"+source, len(o.hashes)+1, row, o.richExpected)
 	o.richRows = append(o.richRows, row)
@@ -312,7 +313,7 @@ func worldHelloWorld(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{0.0, -10.0}
 
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 	if !(worldId.IsValid()) {
 		t.Fatal("condition false")
@@ -390,30 +391,30 @@ func worldHelloWorld(t *testing.T, o *worldOracle) int {
 
 	// When the world destructor is called, all bodies and joints are freed. This can
 	// create orphaned ids, so be careful about your world management.
-	worldId.Destroy()
+	worldId.Close()
 
-	if !(box2d.AbsFloat(float32(position.X)) < 0.01) {
+	if !(float32(math.Abs(float64(position.X))) < 0.01) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L98", box2d.AbsFloat(float32(position.X)) < 0.01)
-	o.F32("L98:value", box2d.AbsFloat(float32(position.X)))
-	if !(box2d.AbsFloat(float32(position.Y-1.00)) < 0.01) {
+	o.Bool("L98", float32(math.Abs(float64(position.X))) < 0.01)
+	o.F32("L98:value", float32(math.Abs(float64(position.X))))
+	if !(float32(math.Abs(float64(position.Y-1.00))) < 0.01) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L99", box2d.AbsFloat(float32(position.Y-1.00)) < 0.01)
-	o.F32("L99:value", box2d.AbsFloat(float32(position.Y-1.00)))
-	if !(box2d.AbsFloat(rotation.Angle()) < 0.01) {
+	o.Bool("L99", float32(math.Abs(float64(position.Y-1.00))) < 0.01)
+	o.F32("L99:value", float32(math.Abs(float64(position.Y-1.00))))
+	if !(float32(math.Abs(float64(rotation.Angle()))) < 0.01) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L100", box2d.AbsFloat(rotation.Angle()) < 0.01)
-	o.F32("L100:value", box2d.AbsFloat(rotation.Angle()))
+	o.Bool("L100", float32(math.Abs(float64(rotation.Angle()))) < 0.01)
+	o.F32("L100:value", float32(math.Abs(float64(rotation.Angle()))))
 
 	return 0
 }
 
 func worldEmptyWorld(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 	if !(worldId.IsValid() == true) {
 		t.Fatal("condition false")
@@ -428,7 +429,7 @@ func worldEmptyWorld(t *testing.T, o *worldOracle) int {
 		o.step(worldId, "L116")
 	}
 
-	worldId.Destroy()
+	worldId.Close()
 
 	if !(worldId.IsValid() == false) {
 		t.Fatal("condition false")
@@ -440,7 +441,7 @@ func worldEmptyWorld(t *testing.T, o *worldOracle) int {
 
 func worldDestroyAllBodiesWorld(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 	if !(worldId.IsValid() == true) {
 		t.Fatal("condition false")
@@ -483,7 +484,7 @@ func worldDestroyAllBodiesWorld(t *testing.T, o *worldOracle) int {
 	o.Bool("L169", counters.BodyCount == 0)
 	o.I32("L169:value", int32(counters.BodyCount))
 
-	worldId.Destroy()
+	worldId.Close()
 
 	if !(worldId.IsValid() == false) {
 		t.Fatal("condition false")
@@ -495,7 +496,7 @@ func worldDestroyAllBodiesWorld(t *testing.T, o *worldOracle) int {
 
 func worldTestIsValid(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 	if !(worldId.IsValid()) {
 		t.Fatal("condition false")
@@ -528,7 +529,7 @@ func worldTestIsValid(t *testing.T, o *worldOracle) int {
 	}
 	o.Bool("L196", bodyId2.IsValid() == false)
 
-	worldId.Destroy()
+	worldId.Close()
 
 	if !(worldId.IsValid() == false) {
 		t.Fatal("condition false")
@@ -550,12 +551,12 @@ func worldTestWorldRecycle(t *testing.T, o *worldOracle) int {
 
 	var count int = 100
 
-	var worldIds [worldWorldCount]box2d.World
+	var worldIds [worldWorldCount]*box2d.World
 
 	for i := 0; i < count; i++ {
 		var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 		for j := 0; j < worldWorldCount; j++ {
-			worldIds[j] = box2d.CreateWorld(&worldDef)
+			worldIds[j] = box2d.NewWorld(&worldDef)
 			box2d.BTWorldCleanup(t, worldIds[j])
 			if !(worldIds[j].IsValid() == true) {
 				t.Fatal("condition false")
@@ -577,12 +578,12 @@ func worldTestWorldRecycle(t *testing.T, o *worldOracle) int {
 		}
 
 		for j := worldWorldCount - 1; j >= 0; j-- {
-			worldIds[j].Destroy()
+			worldIds[j].Close()
 			if !(worldIds[j].IsValid() == false) {
 				t.Fatal("condition false")
 			}
 			o.Bool("L243", worldIds[j].IsValid() == false)
-			worldIds[j] = box2d.World{}
+			worldIds[j] = nil
 		}
 	}
 
@@ -605,24 +606,24 @@ func worldPreSolveStatic(t *testing.T, o *worldOracle, shapeIdA box2d.Shape, sha
 func worldTestWorldCoverage(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 	if !(worldId.IsValid()) {
 		t.Fatal("condition false")
 	}
 	o.Bool("L273", worldId.IsValid())
 
-	worldId.EnableSleeping(true)
-	worldId.EnableSleeping(false)
-	var flag bool = worldId.IsSleepingEnabled()
+	worldId.SetSleepingEnabled(true)
+	worldId.SetSleepingEnabled(false)
+	var flag bool = worldId.SleepingEnabled()
 	if !(flag == false) {
 		t.Fatal("condition false")
 	}
 	o.Bool("L278", flag == false)
 
-	worldId.EnableContinuous(false)
-	worldId.EnableContinuous(true)
-	flag = worldId.IsContinuousEnabled()
+	worldId.SetContinuousEnabled(false)
+	worldId.SetContinuousEnabled(true)
+	flag = worldId.ContinuousEnabled()
 	if !(flag == true) {
 		t.Fatal("condition false")
 	}
@@ -676,8 +677,8 @@ func worldTestWorldCoverage(t *testing.T, o *worldOracle) int {
 	o.Bool("L311", value == 10.0)
 	o.F32("L311:value", value)
 
-	worldId.EnableWarmStarting(true)
-	flag = worldId.IsWarmStartingEnabled()
+	worldId.SetWarmStartingEnabled(true)
+	flag = worldId.WarmStartingEnabled()
 	if !(flag == true) {
 		t.Fatal("condition false")
 	}
@@ -700,14 +701,14 @@ func worldTestWorldCoverage(t *testing.T, o *worldOracle) int {
 	worldId.Step(1.0, 1)
 	o.step(worldId, "L324")
 
-	worldId.Destroy()
+	worldId.Close()
 
 	return 0
 }
 
 func worldTestSensor(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	// Wall from x = 1 to x = 2
@@ -751,13 +752,13 @@ func worldTestSensor(t *testing.T, o *worldOracle) int {
 		endEvents := slices.Collect(worldId.SensorEndEvents())
 		o.I32("sensor.beginCount", int32(len(beginEvents)))
 		for _, event := range beginEvents {
-			o.I32("sensor.begin.sensor", box2d.WorldShapeIndex(event.SensorShapeID))
-			o.I32("sensor.begin.visitor", box2d.WorldShapeIndex(event.VisitorShapeID))
+			o.I32("sensor.begin.sensor", box2d.WorldShapeIndex(event.SensorShape))
+			o.I32("sensor.begin.visitor", box2d.WorldShapeIndex(event.VisitorShape))
 		}
 		o.I32("sensor.endCount", int32(len(endEvents)))
 		for _, event := range endEvents {
-			o.I32("sensor.end.sensor", box2d.WorldShapeIndex(event.SensorShapeID))
-			o.I32("sensor.end.visitor", box2d.WorldShapeIndex(event.VisitorShapeID))
+			o.I32("sensor.end.sensor", box2d.WorldShapeIndex(event.SensorShape))
+			o.I32("sensor.end.visitor", box2d.WorldShapeIndex(event.VisitorShape))
 		}
 		o.Pos("sensor.position", bulletPos.X, bulletPos.Y)
 
@@ -774,7 +775,7 @@ func worldTestSensor(t *testing.T, o *worldOracle) int {
 		}
 	}
 
-	worldId.Destroy()
+	worldId.Close()
 
 	if !(beginCount == 1) {
 		t.Fatal("condition false")
@@ -793,7 +794,7 @@ func worldTestSensor(t *testing.T, o *worldOracle) int {
 func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.WorkerCount = 1
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 	if !(worldId.IsValid()) {
 		t.Fatal("condition false")
@@ -859,7 +860,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 	scenes.StepJunkyard(worldId, 2)
 	o.step(worldId, "target/L433")
 
-	worldId.Destroy()
+	worldId.Close()
 
 	return 0
 }
@@ -867,7 +868,7 @@ func worldTestSetWorkerCount(t *testing.T, o *worldOracle) int {
 func worldChainSegmentShapeTest(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{0.0, -10.0}
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -882,10 +883,10 @@ func worldChainSegmentShapeTest(t *testing.T, o *worldOracle) int {
 
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 	var orphanShape box2d.Shape = groundId.CreateChainSegmentShape(&shapeDef, &cs)
-	if !(!orphanShape.IsNull()) {
+	if !(orphanShape != (box2d.Shape{})) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L458", !orphanShape.IsNull())
+	o.Bool("L458", orphanShape != (box2d.Shape{}))
 
 	if !(orphanShape.Type() == box2d.ChainSegmentShape) {
 		t.Fatal("condition false")
@@ -894,10 +895,10 @@ func worldChainSegmentShapeTest(t *testing.T, o *worldOracle) int {
 	o.I32("L460:value", int32(orphanShape.Type()))
 
 	var parentChain box2d.Chain = orphanShape.ParentChain()
-	if !(parentChain.IsNull()) {
+	if !(parentChain == (box2d.Chain{})) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L463", parentChain.IsNull())
+	o.Bool("L463", parentChain == (box2d.Chain{}))
 
 	var got box2d.ChainSegment = orphanShape.ChainSegment()
 	if v := got.Ghost1.X - cs.Ghost1.X; v < -(1e-5) || (1e-5) < v {
@@ -1007,10 +1008,10 @@ func worldChainSegmentShapeTest(t *testing.T, o *worldOracle) int {
 	o.I32("L510:value", int32(got2.ChainID))
 
 	var parentChain2 box2d.Chain = orphanShape.ParentChain()
-	if !(parentChain2.IsNull()) {
+	if !(parentChain2 == (box2d.Chain{})) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L513", parentChain2.IsNull())
+	o.Bool("L513", parentChain2 == (box2d.Chain{}))
 
 	var convBody box2d.Body = worldId.CreateBody(&bodyDef)
 	var convCircle box2d.Circle = box2d.Circle{box2d.Vec2{0.0, 0.0}, 0.25}
@@ -1052,20 +1053,20 @@ func worldChainSegmentShapeTest(t *testing.T, o *worldOracle) int {
 	o.I32("L528:value", int32(got3.ChainID))
 
 	var parentChain3 box2d.Chain = convShape.ParentChain()
-	if !(parentChain3.IsNull()) {
+	if !(parentChain3 == (box2d.Chain{})) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L531", parentChain3.IsNull())
+	o.Bool("L531", parentChain3 == (box2d.Chain{}))
 
 	orphanShape.Destroy(true)
-	worldId.Destroy()
+	worldId.Close()
 
 	return 0
 }
 
 func worldDeferredMassFlagSyncTest(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -1083,13 +1084,13 @@ func worldDeferredMassFlagSyncTest(t *testing.T, o *worldOracle) int {
 	worldId.Step(1.0/60.0, 4)
 	o.step(worldId, "L556")
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
 func worldEnableSleepFlagSyncTest(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -1097,27 +1098,27 @@ func worldEnableSleepFlagSyncTest(t *testing.T, o *worldOracle) int {
 	bodyDef.EnableSleep = false
 	var bodyId box2d.Body = worldId.CreateBody(&bodyDef)
 
-	if !(bodyId.IsSleepEnabled() == false) {
+	if !(bodyId.SleepEnabled() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L572", bodyId.IsSleepEnabled() == false)
+	o.Bool("L572", bodyId.SleepEnabled() == false)
 
-	bodyId.EnableSleep(true)
-	if !(bodyId.IsSleepEnabled() == true) {
+	bodyId.SetSleepEnabled(true)
+	if !(bodyId.SleepEnabled() == true) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L575", bodyId.IsSleepEnabled() == true)
+	o.Bool("L575", bodyId.SleepEnabled() == true)
 
 	worldId.Step(1.0/60.0, 4)
 	o.step(worldId, "L577")
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
 func worldEnableContactRecyclingTest(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -1125,42 +1126,42 @@ func worldEnableContactRecyclingTest(t *testing.T, o *worldOracle) int {
 
 	// Default is enabled
 	var bodyA box2d.Body = worldId.CreateBody(&bodyDef)
-	if !(bodyA.IsContactRecyclingEnabled() == true) {
+	if !(bodyA.ContactRecyclingEnabled() == true) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L593", bodyA.IsContactRecyclingEnabled() == true)
+	o.Bool("L593", bodyA.ContactRecyclingEnabled() == true)
 
-	bodyA.EnableContactRecycling(false)
-	if !(bodyA.IsContactRecyclingEnabled() == false) {
+	bodyA.SetContactRecyclingEnabled(false)
+	if !(bodyA.ContactRecyclingEnabled() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L596", bodyA.IsContactRecyclingEnabled() == false)
+	o.Bool("L596", bodyA.ContactRecyclingEnabled() == false)
 
-	bodyA.EnableContactRecycling(true)
-	if !(bodyA.IsContactRecyclingEnabled() == true) {
+	bodyA.SetContactRecyclingEnabled(true)
+	if !(bodyA.ContactRecyclingEnabled() == true) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L599", bodyA.IsContactRecyclingEnabled() == true)
+	o.Bool("L599", bodyA.ContactRecyclingEnabled() == true)
 
 	// Per-def opt-out at creation
 	bodyDef.EnableContactRecycling = false
 	var bodyB box2d.Body = worldId.CreateBody(&bodyDef)
-	if !(bodyB.IsContactRecyclingEnabled() == false) {
+	if !(bodyB.ContactRecyclingEnabled() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L604", bodyB.IsContactRecyclingEnabled() == false)
+	o.Bool("L604", bodyB.ContactRecyclingEnabled() == false)
 
 	// Stepping after toggling must not trip the flag-sync validator
 	worldId.Step(1.0/60.0, 4)
 	o.step(worldId, "L607")
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
 func worldSetBulletDriftTest(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	{
@@ -1217,7 +1218,7 @@ func worldSetBulletDriftTest(t *testing.T, o *worldOracle) int {
 		o.Bool("L651", bodyId.IsBullet() == false)
 	}
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1231,7 +1232,7 @@ func worldEnlargedProxyDestroyed(t *testing.T, o *worldOracle, workerCount int) 
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{}
 	worldDef.WorkerCount = workerCount
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var tree *box2d.DynamicTree = box2d.WorldDynamicTree(worldId)
@@ -1282,7 +1283,7 @@ func worldEnlargedProxyDestroyed(t *testing.T, o *worldOracle, workerCount int) 
 	o.Bool("L714", worldCountEnlargedNodes(t, o, tree) == 0)
 	o.I32("L714:value", int32(worldCountEnlargedNodes(t, o, tree)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1306,7 +1307,7 @@ func worldEnlargedProxyDestroyedTest(t *testing.T, o *worldOracle) int {
 // come from the route under test. The count is every live contact, touching or not, which is what
 // the broad phase decides.
 
-func worldCreatePairBox(t *testing.T, o *worldOracle, worldId box2d.World, bodyType box2d.BodyType, x float32, y float32, shapeDef *box2d.ShapeDef) worldPairBox {
+func worldCreatePairBox(t *testing.T, o *worldOracle, worldId *box2d.World, bodyType box2d.BodyType, x float32, y float32, shapeDef *box2d.ShapeDef) worldPairBox {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 	bodyDef.Type = bodyType
 	bodyDef.Position = box2d.Pos{oracle.Real(x), oracle.Real(y)}
@@ -1319,21 +1320,21 @@ func worldCreatePairBox(t *testing.T, o *worldOracle, worldId box2d.World, bodyT
 	return box
 }
 
-func worldCreatePairWorld(t *testing.T, o *worldOracle, workerCount int) box2d.World {
+func worldCreatePairWorld(t *testing.T, o *worldOracle, workerCount int) *box2d.World {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{}
 	worldDef.EnableSleep = false
 	worldDef.WorkerCount = workerCount
-	id := box2d.CreateWorld(&worldDef)
+	id := box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, id)
 	return id
 }
 
-func worldPairContactCount(t *testing.T, o *worldOracle, worldId box2d.World) int {
+func worldPairContactCount(t *testing.T, o *worldOracle, worldId *box2d.World) int {
 	return worldId.Counters().ContactCount
 }
 
-func worldStepPairWorld(t *testing.T, o *worldOracle, worldId box2d.World) {
+func worldStepPairWorld(t *testing.T, o *worldOracle, worldId *box2d.World) {
 	worldId.Step(1.0/60.0, 4)
 	o.step(worldId, "L771")
 }
@@ -1341,7 +1342,7 @@ func worldStepPairWorld(t *testing.T, o *worldOracle, worldId box2d.World) {
 // Every kind of proxy created over a resting body
 
 func worldPairCreation(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 
 	// Dynamic created on static
@@ -1402,14 +1403,14 @@ func worldPairCreation(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L812", worldPairContactCount(t, o, worldId) == 4)
 	o.I32("L812:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
 // A teleport marks the moved proxy, kinematic and static ones included
 
 func worldPairTeleport(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 
 	worldCreatePairBox(t, o, worldId, box2d.StaticBody, 0.0, 0.0, &shapeDef)
@@ -1457,14 +1458,14 @@ func worldPairTeleport(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L847", worldPairContactCount(t, o, worldId) == 3)
 	o.I32("L847:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
 // A filter change must find the pairs the old filter rejected and drop the ones it now rejects
 
 func worldPairRefilter(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 
 	var pickyDef box2d.ShapeDef = box2d.DefaultShapeDef()
 	pickyDef.Filter.CategoryBits = 2
@@ -1519,7 +1520,7 @@ func worldPairRefilter(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L889", worldPairContactCount(t, o, worldId) == 1)
 	o.I32("L889:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1527,15 +1528,15 @@ func worldPairRefilter(t *testing.T, o *worldOracle, workerCount int) int {
 // The weld frames coincide so the joint does not move anything.
 
 func worldPairCollideConnected(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 
 	var boxA worldPairBox = worldCreatePairBox(t, o, worldId, box2d.DynamicBody, 0.0, 0.0, &shapeDef)
 	var boxB worldPairBox = worldCreatePairBox(t, o, worldId, box2d.DynamicBody, 0.5, 0.0, &shapeDef)
 
 	var jointDef box2d.WeldJointDef = box2d.DefaultWeldJointDef()
-	jointDef.Base.BodyIDA = boxA.BodyID
-	jointDef.Base.BodyIDB = boxB.BodyID
+	jointDef.Base.BodyA = boxA.BodyID
+	jointDef.Base.BodyB = boxB.BodyID
 	jointDef.Base.LocalFrameB.P = box2d.Vec2{-0.5, 0.0}
 	var jointId box2d.Joint = worldId.CreateWeldJoint(&jointDef).Joint
 	worldStepPairWorld(t, o, worldId)
@@ -1564,8 +1565,8 @@ func worldPairCollideConnected(t *testing.T, o *worldOracle, workerCount int) in
 	// Static partner, the mark goes on the dynamic body
 	var wall worldPairBox = worldCreatePairBox(t, o, worldId, box2d.StaticBody, 10.0, 0.0, &shapeDef)
 	var boxC worldPairBox = worldCreatePairBox(t, o, worldId, box2d.DynamicBody, 10.5, 0.0, &shapeDef)
-	jointDef.Base.BodyIDA = wall.BodyID
-	jointDef.Base.BodyIDB = boxC.BodyID
+	jointDef.Base.BodyA = wall.BodyID
+	jointDef.Base.BodyB = boxC.BodyID
 	var wallJointId box2d.Joint = worldId.CreateWeldJoint(&jointDef).Joint
 	worldStepPairWorld(t, o, worldId)
 	if !(worldPairContactCount(t, o, worldId) == 0) {
@@ -1582,7 +1583,7 @@ func worldPairCollideConnected(t *testing.T, o *worldOracle, workerCount int) in
 	o.Bool("L932", worldPairContactCount(t, o, worldId) == 1)
 	o.I32("L932:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1593,7 +1594,7 @@ func worldRejectTaggedShape(t *testing.T, o *worldOracle, shapeIdA box2d.Shape, 
 // The filters that reject a pair. The benchmarks never exercise these, so this is the only guard.
 
 func worldPairFilters(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	worldId.SetCustomFilterCallback(func(a, b box2d.Shape) bool { return worldRejectTaggedShape(t, o, a, b) })
 
 	// Category and mask must pass in both directions
@@ -1661,7 +1662,7 @@ func worldPairFilters(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L997", worldPairContactCount(t, o, worldId) == 3)
 	o.I32("L997:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1672,7 +1673,7 @@ func worldPairSleepEscape(t *testing.T, o *worldOracle, workerCount int, sleepBe
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{}
 	worldDef.WorkerCount = workerCount
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
@@ -1697,10 +1698,10 @@ func worldPairSleepEscape(t *testing.T, o *worldOracle, workerCount int, sleepBe
 
 	if sleepBeforePairs {
 		moverId.SetAwake(false)
-		if !(moverId.IsAwake() == false) {
+		if !(moverId.Awake() == false) {
 			t.Fatal("condition false")
 		}
-		o.Bool("L1031", moverId.IsAwake() == false)
+		o.Bool("L1031", moverId.Awake() == false)
 	}
 
 	worldStepPairWorld(t, o, worldId)
@@ -1710,7 +1711,7 @@ func worldPairSleepEscape(t *testing.T, o *worldOracle, workerCount int, sleepBe
 	o.Bool("L1035", worldPairContactCount(t, o, worldId) == 1)
 	o.I32("L1035:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1718,7 +1719,7 @@ func worldPairSleepEscape(t *testing.T, o *worldOracle, workerCount int, sleepBe
 // overlap across the gap while the shapes do not, so nothing pushes and nothing moves.
 
 func worldPairEnable(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 
 	var ground worldPairBox = worldCreatePairBox(t, o, worldId, box2d.StaticBody, 0.0, 0.0, &shapeDef)
@@ -1763,14 +1764,14 @@ func worldPairEnable(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L1068", worldPairContactCount(t, o, worldId) == 1)
 	o.I32("L1068:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
 // A type change recreates the proxies with marks and must find the resting neighbors again
 
 func worldPairSetType(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 
 	worldCreatePairBox(t, o, worldId, box2d.StaticBody, 0.0, 0.0, &shapeDef)
@@ -1817,14 +1818,14 @@ func worldPairSetType(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L1102", worldPairContactCount(t, o, worldId) == 2)
 	o.I32("L1102:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
 // Bullet is a flag only, the pair must be untouched
 
 func worldPairSetBullet(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 
 	worldCreatePairBox(t, o, worldId, box2d.StaticBody, 0.0, 0.0, &shapeDef)
@@ -1852,7 +1853,7 @@ func worldPairSetBullet(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L1125", worldPairContactCount(t, o, worldId) == 1)
 	o.I32("L1125:value", int32(worldPairContactCount(t, o, worldId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1860,7 +1861,7 @@ func worldPairSetBullet(t *testing.T, o *worldOracle, workerCount int) int {
 // mark means the pair is never found.
 
 func worldPairRebuildStatic(t *testing.T, o *worldOracle, workerCount int) int {
-	var worldId box2d.World = worldCreatePairWorld(t, o, workerCount)
+	var worldId *box2d.World = worldCreatePairWorld(t, o, workerCount)
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 
 	var box worldPairBox = worldCreatePairBox(t, o, worldId, box2d.DynamicBody, 0.0, 0.0, &shapeDef)
@@ -1925,7 +1926,7 @@ func worldPairRebuildStatic(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L1170", contactData[0].Manifold.PointCount > 0)
 	o.I32("L1170:value", int32(contactData[0].Manifold.PointCount))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -1936,17 +1937,17 @@ func worldPairSleepingStatic(t *testing.T, o *worldOracle, workerCount int) int 
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{}
 	worldDef.WorkerCount = workerCount
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
 	var sleeper worldPairBox = worldCreatePairBox(t, o, worldId, box2d.DynamicBody, 0.0, 0.0, &shapeDef)
 	worldStepPairWorld(t, o, worldId)
 	sleeper.BodyID.SetAwake(false)
-	if !(sleeper.BodyID.IsAwake() == false) {
+	if !(sleeper.BodyID.Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1189", sleeper.BodyID.IsAwake() == false)
+	o.Bool("L1189", sleeper.BodyID.Awake() == false)
 
 	worldCreatePairBox(t, o, worldId, box2d.StaticBody, 0.5, 0.0, &shapeDef)
 	worldStepPairWorld(t, o, worldId)
@@ -1955,10 +1956,10 @@ func worldPairSleepingStatic(t *testing.T, o *worldOracle, workerCount int) int 
 	}
 	o.Bool("L1193", sleeper.BodyID.ContactCapacity() == 1)
 	o.I32("L1193:value", int32(sleeper.BodyID.ContactCapacity()))
-	if !(sleeper.BodyID.IsAwake() == false) {
+	if !(sleeper.BodyID.Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1194", sleeper.BodyID.IsAwake() == false)
+	o.Bool("L1194", sleeper.BodyID.Awake() == false)
 
 	// The quiet kind never pairs with a sleeper
 	var quietDef box2d.ShapeDef = box2d.DefaultShapeDef()
@@ -1993,7 +1994,7 @@ func worldPairSleepingStatic(t *testing.T, o *worldOracle, workerCount int) int 
 	o.Bool("L1211", contactData[0].Manifold.PointCount > 0)
 	o.I32("L1211:value", int32(contactData[0].Manifold.PointCount))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2002,18 +2003,18 @@ func worldPairSleepingStatic(t *testing.T, o *worldOracle, workerCount int) int 
 // while its contacts are live, then step under validation so validateSolverSets and the prepare
 // asserts are the real check. Worker count parity on the state hash guards the multithreaded paths.
 
-func worldStepLocatorWorld(t *testing.T, o *worldOracle, worldId box2d.World, stepCount int) {
+func worldStepLocatorWorld(t *testing.T, o *worldOracle, worldId *box2d.World, stepCount int) {
 	for i := 0; i < stepCount; i++ {
 		worldId.Step(1.0/60.0, 4)
 		o.step(worldId, "L1226")
 	}
 }
 
-func worldStepUntilAsleep(t *testing.T, o *worldOracle, worldId box2d.World, bodyId box2d.Body, maxSteps int) bool {
+func worldStepUntilAsleep(t *testing.T, o *worldOracle, worldId *box2d.World, bodyId box2d.Body, maxSteps int) bool {
 	for i := 0; i < maxSteps; i++ {
 		worldId.Step(1.0/60.0, 4)
 		o.step(worldId, "L1234")
-		if bodyId.IsAwake() == false {
+		if bodyId.Awake() == false {
 			return true
 		}
 	}
@@ -2021,17 +2022,17 @@ func worldStepUntilAsleep(t *testing.T, o *worldOracle, worldId box2d.World, bod
 	return false
 }
 
-func worldCreateLocatorWorld(t *testing.T, o *worldOracle, workerCount int, enableSleep bool) box2d.World {
+func worldCreateLocatorWorld(t *testing.T, o *worldOracle, workerCount int, enableSleep bool) *box2d.World {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{0.0, -10.0}
 	worldDef.EnableSleep = enableSleep
 	worldDef.WorkerCount = workerCount
-	id := box2d.CreateWorld(&worldDef)
+	id := box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, id)
 	return id
 }
 
-func worldCreateLocatorGround(t *testing.T, o *worldOracle, worldId box2d.World, x float32, halfWidth float32) box2d.Body {
+func worldCreateLocatorGround(t *testing.T, o *worldOracle, worldId *box2d.World, x float32, halfWidth float32) box2d.Body {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 	bodyDef.Position = box2d.Pos{oracle.Real(x), oracle.Real(float32(-0.5))}
 	var bodyId box2d.Body = worldId.CreateBody(&bodyDef)
@@ -2042,7 +2043,7 @@ func worldCreateLocatorGround(t *testing.T, o *worldOracle, worldId box2d.World,
 	return bodyId
 }
 
-func worldCreateLocatorBox(t *testing.T, o *worldOracle, worldId box2d.World, bodyType box2d.BodyType, x float32, y float32) box2d.Body {
+func worldCreateLocatorBox(t *testing.T, o *worldOracle, worldId *box2d.World, bodyType box2d.BodyType, x float32, y float32) box2d.Body {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 	bodyDef.Type = bodyType
 	bodyDef.Position = box2d.Pos{oracle.Real(x), oracle.Real(y)}
@@ -2058,7 +2059,7 @@ func worldCreateLocatorBox(t *testing.T, o *worldOracle, worldId box2d.World, bo
 // the wake of a whole sleeping set.
 
 func worldLocatorSleepWake(t *testing.T, o *worldOracle, workerCount int, hash *uint64) int {
-	var worldId box2d.World = worldCreateLocatorWorld(t, o, workerCount, true)
+	var worldId *box2d.World = worldCreateLocatorWorld(t, o, workerCount, true)
 	worldCreateLocatorGround(t, o, worldId, 0.0, 10.0)
 
 	var pile [3]box2d.Body
@@ -2070,39 +2071,39 @@ func worldLocatorSleepWake(t *testing.T, o *worldOracle, workerCount int, hash *
 		t.Fatal("condition false")
 	}
 	o.Bool("L1291", true)
-	if !(pile[2].IsAwake() == false) {
+	if !(pile[2].Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1292", pile[2].IsAwake() == false)
+	o.Bool("L1292", pile[2].Awake() == false)
 
 	var dropper box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.DynamicBody, 0.0, 6.0)
-	if !(pile[0].IsAwake() == false) {
+	if !(pile[0].Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1295", pile[0].IsAwake() == false)
+	o.Bool("L1295", pile[0].Awake() == false)
 
 	worldStepLocatorWorld(t, o, worldId, 60)
-	if !(pile[0].IsAwake()) {
+	if !(pile[0].Awake()) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1298", pile[0].IsAwake())
-	if !(dropper.IsAwake()) {
+	o.Bool("L1298", pile[0].Awake())
+	if !(dropper.Awake()) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1299", dropper.IsAwake())
+	o.Bool("L1299", dropper.Awake())
 
 	if !(worldStepUntilAsleep(t, o, worldId, dropper, 900)) {
 		t.Fatal("condition false")
 	}
 	o.Bool("L1301", true)
-	if !(pile[0].IsAwake() == false) {
+	if !(pile[0].Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1302", pile[0].IsAwake() == false)
+	o.Bool("L1302", pile[0].Awake() == false)
 
 	*hash = worldId.StateHash()
 	o.U64("LocatorSleepWake:hash", *hash)
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2110,7 +2111,7 @@ func worldLocatorSleepWake(t *testing.T, o *worldOracle, workerCount int, hash *
 // body's contacts are live.
 
 func worldLocatorDestroyAwakeBody(t *testing.T, o *worldOracle, workerCount int, hash *uint64) int {
-	var worldId box2d.World = worldCreateLocatorWorld(t, o, workerCount, false)
+	var worldId *box2d.World = worldCreateLocatorWorld(t, o, workerCount, false)
 	worldCreateLocatorGround(t, o, worldId, 0.0, 20.0)
 
 	var stack [4]box2d.Body
@@ -2137,7 +2138,7 @@ func worldLocatorDestroyAwakeBody(t *testing.T, o *worldOracle, workerCount int,
 
 	*hash = worldId.StateHash()
 	o.U64("LocatorDestroyAwakeBody:hash", *hash)
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2145,7 +2146,7 @@ func worldLocatorDestroyAwakeBody(t *testing.T, o *worldOracle, workerCount int,
 // contacts, so its side of them has to be re-encoded or the collide task reads past the static set.
 
 func worldLocatorDestroyStaticBody(t *testing.T, o *worldOracle, workerCount int, hash *uint64) int {
-	var worldId box2d.World = worldCreateLocatorWorld(t, o, workerCount, false)
+	var worldId *box2d.World = worldCreateLocatorWorld(t, o, workerCount, false)
 
 	var platforms [3]box2d.Body
 	var boxes [3]box2d.Body
@@ -2173,7 +2174,7 @@ func worldLocatorDestroyStaticBody(t *testing.T, o *worldOracle, workerCount int
 
 	*hash = worldId.StateHash()
 	o.U64("LocatorDestroyStaticBody:hash", *hash)
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2182,23 +2183,23 @@ func worldLocatorDestroyStaticBody(t *testing.T, o *worldOracle, workerCount int
 // the gap and wakes it.
 
 func worldLocatorSleepingNeighbor(t *testing.T, o *worldOracle, workerCount int, hash *uint64) int {
-	var worldId box2d.World = worldCreateLocatorWorld(t, o, workerCount, true)
+	var worldId *box2d.World = worldCreateLocatorWorld(t, o, workerCount, true)
 	worldCreateLocatorGround(t, o, worldId, 0.0, 10.0)
 
 	var sleeper box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.DynamicBody, 0.0, 0.5)
 
 	// The fat boxes overlap across a tenth of a meter, well past the speculative distance
 	var mover box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.KinematicBody, 1.1, 0.5)
-	mover.EnableSleep(false)
+	mover.SetSleepEnabled(false)
 
 	if !(worldStepUntilAsleep(t, o, worldId, sleeper, 600)) {
 		t.Fatal("condition false")
 	}
 	o.Bool("L1385", true)
-	if !(mover.IsAwake()) {
+	if !(mover.Awake()) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1386", mover.IsAwake())
+	o.Bool("L1386", mover.Awake())
 
 	var contactData [4]box2d.ContactData
 	if !(mover.ContactCapacity() == 1) {
@@ -2212,21 +2213,21 @@ func worldLocatorSleepingNeighbor(t *testing.T, o *worldOracle, workerCount int,
 	o.Bool("L1390", worldContactData(mover, &contactData) == 0)
 
 	worldStepLocatorWorld(t, o, worldId, 30)
-	if !(sleeper.IsAwake() == false) {
+	if !(sleeper.Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1393", sleeper.IsAwake() == false)
+	o.Bool("L1393", sleeper.Awake() == false)
 
 	mover.SetLinearVelocity(box2d.Vec2{-2.0, 0.0})
 	worldStepLocatorWorld(t, o, worldId, 10)
-	if !(sleeper.IsAwake()) {
+	if !(sleeper.Awake()) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1397", sleeper.IsAwake())
+	o.Bool("L1397", sleeper.Awake())
 
 	*hash = worldId.StateHash()
 	o.U64("LocatorSleepingNeighbor:hash", *hash)
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2234,7 +2235,7 @@ func worldLocatorSleepingNeighbor(t *testing.T, o *worldOracle, workerCount int,
 // the middle of a set while other bodies hold contacts.
 
 func worldLocatorTypeChange(t *testing.T, o *worldOracle, workerCount int, hash *uint64) int {
-	var worldId box2d.World = worldCreateLocatorWorld(t, o, workerCount, false)
+	var worldId *box2d.World = worldCreateLocatorWorld(t, o, workerCount, false)
 	worldCreateLocatorGround(t, o, worldId, 0.0, 20.0)
 
 	var subject box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.DynamicBody, 0.0, 0.5)
@@ -2266,17 +2267,17 @@ func worldLocatorTypeChange(t *testing.T, o *worldOracle, workerCount int, hash 
 
 	subject.Disable()
 	worldStepLocatorWorld(t, o, worldId, 10)
-	if !(subject.IsEnabled() == false) {
+	if !(subject.Enabled() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1433", subject.IsEnabled() == false)
+	o.Bool("L1433", subject.Enabled() == false)
 
 	subject.Enable()
 	worldStepLocatorWorld(t, o, worldId, 30)
-	if !(subject.IsEnabled()) {
+	if !(subject.Enabled()) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1437", subject.IsEnabled())
+	o.Bool("L1437", subject.Enabled())
 
 	if v := float32(neighbors[2].Position().Y) - restY; v < -(0.01) || (0.01) < v {
 		t.Fatalf("condition false: abs(%v) < %v", v, 0.01)
@@ -2285,7 +2286,7 @@ func worldLocatorTypeChange(t *testing.T, o *worldOracle, workerCount int, hash 
 
 	*hash = worldId.StateHash()
 	o.U64("LocatorTypeChange:hash", *hash)
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2293,27 +2294,27 @@ func worldLocatorTypeChange(t *testing.T, o *worldOracle, workerCount int, hash 
 // kinematic holds a non touching contact to one of them across the merge.
 
 func worldLocatorSetMerge(t *testing.T, o *worldOracle, workerCount int, hash *uint64) int {
-	var worldId box2d.World = worldCreateLocatorWorld(t, o, workerCount, true)
+	var worldId *box2d.World = worldCreateLocatorWorld(t, o, workerCount, true)
 	worldCreateLocatorGround(t, o, worldId, 0.0, 20.0)
 
 	var left box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.DynamicBody, -5.0, 0.5)
 	var right box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.DynamicBody, 5.0, 0.5)
 
 	var watcher box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.KinematicBody, -3.9, 0.5)
-	watcher.EnableSleep(false)
+	watcher.SetSleepEnabled(false)
 
 	if !(worldStepUntilAsleep(t, o, worldId, left, 600)) {
 		t.Fatal("condition false")
 	}
 	o.Bool("L1459", true)
-	if !(right.IsAwake() == false) {
+	if !(right.Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1460", right.IsAwake() == false)
-	if !(watcher.IsAwake()) {
+	o.Bool("L1460", right.Awake() == false)
+	if !(watcher.Awake()) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1461", watcher.IsAwake())
+	o.Bool("L1461", watcher.Awake())
 	if !(watcher.ContactCapacity() == 1) {
 		t.Fatal("condition false")
 	}
@@ -2321,39 +2322,39 @@ func worldLocatorSetMerge(t *testing.T, o *worldOracle, workerCount int, hash *u
 	o.I32("L1462:value", int32(watcher.ContactCapacity()))
 
 	var jointDef box2d.DistanceJointDef = box2d.DefaultDistanceJointDef()
-	jointDef.Base.BodyIDA = left
-	jointDef.Base.BodyIDB = right
+	jointDef.Base.BodyA = left
+	jointDef.Base.BodyB = right
 	jointDef.Length = 10.0
 	var jointId box2d.Joint = worldId.CreateDistanceJoint(&jointDef).Joint
 
-	if !(left.IsAwake() == false) {
+	if !(left.Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1470", left.IsAwake() == false)
-	if !(right.IsAwake() == false) {
+	o.Bool("L1470", left.Awake() == false)
+	if !(right.Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1471", right.IsAwake() == false)
+	o.Bool("L1471", right.Awake() == false)
 
 	worldStepLocatorWorld(t, o, worldId, 30)
-	if !(left.IsAwake() == false) {
+	if !(left.Awake() == false) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1474", left.IsAwake() == false)
+	o.Bool("L1474", left.Awake() == false)
 
 	left.SetAwake(true)
 	worldStepLocatorWorld(t, o, worldId, 10)
-	if !(right.IsAwake()) {
+	if !(right.Awake()) {
 		t.Fatal("condition false")
 	}
-	o.Bool("L1478", right.IsAwake())
+	o.Bool("L1478", right.Awake())
 
 	jointId.Destroy()
 	worldStepLocatorWorld(t, o, worldId, 10)
 
 	*hash = worldId.StateHash()
 	o.U64("LocatorSetMerge:hash", *hash)
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2364,7 +2365,7 @@ func worldLocatorFastBody(t *testing.T, o *worldOracle, workerCount int, hash *u
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{}
 	worldDef.WorkerCount = workerCount
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	worldCreateLocatorBox(t, o, worldId, box2d.StaticBody, 10.0, 0.0)
@@ -2379,10 +2380,10 @@ func worldLocatorFastBody(t *testing.T, o *worldOracle, workerCount int, hash *u
 	o.Bool("L1503", float32(bullet.Position().X) > 2.0)
 	o.F32("L1503:value", float32(bullet.Position().X))
 
-	bullet.EnableSleep(false)
+	bullet.SetSleepEnabled(false)
 	worldStepLocatorWorld(t, o, worldId, 4)
 
-	bullet.EnableSleep(true)
+	bullet.SetSleepEnabled(true)
 	worldStepLocatorWorld(t, o, worldId, 30)
 
 	// It stopped at the wall instead of tunneling through
@@ -2399,7 +2400,7 @@ func worldLocatorFastBody(t *testing.T, o *worldOracle, workerCount int, hash *u
 
 	*hash = worldId.StateHash()
 	o.U64("LocatorFastBody:hash", *hash)
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 
@@ -2415,7 +2416,7 @@ func worldLocatorSleepParity(t *testing.T, o *worldOracle, workerCount int) int 
 		worldDef.Gravity = box2d.Vec2{}
 		worldDef.EnableSleep = pass == 0
 		worldDef.WorkerCount = workerCount
-		var worldId box2d.World = box2d.CreateWorld(&worldDef)
+		var worldId *box2d.World = box2d.NewWorld(&worldDef)
 		box2d.BTWorldCleanup(t, worldId)
 
 		var boxes [3]box2d.Body
@@ -2424,25 +2425,25 @@ func worldLocatorSleepParity(t *testing.T, o *worldOracle, workerCount int) int 
 		}
 
 		worldStepLocatorWorld(t, o, worldId, 60)
-		if !(boxes[0].IsAwake() == (pass == 1)) {
+		if !(boxes[0].Awake() == (pass == 1)) {
 			t.Fatal("condition false")
 		}
-		o.Bool("L1542", boxes[0].IsAwake() == (pass == 1))
+		o.Bool("L1542", boxes[0].Awake() == (pass == 1))
 
 		var impactor box2d.Body = worldCreateLocatorBox(t, o, worldId, box2d.DynamicBody, -5.0, 0.0)
 		impactor.SetLinearVelocity(box2d.Vec2{5.0, 0.0})
 
 		worldStepLocatorWorld(t, o, worldId, 120)
-		if !(boxes[2].IsAwake()) {
+		if !(boxes[2].Awake()) {
 			t.Fatal("condition false")
 		}
-		o.Bool("L1548", boxes[2].IsAwake())
+		o.Bool("L1548", boxes[2].Awake())
 
 		for i := 0; i < 3; i++ {
 			finalX[pass][i] = float32(boxes[i].Position().X)
 		}
 
-		worldId.Destroy()
+		worldId.Close()
 	}
 
 	for i := 0; i < 3; i++ {
@@ -2610,7 +2611,7 @@ func worldBroadPhasePairsTest(t *testing.T, o *worldOracle) int {
 func worldNonDynamicJointDisableTest(t *testing.T, o *worldOracle) int {
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{}
-	var worldId box2d.World = box2d.CreateWorld(&worldDef)
+	var worldId *box2d.World = box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldId)
 
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
@@ -2625,8 +2626,8 @@ func worldNonDynamicJointDisableTest(t *testing.T, o *worldOracle) int {
 	bodyIdB.CreatePolygonShape(&shapeDef, &box)
 
 	var jointDef box2d.WeldJointDef = box2d.DefaultWeldJointDef()
-	jointDef.Base.BodyIDA = bodyIdA
-	jointDef.Base.BodyIDB = bodyIdB
+	jointDef.Base.BodyA = bodyIdA
+	jointDef.Base.BodyB = bodyIdB
 	var weldId box2d.Joint = worldId.CreateWeldJoint(&jointDef).Joint
 
 	bodyIdA.SetType(box2d.StaticBody)
@@ -2645,7 +2646,7 @@ func worldNonDynamicJointDisableTest(t *testing.T, o *worldOracle) int {
 	}
 	o.Bool("L1677", weldId.IsValid())
 
-	var world *box2d.WorldWorld = box2d.WorldGetWorldFromID(worldId)
+	var world *box2d.World = worldId
 	if !(box2d.WorldJointSetIndex(world, weldId) == box2d.WorldStaticSet) {
 		t.Fatal("condition false")
 	}
@@ -2668,8 +2669,8 @@ func worldNonDynamicJointDisableTest(t *testing.T, o *worldOracle) int {
 	bodyIdC.CreatePolygonShape(&shapeDef, &box)
 
 	var revoluteDef box2d.RevoluteJointDef = box2d.DefaultRevoluteJointDef()
-	revoluteDef.Base.BodyIDA = bodyIdA
-	revoluteDef.Base.BodyIDB = bodyIdC
+	revoluteDef.Base.BodyA = bodyIdA
+	revoluteDef.Base.BodyB = bodyIdC
 	var revoluteId box2d.Joint = worldId.CreateRevoluteJoint(&revoluteDef).Joint
 
 	bodyIdC.Disable()
@@ -2682,7 +2683,7 @@ func worldNonDynamicJointDisableTest(t *testing.T, o *worldOracle) int {
 	o.Bool("L1700", box2d.WorldJointSetIndex(world, revoluteId) == box2d.WorldStaticSet)
 	o.I32("L1700:value", int32(box2d.WorldJointSetIndex(world, revoluteId)))
 
-	worldId.Destroy()
+	worldId.Close()
 	return 0
 }
 

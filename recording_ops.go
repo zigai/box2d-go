@@ -163,84 +163,68 @@ const (
 )
 
 type recArgsDestroyWorld struct {
-	world World
 }
 
 type recArgsStep struct {
-	world        World
 	dt           float32
 	subStepCount int32
 }
 
 type recArgsWorldEnableSleeping struct {
-	world World
-	flag  bool
+	flag bool
 }
 
 type recArgsWorldEnableContinuous struct {
-	world World
-	flag  bool
+	flag bool
 }
 
 type recArgsWorldSetRestitutionThreshold struct {
-	world World
 	value float32
 }
 
 type recArgsWorldSetHitEventThreshold struct {
-	world World
 	value float32
 }
 
 type recArgsWorldSetGravity struct {
-	world   World
 	gravity Vec2
 }
 
 type recArgsWorldExplode struct {
-	world World
-	def   ExplosionDef
+	def ExplosionDef
 }
 
 type recArgsWorldSetContactTuning struct {
-	world        World
 	hertz        float32
 	dampingRatio float32
 	pushSpeed    float32
 }
 
 type recArgsWorldSetContactRecycleDistance struct {
-	world           World
 	recycleDistance float32
 }
 
 type recArgsWorldSetMaximumLinearSpeed struct {
-	world              World
 	maximumLinearSpeed float32
 }
 
 type recArgsWorldEnableWarmStarting struct {
-	world World
-	flag  bool
+	flag bool
 }
 
 type recArgsWorldRebuildStaticTree struct {
-	world World
 }
 
 type recArgsWorldSetRestitutionIterations struct {
-	world      World
 	iterations int32
 }
 
 type recArgsWorldEnableRestitutionPropagation struct {
-	world World
-	flag  bool
+	flag bool
 }
 
 type recArgsCreateBody struct {
-	world World
-	def   BodyDef
+	def BodyDef
 }
 
 type recArgsDestroyBody struct {
@@ -582,8 +566,7 @@ type recArgsJointSetTorqueThreshold struct {
 }
 
 type recArgsCreateDistanceJoint struct {
-	world World
-	def   DistanceJointDef
+	def DistanceJointDef
 }
 
 type recArgsDistanceJointSetLength struct {
@@ -639,13 +622,11 @@ type recArgsDistanceJointSetMaxMotorForce struct {
 }
 
 type recArgsCreateFilterJoint struct {
-	world World
-	def   FilterJointDef
+	def FilterJointDef
 }
 
 type recArgsCreateMotorJoint struct {
-	world World
-	def   MotorJointDef
+	def MotorJointDef
 }
 
 type recArgsMotorJointSetLinearVelocity struct {
@@ -699,8 +680,7 @@ type recArgsMotorJointSetMaxSpringTorque struct {
 }
 
 type recArgsCreateMoverJoint struct {
-	world World
-	def   MoverJointDef
+	def MoverJointDef
 }
 
 type recArgsMoverJointSetLinearVelocity struct {
@@ -714,8 +694,7 @@ type recArgsMoverJointSetMaxVelocityForce struct {
 }
 
 type recArgsCreatePogoJoint struct {
-	world World
-	def   PogoJointDef
+	def PogoJointDef
 }
 
 type recArgsPogoJointSetRestLength struct {
@@ -734,8 +713,7 @@ type recArgsPogoJointSetSpringDampingRatio struct {
 }
 
 type recArgsCreatePrismaticJoint struct {
-	world World
-	def   PrismaticJointDef
+	def PrismaticJointDef
 }
 
 type recArgsPrismaticJointEnableSpring struct {
@@ -785,8 +763,7 @@ type recArgsPrismaticJointSetMaxMotorForce struct {
 }
 
 type recArgsCreateRevoluteJoint struct {
-	world World
-	def   RevoluteJointDef
+	def RevoluteJointDef
 }
 
 type recArgsRevoluteJointEnableSpring struct {
@@ -836,8 +813,7 @@ type recArgsRevoluteJointSetMaxMotorTorque struct {
 }
 
 type recArgsCreateWeldJoint struct {
-	world World
-	def   WeldJointDef
+	def WeldJointDef
 }
 
 type recArgsWeldJointSetLinearHertz struct {
@@ -861,8 +837,7 @@ type recArgsWeldJointSetAngularDampingRatio struct {
 }
 
 type recArgsCreateWheelJoint struct {
-	world World
-	def   WheelJointDef
+	def WheelJointDef
 }
 
 type recArgsWheelJointEnableSpring struct {
@@ -907,28 +882,24 @@ type recArgsWheelJointSetMaxMotorTorque struct {
 }
 
 type recArgsQueryOverlapAABB struct {
-	world  World
 	origin Pos
 	aabb   AABB
 	filter QueryFilter
 }
 
 type recArgsQueryOverlapShape struct {
-	world  World
 	origin Pos
 	proxy  ShapeProxy
 	filter QueryFilter
 }
 
 type recArgsQueryCastRay struct {
-	world       World
 	origin      Pos
 	translation Vec2
 	filter      QueryFilter
 }
 
 type recArgsQueryCastShape struct {
-	world       World
 	origin      Pos
 	proxy       ShapeProxy
 	translation Vec2
@@ -936,21 +907,18 @@ type recArgsQueryCastShape struct {
 }
 
 type recArgsQueryCollideMover struct {
-	world  World
 	origin Pos
 	mover  Capsule
 	filter QueryFilter
 }
 
 type recArgsQueryCastRayClosest struct {
-	world       World
 	origin      Pos
 	translation Vec2
 	filter      QueryFilter
 }
 
 type recArgsQueryCastMover struct {
-	world       World
 	origin      Pos
 	mover       Capsule
 	translation Vec2
@@ -969,8 +937,7 @@ type recArgsShapeRayCast struct {
 }
 
 type recArgsStateHash struct {
-	world World
-	hash  uint64
+	hash uint64
 }
 
 type recArgsRecordingBounds struct {
@@ -978,7 +945,6 @@ type recArgsRecordingBounds struct {
 }
 
 func recWriteArgsDestroyWorld(rec *Recording, a *recArgsDestroyWorld) {
-	recWWORLDID(&rec.buffer, a.world)
 }
 
 func recWriteDestroyWorld(rec *Recording, a *recArgsDestroyWorld) {
@@ -990,7 +956,6 @@ func recWriteDestroyWorld(rec *Recording, a *recArgsDestroyWorld) {
 }
 
 func recWriteArgsStep(rec *Recording, a *recArgsStep) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWF32(&rec.buffer, a.dt)
 	recWI32(&rec.buffer, int32(a.subStepCount))
 }
@@ -1004,7 +969,6 @@ func recWriteStep(rec *Recording, a *recArgsStep) {
 }
 
 func recWriteArgsWorldEnableSleeping(rec *Recording, a *recArgsWorldEnableSleeping) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWBOOL(&rec.buffer, a.flag)
 }
 
@@ -1017,7 +981,6 @@ func recWriteWorldEnableSleeping(rec *Recording, a *recArgsWorldEnableSleeping) 
 }
 
 func recWriteArgsWorldEnableContinuous(rec *Recording, a *recArgsWorldEnableContinuous) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWBOOL(&rec.buffer, a.flag)
 }
 
@@ -1030,7 +993,6 @@ func recWriteWorldEnableContinuous(rec *Recording, a *recArgsWorldEnableContinuo
 }
 
 func recWriteArgsWorldSetRestitutionThreshold(rec *Recording, a *recArgsWorldSetRestitutionThreshold) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWF32(&rec.buffer, a.value)
 }
 
@@ -1043,7 +1005,6 @@ func recWriteWorldSetRestitutionThreshold(rec *Recording, a *recArgsWorldSetRest
 }
 
 func recWriteArgsWorldSetHitEventThreshold(rec *Recording, a *recArgsWorldSetHitEventThreshold) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWF32(&rec.buffer, a.value)
 }
 
@@ -1056,7 +1017,6 @@ func recWriteWorldSetHitEventThreshold(rec *Recording, a *recArgsWorldSetHitEven
 }
 
 func recWriteArgsWorldSetGravity(rec *Recording, a *recArgsWorldSetGravity) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWVEC2(&rec.buffer, a.gravity)
 }
 
@@ -1069,7 +1029,6 @@ func recWriteWorldSetGravity(rec *Recording, a *recArgsWorldSetGravity) {
 }
 
 func recWriteArgsWorldExplode(rec *Recording, a *recArgsWorldExplode) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWEXPLOSIONDEF(&rec.buffer, a.def)
 }
 
@@ -1082,7 +1041,6 @@ func recWriteWorldExplode(rec *Recording, a *recArgsWorldExplode) {
 }
 
 func recWriteArgsWorldSetContactTuning(rec *Recording, a *recArgsWorldSetContactTuning) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWF32(&rec.buffer, a.hertz)
 	recWF32(&rec.buffer, a.dampingRatio)
 	recWF32(&rec.buffer, a.pushSpeed)
@@ -1097,7 +1055,6 @@ func recWriteWorldSetContactTuning(rec *Recording, a *recArgsWorldSetContactTuni
 }
 
 func recWriteArgsWorldSetContactRecycleDistance(rec *Recording, a *recArgsWorldSetContactRecycleDistance) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWF32(&rec.buffer, a.recycleDistance)
 }
 
@@ -1110,7 +1067,6 @@ func recWriteWorldSetContactRecycleDistance(rec *Recording, a *recArgsWorldSetCo
 }
 
 func recWriteArgsWorldSetMaximumLinearSpeed(rec *Recording, a *recArgsWorldSetMaximumLinearSpeed) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWF32(&rec.buffer, a.maximumLinearSpeed)
 }
 
@@ -1123,7 +1079,6 @@ func recWriteWorldSetMaximumLinearSpeed(rec *Recording, a *recArgsWorldSetMaximu
 }
 
 func recWriteArgsWorldEnableWarmStarting(rec *Recording, a *recArgsWorldEnableWarmStarting) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWBOOL(&rec.buffer, a.flag)
 }
 
@@ -1136,7 +1091,6 @@ func recWriteWorldEnableWarmStarting(rec *Recording, a *recArgsWorldEnableWarmSt
 }
 
 func recWriteArgsWorldRebuildStaticTree(rec *Recording, a *recArgsWorldRebuildStaticTree) {
-	recWWORLDID(&rec.buffer, a.world)
 }
 
 func recWriteWorldRebuildStaticTree(rec *Recording, a *recArgsWorldRebuildStaticTree) {
@@ -1148,7 +1102,6 @@ func recWriteWorldRebuildStaticTree(rec *Recording, a *recArgsWorldRebuildStatic
 }
 
 func recWriteArgsWorldSetRestitutionIterations(rec *Recording, a *recArgsWorldSetRestitutionIterations) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWI32(&rec.buffer, int32(a.iterations))
 }
 
@@ -1161,7 +1114,6 @@ func recWriteWorldSetRestitutionIterations(rec *Recording, a *recArgsWorldSetRes
 }
 
 func recWriteArgsWorldEnableRestitutionPropagation(rec *Recording, a *recArgsWorldEnableRestitutionPropagation) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWBOOL(&rec.buffer, a.flag)
 }
 
@@ -1174,7 +1126,6 @@ func recWriteWorldEnableRestitutionPropagation(rec *Recording, a *recArgsWorldEn
 }
 
 func recWriteArgsCreateBody(rec *Recording, a *recArgsCreateBody) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWBODYDEF(&rec.buffer, a.def)
 }
 
@@ -2108,7 +2059,6 @@ func recWriteJointSetTorqueThreshold(rec *Recording, a *recArgsJointSetTorqueThr
 }
 
 func recWriteArgsCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWDISTANCEJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2262,7 +2212,6 @@ func recWriteDistanceJointSetMaxMotorForce(rec *Recording, a *recArgsDistanceJoi
 }
 
 func recWriteArgsCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWFILTERJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2284,7 +2233,6 @@ func recWriteRetCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint, i
 }
 
 func recWriteArgsCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWMOTORJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2436,7 +2384,6 @@ func recWriteMotorJointSetMaxSpringTorque(rec *Recording, a *recArgsMotorJointSe
 }
 
 func recWriteArgsCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWMOVERJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2484,7 +2431,6 @@ func recWriteMoverJointSetMaxVelocityForce(rec *Recording, a *recArgsMoverJointS
 }
 
 func recWriteArgsCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOGOJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2545,7 +2491,6 @@ func recWritePogoJointSetSpringDampingRatio(rec *Recording, a *recArgsPogoJointS
 }
 
 func recWriteArgsCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPRISMATICJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2685,7 +2630,6 @@ func recWritePrismaticJointSetMaxMotorForce(rec *Recording, a *recArgsPrismaticJ
 }
 
 func recWriteArgsCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWREVOLUTEJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2825,7 +2769,6 @@ func recWriteRevoluteJointSetMaxMotorTorque(rec *Recording, a *recArgsRevoluteJo
 }
 
 func recWriteArgsCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWWELDJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -2899,7 +2842,6 @@ func recWriteWeldJointSetAngularDampingRatio(rec *Recording, a *recArgsWeldJoint
 }
 
 func recWriteArgsCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWWHEELJOINTDEF(&rec.buffer, a.def)
 }
 
@@ -3026,7 +2968,6 @@ func recWriteWheelJointSetMaxMotorTorque(rec *Recording, a *recArgsWheelJointSet
 }
 
 func recWriteArgsQueryOverlapAABB(rec *Recording, a *recArgsQueryOverlapAABB) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOSITION(&rec.buffer, a.origin)
 	recWAABB(&rec.buffer, a.aabb)
 	recWQUERYFILTER(&rec.buffer, a.filter)
@@ -3041,7 +2982,6 @@ func recWriteQueryOverlapAABB(rec *Recording, a *recArgsQueryOverlapAABB) {
 }
 
 func recWriteArgsQueryOverlapShape(rec *Recording, a *recArgsQueryOverlapShape) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOSITION(&rec.buffer, a.origin)
 	recWSHAPEPROXY(&rec.buffer, a.proxy)
 	recWQUERYFILTER(&rec.buffer, a.filter)
@@ -3056,7 +2996,6 @@ func recWriteQueryOverlapShape(rec *Recording, a *recArgsQueryOverlapShape) {
 }
 
 func recWriteArgsQueryCastRay(rec *Recording, a *recArgsQueryCastRay) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOSITION(&rec.buffer, a.origin)
 	recWVEC2(&rec.buffer, a.translation)
 	recWQUERYFILTER(&rec.buffer, a.filter)
@@ -3071,7 +3010,6 @@ func recWriteQueryCastRay(rec *Recording, a *recArgsQueryCastRay) {
 }
 
 func recWriteArgsQueryCastShape(rec *Recording, a *recArgsQueryCastShape) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOSITION(&rec.buffer, a.origin)
 	recWSHAPEPROXY(&rec.buffer, a.proxy)
 	recWVEC2(&rec.buffer, a.translation)
@@ -3087,7 +3025,6 @@ func recWriteQueryCastShape(rec *Recording, a *recArgsQueryCastShape) {
 }
 
 func recWriteArgsQueryCollideMover(rec *Recording, a *recArgsQueryCollideMover) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOSITION(&rec.buffer, a.origin)
 	recWCAPSULE(&rec.buffer, a.mover)
 	recWQUERYFILTER(&rec.buffer, a.filter)
@@ -3102,7 +3039,6 @@ func recWriteQueryCollideMover(rec *Recording, a *recArgsQueryCollideMover) {
 }
 
 func recWriteArgsQueryCastRayClosest(rec *Recording, a *recArgsQueryCastRayClosest) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOSITION(&rec.buffer, a.origin)
 	recWVEC2(&rec.buffer, a.translation)
 	recWQUERYFILTER(&rec.buffer, a.filter)
@@ -3117,7 +3053,6 @@ func recWriteQueryCastRayClosest(rec *Recording, a *recArgsQueryCastRayClosest) 
 }
 
 func recWriteArgsQueryCastMover(rec *Recording, a *recArgsQueryCastMover) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWPOSITION(&rec.buffer, a.origin)
 	recWCAPSULE(&rec.buffer, a.mover)
 	recWVEC2(&rec.buffer, a.translation)
@@ -3160,7 +3095,6 @@ func recWriteShapeRayCast(rec *Recording, a *recArgsShapeRayCast) {
 }
 
 func recWriteArgsStateHash(rec *Recording, a *recArgsStateHash) {
-	recWWORLDID(&rec.buffer, a.world)
 	recWU64(&rec.buffer, a.hash)
 }
 

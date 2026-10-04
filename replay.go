@@ -104,7 +104,7 @@ type recReader struct {
 	data             []byte
 	size             int
 	cursor           int
-	replayWorldID    World
+	replayWorldID    *World
 	workerCount      int
 	ok               bool
 	diverged         bool
@@ -286,24 +286,24 @@ func recRWORLDXF(rdr *recReader) WorldTransform {
 	return t
 }
 
-func recRWORLDID(rdr *recReader) World {
-	return LoadWorld(recRU32(rdr))
-}
-
 func recRBODYID(rdr *recReader) Body {
-	return LoadBody(recRU64(rdr))
+	x := recRU64(rdr)
+	return Body{index1: int32(x >> 32), generation: uint16(x)}
 }
 
 func recRSHAPEID(rdr *recReader) Shape {
-	return LoadShape(recRU64(rdr))
+	x := recRU64(rdr)
+	return Shape{index1: int32(x >> 32), generation: uint16(x)}
 }
 
 func recRCHAINID(rdr *recReader) Chain {
-	return LoadChain(recRU64(rdr))
+	x := recRU64(rdr)
+	return Chain{index1: int32(x >> 32), generation: uint16(x)}
 }
 
 func recRJOINTID(rdr *recReader) Joint {
-	return LoadJoint(recRU64(rdr))
+	x := recRU64(rdr)
+	return Joint{index1: int32(x >> 32), generation: uint16(x)}
 }
 
 func recRdrBlob(rdr *recReader, out []byte, size int) {
@@ -486,10 +486,7 @@ func recRCHAINDEF(rdr *recReader) ChainDef {
 	for i := 0; i < pointCount; i++ {
 		rdr.chainPoints[i] = recRVEC2(rdr)
 	}
-	if pointCount > 0 {
-		def.Points = rdr.chainPoints[:pointCount]
-	}
-	def.PointCount = pointCount
+	def.Points = rdr.chainPoints[:pointCount]
 	def.Ghost1 = recRVEC2(rdr)
 	def.Ghost2 = recRVEC2(rdr)
 	materialCount := int(recRI32(rdr))
@@ -502,10 +499,7 @@ func recRCHAINDEF(rdr *recReader) ChainDef {
 	for i := 0; i < materialCount; i++ {
 		rdr.chainMaterials[i] = recRMATERIAL(rdr)
 	}
-	if materialCount > 0 {
-		def.Materials = rdr.chainMaterials[:materialCount]
-	}
-	def.MaterialCount = materialCount
+	def.Materials = rdr.chainMaterials[:materialCount]
 	def.Filter = recRFILTER(rdr)
 	def.IsLoop = recRBOOL(rdr)
 	def.EnableSensorEvents = recRBOOL(rdr)
@@ -526,8 +520,8 @@ func recREXPLOSIONDEF(rdr *recReader) ExplosionDef {
 
 func recRJointBase(rdr *recReader, base *JointDef) {
 	_ = recRU64(rdr) // userData
-	base.BodyIDA = recRBODYID(rdr)
-	base.BodyIDB = recRBODYID(rdr)
+	base.BodyA = recRBODYID(rdr)
+	base.BodyB = recRBODYID(rdr)
 	base.LocalFrameA = recRXF(rdr)
 	base.LocalFrameB = recRXF(rdr)
 	base.ForceThreshold = recRF32(rdr)
@@ -713,8 +707,8 @@ func recRWORLDCASTOUTPUT(rdr *recReader) WorldCastOutput {
 
 func recRRAYRESULT(rdr *recReader) RayResult {
 	var v RayResult
-	// ShapeID keeps the recorded world0; recMakeShapeID is applied at compare time
-	v.ShapeID = recRSHAPEID(rdr)
+	// ShapeID has no world; recMakeShapeID is applied at compare time
+	v.Shape = recRSHAPEID(rdr)
 	v.Point = recRPOSITION(rdr)
 	v.Normal = recRVEC2(rdr)
 	v.Fraction = recRF32(rdr)
@@ -785,24 +779,24 @@ func recEnsureHits(rdr *recReader, n int) {
 }
 
 func recMakeBodyID(rdr *recReader, recorded Body) Body {
-	return Body{index1: recorded.index1, world0: uint16(rdr.replayWorldID.index1 - 1), generation: recorded.generation}
+	return Body{index1: recorded.index1, world: rdr.replayWorldID, generation: recorded.generation}
 }
 
 func recMakeShapeID(rdr *recReader, recorded Shape) Shape {
-	return Shape{index1: recorded.index1, world0: uint16(rdr.replayWorldID.index1 - 1), generation: recorded.generation}
+	return Shape{index1: recorded.index1, world: rdr.replayWorldID, generation: recorded.generation}
 }
 
 func recMakeChainID(rdr *recReader, recorded Chain) Chain {
-	return Chain{index1: recorded.index1, world0: uint16(rdr.replayWorldID.index1 - 1), generation: recorded.generation}
+	return Chain{index1: recorded.index1, world: rdr.replayWorldID, generation: recorded.generation}
 }
 
 func recMakeJointID(rdr *recReader, recorded Joint) Joint {
-	return Joint{index1: recorded.index1, world0: uint16(rdr.replayWorldID.index1 - 1), generation: recorded.generation}
+	return Joint{index1: recorded.index1, world: rdr.replayWorldID, generation: recorded.generation}
 }
 
 func recCheckID(rdr *recReader, kind string, gotIndex int, gotGen uint32, recIndex int, recGen uint32) {
 	if gotIndex != recIndex || gotGen != recGen {
-		fmt.Printf("b2ReplayFile: %s id mismatch (rec index1=%d gen=%d, got index1=%d gen=%d)\n", kind, recIndex, recGen, gotIndex, gotGen)
+		rdr.replayWorldID.logger.Warn("box2d: replay id mismatch", "kind", kind, "recordedIndex", recIndex, "recordedGeneration", recGen, "index", gotIndex, "generation", gotGen)
 		rdr.ok = false
 	}
 }
@@ -837,11 +831,11 @@ func recDispatchStep(a *recArgsStep, rdr *recReader) {
 }
 
 func recDispatchWorldEnableSleeping(a *recArgsWorldEnableSleeping, rdr *recReader) {
-	rdr.replayWorldID.EnableSleeping(a.flag)
+	rdr.replayWorldID.SetSleepingEnabled(a.flag)
 }
 
 func recDispatchWorldEnableContinuous(a *recArgsWorldEnableContinuous, rdr *recReader) {
-	rdr.replayWorldID.EnableContinuous(a.flag)
+	rdr.replayWorldID.SetContinuousEnabled(a.flag)
 }
 
 func recDispatchWorldSetRestitutionThreshold(a *recArgsWorldSetRestitutionThreshold, rdr *recReader) {
@@ -873,7 +867,7 @@ func recDispatchWorldSetMaximumLinearSpeed(a *recArgsWorldSetMaximumLinearSpeed,
 }
 
 func recDispatchWorldEnableWarmStarting(a *recArgsWorldEnableWarmStarting, rdr *recReader) {
-	rdr.replayWorldID.EnableWarmStarting(a.flag)
+	rdr.replayWorldID.SetWarmStartingEnabled(a.flag)
 }
 
 func recDispatchWorldRebuildStaticTree(a *recArgsWorldRebuildStaticTree, rdr *recReader) {
@@ -886,7 +880,7 @@ func recDispatchWorldSetRestitutionIterations(a *recArgsWorldSetRestitutionItera
 }
 
 func recDispatchWorldEnableRestitutionPropagation(a *recArgsWorldEnableRestitutionPropagation, rdr *recReader) {
-	rdr.replayWorldID.EnableRestitutionPropagation(a.flag)
+	rdr.replayWorldID.SetRestitutionPropagationEnabled(a.flag)
 }
 
 func recTrackBodyCreate(player *Replay, id Body) {
@@ -905,7 +899,7 @@ func recTrackBodyDestroy(player *Replay, id Body) {
 }
 
 func recSeedBodyIDs(player *Replay) {
-	world := getWorldFromId(player.rdr.replayWorldID)
+	world := player.rdr.replayWorldID
 	player.bodyIDCount = 0
 	for i := range world.bodies {
 		if world.bodies[i].id != i {
@@ -1016,7 +1010,7 @@ func recDispatchBodyWakeTouching(a *recArgsBodyWakeTouching, rdr *recReader) {
 }
 
 func recDispatchBodyEnableSleep(a *recArgsBodyEnableSleep, rdr *recReader) {
-	recMakeBodyID(rdr, a.body).EnableSleep(a.flag)
+	recMakeBodyID(rdr, a.body).SetSleepEnabled(a.flag)
 }
 
 func recDispatchBodySetSleepThreshold(a *recArgsBodySetSleepThreshold, rdr *recReader) {
@@ -1044,15 +1038,15 @@ func recDispatchBodySetBullet(a *recArgsBodySetBullet, rdr *recReader) {
 }
 
 func recDispatchBodyEnableContactRecycling(a *recArgsBodyEnableContactRecycling, rdr *recReader) {
-	recMakeBodyID(rdr, a.body).EnableContactRecycling(a.flag)
+	recMakeBodyID(rdr, a.body).SetContactRecyclingEnabled(a.flag)
 }
 
 func recDispatchBodyEnableContactEvents(a *recArgsBodyEnableContactEvents, rdr *recReader) {
-	recMakeBodyID(rdr, a.body).EnableContactEvents(a.flag)
+	recMakeBodyID(rdr, a.body).SetContactEventsEnabled(a.flag)
 }
 
 func recDispatchBodyEnableHitEvents(a *recArgsBodyEnableHitEvents, rdr *recReader) {
-	recMakeBodyID(rdr, a.body).EnableHitEvents(a.flag)
+	recMakeBodyID(rdr, a.body).SetHitEventsEnabled(a.flag)
 }
 
 func recDispatchCreateCircleShape(a *recArgsCreateCircleShape, rdr *recReader) {
@@ -1119,19 +1113,19 @@ func recDispatchShapeSetFilter(a *recArgsShapeSetFilter, rdr *recReader) {
 }
 
 func recDispatchShapeEnableSensorEvents(a *recArgsShapeEnableSensorEvents, rdr *recReader) {
-	recMakeShapeID(rdr, a.shape).EnableSensorEvents(a.flag)
+	recMakeShapeID(rdr, a.shape).SetSensorEventsEnabled(a.flag)
 }
 
 func recDispatchShapeEnableContactEvents(a *recArgsShapeEnableContactEvents, rdr *recReader) {
-	recMakeShapeID(rdr, a.shape).EnableContactEvents(a.flag)
+	recMakeShapeID(rdr, a.shape).SetContactEventsEnabled(a.flag)
 }
 
 func recDispatchShapeEnablePreSolveEvents(a *recArgsShapeEnablePreSolveEvents, rdr *recReader) {
-	recMakeShapeID(rdr, a.shape).EnablePreSolveEvents(a.flag)
+	recMakeShapeID(rdr, a.shape).SetPreSolveEventsEnabled(a.flag)
 }
 
 func recDispatchShapeEnableHitEvents(a *recArgsShapeEnableHitEvents, rdr *recReader) {
-	recMakeShapeID(rdr, a.shape).EnableHitEvents(a.flag)
+	recMakeShapeID(rdr, a.shape).SetHitEventsEnabled(a.flag)
 }
 
 func recDispatchShapeSetCircle(a *recArgsShapeSetCircle, rdr *recReader) {
@@ -1184,72 +1178,72 @@ func recDispatchChainSetAllSurfaceMaterials(a *recArgsChainSetAllSurfaceMaterial
 func recDispatchCreateDistanceJoint(a *recArgsCreateDistanceJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreateDistanceJoint(&def).Joint, recId)
 }
 
 func recDispatchCreateFilterJoint(a *recArgsCreateFilterJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreateFilterJoint(&def).Joint, recId)
 }
 
 func recDispatchCreateMotorJoint(a *recArgsCreateMotorJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreateMotorJoint(&def).Joint, recId)
 }
 
 func recDispatchCreateMoverJoint(a *recArgsCreateMoverJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreateMoverJoint(&def).Joint, recId)
 }
 
 func recDispatchCreatePrismaticJoint(a *recArgsCreatePrismaticJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreatePrismaticJoint(&def).Joint, recId)
 }
 
 func recDispatchCreatePogoJoint(a *recArgsCreatePogoJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreatePogoJoint(&def).Joint, recId)
 }
 
 func recDispatchCreateRevoluteJoint(a *recArgsCreateRevoluteJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreateRevoluteJoint(&def).Joint, recId)
 }
 
 func recDispatchCreateWeldJoint(a *recArgsCreateWeldJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreateWeldJoint(&def).Joint, recId)
 }
 
 func recDispatchCreateWheelJoint(a *recArgsCreateWheelJoint, rdr *recReader) {
 	recId := recRJOINTID(rdr)
 	def := a.def
-	def.Base.BodyIDA = recMakeBodyID(rdr, def.Base.BodyIDA)
-	def.Base.BodyIDB = recMakeBodyID(rdr, def.Base.BodyIDB)
+	def.Base.BodyA = recMakeBodyID(rdr, def.Base.BodyA)
+	def.Base.BodyB = recMakeBodyID(rdr, def.Base.BodyB)
 	recCheckJointID(rdr, rdr.replayWorldID.CreateWheelJoint(&def).Joint, recId)
 }
 
@@ -1290,7 +1284,7 @@ func recDispatchDistanceJointSetLength(a *recArgsDistanceJointSetLength, rdr *re
 }
 
 func recDispatchDistanceJointEnableSpring(a *recArgsDistanceJointEnableSpring, rdr *recReader) {
-	DistanceJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableSpring(a.enableSpring)
+	DistanceJoint{Joint: recMakeJointID(rdr, a.joint)}.SetSpringEnabled(a.enableSpring)
 }
 
 func recDispatchDistanceJointSetSpringForceRange(a *recArgsDistanceJointSetSpringForceRange, rdr *recReader) {
@@ -1306,7 +1300,7 @@ func recDispatchDistanceJointSetSpringDampingRatio(a *recArgsDistanceJointSetSpr
 }
 
 func recDispatchDistanceJointEnableLimit(a *recArgsDistanceJointEnableLimit, rdr *recReader) {
-	DistanceJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableLimit(a.enableLimit)
+	DistanceJoint{Joint: recMakeJointID(rdr, a.joint)}.SetLimitEnabled(a.enableLimit)
 }
 
 func recDispatchDistanceJointSetLengthRange(a *recArgsDistanceJointSetLengthRange, rdr *recReader) {
@@ -1314,7 +1308,7 @@ func recDispatchDistanceJointSetLengthRange(a *recArgsDistanceJointSetLengthRang
 }
 
 func recDispatchDistanceJointEnableMotor(a *recArgsDistanceJointEnableMotor, rdr *recReader) {
-	DistanceJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableMotor(a.enableMotor)
+	DistanceJoint{Joint: recMakeJointID(rdr, a.joint)}.SetMotorEnabled(a.enableMotor)
 }
 
 func recDispatchDistanceJointSetMotorSpeed(a *recArgsDistanceJointSetMotorSpeed, rdr *recReader) {
@@ -1386,7 +1380,7 @@ func recDispatchPogoJointSetSpringDampingRatio(a *recArgsPogoJointSetSpringDampi
 }
 
 func recDispatchPrismaticJointEnableSpring(a *recArgsPrismaticJointEnableSpring, rdr *recReader) {
-	PrismaticJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableSpring(a.enableSpring)
+	PrismaticJoint{Joint: recMakeJointID(rdr, a.joint)}.SetSpringEnabled(a.enableSpring)
 }
 
 func recDispatchPrismaticJointSetSpringHertz(a *recArgsPrismaticJointSetSpringHertz, rdr *recReader) {
@@ -1402,7 +1396,7 @@ func recDispatchPrismaticJointSetTargetTranslation(a *recArgsPrismaticJointSetTa
 }
 
 func recDispatchPrismaticJointEnableLimit(a *recArgsPrismaticJointEnableLimit, rdr *recReader) {
-	PrismaticJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableLimit(a.enableLimit)
+	PrismaticJoint{Joint: recMakeJointID(rdr, a.joint)}.SetLimitEnabled(a.enableLimit)
 }
 
 func recDispatchPrismaticJointSetLimits(a *recArgsPrismaticJointSetLimits, rdr *recReader) {
@@ -1410,7 +1404,7 @@ func recDispatchPrismaticJointSetLimits(a *recArgsPrismaticJointSetLimits, rdr *
 }
 
 func recDispatchPrismaticJointEnableMotor(a *recArgsPrismaticJointEnableMotor, rdr *recReader) {
-	PrismaticJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableMotor(a.enableMotor)
+	PrismaticJoint{Joint: recMakeJointID(rdr, a.joint)}.SetMotorEnabled(a.enableMotor)
 }
 
 func recDispatchPrismaticJointSetMotorSpeed(a *recArgsPrismaticJointSetMotorSpeed, rdr *recReader) {
@@ -1422,7 +1416,7 @@ func recDispatchPrismaticJointSetMaxMotorForce(a *recArgsPrismaticJointSetMaxMot
 }
 
 func recDispatchRevoluteJointEnableSpring(a *recArgsRevoluteJointEnableSpring, rdr *recReader) {
-	RevoluteJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableSpring(a.enableSpring)
+	RevoluteJoint{Joint: recMakeJointID(rdr, a.joint)}.SetSpringEnabled(a.enableSpring)
 }
 
 func recDispatchRevoluteJointSetSpringHertz(a *recArgsRevoluteJointSetSpringHertz, rdr *recReader) {
@@ -1438,7 +1432,7 @@ func recDispatchRevoluteJointSetTargetAngle(a *recArgsRevoluteJointSetTargetAngl
 }
 
 func recDispatchRevoluteJointEnableLimit(a *recArgsRevoluteJointEnableLimit, rdr *recReader) {
-	RevoluteJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableLimit(a.enableLimit)
+	RevoluteJoint{Joint: recMakeJointID(rdr, a.joint)}.SetLimitEnabled(a.enableLimit)
 }
 
 func recDispatchRevoluteJointSetLimits(a *recArgsRevoluteJointSetLimits, rdr *recReader) {
@@ -1446,7 +1440,7 @@ func recDispatchRevoluteJointSetLimits(a *recArgsRevoluteJointSetLimits, rdr *re
 }
 
 func recDispatchRevoluteJointEnableMotor(a *recArgsRevoluteJointEnableMotor, rdr *recReader) {
-	RevoluteJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableMotor(a.enableMotor)
+	RevoluteJoint{Joint: recMakeJointID(rdr, a.joint)}.SetMotorEnabled(a.enableMotor)
 }
 
 func recDispatchRevoluteJointSetMotorSpeed(a *recArgsRevoluteJointSetMotorSpeed, rdr *recReader) {
@@ -1474,7 +1468,7 @@ func recDispatchWeldJointSetAngularDampingRatio(a *recArgsWeldJointSetAngularDam
 }
 
 func recDispatchWheelJointEnableSpring(a *recArgsWheelJointEnableSpring, rdr *recReader) {
-	WheelJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableSpring(a.enableSpring)
+	WheelJoint{Joint: recMakeJointID(rdr, a.joint)}.SetSpringEnabled(a.enableSpring)
 }
 
 func recDispatchWheelJointSetSpringHertz(a *recArgsWheelJointSetSpringHertz, rdr *recReader) {
@@ -1486,7 +1480,7 @@ func recDispatchWheelJointSetSpringDampingRatio(a *recArgsWheelJointSetSpringDam
 }
 
 func recDispatchWheelJointEnableLimit(a *recArgsWheelJointEnableLimit, rdr *recReader) {
-	WheelJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableLimit(a.enableLimit)
+	WheelJoint{Joint: recMakeJointID(rdr, a.joint)}.SetLimitEnabled(a.enableLimit)
 }
 
 func recDispatchWheelJointSetLimits(a *recArgsWheelJointSetLimits, rdr *recReader) {
@@ -1494,7 +1488,7 @@ func recDispatchWheelJointSetLimits(a *recArgsWheelJointSetLimits, rdr *recReade
 }
 
 func recDispatchWheelJointEnableMotor(a *recArgsWheelJointEnableMotor, rdr *recReader) {
-	WheelJoint{Joint: recMakeJointID(rdr, a.joint)}.EnableMotor(a.enableMotor)
+	WheelJoint{Joint: recMakeJointID(rdr, a.joint)}.SetMotorEnabled(a.enableMotor)
 }
 
 func recDispatchWheelJointSetMotorSpeed(a *recArgsWheelJointSetMotorSpeed, rdr *recReader) {
@@ -1611,7 +1605,7 @@ func recReplayCastTrampoline(id Shape, point Pos, normal Vec2, fraction float32,
 	// Compare positions through the full width delta, truncating both sides would pass vacuously
 	// far from the origin
 	if id.index1 != h.id.index1 || id.generation != h.id.generation ||
-		recVec2Differs(SubPos(point, h.point), Vec2{}) || recVec2Differs(normal, h.normal) || recF32Differs(fraction, h.fraction) {
+		recVec2Differs(point.Sub(h.point), Vec2{}) || recVec2Differs(normal, h.normal) || recF32Differs(fraction, h.fraction) {
 		rc.rdr.diverged = true
 	}
 	return h.userReturnF
@@ -1731,12 +1725,12 @@ func recDispatchQueryCastRayClosest(a *recArgsQueryCastRayClosest, rdr *recReade
 		return
 	}
 	got := rdr.replayWorldID.CastRayClosest(a.origin, a.translation, a.filter)
-	if got.Hit != rec.Hit || (got.Hit && (got.ShapeID.index1 != rec.ShapeID.index1 || got.ShapeID.generation != rec.ShapeID.generation ||
-		recVec2Differs(SubPos(got.Point, rec.Point), Vec2{}) || recVec2Differs(got.Normal, rec.Normal) || recF32Differs(got.Fraction, rec.Fraction))) {
+	if got.Hit != rec.Hit || (got.Hit && (got.Shape.index1 != rec.Shape.index1 || got.Shape.generation != rec.Shape.generation ||
+		recVec2Differs(got.Point.Sub(rec.Point), Vec2{}) || recVec2Differs(got.Normal, rec.Normal) || recF32Differs(got.Fraction, rec.Fraction))) {
 		rdr.diverged = true
 	}
 	if rdr.owner != nil {
-		h := recRecordedHit{id: recMakeShapeID(rdr, rec.ShapeID), point: rec.Point, normal: rec.Normal, fraction: rec.Fraction}
+		h := recRecordedHit{id: recMakeShapeID(rdr, rec.Shape), point: rec.Point, normal: rec.Normal, fraction: rec.Fraction}
 		n := 0
 		if rec.Hit {
 			n = 1
@@ -1793,7 +1787,7 @@ func recDispatchShapeRayCast(a *recArgsShapeRayCast, rdr *recReader) {
 	id := recMakeShapeID(rdr, a.shape)
 	got := id.RayCast(a.origin, a.translation)
 	if got.Hit != rec.Hit || (got.Hit && (recVec2Differs(got.Normal, rec.Normal) ||
-		recVec2Differs(SubPos(got.Point, rec.Point), Vec2{}) || recF32Differs(got.Fraction, rec.Fraction))) {
+		recVec2Differs(got.Point.Sub(rec.Point), Vec2{}) || recF32Differs(got.Fraction, rec.Fraction))) {
 		rdr.diverged = true
 	}
 	if rdr.owner != nil {
@@ -1806,10 +1800,10 @@ func recDispatchShapeRayCast(a *recArgsShapeRayCast, rdr *recReader) {
 }
 
 func recDispatchStateHash(a *recArgsStateHash, rdr *recReader) {
-	world := getWorldFromId(rdr.replayWorldID)
+	world := rdr.replayWorldID
 	computed := hashWorldState(world)
 	if computed != a.hash {
-		fmt.Printf("b2ReplayFile: StateHash mismatch (recorded=0x%X, computed=0x%X)\n", a.hash, computed)
+		world.logger.Warn("box2d: replay state hash mismatch", "recorded", a.hash, "computed", computed)
 		rdr.diverged = true
 	}
 }
@@ -1835,13 +1829,11 @@ func recDispatchOne(player *Replay) int {
 	switch opcode {
 	case 0x01:
 		var a recArgsDestroyWorld
-		a.world = recRWORLDID(rdr)
 		if rdr.ok {
 			recDispatchDestroyWorld(&a, rdr)
 		}
 	case 0x80:
 		var a recArgsStep
-		a.world = recRWORLDID(rdr)
 		a.dt = recRF32(rdr)
 		a.subStepCount = recRI32(rdr)
 		if rdr.ok {
@@ -1849,49 +1841,42 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0x02:
 		var a recArgsWorldEnableSleeping
-		a.world = recRWORLDID(rdr)
 		a.flag = recRBOOL(rdr)
 		if rdr.ok {
 			recDispatchWorldEnableSleeping(&a, rdr)
 		}
 	case 0x03:
 		var a recArgsWorldEnableContinuous
-		a.world = recRWORLDID(rdr)
 		a.flag = recRBOOL(rdr)
 		if rdr.ok {
 			recDispatchWorldEnableContinuous(&a, rdr)
 		}
 	case 0x04:
 		var a recArgsWorldSetRestitutionThreshold
-		a.world = recRWORLDID(rdr)
 		a.value = recRF32(rdr)
 		if rdr.ok {
 			recDispatchWorldSetRestitutionThreshold(&a, rdr)
 		}
 	case 0x05:
 		var a recArgsWorldSetHitEventThreshold
-		a.world = recRWORLDID(rdr)
 		a.value = recRF32(rdr)
 		if rdr.ok {
 			recDispatchWorldSetHitEventThreshold(&a, rdr)
 		}
 	case 0x06:
 		var a recArgsWorldSetGravity
-		a.world = recRWORLDID(rdr)
 		a.gravity = recRVEC2(rdr)
 		if rdr.ok {
 			recDispatchWorldSetGravity(&a, rdr)
 		}
 	case 0x07:
 		var a recArgsWorldExplode
-		a.world = recRWORLDID(rdr)
 		a.def = recREXPLOSIONDEF(rdr)
 		if rdr.ok {
 			recDispatchWorldExplode(&a, rdr)
 		}
 	case 0x08:
 		var a recArgsWorldSetContactTuning
-		a.world = recRWORLDID(rdr)
 		a.hertz = recRF32(rdr)
 		a.dampingRatio = recRF32(rdr)
 		a.pushSpeed = recRF32(rdr)
@@ -1900,48 +1885,41 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0x09:
 		var a recArgsWorldSetContactRecycleDistance
-		a.world = recRWORLDID(rdr)
 		a.recycleDistance = recRF32(rdr)
 		if rdr.ok {
 			recDispatchWorldSetContactRecycleDistance(&a, rdr)
 		}
 	case 0x0A:
 		var a recArgsWorldSetMaximumLinearSpeed
-		a.world = recRWORLDID(rdr)
 		a.maximumLinearSpeed = recRF32(rdr)
 		if rdr.ok {
 			recDispatchWorldSetMaximumLinearSpeed(&a, rdr)
 		}
 	case 0x0B:
 		var a recArgsWorldEnableWarmStarting
-		a.world = recRWORLDID(rdr)
 		a.flag = recRBOOL(rdr)
 		if rdr.ok {
 			recDispatchWorldEnableWarmStarting(&a, rdr)
 		}
 	case 0x0C:
 		var a recArgsWorldRebuildStaticTree
-		a.world = recRWORLDID(rdr)
 		if rdr.ok {
 			recDispatchWorldRebuildStaticTree(&a, rdr)
 		}
 	case 0x0D:
 		var a recArgsWorldSetRestitutionIterations
-		a.world = recRWORLDID(rdr)
 		a.iterations = recRI32(rdr)
 		if rdr.ok {
 			recDispatchWorldSetRestitutionIterations(&a, rdr)
 		}
 	case 0x0E:
 		var a recArgsWorldEnableRestitutionPropagation
-		a.world = recRWORLDID(rdr)
 		a.flag = recRBOOL(rdr)
 		if rdr.ok {
 			recDispatchWorldEnableRestitutionPropagation(&a, rdr)
 		}
 	case 0x10:
 		var a recArgsCreateBody
-		a.world = recRWORLDID(rdr)
 		a.def = recRBODYDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateBody(&a, rdr)
@@ -2416,7 +2394,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0x98:
 		var a recArgsCreateDistanceJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRDISTANCEJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateDistanceJoint(&a, rdr)
@@ -2495,14 +2472,12 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xA3:
 		var a recArgsCreateFilterJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRFILTERJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateFilterJoint(&a, rdr)
 		}
 	case 0xA4:
 		var a recArgsCreateMotorJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRMOTORJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateMotorJoint(&a, rdr)
@@ -2579,7 +2554,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xAF:
 		var a recArgsCreateMoverJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRMOVERJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateMoverJoint(&a, rdr)
@@ -2600,7 +2574,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xB2:
 		var a recArgsCreatePogoJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRPOGOJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreatePogoJoint(&a, rdr)
@@ -2628,7 +2601,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xB6:
 		var a recArgsCreatePrismaticJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRPRISMATICJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreatePrismaticJoint(&a, rdr)
@@ -2699,7 +2671,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xC0:
 		var a recArgsCreateRevoluteJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRREVOLUTEJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateRevoluteJoint(&a, rdr)
@@ -2770,7 +2741,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xCA:
 		var a recArgsCreateWeldJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRWELDJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateWeldJoint(&a, rdr)
@@ -2805,7 +2775,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xCF:
 		var a recArgsCreateWheelJoint
-		a.world = recRWORLDID(rdr)
 		a.def = recRWHEELJOINTDEF(rdr)
 		if rdr.ok {
 			recDispatchCreateWheelJoint(&a, rdr)
@@ -2869,7 +2838,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xE0:
 		var a recArgsQueryOverlapAABB
-		a.world = recRWORLDID(rdr)
 		a.origin = recRPOSITION(rdr)
 		a.aabb = recRAABB(rdr)
 		a.filter = recRQUERYFILTER(rdr)
@@ -2878,7 +2846,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xE1:
 		var a recArgsQueryOverlapShape
-		a.world = recRWORLDID(rdr)
 		a.origin = recRPOSITION(rdr)
 		a.proxy = recRSHAPEPROXY(rdr)
 		a.filter = recRQUERYFILTER(rdr)
@@ -2887,7 +2854,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xE2:
 		var a recArgsQueryCastRay
-		a.world = recRWORLDID(rdr)
 		a.origin = recRPOSITION(rdr)
 		a.translation = recRVEC2(rdr)
 		a.filter = recRQUERYFILTER(rdr)
@@ -2896,7 +2862,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xE3:
 		var a recArgsQueryCastShape
-		a.world = recRWORLDID(rdr)
 		a.origin = recRPOSITION(rdr)
 		a.proxy = recRSHAPEPROXY(rdr)
 		a.translation = recRVEC2(rdr)
@@ -2906,7 +2871,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xE4:
 		var a recArgsQueryCollideMover
-		a.world = recRWORLDID(rdr)
 		a.origin = recRPOSITION(rdr)
 		a.mover = recRCAPSULE(rdr)
 		a.filter = recRQUERYFILTER(rdr)
@@ -2915,7 +2879,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xE5:
 		var a recArgsQueryCastRayClosest
-		a.world = recRWORLDID(rdr)
 		a.origin = recRPOSITION(rdr)
 		a.translation = recRVEC2(rdr)
 		a.filter = recRQUERYFILTER(rdr)
@@ -2924,7 +2887,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xE6:
 		var a recArgsQueryCastMover
-		a.world = recRWORLDID(rdr)
 		a.origin = recRPOSITION(rdr)
 		a.mover = recRCAPSULE(rdr)
 		a.translation = recRVEC2(rdr)
@@ -2949,7 +2911,6 @@ func recDispatchOne(player *Replay) int {
 		}
 	case 0xF1:
 		var a recArgsStateHash
-		a.world = recRWORLDID(rdr)
 		a.hash = recRU64(rdr)
 		if rdr.ok {
 			recDispatchStateHash(&a, rdr)
@@ -2961,7 +2922,7 @@ func recDispatchOne(player *Replay) int {
 			recDispatchRecordingBounds(&a, rdr)
 		}
 	default:
-		fmt.Printf("b2ReplayFile: unknown opcode 0x%02X, skipping %d bytes\n", opcode, payloadSize)
+		rdr.replayWorldID.logger.Warn("box2d: replay skipped unknown opcode", "opcode", opcode, "bytes", payloadSize)
 		if uint64(payloadSize) > uint64(rdr.size-payloadStart) {
 			rdr.ok = false
 		} else {
@@ -2986,9 +2947,9 @@ func recScanFile(player *Replay) {
 		}
 		if opcode == 0x80 {
 			frameCount++
-			if !gotStep && payloadSize >= 12 {
-				player.recordedDt = math.Float32frombits(binary.LittleEndian.Uint32(data[payloadStart+4:]))
-				player.recordedSubStepCount = int(int32(binary.LittleEndian.Uint32(data[payloadStart+8:])))
+			if !gotStep && payloadSize >= 8 {
+				player.recordedDt = math.Float32frombits(binary.LittleEndian.Uint32(data[payloadStart:]))
+				player.recordedSubStepCount = int(int32(binary.LittleEndian.Uint32(data[payloadStart+4:])))
 				gotStep = true
 			}
 		} else if opcode == 0xf2 && payloadSize >= 16 {
@@ -3002,9 +2963,9 @@ func recScanFile(player *Replay) {
 
 // Open a recording for incremental playback. The player copies the bytes,
 // so you may free or destroy the source buffer immediately after this call.
-func CreateReplay(data []byte, workerCount int) (*Replay, error) {
+func NewReplay(data []byte, workerCount int) (*Replay, error) {
 	if len(data) < 32 {
-		return nil, fmt.Errorf("b2CreateReplay: recording too small")
+		return nil, fmt.Errorf("%w: recording too small", ErrCorrupt)
 	}
 	// Validate the header before copying anything
 	magic := binary.LittleEndian.Uint32(data)
@@ -3012,22 +2973,22 @@ func CreateReplay(data []byte, workerCount int) (*Replay, error) {
 	minor := binary.LittleEndian.Uint16(data[6:])
 	lengthScale := math.Float32frombits(binary.LittleEndian.Uint32(data[12:]))
 	if magic != recMagic {
-		return nil, fmt.Errorf("b2CreateReplay: bad magic (got 0x%08X)", magic)
+		return nil, fmt.Errorf("%w: recording magic 0x%08X", ErrBadMagic, magic)
 	}
 	if major != recVersionMajor || minor != recVersionMinor {
-		return nil, fmt.Errorf("b2CreateReplay: version mismatch (file=%d.%d, runtime=%d.%d)", major, minor, recVersionMajor, recVersionMinor)
+		return nil, fmt.Errorf("%w: recording %d.%d, runtime %d.%d", ErrVersion, major, minor, recVersionMajor, recVersionMinor)
 	}
 	if data[18] != 0 {
-		return nil, fmt.Errorf("b2CreateReplay: big-endian recording not supported")
+		return nil, fmt.Errorf("%w: big-endian recording", ErrLayout)
 	}
 	snapshotSize := binary.LittleEndian.Uint64(data[24:])
 	if snapshotSize == 0 || snapshotSize > uint64(len(data)-32) {
-		return nil, fmt.Errorf("b2CreateReplay: missing or oversized snapshot")
+		return nil, fmt.Errorf("%w: missing or oversized snapshot", ErrCorrupt)
 	}
 	headerEnd := 32 + int(snapshotSize)
 	owned := append([]byte(nil), data...)
 	player := &Replay{data: owned, size: len(owned), headerEnd: headerEnd, lengthScale: lengthScale,
-		previousLengthScale: GetLengthUnitsPerMeter(), divergeFrame: -1,
+		previousLengthScale: LengthUnitsPerMeter(), divergeFrame: -1,
 		keyframeBudget: recKeyframeBudgetDefault, keyframeMinInterval: recKeyframeIntervalDefault, keyframeInterval: recKeyframeIntervalDefault}
 	player.rdr = recReader{data: owned, size: len(owned), cursor: headerEnd, workerCount: workerCount, ok: true, owner: player}
 	// Override the global length scale with the recording's so replay reproduces the same constants.
@@ -3037,14 +2998,11 @@ func CreateReplay(data []byte, workerCount int) (*Replay, error) {
 		SetLengthUnitsPerMeter(lengthScale)
 	}
 	recScanFile(player)
-	world, err := CreateWorldFromSnapshot(owned[32:headerEnd], workerCount)
+	world, err := NewWorldFromSnapshot(owned[32:headerEnd], workerCount)
 	player.rdr.replayWorldID = world
-	if err != nil || !world.IsValid() {
-		player.Destroy()
-		if err != nil {
-			return nil, fmt.Errorf("b2CreateReplay: snapshot deserialize failed: %w", err)
-		}
-		return nil, fmt.Errorf("b2CreateReplay: snapshot deserialize failed")
+	if err != nil {
+		player.Close()
+		return nil, fmt.Errorf("box2d: recording snapshot: %w", err)
 	}
 	player.recordedWorkerCount = workerCount
 	player.frame0Image = owned[32:headerEnd]
@@ -3063,7 +3021,7 @@ func freeKeyframe(kf *recKeyframe) {
 }
 
 func recCaptureKeyframe(player *Replay) {
-	world := getWorldFromId(player.rdr.replayWorldID)
+	world := player.rdr.replayWorldID
 	var buf recBuffer
 	serializeWorld(world, &buf)
 	bodyBytes := uint(player.bodyIDCount) * 8
@@ -3106,7 +3064,7 @@ func recCaptureKeyframe(player *Replay) {
 }
 
 func replayRestoreKeyframe(player *Replay, kf *recKeyframe) {
-	if player.rdr.replayWorldID.Restore(kf.image[:kf.imageSize]) != nil {
+	if player.rdr.replayWorldID.UnmarshalBinary(kf.image[:kf.imageSize]) != nil {
 		player.rdr.ok = false
 		return
 	}
@@ -3163,7 +3121,7 @@ func (r *Replay) StepFrame() bool {
 
 // Rewind the player to the first step, recreating the replay world from the file.
 func (r *Replay) Restart() {
-	if r.rdr.replayWorldID.Restore(r.frame0Image[:r.frame0Size]) != nil {
+	if r.rdr.replayWorldID.UnmarshalBinary(r.frame0Image[:r.frame0Size]) != nil {
 		r.rdr.ok = false
 		return
 	}
@@ -3183,10 +3141,10 @@ func (r *Replay) Restart() {
 	}
 }
 
-// Get the id of the replayed world.
-func (r *Replay) WorldID() World {
+// Get the replayed world.
+func (r *Replay) World() *World {
 	if r == nil {
-		return World{}
+		return nil
 	}
 	return r.rdr.replayWorldID
 }
@@ -3324,12 +3282,12 @@ func (r *Replay) KeyframeBytes() uint {
 }
 
 // Close a player and free its replay world and file buffer.
-func (r *Replay) Destroy() {
+func (r *Replay) Close() {
 	if r == nil {
 		return
 	}
 	if r.rdr.replayWorldID.IsValid() {
-		r.rdr.replayWorldID.Destroy()
+		r.rdr.replayWorldID.Close()
 	}
 	r.data = nil
 	r.rdr.data = nil
@@ -3349,9 +3307,6 @@ func (r *Replay) Destroy() {
 }
 
 func recDrawHitAABBs(player *Replay, q *recDrawQuery, draw *DebugDraw) {
-	if draw.DrawPolygonFunc == nil {
-		return
-	}
 	for hi := q.hitStart; hi < q.hitStart+q.hitCount; hi++ {
 		id := player.frameHits[hi].id
 		if !id.IsValid() {
@@ -3360,7 +3315,7 @@ func recDrawHitAABBs(player *Replay, q *recDrawQuery, draw *DebugDraw) {
 		b := id.AABB()
 		lower, upper := b.LowerBound, b.UpperBound
 		vs := []Vec2{lower, {X: upper.X, Y: lower.Y}, upper, {X: lower.X, Y: upper.Y}}
-		draw.DrawPolygonFunc(WorldTransform{Q: Rot{C: 1}}, vs, ColorMagenta)
+		draw.DrawPolygon(WorldTransform{Q: Rot{C: 1}}, vs, ColorMagenta)
 	}
 }
 
@@ -3370,6 +3325,7 @@ func (r *Replay) DrawFrameQueries(draw *DebugDraw, queryIndex int) {
 	if r == nil || draw == nil {
 		return
 	}
+	checkInput(draw.Drawer != nil, "draw.Drawer != nil")
 	// queryIndex < 0 draws all queries, otherwise just the one selected in the viewer
 	for qi := 0; qi < r.frameQueryCount; qi++ {
 		if queryIndex >= 0 && qi != queryIndex {
@@ -3380,74 +3336,56 @@ func (r *Replay) DrawFrameQueries(draw *DebugDraw, queryIndex int) {
 		case recqCastRay, recqCastRayClosest:
 			// Ray origin to endpoint
 			origin := q.origin
-			end := OffsetPos(origin, q.translation)
-			if draw.DrawLineFunc != nil {
-				draw.DrawLineFunc(origin, end, ColorYellow)
-			}
+			end := origin.Add(q.translation)
+			draw.DrawLine(origin, end, ColorYellow)
 			// Per-hit point + short normal
 			for hi := q.hitStart; hi < q.hitStart+q.hitCount; hi++ {
 				h := &r.frameHits[hi]
 				point := h.point
-				if draw.DrawPointFunc != nil {
-					draw.DrawPointFunc(point, 4, ColorYellow)
-				}
-				if draw.DrawLineFunc != nil {
-					np := OffsetPos(point, MulSV(0.2, h.normal))
-					draw.DrawLineFunc(point, np, ColorLightYellow)
-				}
+				draw.DrawPoint(point, 4, ColorYellow)
+				np := point.Add(h.normal.Scale(0.2))
+				draw.DrawLine(point, np, ColorLightYellow)
 			}
 		case recqCastShape:
 			// Shape cast: draw per-hit points along the swept path
 			for hi := q.hitStart; hi < q.hitStart+q.hitCount; hi++ {
 				h := &r.frameHits[hi]
 				point := h.point
-				if draw.DrawPointFunc != nil {
-					draw.DrawPointFunc(point, 4, ColorSkyBlue)
-				}
-				if draw.DrawLineFunc != nil {
-					np := OffsetPos(point, MulSV(0.2, h.normal))
-					draw.DrawLineFunc(point, np, ColorLightSkyBlue)
-				}
+				draw.DrawPoint(point, 4, ColorSkyBlue)
+				np := point.Add(h.normal.Scale(0.2))
+				draw.DrawLine(point, np, ColorLightSkyBlue)
 			}
 		case recqCastMover:
 			// The mover capsule is relative to the query origin
-			if draw.DrawSolidCapsuleFunc != nil {
-				c1 := OffsetPos(q.origin, q.mover.Center1)
-				c2 := OffsetPos(q.origin, q.mover.Center2)
-				draw.DrawSolidCapsuleFunc(c1, c2, q.mover.Radius, ColorLightSkyBlue)
-			}
+			c1 := q.origin.Add(q.mover.Center1)
+			c2 := q.origin.Add(q.mover.Center2)
+			draw.DrawSolidCapsule(c1, c2, q.mover.Radius, ColorLightSkyBlue)
 		case recqOverlapAABB:
 			// The query box is relative to the query origin
 			lower, upper := q.aabb.LowerBound, q.aabb.UpperBound
 			vs := []Vec2{lower, {X: upper.X, Y: lower.Y}, upper, {X: lower.X, Y: upper.Y}}
-			if draw.DrawPolygonFunc != nil {
-				draw.DrawPolygonFunc(WorldTransform{P: q.origin, Q: Rot{C: 1}}, vs, ColorLimeGreen)
-			}
+			draw.DrawPolygon(WorldTransform{P: q.origin, Q: Rot{C: 1}}, vs, ColorLimeGreen)
 			recDrawHitAABBs(r, q, draw)
 		case recqOverlapShape:
 			// The proxy points are relative to the query origin
 			if q.proxy.Count == 1 {
-				if draw.DrawCircleFunc != nil {
-					draw.DrawCircleFunc(OffsetPos(q.origin, q.proxy.Points[0]), q.proxy.Radius, ColorLimeGreen)
-				}
-			} else if q.proxy.Count >= 2 && draw.DrawPolygonFunc != nil {
-				draw.DrawPolygonFunc(WorldTransform{P: q.origin, Q: Rot{C: 1}}, q.proxy.Points[:q.proxy.Count], ColorLimeGreen)
+				draw.DrawCircle(q.origin.Add(q.proxy.Points[0]), q.proxy.Radius, ColorLimeGreen)
+			} else if q.proxy.Count >= 2 {
+				draw.DrawPolygon(WorldTransform{P: q.origin, Q: Rot{C: 1}}, q.proxy.Points[:q.proxy.Count], ColorLimeGreen)
 			}
 			recDrawHitAABBs(r, q, draw)
 		case recqCollideMover:
 			// The mover capsule and the collision planes are relative to the query origin
-			if draw.DrawSolidCapsuleFunc != nil {
-				c1 := OffsetPos(q.origin, q.mover.Center1)
-				c2 := OffsetPos(q.origin, q.mover.Center2)
-				draw.DrawSolidCapsuleFunc(c1, c2, q.mover.Radius, ColorTan)
-			}
+			c1 := q.origin.Add(q.mover.Center1)
+			c2 := q.origin.Add(q.mover.Center2)
+			draw.DrawSolidCapsule(c1, c2, q.mover.Radius, ColorTan)
 			// Per-hit plane point and normal
 			for hi := q.hitStart; hi < q.hitStart+q.hitCount; hi++ {
 				h := &r.frameHits[hi]
-				if h.plane.Hit && draw.DrawLineFunc != nil {
-					point := OffsetPos(q.origin, h.plane.Point)
-					np := OffsetPos(point, MulSV(0.2, h.plane.Plane.Normal))
-					draw.DrawLineFunc(point, np, ColorOrange)
+				if h.plane.Hit {
+					point := q.origin.Add(h.plane.Point)
+					np := point.Add(h.plane.Plane.Normal.Scale(0.2))
+					draw.DrawLine(point, np, ColorOrange)
 				}
 			}
 		case recqShapeTestPoint:
@@ -3455,17 +3393,13 @@ func (r *Replay) DrawFrameQueries(draw *DebugDraw, queryIndex int) {
 			if q.boolResult {
 				c = ColorAqua
 			}
-			if draw.DrawPointFunc != nil {
-				draw.DrawPointFunc(q.origin, 6, c)
-			}
+			draw.DrawPoint(q.origin, 6, c)
 		case recqShapeRayCast:
 			origin := q.origin
-			end := OffsetPos(origin, q.translation)
-			if draw.DrawLineFunc != nil {
-				draw.DrawLineFunc(origin, end, ColorViolet)
-			}
-			if q.castOut.Hit && draw.DrawPointFunc != nil {
-				draw.DrawPointFunc(q.castOut.Point, 4, ColorViolet)
+			end := origin.Add(q.translation)
+			draw.DrawLine(origin, end, ColorViolet)
+			if q.castOut.Hit {
+				draw.DrawPoint(q.castOut.Point, 4, ColorViolet)
 			}
 		}
 	}
@@ -3511,27 +3445,33 @@ func (r *Replay) BodyCount() int {
 	return r.bodyIDCount
 }
 
-// Get a tracked body by creation ordinal. Returns b2_nullBodyId for a destroyed slot, an ordinal not
-// yet reached at the current frame, or an out-of-range index. Validate with Body_IsValid.
-func (r *Replay) BodyID(index int) Body {
+// Get a tracked body by creation ordinal. Returns the zero Body for a destroyed slot, an ordinal not
+// yet reached at the current frame, or an out-of-range index. Validate with Body.IsValid.
+func (r *Replay) Body(index int) Body {
 	if r == nil || index < 0 || index >= r.bodyIDCount {
 		return Body{}
 	}
 	return r.bodyIDs[index]
 }
 
-// Replay a recording by re-running the engine and asserting recorded ids and state match.
-func ValidateReplay(data []byte, workerCount int) bool {
-	player, err := CreateReplay(data, workerCount)
+// Replay a recording by re-running the engine and checking that recorded ids and state match.
+// It returns ErrDiverged when the replay diverges and ErrCorrupt when a frame cannot be read.
+func ValidateReplay(data []byte, workerCount int) error {
+	player, err := NewReplay(data, workerCount)
 	if err != nil {
-		return false
+		return err
 	}
+	defer player.Close()
 	for player.StepFrame() {
 		if player.rdr.diverged {
 			break
 		}
 	}
-	ok := player.rdr.ok && !player.rdr.diverged
-	player.Destroy()
-	return ok
+	if player.rdr.diverged {
+		return ErrDiverged
+	}
+	if !player.rdr.ok {
+		return ErrCorrupt
+	}
+	return nil
 }

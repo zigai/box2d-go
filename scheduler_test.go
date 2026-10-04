@@ -230,10 +230,10 @@ func TestSchedulerWorldOwnedWorkersShutdown(t *testing.T) {
 		for range 8 {
 			def := DefaultWorldDef()
 			def.WorkerCount = initial
-			w := CreateWorld(&def)
+			w := NewWorld(&def)
 			t.Cleanup(func() {
 				if w.IsValid() {
-					w.Destroy()
+					w.Close()
 				}
 			})
 			bodyDef := DefaultBodyDef()
@@ -244,7 +244,7 @@ func TestSchedulerWorldOwnedWorkersShutdown(t *testing.T) {
 			body.CreateCircleShape(&shapeDef, &circle)
 			started := map[<-chan struct{}]bool{}
 			observeWorkers := func() {
-				s := getWorldFromId(w).scheduler
+				s := w.scheduler
 				if s == nil {
 					return
 				}
@@ -259,11 +259,11 @@ func TestSchedulerWorldOwnedWorkersShutdown(t *testing.T) {
 				w.SetWorkerCount(count)
 				observeWorkers()
 				w.Step(1.0/60, 4)
-				if s := getWorldFromId(w).scheduler; s != nil {
+				if s := w.scheduler; s != nil {
 					requireSchedulerCallbacksReleased(t, s)
 				}
 			}
-			w.Destroy()
+			w.Close()
 			for done := range started {
 				select {
 				case <-done:

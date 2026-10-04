@@ -63,7 +63,7 @@ type stepContext struct {
 	staticSoftness         softness
 	restitutionThreshold   float32
 	maxLinearVelocity      float32
-	world                  *world
+	world                  *World
 	graph                  *constraintGraph
 	states                 []bodyState
 	sims                   []bodySim
@@ -97,7 +97,7 @@ type workerContext struct {
 }
 
 type continuousContext struct {
-	world           *world
+	world           *World
 	fastBodySim     *bodySim
 	fastShape       *shape
 	centroid1       Vec2
@@ -183,10 +183,10 @@ func integrateVelocitiesTask(block solverBlock, context *stepContext) {
 		}
 
 		// lvd = h * im * f + h * g
-		linearVelocityDelta := Add(MulSV(h*sim.invMass, sim.force), MulSV(h*gravityScale, gravity))
+		linearVelocityDelta := sim.force.Scale(h * sim.invMass).Add(gravity.Scale(h * gravityScale))
 		angularVelocityDelta := float32(h * sim.invInertia * sim.torque)
 
-		v = MulAdd(linearVelocityDelta, linearDamping, v)
+		v = linearVelocityDelta.MulAdd(linearDamping, v)
 		w = angularVelocityDelta + float32(angularDamping*w)
 
 		state.linearVelocity = v
@@ -222,23 +222,23 @@ func integratePositionsTask(block solverBlock, context *stepContext) {
 		}
 
 		// Clamp to max linear speed
-		if Dot(v, v) > maxLinearSpeedSquared {
-			ratio := maxLinearSpeed / Length(v)
-			v = MulSV(ratio, v)
+		if v.Dot(v) > maxLinearSpeedSquared {
+			ratio := maxLinearSpeed / v.Length()
+			v = v.Scale(ratio)
 			state.flags |= isSpeedCapped
 		}
 
 		// Clamp to max angular speed
 		if w*w > maxAngularSpeedSquared && (state.flags&allowFastRotation) == 0 {
-			ratio := maxAngularSpeed / AbsFloat(w)
+			ratio := maxAngularSpeed / absFloat(w)
 			w *= ratio
 			state.flags |= isSpeedCapped
 		}
 
 		state.linearVelocity = v
 		state.angularVelocity = w
-		state.deltaPosition = MulAdd(state.deltaPosition, h, state.linearVelocity)
-		state.deltaRotation = IntegrateRotation(state.deltaRotation, h*state.angularVelocity)
+		state.deltaPosition = state.deltaPosition.MulAdd(h, state.linearVelocity)
+		state.deltaRotation = state.deltaRotation.Integrate(h * state.angularVelocity)
 	}
 }
 
@@ -298,8 +298,8 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 	if shape.enableCustomFiltering || fastShape.enableCustomFiltering {
 		customFilterFcn := world.customFilterFcn
 		if customFilterFcn != nil {
-			idA := Shape{index1: int32(shape.id + 1), world0: world.worldID, generation: shape.generation}
-			idB := Shape{index1: int32(fastShape.id + 1), world0: world.worldID, generation: fastShape.generation}
+			idA := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
+			idB := Shape{index1: int32(fastShape.id + 1), world: world, generation: fastShape.generation}
 			canCollide = customFilterFcn(idA, idB)
 			if canCollide == false {
 				return true
@@ -309,17 +309,16 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 
 	// Early out on fast parallel movement over a chain shape.
 	if shape.shapeType == ChainSegmentShape {
-		transform := ToRelativeTransform(bodySim.transform, continuousContext.base)
-		p1 := TransformPoint(transform, shape.chainSegment.Segment.Point1)
-		p2 := TransformPoint(transform, shape.chainSegment.Segment.Point2)
-		e := Sub(p2, p1)
-		var length float32
-		e = GetLengthAndNormalize(&length, e)
+		transform := bodySim.transform.Relative(continuousContext.base)
+		p1 := transform.Apply(shape.chainSegment.Segment.Point1)
+		p2 := transform.Apply(shape.chainSegment.Segment.Point2)
+		e := p2.Sub(p1)
+		length, e := e.LengthAndNormalize()
 		if length > LinearSlop() {
 			c1 := continuousContext.centroid1
-			separation1 := Cross(Sub(c1, p1), e)
+			separation1 := c1.Sub(p1).Cross(e)
 			c2 := continuousContext.centroid2
-			separation2 := Cross(Sub(c2, p1), e)
+			separation2 := c2.Sub(p1).Cross(e)
 
 			coreDistance := coreFraction * fastBodySim.minExtent
 
@@ -376,11 +375,11 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 		}
 
 		if didHit && (shape.enablePreSolveEvents || fastShape.enablePreSolveEvents) && world.preContinuousFcn != nil {
-			shapeIdA := Shape{index1: int32(shape.id + 1), world0: world.worldID, generation: shape.generation}
-			shapeIdB := Shape{index1: int32(fastShape.id + 1), world0: world.worldID, generation: fastShape.generation}
+			shapeIdA := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
+			shapeIdB := Shape{index1: int32(fastShape.id + 1), world: world, generation: fastShape.generation}
 
 			// TOI runs in the base frame, lift the hit point back to world for the callback
-			worldPoint := OffsetPos(continuousContext.base, output.Point)
+			worldPoint := continuousContext.base.Add(output.Point)
 			didHit = world.preContinuousFcn(shapeIdA, shapeIdB, worldPoint, output.Normal)
 		}
 
@@ -393,7 +392,7 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 	return true
 }
 
-func solveContinuous(world *world, bodySimIndex int, taskContext *taskContext, dt float32) {
+func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, dt float32) {
 	awakeSet := &world.solverSets[awakeSet]
 	fastBodySim := &awakeSet.bodySims[bodySimIndex]
 	validate((fastBodySim.flags&isFast) != 0, "fastBodySim->flags & b2_isFast")
@@ -404,11 +403,11 @@ func solveContinuous(world *world, bodySimIndex int, taskContext *taskContext, d
 
 	var xf1 Transform
 	xf1.Q = sweep.Q1
-	xf1.P = Sub(sweep.C1, RotateVector(sweep.Q1, sweep.LocalCenter))
+	xf1.P = sweep.C1.Sub(sweep.Q1.Rotate(sweep.LocalCenter))
 
 	var xf2 Transform
 	xf2.Q = sweep.Q2
-	xf2.P = Sub(sweep.C2, RotateVector(sweep.Q2, sweep.LocalCenter))
+	xf2.P = sweep.C2.Sub(sweep.Q2.Rotate(sweep.LocalCenter))
 
 	staticTree := &world.broadPhase.trees[StaticBody]
 	kinematicTree := &world.broadPhase.trees[KinematicBody]
@@ -430,8 +429,8 @@ func solveContinuous(world *world, bodySimIndex int, taskContext *taskContext, d
 		shapeId = fastShape.nextShapeID
 
 		context.fastShape = fastShape
-		context.centroid1 = TransformPoint(xf1, fastShape.localCentroid)
-		context.centroid2 = TransformPoint(xf2, fastShape.localCentroid)
+		context.centroid1 = xf1.Apply(fastShape.localCentroid)
+		context.centroid2 = xf2.Apply(fastShape.localCentroid)
 
 		box1 := fastShape.aabb
 
@@ -460,14 +459,14 @@ func solveContinuous(world *world, bodySimIndex int, taskContext *taskContext, d
 
 	if context.fraction < 1.0 {
 		// Handle time of impact event
-		q := NLerp(sweep.Q1, sweep.Q2, context.fraction)
-		c := Lerp(sweep.C1, sweep.C2, context.fraction)
-		origin := Sub(c, RotateVector(q, sweep.LocalCenter))
+		q := sweep.Q1.NLerp(sweep.Q2, context.fraction)
+		c := sweep.C1.Lerp(sweep.C2, context.fraction)
+		origin := c.Sub(q.Rotate(sweep.LocalCenter))
 
 		// Advance body, lifting the base frame result back to world
 		fastBodySim.transform.Q = q
-		fastBodySim.transform.P = OffsetPos(base, origin)
-		fastBodySim.center = OffsetPos(base, c)
+		fastBodySim.transform.P = base.Add(origin)
+		fastBodySim.center = base.Add(c)
 		fastBodySim.rotation0 = q
 		fastBodySim.center0 = fastBodySim.center
 
@@ -478,14 +477,14 @@ func solveContinuous(world *world, bodySimIndex int, taskContext *taskContext, d
 		fastBodyState := &awakeSet.bodyStates[bodySimIndex]
 		v := fastBodyState.linearVelocity
 		timeLoss := (1.0 - context.fraction) * dt
-		dv := MulSV(-timeLoss*fastBodySim.gravityScale, world.gravity)
+		dv := world.gravity.Scale(-timeLoss * fastBodySim.gravityScale)
 		if fastBodyState.flags&lockLinearX != 0 {
 			dv.X = 0
 		}
 		if fastBodyState.flags&lockLinearY != 0 {
 			dv.Y = 0
 		}
-		fastBodyState.linearVelocity = Add(v, dv)
+		fastBodyState.linearVelocity = v.Add(dv)
 
 		// Update body move event
 		event := &world.bodyMoveEvents[bodySimIndex]
@@ -583,7 +582,6 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 	enableContinuous := world.enableContinuous
 	timeStep := stepContext.dt
 	invTimeStep := stepContext.invDt
-	worldId := world.worldID
 
 	// The body move event array should already have the correct size
 	moveEvents := world.bodyMoveEvents
@@ -601,38 +599,38 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 		v := state.linearVelocity
 		w := state.angularVelocity
 
-		if IsValidVec2(v) == false || IsValidFloat(w) == false {
+		if v.IsValid() == false || IsValidFloat(w) == false {
 			debugBody := &bodies[sim.bodyID]
-			log("unstable: %s\n", bytes.TrimRight(debugBody.name[:], "\x00"))
+			world.logger.Warn("box2d: unstable body", "name", string(bytes.TrimRight(debugBody.name[:], "\x00")))
 		}
 
-		assert(IsValidVec2(v), "b2IsValidVec2( v )")
+		assert(v.IsValid(), "b2IsValidVec2( v )")
 		assert(IsValidFloat(w), "b2IsValidFloat( w )")
 
-		sim.center = OffsetPos(sim.center, state.deltaPosition)
-		sim.transform.Q = NormalizeRot(MulRot(state.deltaRotation, sim.transform.Q))
+		sim.center = sim.center.Add(state.deltaPosition)
+		sim.transform.Q = state.deltaRotation.Mul(sim.transform.Q).Normalize()
 
 		// Use the velocity of the farthest point on the body to account for rotation.
-		maxVelocity := Length(v) + float32(AbsFloat(w)*sim.maxExtent)
+		maxVelocity := v.Length() + float32(absFloat(w)*sim.maxExtent)
 
 		// Sleep needs to observe position correction as well as true velocity.
-		maxDeltaPosition := Length(state.deltaPosition) + float32(AbsFloat(state.deltaRotation.S)*sim.maxExtent)
+		maxDeltaPosition := state.deltaPosition.Length() + float32(absFloat(state.deltaRotation.S)*sim.maxExtent)
 
 		// Position correction is not as important for sleep as true velocity.
 		positionSleepFactor := float32(0.5)
-		sleepVelocity := MaxFloat(maxVelocity, positionSleepFactor*invTimeStep*maxDeltaPosition)
+		sleepVelocity := maxFloat(maxVelocity, positionSleepFactor*invTimeStep*maxDeltaPosition)
 
 		// reset state deltas
 		state.deltaPosition = Vec2{}
 		state.deltaRotation = Rot{C: 1}
 
-		sim.transform.P = OffsetPos(sim.center, Neg(RotateVector(sim.transform.Q, sim.localCenter)))
+		sim.transform.P = sim.center.Add(sim.transform.Q.Rotate(sim.localCenter).Neg())
 
 		// cache miss here, however I need the shape list below
 		body := &bodies[sim.bodyID]
 		body.bodyMoveIndex = simIndex
 		moveEvents[simIndex].Transform = sim.transform
-		moveEvents[simIndex].BodyID = Body{index1: int32(sim.bodyID + 1), world0: worldId, generation: body.generation}
+		moveEvents[simIndex].Body = Body{index1: int32(sim.bodyID + 1), world: world, generation: body.generation}
 		moveEvents[simIndex].UserData = body.userData
 		moveEvents[simIndex].FellAsleep = false
 
@@ -657,7 +655,7 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 			body.sleepTime = 0.0
 
 			safetyFactor := body.safetyFactor
-			maxMotion := MaxFloat(maxDeltaPosition, maxVelocity*timeStep)
+			maxMotion := maxFloat(maxDeltaPosition, maxVelocity*timeStep)
 			if body.bodyType == DynamicBody && enableContinuous && maxMotion > safetyFactor*sim.minExtent {
 				// This flag is used for debug draw and contact recycling.
 				sim.flags |= isFast
@@ -982,7 +980,7 @@ func solverTask(taskContext *workerContext) {
 			stageStoreImpulses
 		*/
 
-		ticks := GetTicks()
+		ticks := currentTicks()
 
 		bodySyncIndex := 1
 		stageIndex := 0
@@ -1007,7 +1005,7 @@ func solverTask(taskContext *workerContext) {
 		prepareJointsOverflow(context)
 		prepareContactsOverflow(context)
 
-		profile.PrepareConstraints += GetMillisecondsAndReset(&ticks)
+		profile.PrepareConstraints += millisecondsAndReset(&ticks)
 
 		graphSyncIndex := 1
 		subStepCount := context.subStepCount
@@ -1023,7 +1021,7 @@ func solverTask(taskContext *workerContext) {
 			iterationStageIndex += 1
 			bodySyncIndex += 1
 
-			profile.IntegrateVelocities += GetMillisecondsAndReset(&ticks)
+			profile.IntegrateVelocities += millisecondsAndReset(&ticks)
 
 			// Warm start constraints
 			warmStartJointsOverflow(context)
@@ -1037,7 +1035,7 @@ func solverTask(taskContext *workerContext) {
 			}
 			graphSyncIndex += 1
 
-			profile.WarmStart += GetMillisecondsAndReset(&ticks)
+			profile.WarmStart += millisecondsAndReset(&ticks)
 
 			// Solve constraints
 			useBias := true
@@ -1055,7 +1053,7 @@ func solverTask(taskContext *workerContext) {
 				graphSyncIndex += 1
 			}
 
-			profile.SolveImpulses += GetMillisecondsAndReset(&ticks)
+			profile.SolveImpulses += millisecondsAndReset(&ticks)
 
 			// Integrate positions
 			assert(stages[iterationStageIndex].stageType == stageIntegratePositions, "stages[iterationStageIndex].type == b2_stageIntegratePositions")
@@ -1064,7 +1062,7 @@ func solverTask(taskContext *workerContext) {
 			iterationStageIndex += 1
 			bodySyncIndex += 1
 
-			profile.IntegratePositions += GetMillisecondsAndReset(&ticks)
+			profile.IntegratePositions += millisecondsAndReset(&ticks)
 
 			// Relax constraints
 			useBias = false
@@ -1080,7 +1078,7 @@ func solverTask(taskContext *workerContext) {
 				graphSyncIndex += 1
 			}
 
-			profile.RelaxImpulses += GetMillisecondsAndReset(&ticks)
+			profile.RelaxImpulses += millisecondsAndReset(&ticks)
 		}
 
 		// Advance the stage according to the sub-stepping tasks just completed
@@ -1102,7 +1100,7 @@ func solverTask(taskContext *workerContext) {
 				graphSyncIndex += 1
 			}
 
-			profile.Restitution += GetMillisecondsAndReset(&ticks)
+			profile.Restitution += millisecondsAndReset(&ticks)
 		}
 
 		stageIndex += activeColorCount
@@ -1114,7 +1112,7 @@ func solverTask(taskContext *workerContext) {
 		assert(stages[stageIndex].stageType == stageStoreImpulses, "stages[stageIndex].type == b2_stageStoreImpulses")
 		executeMainStage(&stages[stageIndex], context, syncBits)
 
-		profile.StoreImpulses += GetMillisecondsAndReset(&ticks)
+		profile.StoreImpulses += millisecondsAndReset(&ticks)
 
 		// Signal workers to finish
 		context.atomicSyncBits.Store(^uint32(0))
@@ -1138,7 +1136,7 @@ func solverTask(taskContext *workerContext) {
 				break
 			}
 			if spinCount > 5 {
-				Yield()
+				yieldThread()
 				spinCount = 0
 			} else {
 				// Using the cycle counter helps to account for variation in mm_pause timing across different
@@ -1198,7 +1196,7 @@ func clearSolverScratch(graph *constraintGraph) {
 	}
 }
 
-func solve(world *world, stepContext *stepContext) {
+func solve(world *World, stepContext *stepContext) {
 	// Only count steps that advance the simulation
 	world.stepIndex += 1
 
@@ -1213,7 +1211,7 @@ func solve(world *world, stepContext *stepContext) {
 	// Solve constraints using graph coloring
 	{
 
-		setupTicks := GetTicks()
+		setupTicks := currentTicks()
 
 		// Prepare buffers for bullets
 		stepContext.bulletBodyCount.Store(int32(0))
@@ -1479,9 +1477,9 @@ func solve(world *world, stepContext *stepContext) {
 		stepContext.atomicSyncBits.Store(0)
 		stepContext.mainClaimed.Store(int32(0))
 
-		world.profile.SolverSetup = GetMillisecondsAndReset(&setupTicks)
+		world.profile.SolverSetup = millisecondsAndReset(&setupTicks)
 
-		constraintTicks := GetTicks()
+		constraintTicks := currentTicks()
 
 		jointIdCapacity := getIDCapacity(&world.jointIDPool)
 		contactIdCapacity := getIDCapacity(&world.contactIDPool)
@@ -1530,9 +1528,9 @@ func solve(world *world, stepContext *stepContext) {
 		}
 		world.splitIslandID = nullIndex
 
-		world.profile.Constraints = GetMillisecondsAndReset(&constraintTicks)
+		world.profile.Constraints = millisecondsAndReset(&constraintTicks)
 
-		transformTicks := GetTicks()
+		transformTicks := currentTicks()
 
 		// Prepare contact, enlarged body, and island bit sets used in body finalization.
 		awakeIslandCount := len(awake.islandSims)
@@ -1558,14 +1556,14 @@ func solve(world *world, stepContext *stepContext) {
 		// Finalize bodies. Must happen after the constraint solver and after island splitting.
 		parallelFor(world, func(start, end, worker int) { finalizeBodiesTask(start, end, worker, stepContext) }, awakeBodyCount, 64)
 
-		world.profile.Transforms = GetMilliseconds(transformTicks)
+		world.profile.Transforms = milliseconds(transformTicks)
 
 	}
 
 	// Report joint events
 	{
 
-		jointEventTicks := GetTicks()
+		jointEventTicks := currentTicks()
 
 		// Gather bits for all joints that have force/torque events
 		jointStateBitSet := &world.taskContexts[0].jointStateBitSet
@@ -1577,7 +1575,6 @@ func solve(world *world, stepContext *stepContext) {
 			words := jointStateBitSet.bits
 
 			jointArray := world.joints
-			worldIndex0 := world.worldID
 
 			for k := uint32(0); k < wordCount; k++ {
 				word := words[k]
@@ -1591,7 +1588,7 @@ func solve(world *world, stepContext *stepContext) {
 
 					assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
 
-					event := JointEvent{JointID: Joint{index1: int32(jointId + 1), world0: worldIndex0, generation: joint.generation}, UserData: joint.userData}
+					event := JointEvent{Joint: Joint{index1: int32(jointId + 1), world: world, generation: joint.generation}, UserData: joint.userData}
 
 					world.jointEvents = arrayPush(world.jointEvents, event)
 
@@ -1601,14 +1598,14 @@ func solve(world *world, stepContext *stepContext) {
 			}
 		}
 
-		world.profile.JointEvents = GetMilliseconds(jointEventTicks)
+		world.profile.JointEvents = milliseconds(jointEventTicks)
 
 	}
 
 	// Report hit events
 	{
 
-		hitTicks := GetTicks()
+		hitTicks := currentTicks()
 
 		assert(len(world.contactHitEvents) == 0, "world->contactHitEvents.count == 0")
 
@@ -1634,7 +1631,6 @@ func solve(world *world, stepContext *stepContext) {
 			colors := world.constraintGraph.colors[:]
 			contactArray := world.contacts
 			shapeArray := world.shapes
-			worldId := world.worldID
 
 			wordCount := hitEventBitSet.blockCount
 			words := hitEventBitSet.bits
@@ -1682,19 +1678,18 @@ func solve(world *world, stepContext *stepContext) {
 						bodyB := &world.bodies[shapeB.bodyID]
 						if bodyA.bodyType != StaticBody && bodyB.bodyType == StaticBody {
 							bodySimB := getBodySim(world, bodyB)
-							event.Point = OffsetPos(bodySimB.center, bestPoint.AnchorB)
+							event.Point = bodySimB.center.Add(bestPoint.AnchorB)
 						} else {
 							bodySimA := getBodySim(world, bodyA)
-							event.Point = OffsetPos(bodySimA.center, bestPoint.AnchorA)
+							event.Point = bodySimA.center.Add(bestPoint.AnchorA)
 						}
 
-						event.ShapeIDA = Shape{index1: int32(shapeA.id + 1), world0: worldId, generation: shapeA.generation}
-						event.ShapeIDB = Shape{index1: int32(shapeB.id + 1), world0: worldId, generation: shapeB.generation}
+						event.ShapeA = Shape{index1: int32(shapeA.id + 1), world: world, generation: shapeA.generation}
+						event.ShapeB = Shape{index1: int32(shapeB.id + 1), world: world, generation: shapeB.generation}
 
-						event.ContactID = Contact{
+						event.Contact = Contact{
 							index1:     int32(contact.contactID + 1),
-							world0:     worldId,
-							padding:    0,
+							world:      world,
 							generation: contact.generation,
 						}
 
@@ -1707,12 +1702,12 @@ func solve(world *world, stepContext *stepContext) {
 			}
 		}
 
-		world.profile.HitEvents = GetMilliseconds(hitTicks)
+		world.profile.HitEvents = milliseconds(hitTicks)
 
 	}
 	{
 
-		refitTicks := GetTicks()
+		refitTicks := currentTicks()
 
 		bp := &world.broadPhase
 		bp.trees[KinematicBody].refit()
@@ -1720,7 +1715,7 @@ func solve(world *world, stepContext *stepContext) {
 
 		validateBroadphase(&world.broadPhase)
 
-		world.profile.Refit = GetMilliseconds(refitTicks)
+		world.profile.Refit = milliseconds(refitTicks)
 
 	}
 
@@ -1729,7 +1724,7 @@ func solve(world *world, stepContext *stepContext) {
 	bulletBodyCount := int(stepContext.bulletBodyCount.Load())
 	if bulletBodyCount > 0 {
 
-		bulletTicks := GetTicks()
+		bulletTicks := currentTicks()
 
 		// Fast bullet bodies
 		// Note: a bullet body may be moving slow
@@ -1782,7 +1777,7 @@ func solve(world *world, stepContext *stepContext) {
 			}
 		}
 
-		world.profile.Bullets = GetMilliseconds(bulletTicks)
+		world.profile.Bullets = milliseconds(bulletTicks)
 
 	}
 
@@ -1794,7 +1789,7 @@ func solve(world *world, stepContext *stepContext) {
 	// Report sensor hits. This may include bullets sensor hits.
 	{
 
-		sensorHitTicks := GetTicks()
+		sensorHitTicks := currentTicks()
 
 		workerCount := world.workerCount
 		assert(workerCount == len(world.taskContexts), "workerCount == world->taskContexts.count")
@@ -1815,7 +1810,7 @@ func solve(world *world, stepContext *stepContext) {
 			}
 		}
 
-		world.profile.SensorHits = GetMilliseconds(sensorHitTicks)
+		world.profile.SensorHits = milliseconds(sensorHitTicks)
 
 	}
 
@@ -1824,7 +1819,7 @@ func solve(world *world, stepContext *stepContext) {
 	// todo_erin figure out how to do this in parallel with tree refit
 	if world.enableSleep == true {
 
-		sleepTicks := GetTicks()
+		sleepTicks := currentTicks()
 
 		// Collect split island candidate for the next time step. No need to split if sleeping is disabled.
 		assert(world.splitIslandID == nullIndex, "world->splitIslandId == B2_NULL_INDEX")
@@ -1866,7 +1861,7 @@ func solve(world *world, stepContext *stepContext) {
 
 		validateSolverSets(world)
 
-		world.profile.SleepIslands = GetMilliseconds(sleepTicks)
+		world.profile.SleepIslands = milliseconds(sleepTicks)
 
 	}
 	clearSolverScratch(&world.constraintGraph)

@@ -28,11 +28,11 @@ func recordingOverlap(_ box2d.Shape) bool {
 	return true
 }
 
-func recordingIssueAllQueries(worldID box2d.World, groundShapeID box2d.Shape) {
+func recordingIssueAllQueries(worldID *box2d.World, groundShapeID box2d.Shape) {
 	filter := box2d.DefaultQueryFilter()
 
 	baseOffset := box2d.Vec2{X: 3.0, Y: -2.0}
-	base := box2d.ToPos(baseOffset)
+	base := baseOffset.Pos()
 
 	aabb := box2d.AABB{LowerBound: box2d.Vec2{X: -5.0 - baseOffset.X, Y: -15.0 - baseOffset.Y}, UpperBound: box2d.Vec2{X: 5.0 - baseOffset.X, Y: 5.0 - baseOffset.Y}}
 	worldID.OverlapAABB(base, aabb, filter, recordingOverlap)
@@ -58,14 +58,14 @@ func recordingIssueAllQueries(worldID box2d.World, groundShapeID box2d.Shape) {
 	groundShapeID.TestPoint(box2d.Pos{X: 0.0, Y: -10.0})
 	groundShapeID.TestPoint(box2d.Pos{X: 0.0, Y: 100.0})
 
-	rayStart := box2d.OffsetPos(base, box2d.Vec2{X: -baseOffset.X, Y: 5.0 - baseOffset.Y})
+	rayStart := base.Add(box2d.Vec2{X: -baseOffset.X, Y: 5.0 - baseOffset.Y})
 	groundShapeID.RayCast(rayStart, box2d.Vec2{X: 0.0, Y: -20.0})
 }
 
 func recordingReplaySafetyFactor(player *box2d.Replay, name string) float32 {
 	count := player.BodyCount()
 	for i := range count {
-		bodyID := player.BodyID(i)
+		bodyID := player.Body(i)
 		if bodyID.IsValid() && bodyID.Name() == name {
 			return bodyID.SafetyFactor()
 		}
@@ -84,14 +84,14 @@ func TestRecording(t *testing.T) {
 	worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
 	worldDef.WorkerCount = 1
 
-	worldID := box2d.CreateWorld(&worldDef)
+	worldID := box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldID)
 	if !(worldID.IsValid()) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 165", worldID.IsValid())
 
-	rec := box2d.CreateRecording(0)
+	rec := box2d.NewRecording(0)
 	worldID.StartRecording(rec)
 
 	groundDef := box2d.DefaultBodyDef()
@@ -177,10 +177,10 @@ func TestRecording(t *testing.T) {
 	filter := box2d.DefaultFilter()
 	filter.CategoryBits = 0x2
 	boxShapeID.SetFilter(filter)
-	capsuleShapeID.EnableContactEvents(true)
-	capsuleShapeID.EnableSensorEvents(true)
-	boxShapeID.EnableHitEvents(true)
-	boxShapeID.EnablePreSolveEvents(true)
+	capsuleShapeID.SetContactEventsEnabled(true)
+	capsuleShapeID.SetSensorEventsEnabled(true)
+	boxShapeID.SetHitEventsEnabled(true)
+	boxShapeID.SetPreSolveEventsEnabled(true)
 	capsuleShapeID.ApplyWind(box2d.Vec2{X: 1.0, Y: 0.0}, 0.1, 0.0, true)
 
 	newCircle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.4}
@@ -230,11 +230,11 @@ func TestRecording(t *testing.T) {
 	bodyID.SetGravityScale(0.9)
 	bodyID.SetSleepThreshold(0.02)
 	disableID.SetSafetyFactor(0.25)
-	bodyID.EnableSleep(false)
+	bodyID.SetSleepEnabled(false)
 	bodyID.SetBullet(true)
-	bodyID.EnableContactRecycling(false)
-	bodyID.EnableContactEvents(true)
-	bodyID.EnableHitEvents(true)
+	bodyID.SetContactRecyclingEnabled(false)
+	bodyID.SetContactEventsEnabled(true)
+	bodyID.SetHitEventsEnabled(true)
 	bodyID.SetMotionLocks(box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: true})
 	md := box2d.MassData{Mass: 2.0, Center: box2d.Vec2{X: 0.0, Y: 0.0}, RotationalInertia: 0.5}
 	bodyID.SetMassData(md)
@@ -261,11 +261,9 @@ func TestRecording(t *testing.T) {
 	chainMats := []box2d.SurfaceMaterial{box2d.DefaultSurfaceMaterial()}
 	chainDef := box2d.DefaultChainDef()
 	chainDef.Points = chainPoints
-	chainDef.PointCount = 6
 	chainDef.Ghost1 = box2d.Vec2{X: -12.0, Y: 0.0}
 	chainDef.Ghost2 = box2d.Vec2{X: 8.0, Y: 8.0}
 	chainDef.Materials = chainMats
-	chainDef.MaterialCount = 1
 	chainDef.IsLoop = false
 	chainID := chainBodyID.CreateChain(&chainDef)
 	if !(chainID.IsValid()) {
@@ -287,15 +285,15 @@ func TestRecording(t *testing.T) {
 	for i := range 8 {
 		jbd := box2d.DefaultBodyDef()
 		jbd.Type = box2d.DynamicBody
-		jbd.Position = box2d.ToPos(box2d.Vec2{X: -7.0 + float32(i), Y: 8.0})
+		jbd.Position = box2d.Vec2{X: -7.0 + float32(i), Y: 8.0}.Pos()
 		jb[i] = worldID.CreateBody(&jbd)
 		jc := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.25}
 		jb[i].CreateCircleShape(&shapeDef, &jc)
 	}
 
 	revDef := box2d.DefaultRevoluteJointDef()
-	revDef.Base.BodyIDA = jb[0]
-	revDef.Base.BodyIDB = jb[1]
+	revDef.Base.BodyA = jb[0]
+	revDef.Base.BodyB = jb[1]
 	revDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.5, Y: 0.0}
 	revDef.Base.LocalFrameB.P = box2d.Vec2{X: -0.5, Y: 0.0}
 	revID := worldID.CreateRevoluteJoint(&revDef)
@@ -303,12 +301,12 @@ func TestRecording(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 367", revID.IsValid())
-	revID.EnableLimit(true)
+	revID.SetLimitEnabled(true)
 	revID.SetLimits(-1.0, 1.0)
-	revID.EnableMotor(true)
+	revID.SetMotorEnabled(true)
 	revID.SetMotorSpeed(0.5)
 	revID.SetMaxMotorTorque(10.0)
-	revID.EnableSpring(true)
+	revID.SetSpringEnabled(true)
 	revID.SetSpringHertz(2.0)
 	revID.SetSpringDampingRatio(0.5)
 	revID.SetTargetAngle(0.25)
@@ -321,51 +319,51 @@ func TestRecording(t *testing.T) {
 	revID.WakeBodies()
 
 	distDef := box2d.DefaultDistanceJointDef()
-	distDef.Base.BodyIDA = jb[1]
-	distDef.Base.BodyIDB = jb[2]
+	distDef.Base.BodyA = jb[1]
+	distDef.Base.BodyB = jb[2]
 	distDef.Length = 1.0
 	distID := worldID.CreateDistanceJoint(&distDef)
 	distID.SetLength(1.2)
-	distID.EnableSpring(true)
+	distID.SetSpringEnabled(true)
 	distID.SetSpringHertz(3.0)
 	distID.SetSpringDampingRatio(0.4)
 	distID.SetSpringForceRange(-50.0, 50.0)
-	distID.EnableLimit(true)
+	distID.SetLimitEnabled(true)
 	distID.SetLengthRange(0.5, 2.0)
-	distID.EnableMotor(true)
+	distID.SetMotorEnabled(true)
 	distID.SetMotorSpeed(0.3)
 	distID.SetMaxMotorForce(5.0)
 
 	prisDef := box2d.DefaultPrismaticJointDef()
-	prisDef.Base.BodyIDA = jb[2]
-	prisDef.Base.BodyIDB = jb[3]
+	prisDef.Base.BodyA = jb[2]
+	prisDef.Base.BodyB = jb[3]
 	prisID := worldID.CreatePrismaticJoint(&prisDef)
-	prisID.EnableSpring(true)
+	prisID.SetSpringEnabled(true)
 	prisID.SetSpringHertz(2.0)
 	prisID.SetSpringDampingRatio(0.5)
 	prisID.SetTargetTranslation(0.1)
-	prisID.EnableLimit(true)
+	prisID.SetLimitEnabled(true)
 	prisID.SetLimits(-1.0, 1.0)
-	prisID.EnableMotor(true)
+	prisID.SetMotorEnabled(true)
 	prisID.SetMotorSpeed(0.2)
 	prisID.SetMaxMotorForce(8.0)
 
 	wheelDef := box2d.DefaultWheelJointDef()
-	wheelDef.Base.BodyIDA = jb[3]
-	wheelDef.Base.BodyIDB = jb[4]
+	wheelDef.Base.BodyA = jb[3]
+	wheelDef.Base.BodyB = jb[4]
 	wheelID := worldID.CreateWheelJoint(&wheelDef)
-	wheelID.EnableSpring(true)
+	wheelID.SetSpringEnabled(true)
 	wheelID.SetSpringHertz(4.0)
 	wheelID.SetSpringDampingRatio(0.7)
-	wheelID.EnableLimit(true)
+	wheelID.SetLimitEnabled(true)
 	wheelID.SetLimits(-0.5, 0.5)
-	wheelID.EnableMotor(true)
+	wheelID.SetMotorEnabled(true)
 	wheelID.SetMotorSpeed(1.0)
 	wheelID.SetMaxMotorTorque(6.0)
 
 	weldDef := box2d.DefaultWeldJointDef()
-	weldDef.Base.BodyIDA = jb[4]
-	weldDef.Base.BodyIDB = jb[5]
+	weldDef.Base.BodyA = jb[4]
+	weldDef.Base.BodyB = jb[5]
 	weldID := worldID.CreateWeldJoint(&weldDef)
 	weldID.SetLinearHertz(5.0)
 	weldID.SetLinearDampingRatio(0.6)
@@ -373,8 +371,8 @@ func TestRecording(t *testing.T) {
 	weldID.SetAngularDampingRatio(0.6)
 
 	motorDef := box2d.DefaultMotorJointDef()
-	motorDef.Base.BodyIDA = jb[5]
-	motorDef.Base.BodyIDB = jb[6]
+	motorDef.Base.BodyA = jb[5]
+	motorDef.Base.BodyB = jb[6]
 	motorID := worldID.CreateMotorJoint(&motorDef)
 	motorID.SetLinearVelocity(box2d.Vec2{X: 0.1, Y: 0.0})
 	motorID.SetAngularVelocity(0.2)
@@ -388,8 +386,8 @@ func TestRecording(t *testing.T) {
 	motorID.SetMaxSpringTorque(20.0)
 
 	filterDef := box2d.DefaultFilterJointDef()
-	filterDef.Base.BodyIDA = jb[6]
-	filterDef.Base.BodyIDB = jb[7]
+	filterDef.Base.BodyA = jb[6]
+	filterDef.Base.BodyB = jb[7]
 	filterID := worldID.CreateFilterJoint(&filterDef)
 	if !(filterID.IsValid()) {
 		t.Fatal("condition false")
@@ -397,19 +395,19 @@ func TestRecording(t *testing.T) {
 	r.Bool("check 462", filterID.IsValid())
 
 	tmpJointDef := box2d.DefaultDistanceJointDef()
-	tmpJointDef.Base.BodyIDA = jb[0]
-	tmpJointDef.Base.BodyIDB = jb[7]
+	tmpJointDef.Base.BodyA = jb[0]
+	tmpJointDef.Base.BodyB = jb[7]
 	tmpJointDef.Length = 5.0
 	tmpJointID := worldID.CreateDistanceJoint(&tmpJointDef)
 	tmpJointID.Destroy()
 
 	worldID.SetGravity(box2d.Vec2{X: 0.0, Y: -9.8})
-	worldID.EnableSleeping(true)
-	worldID.EnableContinuous(true)
-	worldID.EnableWarmStarting(true)
+	worldID.SetSleepingEnabled(true)
+	worldID.SetContinuousEnabled(true)
+	worldID.SetWarmStartingEnabled(true)
 	worldID.SetRestitutionThreshold(1.5)
 	worldID.SetRestitutionIterations(2)
-	worldID.EnableRestitutionPropagation(true)
+	worldID.SetRestitutionPropagationEnabled(true)
 	worldID.SetHitEventThreshold(2.0)
 	worldID.SetContactTuning(30.0, 10.0, 3.0)
 	worldID.SetContactRecycleDistance(0.05)
@@ -444,7 +442,7 @@ func TestRecording(t *testing.T) {
 	}
 
 	worldID.StopRecording()
-	worldID.Destroy()
+	worldID.Close()
 
 	recData := rec.Data()
 	recSize := rec.Size()
@@ -452,12 +450,12 @@ func TestRecording(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 522", recSize > 0)
-	check525 := box2d.ValidateReplay(recData, 0)
+	check525 := box2d.ValidateReplay(recData, 0) == nil
 	if !(check525) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 525", check525)
-	check528 := box2d.ValidateReplay(recData, 4)
+	check528 := box2d.ValidateReplay(recData, 4) == nil
 	if !(check528) {
 		t.Fatal("condition false")
 	}
@@ -471,7 +469,7 @@ func TestRecording(t *testing.T) {
 		patched[10] = 0xEF
 		patched[11] = 0x12
 		patched[16] = 0x34
-		check540 := box2d.ValidateReplay(patched, 0)
+		check540 := box2d.ValidateReplay(patched, 0) == nil
 		if !(check540) {
 			t.Fatal("condition false")
 		}
@@ -479,12 +477,12 @@ func TestRecording(t *testing.T) {
 
 	}
 
-	check545 := rec.SaveToFile(recPath) == nil
+	check545 := box2d.RecordingSaveFile(rec, recPath) == nil
 	if !(check545) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 545", check545)
-	loaded, err := box2d.LoadRecordingFromFile(recPath)
+	loaded, err := box2d.RecordingLoadFile(recPath)
 	if !(err == nil) {
 		t.Fatal("condition false")
 	}
@@ -496,20 +494,19 @@ func TestRecording(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 548", loaded.Size() == recSize)
-	check549 := box2d.ValidateReplay(loaded.Data(), 0)
+	check549 := box2d.ValidateReplay(loaded.Data(), 0) == nil
 	if !(check549) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 549", check549)
-	check550 := box2d.ValidateReplay(loaded.Data(), 4)
+	check550 := box2d.ValidateReplay(loaded.Data(), 4) == nil
 	if !(check550) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 550", check550)
-	loaded.Destroy()
 
 	{
-		player, err := box2d.CreateReplay(recData, 0)
+		player, err := box2d.NewReplay(recData, 0)
 		destroyPlayer := box2d.BTReplayCleanup(t, player)
 		if !(err == nil) {
 			t.Fatal("condition false")
@@ -538,14 +535,16 @@ func TestRecording(t *testing.T) {
 		r.Bool("check 565", recBounds.LowerBound.Y <= -20.0)
 
 		dd := box2d.DefaultDebugDraw()
-		dd.DrawLineFunc = func(box2d.Pos, box2d.Pos, box2d.HexColor) {}
-		dd.DrawPointFunc = func(box2d.Pos, float32, box2d.HexColor) {}
-		dd.DrawPolygonFunc = func(box2d.WorldTransform, []box2d.Vec2, box2d.HexColor) {}
-		dd.DrawSolidCapsuleFunc = func(box2d.Pos, box2d.Pos, float32, box2d.HexColor) {}
+		ddFuncs := &box2d.BTFuncDrawer{}
+		dd.Drawer = ddFuncs
+		ddFuncs.Line = func(box2d.Pos, box2d.Pos, box2d.HexColor) {}
+		ddFuncs.Point = func(box2d.Pos, float32, box2d.HexColor) {}
+		ddFuncs.Polygon = func(box2d.WorldTransform, []box2d.Vec2, box2d.HexColor) {}
+		ddFuncs.SolidCapsule = func(box2d.Pos, box2d.Pos, float32, box2d.HexColor) {}
 
 		frames := 0
 		for player.StepFrame() {
-			trace.Check(t, r, player.WorldID(), "step 576", player.Frame())
+			trace.Check(t, r, player.World(), "step 576", player.Frame())
 			if player.Frame() == 1 || player.Frame() == 16 || player.Frame() == 60 {
 				recordingObserveQueries(t, r, player, fmt.Sprintf("inspect/%d", player.Frame()))
 			}
@@ -573,10 +572,10 @@ func TestRecording(t *testing.T) {
 			t.Fatal("condition false")
 		}
 		r.Bool("check 587", player.HasDiverged() == false)
-		if !(player.WorldID().IsValid()) {
+		if !(player.World().IsValid()) {
 			t.Fatal("condition false")
 		}
-		r.Bool("check 591", player.WorldID().IsValid())
+		r.Bool("check 591", player.World().IsValid())
 
 		player.Restart()
 		if !(player.Frame() == 0) {
@@ -591,7 +590,7 @@ func TestRecording(t *testing.T) {
 
 		frames2 := 0
 		for player.StepFrame() {
-			trace.Check(t, r, player.WorldID(), "step 600", player.Frame())
+			trace.Check(t, r, player.World(), "step 600", player.Frame())
 			frames2 += 1
 		}
 		if !(frames2 == 60) {
@@ -608,7 +607,7 @@ func TestRecording(t *testing.T) {
 	}
 
 	{
-		player, err := box2d.CreateReplay(recData, 0)
+		player, err := box2d.NewReplay(recData, 0)
 		destroyPlayer := box2d.BTReplayCleanup(t, player)
 		if !(err == nil) {
 			t.Fatal("condition false")
@@ -622,7 +621,7 @@ func TestRecording(t *testing.T) {
 			t.Fatal("condition false")
 		}
 		r.Bool("check 616", check616)
-		trace.Check(t, r, player.WorldID(), "step 616", player.Frame())
+		trace.Check(t, r, player.World(), "step 616", player.Frame())
 		if !(recordingReplaySafetyFactor(player, "fastBody") == 0.1) {
 			t.Fatal("condition false")
 		}
@@ -635,7 +634,7 @@ func TestRecording(t *testing.T) {
 		r.F32("value 618", recordingReplaySafetyFactor(player, "dropBody"))
 
 		for player.StepFrame() {
-			trace.Check(t, r, player.WorldID(), "step 622", player.Frame())
+			trace.Check(t, r, player.World(), "step 622", player.Frame())
 		}
 		if !(recordingReplaySafetyFactor(player, "fastBody") == 0.4) {
 			t.Fatal("condition false")
@@ -646,7 +645,6 @@ func TestRecording(t *testing.T) {
 		destroyPlayer()
 	}
 
-	rec.Destroy()
 	if !(os.Remove(recPath) == nil) {
 		t.Fatal("condition false")
 	}
@@ -660,7 +658,7 @@ func TestRecordingOutliner(t *testing.T) {
 	worldDef := box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
 	worldDef.WorkerCount = 1
-	worldID := box2d.CreateWorld(&worldDef)
+	worldID := box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldID)
 
 	groundDef := box2d.DefaultBodyDef()
@@ -673,7 +671,7 @@ func TestRecordingOutliner(t *testing.T) {
 	for i := range dynamicCount {
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.ToPos(box2d.Vec2{X: float32(i), Y: 4.0})
+		bodyDef.Position = box2d.Vec2{X: float32(i), Y: 4.0}.Pos()
 		bodyID := worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
@@ -684,14 +682,14 @@ func TestRecordingOutliner(t *testing.T) {
 	worldID.Step(1.0/60.0, 4)
 	trace.Check(t, r, worldID, "step 665", 1)
 
-	rec := box2d.CreateRecording(0)
+	rec := box2d.NewRecording(0)
 	worldID.StartRecording(rec)
 	for i := range 10 {
 		worldID.Step(1.0/60.0, 4)
 		trace.Check(t, r, worldID, "step 671", i+2)
 	}
 	worldID.StopRecording()
-	worldID.Destroy()
+	worldID.Close()
 
 	recData := rec.Data()
 	recSize := rec.Size()
@@ -700,7 +698,7 @@ func TestRecordingOutliner(t *testing.T) {
 	}
 	r.Bool("check 678", recSize > 0)
 
-	player, err := box2d.CreateReplay(recData, 0)
+	player, err := box2d.NewReplay(recData, 0)
 	destroyPlayer := box2d.BTReplayCleanup(t, player)
 	if !(err == nil) {
 		t.Fatal("condition false")
@@ -710,7 +708,7 @@ func TestRecordingOutliner(t *testing.T) {
 	}
 	r.Bool("check 681", player != nil)
 
-	replayWorldID := player.WorldID()
+	replayWorldID := player.World()
 	seedCount := player.BodyCount()
 	if !(seedCount == expectedBodies) {
 		t.Fatal("condition false")
@@ -724,14 +722,14 @@ func TestRecordingOutliner(t *testing.T) {
 	r.I32("value 688", int32(seedCount))
 
 	for ord := range seedCount {
-		if !(player.BodyID(ord).IsValid()) {
+		if !(player.Body(ord).IsValid()) {
 			t.Fatal("condition false")
 		}
-		r.Bool("check 693", player.BodyID(ord).IsValid())
+		r.Bool("check 693", player.Body(ord).IsValid())
 	}
 
 	for player.StepFrame() {
-		trace.Check(t, r, player.WorldID(), "step 697", player.Frame())
+		trace.Check(t, r, player.World(), "step 697", player.Frame())
 	}
 
 	player.Restart()
@@ -742,17 +740,16 @@ func TestRecordingOutliner(t *testing.T) {
 	r.I32("value 702", int32(player.BodyCount()))
 
 	destroyPlayer()
-	rec.Destroy()
 	return
 }
 
 func recordingReplayDeepHash(player *box2d.Replay) uint64 {
-	return box2d.RecordingHashWorldStateDeep(box2d.RecordingGetWorldFromID(player.WorldID()))
+	return box2d.RecordingHashWorldStateDeep(player.World())
 }
 
 func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte, recSize, workerCount, budgetBytes, minInterval int) int {
 
-	ref, err := box2d.CreateReplay(recData, workerCount)
+	ref, err := box2d.NewReplay(recData, workerCount)
 	destroyRef := box2d.BTReplayCleanup(t, ref)
 	if !(err == nil) {
 		t.Fatal("condition false")
@@ -774,14 +771,14 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 	r.Bool("check 730", refHash != nil)
 	refHash[0] = recordingReplayDeepHash(ref)
 	r.U64("reference seed/hash", refHash[0])
-	trace.Check(t, r, ref.WorldID(), "reference seed", 0)
+	trace.Check(t, r, ref.World(), "reference seed", 0)
 	for f := 1; f <= frameCount; f++ {
 		check734 := ref.StepFrame()
 		if !(check734) {
 			t.Fatal("condition false")
 		}
 		r.Bool("check 734", check734)
-		trace.Check(t, r, ref.WorldID(), "step 734", ref.Frame())
+		trace.Check(t, r, ref.World(), "step 734", ref.Frame())
 		refHash[f] = recordingReplayDeepHash(ref)
 	}
 	if !(ref.HasDiverged() == false) {
@@ -790,7 +787,7 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 	r.Bool("check 737", ref.HasDiverged() == false)
 	destroyRef()
 
-	player, err := box2d.CreateReplay(recData, workerCount)
+	player, err := box2d.NewReplay(recData, workerCount)
 	destroyPlayer := box2d.BTReplayCleanup(t, player)
 	if !(err == nil) {
 		t.Fatal("condition false")
@@ -803,7 +800,7 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 		player.SetKeyframePolicy(uint(budgetBytes), minInterval)
 	}
 	for player.StepFrame() {
-		trace.Check(t, r, player.WorldID(), "step 749", player.Frame())
+		trace.Check(t, r, player.World(), "step 749", player.Frame())
 	}
 	if !(player.Frame() == frameCount) {
 		t.Fatal("condition false")
@@ -829,7 +826,7 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 		r.Bool("check 765", player.HasDiverged() == false)
 		got := recordingReplayDeepHash(player)
 		r.U64(fmt.Sprintf("seek 766/%d/hash", target), got)
-		trace.Check(t, r, player.WorldID(), "seek 766", target)
+		trace.Check(t, r, player.World(), "seek 766", target)
 		if got != refHash[target] {
 			t.Logf("keyframe seek mismatch at frame %d (wc %d): got %d want %d\n", target, workerCount, got,
 				refHash[target])
@@ -851,7 +848,7 @@ func TestRecordingKeyframe(t *testing.T) {
 	worldDef := box2d.DefaultWorldDef()
 	worldDef.Gravity = box2d.Vec2{X: 0.0, Y: -10.0}
 	worldDef.WorkerCount = 1
-	worldID := box2d.CreateWorld(&worldDef)
+	worldID := box2d.NewWorld(&worldDef)
 	box2d.BTWorldCleanup(t, worldID)
 
 	groundDef := box2d.DefaultBodyDef()
@@ -863,7 +860,7 @@ func TestRecordingKeyframe(t *testing.T) {
 	for i := range 8 {
 		bd := box2d.DefaultBodyDef()
 		bd.Type = box2d.DynamicBody
-		bd.Position = box2d.ToPos(box2d.Vec2{X: 0.05 * float32(i), Y: 2.0 + float32(1.1*float32(i))})
+		bd.Position = box2d.Vec2{X: 0.05 * float32(i), Y: 2.0 + float32(1.1*float32(i))}.Pos()
 		id := worldID.CreateBody(&bd)
 		sd := box2d.DefaultShapeDef()
 		sd.Density = 1.0
@@ -871,7 +868,7 @@ func TestRecordingKeyframe(t *testing.T) {
 		id.CreatePolygonShape(&sd, &box)
 	}
 
-	rec := box2d.CreateRecording(0)
+	rec := box2d.NewRecording(0)
 	worldID.StartRecording(rec)
 
 	for i := range 320 {
@@ -880,7 +877,7 @@ func TestRecordingKeyframe(t *testing.T) {
 	}
 
 	worldID.StopRecording()
-	worldID.Destroy()
+	worldID.Close()
 
 	recData := rec.Data()
 	recSize := rec.Size()
@@ -889,7 +886,7 @@ func TestRecordingKeyframe(t *testing.T) {
 	}
 	r.Bool("check 827", recSize > 0)
 
-	probe, err := box2d.CreateReplay(recData, 0)
+	probe, err := box2d.NewReplay(recData, 0)
 	destroyProbe := box2d.BTReplayCleanup(t, probe)
 	if !(err == nil) {
 		t.Fatal("condition false")
@@ -898,7 +895,7 @@ func TestRecordingKeyframe(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 832", probe != nil)
-	snapSize := len(probe.WorldID().Snapshot())
+	snapSize := len(box2d.BTSnapshot(probe.World()))
 	destroyProbe()
 	if !(snapSize > 0) {
 		t.Fatal("condition false")
@@ -926,11 +923,10 @@ func TestRecordingKeyframe(t *testing.T) {
 	}
 	r.Bool("check 843", check843)
 
-	rec.Destroy()
 	return
 }
 
-func recordingBuildScrubPyramid(worldID box2d.World, baseCount int) {
+func recordingBuildScrubPyramid(worldID *box2d.World, baseCount int) {
 	bd := box2d.DefaultBodyDef()
 	bd.Position = box2d.Pos{X: 0.0, Y: -1.0}
 	groundID := worldID.CreateBody(&bd)
@@ -951,18 +947,18 @@ func recordingBuildScrubPyramid(worldID box2d.World, baseCount int) {
 		for col := range count {
 			body := box2d.DefaultBodyDef()
 			body.Type = box2d.DynamicBody
-			body.Position = box2d.ToPos(box2d.Vec2{X: xStart + float32(float32(col)*pitch), Y: y})
+			body.Position = box2d.Vec2{X: xStart + float32(float32(col)*pitch), Y: y}.Pos()
 			id := worldID.CreateBody(&body)
 			id.CreatePolygonShape(&sd, &box)
 		}
 	}
 }
 
-func recordingBuildPyramidScene(worldID box2d.World) {
+func recordingBuildPyramidScene(worldID *box2d.World) {
 	recordingBuildScrubPyramid(worldID, 6)
 }
 
-func recordingIssuePileQueries(worldID box2d.World) {
+func recordingIssuePileQueries(worldID *box2d.World) {
 	filter := box2d.DefaultQueryFilter()
 
 	aabb := box2d.AABB{LowerBound: box2d.Vec2{X: -12.0, Y: -2.0}, UpperBound: box2d.Vec2{X: 12.0, Y: 22.0}}
@@ -972,14 +968,14 @@ func recordingIssuePileQueries(worldID box2d.World) {
 	worldID.CastRay(box2d.Pos{X: 0.0, Y: 22.0}, box2d.Vec2{X: 0.0, Y: -24.0}, filter, func(box2d.Shape, box2d.Pos, box2d.Vec2, float32) float32 { return 1 })
 }
 
-func recordingRecordSceneEx(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(box2d.World), workerCount, stepCount int, withQueries bool) *box2d.Recording {
+func recordingRecordSceneEx(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(*box2d.World), workerCount, stepCount int, withQueries bool) *box2d.Recording {
 	wd := box2d.DefaultWorldDef()
 	wd.WorkerCount = workerCount
-	worldID := box2d.CreateWorld(&wd)
+	worldID := box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, worldID)
 	build(worldID)
 
-	rec := box2d.CreateRecording(0)
+	rec := box2d.NewRecording(0)
 	worldID.StartRecording(rec)
 	for i := range stepCount {
 		worldID.Step(1.0/60.0, 4)
@@ -989,16 +985,16 @@ func recordingRecordSceneEx(t *testing.T, r *oracle.Reader, trace *recordingTrac
 		}
 	}
 	worldID.StopRecording()
-	worldID.Destroy()
+	worldID.Close()
 	return rec
 }
 
-func recordingRecordScene(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(box2d.World), workerCount, stepCount int) *box2d.Recording {
+func recordingRecordScene(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(*box2d.World), workerCount, stepCount int) *box2d.Recording {
 	return recordingRecordSceneEx(t, r, trace, build, workerCount, stepCount, false)
 }
 
 func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte, recSize, workerCount, budgetBytes, minInterval int) int {
-	ref, err := box2d.CreateReplay(recData, workerCount)
+	ref, err := box2d.NewReplay(recData, workerCount)
 	destroyRef := box2d.BTReplayCleanup(t, ref)
 	if !(err == nil) {
 		t.Fatal("condition false")
@@ -1020,14 +1016,14 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 	r.Bool("check 953", refHash != nil)
 	refHash[0] = recordingReplayDeepHash(ref)
 	r.U64("reference seed/hash", refHash[0])
-	trace.Check(t, r, ref.WorldID(), "reference seed", 0)
+	trace.Check(t, r, ref.World(), "reference seed", 0)
 	for f := 1; f <= frameCount; f++ {
 		check957 := ref.StepFrame()
 		if !(check957) {
 			t.Fatal("condition false")
 		}
 		r.Bool("check 957", check957)
-		trace.Check(t, r, ref.WorldID(), "step 957", ref.Frame())
+		trace.Check(t, r, ref.World(), "step 957", ref.Frame())
 		refHash[f] = recordingReplayDeepHash(ref)
 	}
 	if !(ref.HasDiverged() == false) {
@@ -1036,7 +1032,7 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 	r.Bool("check 960", ref.HasDiverged() == false)
 	destroyRef()
 
-	player, err := box2d.CreateReplay(recData, workerCount)
+	player, err := box2d.NewReplay(recData, workerCount)
 	destroyPlayer := box2d.BTReplayCleanup(t, player)
 	if !(err == nil) {
 		t.Fatal("condition false")
@@ -1049,7 +1045,7 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 		player.SetKeyframePolicy(uint(budgetBytes), minInterval)
 	}
 	for player.StepFrame() {
-		trace.Check(t, r, player.WorldID(), "step 970", player.Frame())
+		trace.Check(t, r, player.World(), "step 970", player.Frame())
 	}
 
 	for target := frameCount; target >= 0; target-- {
@@ -1061,7 +1057,7 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 		r.I32("value 976", int32(player.Frame()))
 		got := recordingReplayDeepHash(player)
 		r.U64(fmt.Sprintf("seek 977/%d/hash", target), got)
-		trace.Check(t, r, player.WorldID(), "seek 977", target)
+		trace.Check(t, r, player.World(), "seek 977", target)
 		diverged := player.HasDiverged()
 		r.Bool(fmt.Sprintf("scrub %d/diverged", target), diverged)
 		if got != refHash[target] || diverged {
@@ -1090,7 +1086,7 @@ func recordingScrubRecording(t *testing.T, r *oracle.Reader, trace *recordingTra
 	}
 	r.Bool("check 1003", recSize > 0)
 
-	probe, err := box2d.CreateReplay(recData, 0)
+	probe, err := box2d.NewReplay(recData, 0)
 	destroyProbe := box2d.BTReplayCleanup(t, probe)
 	if !(err == nil) {
 		t.Fatal("condition false")
@@ -1099,7 +1095,7 @@ func recordingScrubRecording(t *testing.T, r *oracle.Reader, trace *recordingTra
 		t.Fatal("condition false")
 	}
 	r.Bool("check 1006", probe != nil)
-	snapSize := len(probe.WorldID().Snapshot())
+	snapSize := len(box2d.BTSnapshot(probe.World()))
 	destroyProbe()
 	tightBudget := 4 * snapSize
 	check1011 := recordingCheckScrubAllFrames(t, r, trace, recData, recSize, workerCount, tightBudget, 8) == 0
@@ -1125,7 +1121,6 @@ func TestRecordingScrub(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 1023", check1023)
-	rec.Destroy()
 	return
 }
 
@@ -1139,17 +1134,16 @@ func TestRecordingQueryScrub(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("check 1034", check1034)
-	rec.Destroy()
 	return
 }
 
-func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(box2d.World), name string, workerCount, churnFrame, restepCount, reps int) int {
+func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(*box2d.World), name string, workerCount, churnFrame, restepCount, reps int) int {
 	const dt float32 = 1.0 / 60.0
 	subSteps := 4
 
 	wd := box2d.DefaultWorldDef()
 	wd.WorkerCount = workerCount
-	liveID := box2d.CreateWorld(&wd)
+	liveID := box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, liveID)
 	build(liveID)
 	for i := range churnFrame {
@@ -1157,14 +1151,14 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 		trace.Check(t, r, liveID, "step 1074", i+1)
 	}
 
-	image := liveID.Snapshot()
-	liveID.Destroy()
+	image := box2d.BTSnapshot(liveID)
+	liveID.Close()
 
 	cd := box2d.DefaultWorldDef()
 	cd.WorkerCount = workerCount
-	cloneID := box2d.CreateWorld(&cd)
+	cloneID := box2d.NewWorld(&cd)
 	box2d.BTWorldCleanup(t, cloneID)
-	clone := box2d.RecordingGetWorldFromID(cloneID)
+	clone := cloneID
 
 	var ref uint64
 	result := 0
@@ -1172,7 +1166,7 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 		if result != 0 {
 			break
 		}
-		check1091 := cloneID.Restore(image) == nil
+		check1091 := cloneID.UnmarshalBinary(image) == nil
 		if !(check1091) {
 			t.Fatal("condition false")
 		}
@@ -1192,7 +1186,7 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 		}
 	}
 
-	cloneID.Destroy()
+	cloneID.Close()
 
 	return result
 }
@@ -1532,7 +1526,7 @@ func recordingUnpackTransforms(raw []byte) ([]recordingTransformBits, error) {
 	return bodies, nil
 }
 
-func (trace *recordingTrace) Check(t *testing.T, r *oracle.Reader, world box2d.World, prefix string, frame int) {
+func (trace *recordingTrace) Check(t *testing.T, r *oracle.Reader, world *box2d.World, prefix string, frame int) {
 	t.Helper()
 	trace.started = true
 	transforms := box2d.RecordingBodyTransforms(world)

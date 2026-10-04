@@ -29,7 +29,6 @@ static int nb, ns, nj;
 static uint8_t* image;
 static int image_size;
 static unsigned epoch;
-static uint16_t initial_generation, initial_slot;
 
 // Only the process-local world slot is mapped. Allocation index and the full
 // object generation are preserved, including event IDs for destroyed objects.
@@ -149,8 +148,6 @@ static void world_state( b2WorldId w )
 static void observe( void )
 {
 	ORACLE_U32( "world.epoch", epoch );
-	ORACLE_U32( "world.generation.delta", (uint16_t)( world.generation - initial_generation ) );
-	ORACLE_BOOL( "world.slot.reused", world.index1 == initial_slot );
 	world_state( world );
 	for ( int i = 0; i < slot_count; ++i )
 	{
@@ -404,8 +401,6 @@ static int run_sequence( const char* name, const uint8_t* input, size_t size )
 	image_size = 0;
 	image = NULL;
 	world = new_world();
-	initial_generation = world.generation;
-	initial_slot = world.index1;
 	ORACLE_OPEN( name );
 	ORACLE_BYTES( "input", input, size );
 	observe();

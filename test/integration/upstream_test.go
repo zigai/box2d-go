@@ -28,6 +28,7 @@ type conformanceCase struct {
 type conformanceSuite struct {
 	Go      string                     `json:"go"`
 	Fixture string                     `json:"fixture"`
+	Reason  string                     `json:"reason"`
 	Cases   map[string]conformanceCase `json:"cases"`
 }
 
@@ -226,7 +227,14 @@ func TestUpstreamSuite(t *testing.T) {
 		}
 	}
 	active := 0
-	for _, suite := range catalog.Suites {
+	for name, suite := range catalog.Suites {
+		if suite.Go == "" {
+			if suite.Reason == "" || len(suite.Cases) != 0 {
+				t.Errorf("upstream suite %s has no Go case and no reason", name)
+			}
+			active++
+			continue
+		}
 		require(suite.Go)
 		if suite.Fixture != "" && used[suite.Fixture] == 0 {
 			t.Errorf("upstream suite fixture %s was never consumed", suite.Fixture)

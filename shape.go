@@ -105,7 +105,7 @@ type ShapeDef struct {
 	// Sensors do not have continuous collision. Instead, use a ray or shape cast for those scenarios.
 	// Sensors still contribute to the body mass if they have non-zero density.
 	// Note: Sensor events are disabled by default.
-	// See: EnableSensorEvents
+	// See: SetSensorEventsEnabled
 	IsSensor bool
 	// Enable sensor events for this shape. This applies to sensors and non-sensors. Both shapes involved must have this flag set
 	// to true. False by default, even for sensors.
@@ -146,11 +146,9 @@ type ChainDef struct {
 	// Use this to store application specific shape data.
 	UserData any
 	// Array of chain points. Each consecutive pair forms a segment. For a loop
-	// the last and first point form a segment. Cloned.
+	// the last and first point form a segment. At least 2 points for an open chain
+	// and at least 3 for a loop. Cloned.
 	Points []Vec2
-	// The point count. At least 2 for an open chain and at least 3 for a loop.
-	// SegmentCount = PointCount for loops, PointCount - 1 for open chains
-	PointCount int
 	// Leading ghost point for an open chain. Distance from first point must be greater
 	// than LinearSlop. Ignored for loops.
 	Ghost1 Vec2
@@ -159,8 +157,6 @@ type ChainDef struct {
 	Ghost2 Vec2
 	// One material for the whole chain or one for each segment. Cloned.
 	Materials []SurfaceMaterial
-	// The material count. Must be 1 or the segment count.
-	MaterialCount int
 	// Contact filtering data.
 	Filter Filter
 	// Indicates a closed chain formed by connecting the first and last point.
@@ -221,14 +217,14 @@ const (
 	DefaultMaskBits     uint64 = 0xffffffffffffffff
 )
 
-func getShape(world *world, shapeID Shape) *shape {
+func getShape(world *World, shapeID Shape) *shape {
 	id := int(shapeID.index1) - 1
 	shape := &world.shapes[id]
 	assert(shape.id == id && shape.generation == shapeID.generation, "shape.id == id && shape.generation == shapeID.generation")
 	return shape
 }
 
-func getChainShape(world *world, chainID Chain) *chainShape {
+func getChainShape(world *World, chainID Chain) *chainShape {
 	id := int(chainID.index1) - 1
 	chain := &world.chainShapes[id]
 	assert(chain.id == id && chain.generation == chainID.generation, "chain.id == id && chain.generation == chainID.generation")
@@ -241,7 +237,7 @@ func computeShapeMargin(shape *shape) float32 {
 	switch shape.shapeType {
 	case CapsuleShape:
 		{
-			margin = float32(0.5*Distance(shape.capsule.Center2, shape.capsule.Center1)) + shape.capsule.Radius
+			margin = float32(0.5*shape.capsule.Center2.Distance(shape.capsule.Center1)) + shape.capsule.Radius
 		}
 		break
 
@@ -257,8 +253,8 @@ func computeShapeMargin(shape *shape) float32 {
 			maxExtentSqr := float32(0.0)
 			count := poly.Count
 			for i := 0; i < count; i++ {
-				distanceSqr := DistanceSquared(poly.Vertices[i], poly.Centroid)
-				maxExtentSqr = MaxFloat(maxExtentSqr, distanceSqr)
+				distanceSqr := poly.Vertices[i].DistanceSquared(poly.Centroid)
+				maxExtentSqr = maxFloat(maxExtentSqr, distanceSqr)
 			}
 
 			margin = float32(math.Sqrt(float64(maxExtentSqr)))
@@ -267,13 +263,13 @@ func computeShapeMargin(shape *shape) float32 {
 
 	case SegmentShape:
 		{
-			margin = 0.5 * Distance(shape.segment.Point1, shape.segment.Point2)
+			margin = 0.5 * shape.segment.Point1.Distance(shape.segment.Point2)
 		}
 		break
 
 	case ChainSegmentShape:
 		{
-			margin = 0.5 * Distance(shape.chainSegment.Segment.Point1, shape.chainSegment.Segment.Point2)
+			margin = 0.5 * shape.chainSegment.Segment.Point1.Distance(shape.chainSegment.Segment.Point2)
 		}
 		break
 
@@ -282,7 +278,7 @@ func computeShapeMargin(shape *shape) float32 {
 		return MaxAABBMargin()
 	}
 
-	return MinFloat(MaxAABBMargin(), AABBMarginFraction*margin)
+	return minFloat(MaxAABBMargin(), AABBMarginFraction*margin)
 }
 
 func updateShapeAABBs(shape *shape, fatAABB *AABB, transform WorldTransform, proxyType BodyType) {
@@ -304,7 +300,7 @@ func updateShapeAABBs(shape *shape, fatAABB *AABB, transform WorldTransform, pro
 	fatAABB.UpperBound.Y = aabb.UpperBound.Y + margin
 }
 
-func createShapeInternal(world *world, body *body, transform WorldTransform, def *ShapeDef, geometry any, shapeType ShapeType) *shape {
+func createShapeInternal(world *World, body *body, transform WorldTransform, def *ShapeDef, geometry any, shapeType ShapeType) *shape {
 	shapeID := allocID(&world.shapeIDPool)
 
 	if shapeID == len(world.shapes) {
@@ -403,21 +399,21 @@ func isValidMaterial(material *SurfaceMaterial) bool {
 }
 
 func isValidCircle(circle *Circle) bool {
-	return IsValidVec2(circle.Center) && IsValidFloat(circle.Radius) && circle.Radius >= 0.0
+	return circle.Center.IsValid() && IsValidFloat(circle.Radius) && circle.Radius >= 0.0
 }
 
 func isValidCapsule(capsule *Capsule) bool {
-	return IsValidVec2(capsule.Center1) && IsValidVec2(capsule.Center2) && IsValidFloat(capsule.Radius) &&
+	return capsule.Center1.IsValid() && capsule.Center2.IsValid() && IsValidFloat(capsule.Radius) &&
 		capsule.Radius >= 0.0
 }
 
 func isValidSegment(segment *Segment) bool {
-	return IsValidVec2(segment.Point1) && IsValidVec2(segment.Point2)
+	return segment.Point1.IsValid() && segment.Point2.IsValid()
 }
 
 func isValidChainSegment(chainSegment *ChainSegment) bool {
-	return IsValidVec2(chainSegment.Ghost1) && isValidSegment(&chainSegment.Segment) &&
-		IsValidVec2(chainSegment.Ghost2)
+	return chainSegment.Ghost1.IsValid() && isValidSegment(&chainSegment.Segment) &&
+		chainSegment.Ghost2.IsValid()
 }
 
 func isValidPolygon(polygon *Polygon) bool {
@@ -429,12 +425,12 @@ func isValidPolygon(polygon *Polygon) bool {
 		return false
 	}
 
-	if IsValidVec2(polygon.Centroid) == false {
+	if polygon.Centroid.IsValid() == false {
 		return false
 	}
 
 	for i := 0; i < polygon.Count; i++ {
-		if IsValidVec2(polygon.Vertices[i]) == false || IsValidVec2(polygon.Normals[i]) == false {
+		if polygon.Vertices[i].IsValid() == false || polygon.Normals[i].IsValid() == false {
 			return false
 		}
 	}
@@ -443,15 +439,11 @@ func isValidPolygon(polygon *Polygon) bool {
 }
 
 func createShape(bodyID Body, def *ShapeDef, geometry any, shapeType ShapeType) Shape {
-	assert(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
-	if !checkInputReturn(IsValidFloat(def.Density) && def.Density >= 0.0, "IsValidFloat( def.Density ) && def.Density >= 0.0") {
-		return Shape{}
-	}
-	if !checkInputReturn(isValidMaterial(&def.Material), "isValidMaterial( &def.Material )") {
-		return Shape{}
-	}
+	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
+	checkInput(IsValidFloat(def.Density) && def.Density >= 0.0, "IsValidFloat( def.Density ) && def.Density >= 0.0")
+	checkInput(isValidMaterial(&def.Material), "isValidMaterial( &def.Material )")
 
-	world := getWorldLocked(int(bodyID.world0))
+	world := getWorldLocked(bodyID.world)
 	if world == nil {
 		return Shape{}
 	}
@@ -470,7 +462,7 @@ func createShape(bodyID Body, def *ShapeDef, geometry any, shapeType ShapeType) 
 
 	validateSolverSets(world)
 
-	id := Shape{index1: int32(shape.id + 1), world0: bodyID.world0, generation: shape.generation}
+	id := Shape{index1: int32(shape.id + 1), world: bodyID.world, generation: shape.generation}
 	return id
 }
 
@@ -478,13 +470,11 @@ func createShape(bodyID Body, def *ShapeDef, geometry any, shapeType ShapeType) 
 // Contacts are not created until the next time step.
 // Returns: the shape id for accessing the shape
 func (b Body) CreateCircleShape(def *ShapeDef, circle *Circle) Shape {
-	if !checkInputReturn(isValidCircle(circle), "isValidCircle( circle )") {
-		return Shape{}
-	}
+	checkInput(isValidCircle(circle), "isValidCircle( circle )")
 
 	id := createShape(b, def, circle, CircleShape)
 
-	world := getWorld(int(b.world0))
+	world := b.world
 	if world.recording != nil {
 		recWriteRetCreateCircleShape(world.recording, &recArgsCreateCircleShape{body: b, def: *def, circle: *circle}, id)
 	}
@@ -496,18 +486,16 @@ func (b Body) CreateCircleShape(def *ShapeDef, circle *Circle) Shape {
 // Contacts are not created until the next time step.
 // Returns: the shape id for accessing the shape, this will be Shape{} if the length is too small.
 func (b Body) CreateCapsuleShape(def *ShapeDef, capsule *Capsule) Shape {
-	if !checkInputReturn(isValidCapsule(capsule), "isValidCapsule( capsule )") {
-		return Shape{}
-	}
+	checkInput(isValidCapsule(capsule), "isValidCapsule( capsule )")
 
-	lengthSqr := DistanceSquared(capsule.Center1, capsule.Center2)
+	lengthSqr := capsule.Center1.DistanceSquared(capsule.Center2)
 	if lengthSqr <= LinearSlop()*LinearSlop() {
 		return Shape{}
 	}
 
 	id := createShape(b, def, capsule, CapsuleShape)
 
-	world := getWorld(int(b.world0))
+	world := b.world
 	if world.recording != nil {
 		recWriteRetCreateCapsuleShape(world.recording, &recArgsCreateCapsuleShape{body: b, def: *def, capsule: *capsule}, id)
 	}
@@ -519,13 +507,11 @@ func (b Body) CreateCapsuleShape(def *ShapeDef, capsule *Capsule) Shape {
 // Contacts are not created until the next time step.
 // Returns: the shape id for accessing the shape
 func (b Body) CreatePolygonShape(def *ShapeDef, polygon *Polygon) Shape {
-	if !checkInputReturn(isValidPolygon(polygon), "isValidPolygon( polygon )") {
-		return Shape{}
-	}
+	checkInput(isValidPolygon(polygon), "isValidPolygon( polygon )")
 
 	id := createShape(b, def, polygon, PolygonShape)
 
-	world := getWorld(int(b.world0))
+	world := b.world
 	if world.recording != nil {
 		recWriteRetCreatePolygonShape(world.recording, &recArgsCreatePolygonShape{body: b, def: *def, polygon: *polygon}, id)
 	}
@@ -537,11 +523,9 @@ func (b Body) CreatePolygonShape(def *ShapeDef, polygon *Polygon) Shape {
 // Contacts are not created until the next time step.
 // Returns: the shape id or Shape{} if the segment is too short.
 func (b Body) CreateSegmentShape(def *ShapeDef, segment *Segment) Shape {
-	if !checkInputReturn(isValidSegment(segment), "isValidSegment( segment )") {
-		return Shape{}
-	}
+	checkInput(isValidSegment(segment), "isValidSegment( segment )")
 
-	lengthSqr := DistanceSquared(segment.Point1, segment.Point2)
+	lengthSqr := segment.Point1.DistanceSquared(segment.Point2)
 	if lengthSqr <= LinearSlop()*LinearSlop() {
 		assert(false, "false")
 		return Shape{}
@@ -549,7 +533,7 @@ func (b Body) CreateSegmentShape(def *ShapeDef, segment *Segment) Shape {
 
 	id := createShape(b, def, segment, SegmentShape)
 
-	world := getWorld(int(b.world0))
+	world := b.world
 	if world.recording != nil {
 		recWriteRetCreateSegmentShape(world.recording, &recArgsCreateSegmentShape{body: b, def: *def, segment: *segment}, id)
 	}
@@ -563,11 +547,9 @@ func (b Body) CreateSegmentShape(def *ShapeDef, segment *Segment) Shape {
 // Chain{}). Contacts are not created until the next time step.
 // Returns: the shape id, or Shape{} if the segment is too short.
 func (b Body) CreateChainSegmentShape(def *ShapeDef, chainSegment *ChainSegment) Shape {
-	if !checkInputReturn(isValidChainSegment(chainSegment), "isValidChainSegment( chainSegment )") {
-		return Shape{}
-	}
+	checkInput(isValidChainSegment(chainSegment), "isValidChainSegment( chainSegment )")
 
-	lengthSqr := DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2)
+	lengthSqr := chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2)
 	if lengthSqr <= LinearSlop()*LinearSlop() {
 		assert(false, "false")
 		return Shape{}
@@ -579,7 +561,7 @@ func (b Body) CreateChainSegmentShape(def *ShapeDef, chainSegment *ChainSegment)
 
 	id := createShape(b, def, &local, ChainSegmentShape)
 
-	world := getWorld(int(b.world0))
+	world := b.world
 	if world.recording != nil {
 		recWriteRetCreateChainSegmentShape(world.recording, &recArgsCreateChainSegmentShape{body: b, def: *def, chainSegment: local}, id)
 	}
@@ -587,7 +569,7 @@ func (b Body) CreateChainSegmentShape(def *ShapeDef, chainSegment *ChainSegment)
 	return id
 }
 
-func destroyShapeInternal(world *world, shape *shape, body *body) {
+func destroyShapeInternal(world *World, shape *shape, body *body) {
 	shapeID := shape.id
 
 	// Remove the shape from the body's doubly linked list.
@@ -629,8 +611,8 @@ func destroyShapeInternal(world *world, shape *shape, body *body) {
 		for i := 0; i < len(sensor.overlaps2); i++ {
 			ref := &sensor.overlaps2[i]
 			event := SensorEndTouchEvent{
-				SensorShapeID:  Shape{index1: int32(shapeID + 1), world0: world.worldID, generation: shape.generation},
-				VisitorShapeID: Shape{index1: int32(ref.shapeID + 1), world0: world.worldID, generation: ref.generation},
+				SensorShape:  Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation},
+				VisitorShape: Shape{index1: int32(ref.shapeID + 1), world: world, generation: ref.generation},
 			}
 
 			world.sensorEndEvents[world.endEventArrayIndex] = arrayPush(world.sensorEndEvents[world.endEventArrayIndex], event)
@@ -663,7 +645,7 @@ func destroyShapeInternal(world *world, shape *shape, body *body) {
 //	body are destroyed at once.
 //	See: Body.UpdateMassFromShapes
 func (s Shape) Destroy(updateBodyMass bool) {
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -691,47 +673,35 @@ func (s Shape) Destroy(updateBodyMass bool) {
 // Create a chain shape
 // See: ChainDef for details
 func (b Body) CreateChain(def *ChainDef) Chain {
-	assert(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
-	validPointCount := def.PointCount >= 2
+	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
+	validPointCount := len(def.Points) >= 2
 	if def.IsLoop {
-		validPointCount = def.PointCount >= 3
+		validPointCount = len(def.Points) >= 3
 	}
-	if !checkInputReturn(validPointCount, "def.IsLoop ? def.PointCount >= 3 : def.PointCount >= 2") {
-		return Chain{}
-	}
+	checkInput(validPointCount, "def.IsLoop ? len(def.Points) >= 3 : len(def.Points) >= 2")
 
-	segmentCount := def.PointCount - 1
+	segmentCount := len(def.Points) - 1
 	if def.IsLoop {
-		segmentCount = def.PointCount
+		segmentCount = len(def.Points)
 	}
 
-	if !checkInputReturn(def.MaterialCount == 1 || def.MaterialCount == segmentCount, "def.MaterialCount == 1 || def.MaterialCount == segmentCount") {
-		return Chain{}
+	checkInput(len(def.Materials) == 1 || len(def.Materials) == segmentCount, "len(def.Materials) == 1 || len(def.Materials) == segmentCount")
+
+	for i := 0; i < len(def.Points); i++ {
+		checkInput(def.Points[i].IsValid(), "IsValidVec2( def.Points[i] )")
 	}
 
-	for i := 0; i < def.PointCount; i++ {
-		if !checkInputReturn(IsValidVec2(def.Points[i]), "IsValidVec2( def.Points[i] )") {
-			return Chain{}
-		}
-	}
-
-	for i := 0; i < def.MaterialCount; i++ {
-		if !checkInputReturn(isValidMaterial(&def.Materials[i]), "isValidMaterial( &def.Materials[i] )") {
-			return Chain{}
-		}
+	for i := 0; i < len(def.Materials); i++ {
+		checkInput(isValidMaterial(&def.Materials[i]), "isValidMaterial( &def.Materials[i] )")
 	}
 
 	if def.IsLoop == false {
 		// These are set to INFINITY in the default def as a sentinel to ensure they are set.
-		if !checkInputReturn(IsValidVec2(def.Ghost1), "IsValidVec2( def.Ghost1 )") {
-			return Chain{}
-		}
-		if !checkInputReturn(IsValidVec2(def.Ghost2), "IsValidVec2( def.Ghost2 )") {
-			return Chain{}
-		}
+		checkInput(def.Ghost1.IsValid(), "IsValidVec2( def.Ghost1 )")
+		checkInput(def.Ghost2.IsValid(), "IsValidVec2( def.Ghost2 )")
 	}
 
-	world := getWorldLocked(int(b.world0))
+	world := getWorldLocked(b.world)
 	if world == nil {
 		return Chain{}
 	}
@@ -755,7 +725,7 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 	chainShape.segmentCount = segmentCount
 	chainShape.generation += 1
 
-	materialCount := def.MaterialCount
+	materialCount := len(def.Materials)
 
 	body.headChainID = chainID
 
@@ -783,8 +753,8 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 			chainSegment.Segment.Point2 = points[(i+1)%n]
 			chainSegment.Ghost2 = points[(i+2)%n]
 
-			assert(DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
-			assert(DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
+			assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
+			assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
 
 			chainSegment.ChainID = chainID
 			prevIndex = i
@@ -802,7 +772,7 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 		var chainSegment ChainSegment
 
 		for i := 0; i < n; i++ {
-			assert(i+1 < def.PointCount, "i + 1 < def.PointCount")
+			assert(i+1 < len(def.Points), "i + 1 < len(def.Points)")
 			if i == 0 {
 				chainSegment.Ghost1 = def.Ghost1
 			} else {
@@ -816,9 +786,9 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 				chainSegment.Ghost2 = points[i+2]
 			}
 
-			assert(DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
-			assert(DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
-			assert(DistanceSquared(chainSegment.Segment.Point2, chainSegment.Ghost2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point2, chainSegment.Ghost2) > tolSqr")
+			assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
+			assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
+			assert(chainSegment.Segment.Point2.DistanceSquared(chainSegment.Ghost2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point2, chainSegment.Ghost2) > tolSqr")
 
 			chainSegment.ChainID = chainID
 
@@ -833,7 +803,7 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 		}
 	}
 
-	id := Chain{index1: int32(chainID + 1), world0: world.worldID, generation: chainShape.generation}
+	id := Chain{index1: int32(chainID + 1), world: world, generation: chainShape.generation}
 
 	if world.recording != nil {
 		recWriteRetCreateChain(world.recording, &recArgsCreateChain{body: b, def: *def}, id)
@@ -848,7 +818,7 @@ func freeChainData(chain *chainShape) {
 
 // Destroy a chain shape
 func (c Chain) Destroy() {
-	world := getWorldLocked(int(c.world0))
+	world := getWorldLocked(c.world)
 	if world == nil {
 		return
 	}
@@ -896,14 +866,13 @@ func (c Chain) Destroy() {
 }
 
 // Get the world that owns this chain shape
-func (c Chain) World() World {
-	world := getWorld(int(c.world0))
-	return World{c.world0 + 1, world.generation}
+func (c Chain) World() *World {
+	return c.world
 }
 
 // Get the number of segments on this chain
 func (c Chain) SegmentCount() int {
-	world := getWorldLocked(int(c.world0))
+	world := getWorldLocked(c.world)
 	if world == nil {
 		return 0
 	}
@@ -914,7 +883,7 @@ func (c Chain) SegmentCount() int {
 
 // Get chain segment shape ids.
 func (c Chain) Segments() iter.Seq[Shape] {
-	world := getWorldLocked(int(c.world0))
+	world := getWorldLocked(c.world)
 	if world == nil {
 		return func(yield func(Shape) bool) {}
 	}
@@ -923,7 +892,7 @@ func (c Chain) Segments() iter.Seq[Shape] {
 		for i := 0; i < chain.segmentCount; i++ {
 			shapeID := chain.shapeIndices[i]
 			shape := &world.shapes[shapeID]
-			if !yield(Shape{index1: int32(shapeID + 1), world0: c.world0, generation: shape.generation}) {
+			if !yield(Shape{index1: int32(shapeID + 1), world: c.world, generation: shape.generation}) {
 				return
 			}
 		}
@@ -932,11 +901,9 @@ func (c Chain) Segments() iter.Seq[Shape] {
 
 // Set a chain material by segment index.
 func (c Chain) SetSurfaceMaterial(material *SurfaceMaterial, segmentIndex int) {
-	if !checkInput(isValidMaterial(material), "isValidMaterial( material )") {
-		return
-	}
+	checkInput(isValidMaterial(material), "isValidMaterial( material )")
 
-	world := getWorldLocked(int(c.world0))
+	world := getWorldLocked(c.world)
 	if world == nil {
 		return
 	}
@@ -954,11 +921,9 @@ func (c Chain) SetSurfaceMaterial(material *SurfaceMaterial, segmentIndex int) {
 
 // Set the chain material on all segments.
 func (c Chain) SetAllSurfaceMaterials(material *SurfaceMaterial) {
-	if !checkInput(isValidMaterial(material), "isValidMaterial( material )") {
-		return
-	}
+	checkInput(isValidMaterial(material), "isValidMaterial( material )")
 
-	world := getWorldLocked(int(c.world0))
+	world := getWorldLocked(c.world)
 	if world == nil {
 		return
 	}
@@ -978,7 +943,7 @@ func (c Chain) SetAllSurfaceMaterials(material *SurfaceMaterial) {
 
 // Get a chain material by segment index.
 func (c Chain) SurfaceMaterial(segmentIndex int) SurfaceMaterial {
-	world := getWorld(int(c.world0))
+	world := c.world
 	chainShape := getChainShape(world, c)
 	assert(0 <= segmentIndex && segmentIndex < chainShape.segmentCount, "0 <= segmentIndex && segmentIndex < chainShape.segmentCount")
 	shapeID := chainShape.shapeIndices[segmentIndex]
@@ -1010,15 +975,15 @@ func computeShapeAABB(shape *shape, xf WorldTransform) AABB {
 func getShapeCentroid(shape *shape) Vec2 {
 	switch shape.shapeType {
 	case CapsuleShape:
-		return Lerp(shape.capsule.Center1, shape.capsule.Center2, 0.5)
+		return shape.capsule.Center1.Lerp(shape.capsule.Center2, 0.5)
 	case CircleShape:
 		return shape.circle.Center
 	case PolygonShape:
 		return shape.polygon.Centroid
 	case SegmentShape:
-		return Lerp(shape.segment.Point1, shape.segment.Point2, 0.5)
+		return shape.segment.Point1.Lerp(shape.segment.Point2, 0.5)
 	case ChainSegmentShape:
-		return Lerp(shape.chainSegment.Segment.Point1, shape.chainSegment.Segment.Point2, 0.5)
+		return shape.chainSegment.Segment.Point1.Lerp(shape.chainSegment.Segment.Point2, 0.5)
 	default:
 		return Vec2{}
 	}
@@ -1027,7 +992,7 @@ func getShapeCentroid(shape *shape) Vec2 {
 func getShapePerimeter(shape *shape) float32 {
 	switch shape.shapeType {
 	case CapsuleShape:
-		return float32(2.0*Length(Sub(shape.capsule.Center1, shape.capsule.Center2))) + float32(2.0*Pi*shape.capsule.Radius)
+		return float32(2.0*shape.capsule.Center1.Sub(shape.capsule.Center2).Length()) + float32(2.0*Pi*shape.capsule.Radius)
 	case CircleShape:
 		return 2.0 * Pi * shape.circle.Radius
 	case PolygonShape:
@@ -1039,16 +1004,16 @@ func getShapePerimeter(shape *shape) float32 {
 			prev := points[count-1]
 			for i := 0; i < count; i++ {
 				next := points[i]
-				perimeter += Length(Sub(next, prev))
+				perimeter += next.Sub(prev).Length()
 				prev = next
 			}
 
 			return perimeter
 		}
 	case SegmentShape:
-		return 2.0 * Length(Sub(shape.segment.Point1, shape.segment.Point2))
+		return 2.0 * shape.segment.Point1.Sub(shape.segment.Point2).Length()
 	case ChainSegmentShape:
-		return 2.0 * Length(Sub(shape.chainSegment.Segment.Point1, shape.chainSegment.Segment.Point2))
+		return 2.0 * shape.chainSegment.Segment.Point1.Sub(shape.chainSegment.Segment.Point2).Length()
 	default:
 		return 0.0
 	}
@@ -1058,8 +1023,8 @@ func getShapeProjectedPerimeter(shape *shape, line Vec2) float32 {
 	switch shape.shapeType {
 	case CapsuleShape:
 		{
-			axis := Sub(shape.capsule.Center2, shape.capsule.Center1)
-			projectedLength := AbsFloat(Dot(axis, line))
+			axis := shape.capsule.Center2.Sub(shape.capsule.Center1)
+			projectedLength := absFloat(axis.Dot(line))
 			return projectedLength + float32(2.0*shape.capsule.Radius)
 		}
 
@@ -1071,13 +1036,13 @@ func getShapeProjectedPerimeter(shape *shape, line Vec2) float32 {
 			points := shape.polygon.Vertices
 			count := shape.polygon.Count
 			assert(count > 0, "count > 0")
-			value := Dot(points[0], line)
+			value := points[0].Dot(line)
 			lower := value
 			upper := value
 			for i := 1; i < count; i++ {
-				value = Dot(points[i], line)
-				lower = MinFloat(lower, value)
-				upper = MaxFloat(upper, value)
+				value = points[i].Dot(line)
+				lower = minFloat(lower, value)
+				upper = maxFloat(upper, value)
 			}
 
 			return (upper - lower) + float32(2.0*shape.polygon.Radius)
@@ -1085,16 +1050,16 @@ func getShapeProjectedPerimeter(shape *shape, line Vec2) float32 {
 
 	case SegmentShape:
 		{
-			value1 := Dot(shape.segment.Point1, line)
-			value2 := Dot(shape.segment.Point2, line)
-			return AbsFloat(value2 - value1)
+			value1 := shape.segment.Point1.Dot(line)
+			value2 := shape.segment.Point2.Dot(line)
+			return absFloat(value2 - value1)
 		}
 
 	case ChainSegmentShape:
 		{
-			value1 := Dot(shape.chainSegment.Segment.Point1, line)
-			value2 := Dot(shape.chainSegment.Segment.Point2, line)
-			return AbsFloat(value2 - value1)
+			value1 := shape.chainSegment.Segment.Point1.Dot(line)
+			value2 := shape.chainSegment.Segment.Point2.Dot(line)
+			return absFloat(value2 - value1)
 		}
 
 	default:
@@ -1123,9 +1088,9 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 		{
 			radius := shape.capsule.Radius
 			extent.minExtent = radius
-			c1 := Sub(shape.capsule.Center1, localCenter)
-			c2 := Sub(shape.capsule.Center2, localCenter)
-			extent.maxExtent = float32(math.Sqrt(float64(MaxFloat(LengthSquared(c1), LengthSquared(c2))))) + radius
+			c1 := shape.capsule.Center1.Sub(localCenter)
+			c2 := shape.capsule.Center2.Sub(localCenter)
+			extent.maxExtent = float32(math.Sqrt(float64(maxFloat(c1.LengthSquared(), c2.LengthSquared())))) + radius
 		}
 		break
 
@@ -1133,7 +1098,7 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 		{
 			radius := shape.circle.Radius
 			extent.minExtent = radius
-			extent.maxExtent = Length(Sub(shape.circle.Center, localCenter)) + radius
+			extent.maxExtent = shape.circle.Center.Sub(localCenter).Length() + radius
 		}
 		break
 
@@ -1145,11 +1110,11 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 			count := poly.Count
 			for i := 0; i < count; i++ {
 				v := poly.Vertices[i]
-				planeOffset := Dot(poly.Normals[i], Sub(v, poly.Centroid))
-				minExtent = MinFloat(minExtent, planeOffset)
+				planeOffset := poly.Normals[i].Dot(v.Sub(poly.Centroid))
+				minExtent = minFloat(minExtent, planeOffset)
 
-				distanceSqr := LengthSquared(Sub(v, localCenter))
-				maxExtentSqr = MaxFloat(maxExtentSqr, distanceSqr)
+				distanceSqr := v.Sub(localCenter).LengthSquared()
+				maxExtentSqr = maxFloat(maxExtentSqr, distanceSqr)
 			}
 
 			extent.minExtent = minExtent + poly.Radius
@@ -1160,18 +1125,18 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 	case SegmentShape:
 		{
 			extent.minExtent = 0.0
-			c1 := Sub(shape.segment.Point1, localCenter)
-			c2 := Sub(shape.segment.Point2, localCenter)
-			extent.maxExtent = float32(math.Sqrt(float64(MaxFloat(LengthSquared(c1), LengthSquared(c2)))))
+			c1 := shape.segment.Point1.Sub(localCenter)
+			c2 := shape.segment.Point2.Sub(localCenter)
+			extent.maxExtent = float32(math.Sqrt(float64(maxFloat(c1.LengthSquared(), c2.LengthSquared()))))
 		}
 		break
 
 	case ChainSegmentShape:
 		{
 			extent.minExtent = 0.0
-			c1 := Sub(shape.chainSegment.Segment.Point1, localCenter)
-			c2 := Sub(shape.chainSegment.Segment.Point2, localCenter)
-			extent.maxExtent = float32(math.Sqrt(float64(MaxFloat(LengthSquared(c1), LengthSquared(c2)))))
+			c1 := shape.chainSegment.Segment.Point1.Sub(localCenter)
+			c2 := shape.chainSegment.Segment.Point2.Sub(localCenter)
+			extent.maxExtent = float32(math.Sqrt(float64(maxFloat(c1.LengthSquared(), c2.LengthSquared()))))
 		}
 		break
 
@@ -1184,8 +1149,8 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 
 func rayCastShape(input *RayCastInput, shape *shape, transform Transform) CastOutput {
 	localInput := *input
-	localInput.Origin = InvTransformPoint(transform, input.Origin)
-	localInput.Translation = InvRotateVector(transform.Q, input.Translation)
+	localInput.Origin = transform.InvApply(input.Origin)
+	localInput.Translation = transform.Q.InvRotate(input.Translation)
 
 	output := CastOutput{}
 	switch shape.shapeType {
@@ -1210,8 +1175,8 @@ func rayCastShape(input *RayCastInput, shape *shape, transform Transform) CastOu
 
 	// The output point stays in the frame of the input transform, a caller chosen frame that is
 	// typically re-centered near the origin.
-	output.Point = TransformPoint(transform, output.Point)
-	output.Normal = RotateVector(transform.Q, output.Normal)
+	output.Point = transform.Apply(output.Point)
+	output.Normal = transform.Q.Rotate(output.Normal)
 	return output
 }
 
@@ -1225,10 +1190,10 @@ func shapeCastShape(input *ShapeCastInput, shape *shape, transform Transform) Ca
 	localInput := *input
 
 	for i := 0; i < localInput.Proxy.Count; i++ {
-		localInput.Proxy.Points[i] = InvTransformPoint(transform, input.Proxy.Points[i])
+		localInput.Proxy.Points[i] = transform.InvApply(input.Proxy.Points[i])
 	}
 
-	localInput.Translation = InvRotateVector(transform.Q, input.Translation)
+	localInput.Translation = transform.Q.InvRotate(input.Translation)
 
 	switch shape.shapeType {
 	case CapsuleShape:
@@ -1248,15 +1213,15 @@ func shapeCastShape(input *ShapeCastInput, shape *shape, transform Transform) Ca
 			// Check for back side collision
 			approximateCentroid := localInput.Proxy.Points[0]
 			for i := 1; i < localInput.Proxy.Count; i++ {
-				approximateCentroid = Add(approximateCentroid, localInput.Proxy.Points[i])
+				approximateCentroid = approximateCentroid.Add(localInput.Proxy.Points[i])
 			}
 
-			approximateCentroid = MulSV(1.0/float32(localInput.Proxy.Count), approximateCentroid)
+			approximateCentroid = approximateCentroid.Scale(1.0 / float32(localInput.Proxy.Count))
 
-			edge := Sub(shape.chainSegment.Segment.Point2, shape.chainSegment.Segment.Point1)
-			r := Sub(approximateCentroid, shape.chainSegment.Segment.Point1)
+			edge := shape.chainSegment.Segment.Point2.Sub(shape.chainSegment.Segment.Point1)
+			r := approximateCentroid.Sub(shape.chainSegment.Segment.Point1)
 
-			if Cross(r, edge) < 0.0 {
+			if r.Cross(edge) < 0.0 {
 				// Shape cast starts behind
 				return output
 			}
@@ -1269,15 +1234,15 @@ func shapeCastShape(input *ShapeCastInput, shape *shape, transform Transform) Ca
 	}
 
 	// Same frame contract as b2RayCastShape, the point stays in the input transform frame
-	output.Point = TransformPoint(transform, output.Point)
-	output.Normal = RotateVector(transform.Q, output.Normal)
+	output.Point = transform.Apply(output.Point)
+	output.Normal = transform.Q.Rotate(output.Normal)
 	return output
 }
 
 func collideMover(mover *Capsule, shape *shape, transform Transform) PlaneResult {
 	var localMover Capsule
-	localMover.Center1 = InvTransformPoint(transform, mover.Center1)
-	localMover.Center2 = InvTransformPoint(transform, mover.Center2)
+	localMover.Center1 = transform.InvApply(mover.Center1)
+	localMover.Center2 = transform.InvApply(mover.Center2)
 	localMover.Radius = mover.Radius
 
 	result := PlaneResult{}
@@ -1305,11 +1270,11 @@ func collideMover(mover *Capsule, shape *shape, transform Transform) PlaneResult
 		return result
 	}
 
-	result.Plane.Normal = RotateVector(transform.Q, result.Plane.Normal)
+	result.Plane.Normal = transform.Q.Rotate(result.Plane.Normal)
 	return result
 }
 
-func createShapeProxy(world *world, shape *shape, bodyType BodyType, transform WorldTransform, forcePairCreation bool) {
+func createShapeProxy(world *World, shape *shape, bodyType BodyType, transform WorldTransform, forcePairCreation bool) {
 	assert(shape.proxyKey == nullIndex, "shape.proxyKey == nullIndex")
 
 	fatAABB := &world.fatAABBs[shape.id]
@@ -1351,20 +1316,19 @@ func makeShapeDistanceProxy(shape *shape) ShapeProxy {
 
 // Get the id of the body that a shape is attached to
 func (s Shape) Body() Body {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return makeBodyId(world, shape.bodyID)
 }
 
 // Get the world that owns this shape
-func (s Shape) World() World {
-	world := getWorld(int(s.world0))
-	return World{s.world0 + 1, world.generation}
+func (s Shape) World() *World {
+	return s.world
 }
 
 // Set the user data for a shape
 func (s Shape) SetUserData(userData any) {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	shape.userData = userData
 }
@@ -1372,7 +1336,7 @@ func (s Shape) SetUserData(userData any) {
 // Get the user data for a shape. This is useful when you get a shape id
 // from an event or query.
 func (s Shape) UserData() any {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.userData
 }
@@ -1381,18 +1345,18 @@ func (s Shape) UserData() any {
 // from sensor to solid dynamically because this breaks the contract for
 // sensor events.
 func (s Shape) IsSensor() bool {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.sensorIndex != nullIndex
 }
 
 // Test a world point for overlap with a shape
 func (s Shape) TestPoint(point Pos) bool {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 
 	transform := getBodyTransform(world, shape.bodyID)
-	localPoint := InvTransformWorldPoint(transform, point)
+	localPoint := transform.InvApply(point)
 
 	var result bool
 	switch shape.shapeType {
@@ -1428,14 +1392,14 @@ func (s Shape) TestPoint(point Pos) bool {
 // Ray cast a single shape. The ray starts at the origin and extends by the translation. The output
 // point is a world position.
 func (s Shape) RayCast(origin Pos, translation Vec2) WorldCastOutput {
-	assert(IsValidPosition(origin), "IsValidPosition( origin )")
-	assert(IsValidVec2(translation), "IsValidVec2( translation )")
+	assert(origin.IsValid(), "IsValidPosition( origin )")
+	assert(translation.IsValid(), "IsValidVec2( translation )")
 
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 
 	// Re-center on the origin so the cast runs in float precision
-	transform := ToRelativeTransform(getBodyTransform(world, shape.bodyID), origin)
+	transform := getBodyTransform(world, shape.bodyID).Relative(origin)
 
 	// The ray starts at the origin, so its origin in the re-centered frame is zero
 	input := RayCastInput{Vec2{}, translation, 1.0}
@@ -1444,7 +1408,7 @@ func (s Shape) RayCast(origin Pos, translation Vec2) WorldCastOutput {
 	local := rayCastShape(&input, shape, transform)
 	var output WorldCastOutput
 	output.Normal = local.Normal
-	output.Point = OffsetPos(origin, local.Point)
+	output.Point = origin.Add(local.Point)
 	output.Fraction = local.Fraction
 	output.Iterations = local.Iterations
 	output.Hit = local.Hit
@@ -1466,11 +1430,9 @@ func (s Shape) RayCast(origin Pos, translation Vec2) WorldCastOutput {
 // This will optionally update the mass properties on the parent body.
 // See: ShapeDef.Density, Body.UpdateMassFromShapes
 func (s Shape) SetDensity(density float32, updateBodyMass bool) {
-	if !checkInput(IsValidFloat(density) && density >= 0.0, "IsValidFloat( density ) && density >= 0.0") {
-		return
-	}
+	checkInput(IsValidFloat(density) && density >= 0.0, "IsValidFloat( density ) && density >= 0.0")
 
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1495,18 +1457,16 @@ func (s Shape) SetDensity(density float32, updateBodyMass bool) {
 
 // Get the density of a shape, usually in kg/m^2
 func (s Shape) Density() float32 {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.density
 }
 
 // Set the friction on a shape
 func (s Shape) SetFriction(friction float32) {
-	if !checkInput(IsValidFloat(friction) && friction >= 0.0, "IsValidFloat( friction ) && friction >= 0.0") {
-		return
-	}
+	checkInput(IsValidFloat(friction) && friction >= 0.0, "IsValidFloat( friction ) && friction >= 0.0")
 
-	world := getWorld(int(s.world0))
+	world := s.world
 	assert(world.locked == false, "world.locked == false")
 	if world.locked {
 		return
@@ -1522,18 +1482,16 @@ func (s Shape) SetFriction(friction float32) {
 
 // Get the friction of a shape
 func (s Shape) Friction() float32 {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.material.Friction
 }
 
 // Set the shape restitution (bounciness)
 func (s Shape) SetRestitution(restitution float32) {
-	if !checkInput(IsValidFloat(restitution) && restitution >= 0.0, "IsValidFloat( restitution ) && restitution >= 0.0") {
-		return
-	}
+	checkInput(IsValidFloat(restitution) && restitution >= 0.0, "IsValidFloat( restitution ) && restitution >= 0.0")
 
-	world := getWorld(int(s.world0))
+	world := s.world
 	assert(world.locked == false, "world.locked == false")
 	if world.locked {
 		return
@@ -1549,14 +1507,14 @@ func (s Shape) SetRestitution(restitution float32) {
 
 // Get the shape restitution
 func (s Shape) Restitution() float32 {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.material.Restitution
 }
 
 // Set the user material identifier
 func (s Shape) SetUserMaterial(material uint64) {
-	world := getWorld(int(s.world0))
+	world := s.world
 	assert(world.locked == false, "world.locked == false")
 	if world.locked {
 		return
@@ -1572,25 +1530,23 @@ func (s Shape) SetUserMaterial(material uint64) {
 
 // Get the user material identifier
 func (s Shape) UserMaterial() uint64 {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.material.UserMaterialID
 }
 
 // Get the shape surface material
 func (s Shape) SurfaceMaterial() SurfaceMaterial {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.material
 }
 
 // Set the shape surface material
 func (s Shape) SetSurfaceMaterial(surfaceMaterial *SurfaceMaterial) {
-	if !checkInput(isValidMaterial(surfaceMaterial), "isValidMaterial( surfaceMaterial )") {
-		return
-	}
+	checkInput(isValidMaterial(surfaceMaterial), "isValidMaterial( surfaceMaterial )")
 
-	world := getWorld(int(s.world0))
+	world := s.world
 	if world.recording != nil {
 		recWriteShapeSetSurfaceMaterial(world.recording, &recArgsShapeSetSurfaceMaterial{shape: s, material: *surfaceMaterial})
 	}
@@ -1600,12 +1556,12 @@ func (s Shape) SetSurfaceMaterial(surfaceMaterial *SurfaceMaterial) {
 
 // Get the shape filter
 func (s Shape) Filter() Filter {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.filter
 }
 
-func resetProxy(world *world, shape *shape, destroyProxy bool) {
+func resetProxy(world *World, shape *shape, destroyProxy bool) {
 	body := &world.bodies[shape.bodyID]
 
 	shapeID := shape.id
@@ -1652,7 +1608,7 @@ func resetProxy(world *world, shape *shape, destroyProxy bool) {
 // Sensor overlap state is also not updated until the next world step.
 // See: ShapeDef.Filter
 func (s Shape) SetFilter(filter Filter) {
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1680,8 +1636,8 @@ func (s Shape) SetFilter(filter Filter) {
 
 // Enable sensor events for this shape.
 // See: ShapeDef.EnableSensorEvents
-func (s Shape) EnableSensorEvents(flag bool) {
-	world := getWorldLocked(int(s.world0))
+func (s Shape) SetSensorEventsEnabled(flag bool) {
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1695,8 +1651,8 @@ func (s Shape) EnableSensorEvents(flag bool) {
 }
 
 // Returns true if sensor events are enabled.
-func (s Shape) AreSensorEventsEnabled() bool {
-	world := getWorld(int(s.world0))
+func (s Shape) SensorEventsEnabled() bool {
+	world := s.world
 	shape := getShape(world, s)
 	return shape.enableSensorEvents
 }
@@ -1704,8 +1660,8 @@ func (s Shape) AreSensorEventsEnabled() bool {
 // Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
 // See: ShapeDef.EnableContactEvents
 // Warning: changing this at run-time may lead to lost begin/end events
-func (s Shape) EnableContactEvents(flag bool) {
-	world := getWorldLocked(int(s.world0))
+func (s Shape) SetContactEventsEnabled(flag bool) {
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1719,8 +1675,8 @@ func (s Shape) EnableContactEvents(flag bool) {
 }
 
 // Returns true if contact events are enabled
-func (s Shape) AreContactEventsEnabled() bool {
-	world := getWorld(int(s.world0))
+func (s Shape) ContactEventsEnabled() bool {
+	world := s.world
 	shape := getShape(world, s)
 	return shape.enableContactEvents
 }
@@ -1728,8 +1684,8 @@ func (s Shape) AreContactEventsEnabled() bool {
 // Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 // and must be carefully handled due to multithreading. Ignored for sensors.
 // See: PreSolveFunc
-func (s Shape) EnablePreSolveEvents(flag bool) {
-	world := getWorldLocked(int(s.world0))
+func (s Shape) SetPreSolveEventsEnabled(flag bool) {
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1743,16 +1699,16 @@ func (s Shape) EnablePreSolveEvents(flag bool) {
 }
 
 // Returns true if pre-solve events are enabled
-func (s Shape) ArePreSolveEventsEnabled() bool {
-	world := getWorld(int(s.world0))
+func (s Shape) PreSolveEventsEnabled() bool {
+	world := s.world
 	shape := getShape(world, s)
 	return shape.enablePreSolveEvents
 }
 
 // Enable contact hit events for this shape. Ignored for sensors.
 // See: WorldDef.hitEventThreshold
-func (s Shape) EnableHitEvents(flag bool) {
-	world := getWorldLocked(int(s.world0))
+func (s Shape) SetHitEventsEnabled(flag bool) {
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1766,22 +1722,22 @@ func (s Shape) EnableHitEvents(flag bool) {
 }
 
 // Returns true if hit events are enabled
-func (s Shape) AreHitEventsEnabled() bool {
-	world := getWorld(int(s.world0))
+func (s Shape) HitEventsEnabled() bool {
+	world := s.world
 	shape := getShape(world, s)
 	return shape.enableHitEvents
 }
 
 // Get the type of a shape
 func (s Shape) Type() ShapeType {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	return shape.shapeType
 }
 
 // Get a copy of the shape's circle. Asserts the type is correct.
 func (s Shape) Circle() Circle {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	assert(shape.shapeType == CircleShape, "shape.shapeType == CircleShape")
 	return shape.circle
@@ -1789,7 +1745,7 @@ func (s Shape) Circle() Circle {
 
 // Get a copy of the shape's line segment. Asserts the type is correct.
 func (s Shape) Segment() Segment {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	assert(shape.shapeType == SegmentShape, "shape.shapeType == SegmentShape")
 	return shape.segment
@@ -1798,7 +1754,7 @@ func (s Shape) Segment() Segment {
 // Get a copy of the shape's chain segment. These come from chain shapes.
 // Asserts the type is correct.
 func (s Shape) ChainSegment() ChainSegment {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	assert(shape.shapeType == ChainSegmentShape, "shape.shapeType == ChainSegmentShape")
 	return shape.chainSegment
@@ -1806,7 +1762,7 @@ func (s Shape) ChainSegment() ChainSegment {
 
 // Get a copy of the shape's capsule. Asserts the type is correct.
 func (s Shape) Capsule() Capsule {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	assert(shape.shapeType == CapsuleShape, "shape.shapeType == CapsuleShape")
 	return shape.capsule
@@ -1814,7 +1770,7 @@ func (s Shape) Capsule() Capsule {
 
 // Get a copy of the shape's convex polygon. Asserts the type is correct.
 func (s Shape) Polygon() Polygon {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	assert(shape.shapeType == PolygonShape, "shape.shapeType == PolygonShape")
 	return shape.polygon
@@ -1824,11 +1780,9 @@ func (s Shape) Polygon() Polygon {
 // This does not modify the mass properties.
 // See: Body.UpdateMassFromShapes
 func (s Shape) SetCircle(circle *Circle) {
-	if !checkInput(isValidCircle(circle), "isValidCircle( circle )") {
-		return
-	}
+	checkInput(isValidCircle(circle), "isValidCircle( circle )")
 
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1850,16 +1804,14 @@ func (s Shape) SetCircle(circle *Circle) {
 // This does not modify the mass properties.
 // See: Body.UpdateMassFromShapes
 func (s Shape) SetCapsule(capsule *Capsule) {
-	if !checkInput(isValidCapsule(capsule), "isValidCapsule( capsule )") {
-		return
-	}
+	checkInput(isValidCapsule(capsule), "isValidCapsule( capsule )")
 
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
 
-	lengthSqr := DistanceSquared(capsule.Center1, capsule.Center2)
+	lengthSqr := capsule.Center1.DistanceSquared(capsule.Center2)
 	if lengthSqr <= LinearSlop()*LinearSlop() {
 		return
 	}
@@ -1879,11 +1831,9 @@ func (s Shape) SetCapsule(capsule *Capsule) {
 
 // Allows you to change a shape to be a segment or update the current segment.
 func (s Shape) SetSegment(segment *Segment) {
-	if !checkInput(isValidSegment(segment), "isValidSegment( segment )") {
-		return
-	}
+	checkInput(isValidSegment(segment), "isValidSegment( segment )")
 
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1905,11 +1855,9 @@ func (s Shape) SetSegment(segment *Segment) {
 // This does not modify the mass properties.
 // See: Body.UpdateMassFromShapes
 func (s Shape) SetPolygon(polygon *Polygon) {
-	if !checkInput(isValidPolygon(polygon), "isValidPolygon( polygon )") {
-		return
-	}
+	checkInput(isValidPolygon(polygon), "isValidPolygon( polygon )")
 
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1932,11 +1880,9 @@ func (s Shape) SetPolygon(polygon *Polygon) {
 // shape is always orphaned. Asserts if the shape is already a chain segment
 // owned by a chainShape (chainId != B2_NULL_INDEX).
 func (s Shape) SetChainSegment(chainSegment *ChainSegment) {
-	if !checkInput(isValidChainSegment(chainSegment), "isValidChainSegment( chainSegment )") {
-		return
-	}
+	checkInput(isValidChainSegment(chainSegment), "isValidChainSegment( chainSegment )")
 
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return
 	}
@@ -1949,7 +1895,7 @@ func (s Shape) SetChainSegment(chainSegment *ChainSegment) {
 		return
 	}
 
-	lengthSqr := DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2)
+	lengthSqr := chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2)
 	if lengthSqr <= LinearSlop()*LinearSlop() {
 		return
 	}
@@ -1970,13 +1916,13 @@ func (s Shape) SetChainSegment(chainSegment *ChainSegment) {
 // Get the parent chain id if the shape type is a chain segment, otherwise
 // returns Chain{}.
 func (s Shape) ParentChain() Chain {
-	world := getWorld(int(s.world0))
+	world := s.world
 	shape := getShape(world, s)
 	if shape.shapeType == ChainSegmentShape {
 		chainID := shape.chainSegment.ChainID
 		if chainID != nullIndex {
 			chain := &world.chainShapes[chainID]
-			id := Chain{index1: int32(chainID + 1), world0: s.world0, generation: chain.generation}
+			id := Chain{index1: int32(chainID + 1), world: s.world, generation: chain.generation}
 			return id
 		}
 	}
@@ -1986,7 +1932,7 @@ func (s Shape) ParentChain() Chain {
 
 // Get the maximum capacity required for retrieving all the touching contacts on a shape
 func (s Shape) ContactCapacity() int {
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return 0
 	}
@@ -2005,7 +1951,7 @@ func (s Shape) ContactCapacity() int {
 // Get the touching contact data for a shape. The provided shapeId will be either shapeIdA or shapeIdB on the contact data.
 // Note: Box2D uses speculative collision so some contact points may be separated.
 func (s Shape) ContactData() iter.Seq[ContactData] {
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return func(yield func(ContactData) bool) {}
 	}
@@ -2026,10 +1972,10 @@ func (s Shape) ContactData() iter.Seq[ContactData] {
 				shapeB := &world.shapes[contact.shapeIDB]
 				contactSim := getContactSim(world, contact)
 				data := ContactData{
-					ContactID: Contact{index1: int32(contact.contactID + 1), world0: s.world0, generation: contact.generation},
-					ShapeIDA:  Shape{index1: int32(shapeA.id + 1), world0: s.world0, generation: shapeA.generation},
-					ShapeIDB:  Shape{index1: int32(shapeB.id + 1), world0: s.world0, generation: shapeB.generation},
-					Manifold:  contactSim.manifold,
+					Contact:  Contact{index1: int32(contact.contactID + 1), world: s.world, generation: contact.generation},
+					ShapeA:   Shape{index1: int32(shapeA.id + 1), world: s.world, generation: shapeA.generation},
+					ShapeB:   Shape{index1: int32(shapeB.id + 1), world: s.world, generation: shapeB.generation},
+					Manifold: contactSim.manifold,
 				}
 				if !yield(data) {
 					return
@@ -2045,7 +1991,7 @@ func (s Shape) ContactData() iter.Seq[ContactData] {
 // shapeId: the id of a sensor shape
 // Returns: the required capacity to get all the overlaps in Shape.SensorData
 func (s Shape) SensorCapacity() int {
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return 0
 	}
@@ -2063,7 +2009,7 @@ func (s Shape) SensorCapacity() int {
 // shapeId: the id of a sensor shape
 // Warning: overlaps may contain destroyed shapes so use shape_IsValid to confirm each overlap
 func (s Shape) SensorData() iter.Seq[Shape] {
-	world := getWorldLocked(int(s.world0))
+	world := getWorldLocked(s.world)
 	if world == nil {
 		return func(yield func(Shape) bool) {}
 	}
@@ -2074,7 +2020,7 @@ func (s Shape) SensorData() iter.Seq[Shape] {
 	sensor := &world.sensors[shape.sensorIndex]
 	return func(yield func(Shape) bool) {
 		for _, ref := range sensor.overlaps2 {
-			visitorID := Shape{index1: int32(ref.shapeID + 1), world0: s.world0, generation: ref.generation}
+			visitorID := Shape{index1: int32(ref.shapeID + 1), world: s.world, generation: ref.generation}
 			if !yield(visitorID) {
 				return
 			}
@@ -2084,7 +2030,7 @@ func (s Shape) SensorData() iter.Seq[Shape] {
 
 // Get the current world AABB
 func (s Shape) AABB() AABB {
-	world := getWorld(int(s.world0))
+	world := s.world
 	if world == nil {
 		return AABB{}
 	}
@@ -2095,7 +2041,7 @@ func (s Shape) AABB() AABB {
 
 // Compute the mass data for a shape
 func (s Shape) ComputeMassData() MassData {
-	world := getWorld(int(s.world0))
+	world := s.world
 	if world == nil {
 		return MassData{}
 	}
@@ -2107,7 +2053,7 @@ func (s Shape) ComputeMassData() MassData {
 // Get the closest point on a shape to a target point. Target and result are world positions.
 // todo need sample
 func (s Shape) ClosestPoint(target Pos) Pos {
-	world := getWorld(int(s.world0))
+	world := s.world
 	if world == nil {
 		return Pos{}
 	}
@@ -2124,13 +2070,13 @@ func (s Shape) ClosestPoint(target Pos) Pos {
 	var input DistanceInput
 	input.ProxyA = makeShapeDistanceProxy(shape)
 	input.ProxyB = MakeProxy([]Vec2{zero}, 0)
-	input.Transform = InvMulWorldTransforms(transform, targetTransform)
+	input.Transform = transform.InvMul(targetTransform)
 	input.UseRadii = true
 
 	cache := SimplexCache{}
 	output := ShapeDistance(&input, &cache, nil)
 
-	return TransformWorldPoint(transform, output.PointA)
+	return transform.Apply(output.PointA)
 }
 
 // Apply a wind force to the body for this shape using the density of air. This considers
@@ -2142,17 +2088,11 @@ func (s Shape) ClosestPoint(target Pos) Pos {
 // lift: the lift coefficient, the force that is perpendicular to the relative velocity
 // wake: should this wake the body
 func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
-	if !checkInput(IsValidVec2(wind), "IsValidVec2( wind )") {
-		return
-	}
-	if !checkInput(IsValidFloat(drag), "IsValidFloat( drag )") {
-		return
-	}
-	if !checkInput(IsValidFloat(lift), "IsValidFloat( lift )") {
-		return
-	}
+	checkInput(wind.IsValid(), "IsValidVec2( wind )")
+	checkInput(IsValidFloat(drag), "IsValidFloat( drag )")
+	checkInput(IsValidFloat(lift), "IsValidFloat( lift )")
 
-	world := getWorld(int(s.world0))
+	world := s.world
 	if world == nil {
 		return
 	}
@@ -2190,7 +2130,7 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 	state := getBodyState(world, body)
 	transform := sim.transform
 
-	lengthUnits := GetLengthUnitsPerMeter()
+	lengthUnits := LengthUnitsPerMeter()
 	volumeUnits := lengthUnits * lengthUnits * lengthUnits
 
 	// In 2D I'm assuming unit depth
@@ -2204,57 +2144,54 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 		{
 			radius := shape.circle.Radius
 			centroid := shape.localCentroid
-			lever := RotateVector(transform.Q, Sub(centroid, sim.localCenter))
-			shapeVelocity := Add(state.linearVelocity, CrossSV(state.angularVelocity, lever))
-			relativeVelocity := MulSub(wind, drag, shapeVelocity)
-			var speed float32
-			direction := GetLengthAndNormalize(&speed, relativeVelocity)
+			lever := transform.Q.Rotate(centroid.Sub(sim.localCenter))
+			shapeVelocity := state.linearVelocity.Add(lever.ScalarCross(state.angularVelocity))
+			relativeVelocity := wind.MulSub(drag, shapeVelocity)
+			speed, direction := relativeVelocity.LengthAndNormalize()
 			projectedArea := 2.0 * radius
-			force = MulSV(0.5*airDensity*projectedArea*speed*speed, direction)
-			torque = Cross(lever, force)
+			force = direction.Scale(0.5 * airDensity * projectedArea * speed * speed)
+			torque = lever.Cross(force)
 		}
 		break
 
 	case CapsuleShape:
 		{
 			centroid := shape.localCentroid
-			lever := RotateVector(transform.Q, Sub(centroid, sim.localCenter))
-			shapeVelocity := Add(state.linearVelocity, CrossSV(state.angularVelocity, lever))
-			relativeVelocity := MulSub(wind, drag, shapeVelocity)
-			var speed float32
-			direction := GetLengthAndNormalize(&speed, relativeVelocity)
+			lever := transform.Q.Rotate(centroid.Sub(sim.localCenter))
+			shapeVelocity := state.linearVelocity.Add(lever.ScalarCross(state.angularVelocity))
+			relativeVelocity := wind.MulSub(drag, shapeVelocity)
+			speed, direction := relativeVelocity.LengthAndNormalize()
 
-			d := Sub(shape.capsule.Center2, shape.capsule.Center1)
-			d = RotateVector(transform.Q, d)
+			d := shape.capsule.Center2.Sub(shape.capsule.Center1)
+			d = transform.Q.Rotate(d)
 
 			radius := shape.capsule.Radius
-			projectedArea := float32(2.0*radius) + AbsFloat(Cross(d, direction))
+			projectedArea := float32(2.0*radius) + absFloat(d.Cross(direction))
 
 			// Normal that opposes the wind
-			normal := LeftPerp(Normalize(d))
-			if Dot(normal, direction) > 0 {
-				normal = Neg(normal)
+			normal := d.Normalize().LeftPerp()
+			if normal.Dot(direction) > 0 {
+				normal = normal.Neg()
 			}
 
 			// portion of wind that is perpendicular to surface
-			liftDirection := CrossSV(Cross(normal, direction), direction)
+			liftDirection := direction.ScalarCross(normal.Cross(direction))
 
 			forceMagnitude := 0.5 * airDensity * projectedArea * speed * speed
-			force = MulSV(forceMagnitude, MulAdd(direction, lift, liftDirection))
+			force = direction.MulAdd(lift, liftDirection).Scale(forceMagnitude)
 
-			edgeLever := MulAdd(lever, radius, normal)
-			torque = Cross(edgeLever, force)
+			edgeLever := lever.MulAdd(radius, normal)
+			torque = edgeLever.Cross(force)
 		}
 		break
 
 	case PolygonShape:
 		{
 			centroid := shape.localCentroid
-			lever := RotateVector(transform.Q, Sub(centroid, sim.localCenter))
-			shapeVelocity := Add(state.linearVelocity, CrossSV(state.angularVelocity, lever))
-			relativeVelocity := MulSub(wind, drag, shapeVelocity)
-			var speed float32
-			direction := GetLengthAndNormalize(&speed, relativeVelocity)
+			lever := transform.Q.Rotate(centroid.Sub(sim.localCenter))
+			shapeVelocity := state.linearVelocity.Add(lever.ScalarCross(state.angularVelocity))
+			relativeVelocity := wind.MulSub(drag, shapeVelocity)
+			speed, direction := relativeVelocity.LengthAndNormalize()
 
 			// polygon radius is ignored for simplicity
 			count := shape.polygon.Count
@@ -2263,30 +2200,30 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 			v1 := vertices[count-1]
 			for i := 0; i < count; i++ {
 				v2 := vertices[i]
-				d := Sub(v2, v1)
-				edgeCenter := Lerp(v1, v2, 0.5)
+				d := v2.Sub(v1)
+				edgeCenter := v1.Lerp(v2, 0.5)
 				v1 = v2
 
-				d = RotateVector(transform.Q, d)
+				d = transform.Q.Rotate(d)
 
-				projectedArea := Cross(d, direction)
+				projectedArea := d.Cross(direction)
 				if projectedArea <= 0.0 {
 					// back facing
 					continue
 				}
 
-				normal := RightPerp(Normalize(d))
+				normal := d.Normalize().RightPerp()
 
 				// portion of wind that is perpendicular to surface
-				liftDirection := CrossSV(Cross(normal, direction), direction)
+				liftDirection := direction.ScalarCross(normal.Cross(direction))
 
 				forceMagnitude := 0.5 * airDensity * projectedArea * speed * speed
-				f := MulSV(forceMagnitude, MulAdd(direction, lift, liftDirection))
+				f := direction.MulAdd(lift, liftDirection).Scale(forceMagnitude)
 
-				edgeLever := RotateVector(transform.Q, Sub(edgeCenter, sim.localCenter))
+				edgeLever := transform.Q.Rotate(edgeCenter.Sub(sim.localCenter))
 
-				force = Add(force, f)
-				torque += Cross(edgeLever, f)
+				force = force.Add(f)
+				torque += edgeLever.Cross(f)
 			}
 		}
 		break
@@ -2295,7 +2232,7 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 		break
 	}
 
-	sim.force = Add(sim.force, force)
+	sim.force = sim.force.Add(force)
 	sim.torque += torque
 }
 

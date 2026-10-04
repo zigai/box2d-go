@@ -49,13 +49,13 @@ func SolvePlanes(targetDelta Vec2, planes []CollisionPlane) PlaneSolverResult {
 		var totalPush float32
 		for planeIndex := range planes {
 			plane := &planes[planeIndex]
-			separation := PlaneSeparation(plane.Plane, delta) + LinearSlop()
+			separation := plane.Plane.Separation(delta) + LinearSlop()
 			push := -separation
 			accumulatedPush := plane.Push
-			plane.Push = ClampFloat(plane.Push+push, 0, plane.PushLimit)
+			plane.Push = clampFloat(plane.Push+push, 0, plane.PushLimit)
 			push = plane.Push - accumulatedPush
-			delta = MulAdd(delta, push, plane.Plane.Normal)
-			totalPush += AbsFloat(push)
+			delta = delta.MulAdd(push, plane.Plane.Normal)
+			totalPush += absFloat(push)
 		}
 		if totalPush < tolerance {
 			break
@@ -73,7 +73,7 @@ func ClipVector(vector Vec2, planes []CollisionPlane) Vec2 {
 		if plane.Push == 0 || !plane.ClipVelocity {
 			continue
 		}
-		v = MulSub(v, MinFloat(0, Dot(v, plane.Plane.Normal)), plane.Plane.Normal)
+		v = v.MulSub(minFloat(0, v.Dot(plane.Plane.Normal)), plane.Plane.Normal)
 	}
 	return v
 }

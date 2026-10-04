@@ -6,10 +6,10 @@ package box2d
 import "math"
 
 // Is this a valid bounding box? Not Nan or infinity. Upper bound greater than or equal to lower bound.
-func IsValidAABB(a AABB) bool {
-	d := Sub(a.UpperBound, a.LowerBound)
+func (a AABB) IsValid() bool {
+	d := a.UpperBound.Sub(a.LowerBound)
 	valid := d.X >= 0 && d.Y >= 0
-	valid = valid && IsValidVec2(a.LowerBound) && IsValidVec2(a.UpperBound)
+	valid = valid && a.LowerBound.IsValid() && a.UpperBound.IsValid()
 	return valid
 }
 
@@ -19,8 +19,8 @@ func aabbRayCast(a AABB, p1 Vec2, p2 Vec2) CastOutput {
 	tMin := float32(-math.MaxFloat32)
 	tMax := float32(math.MaxFloat32)
 	p := p1
-	d := Sub(p2, p1)
-	absD := Abs(d)
+	d := p2.Sub(p1)
+	absD := d.Abs()
 	var normal Vec2
 	if absD.X < float32(0x1p-23) {
 		if p.X < a.LowerBound.X || a.UpperBound.X < p.X {
@@ -40,7 +40,7 @@ func aabbRayCast(a AABB, p1 Vec2, p2 Vec2) CastOutput {
 			normal.X = s
 			tMin = t1
 		}
-		tMax = MinFloat(tMax, t2)
+		tMax = minFloat(tMax, t2)
 		if tMin > tMax {
 			return output
 		}
@@ -63,7 +63,7 @@ func aabbRayCast(a AABB, p1 Vec2, p2 Vec2) CastOutput {
 			normal.Y = s
 			tMin = t1
 		}
-		tMax = MinFloat(tMax, t2)
+		tMax = minFloat(tMax, t2)
 		if tMin > tMax {
 			return output
 		}
@@ -76,7 +76,7 @@ func aabbRayCast(a AABB, p1 Vec2, p2 Vec2) CastOutput {
 	}
 	output.Fraction = tMin
 	output.Normal = normal
-	output.Point = Lerp(p1, p2, tMin)
+	output.Point = p1.Lerp(p2, tMin)
 	output.Hit = true
 	return output
 }

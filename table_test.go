@@ -542,7 +542,7 @@ func TestTable(t *testing.T) {
 			}
 			r.I32("line_370", int32(getSetCount(&set)))
 
-			ticks := GetTicks()
+			ticks := currentTicks()
 
 			k = 0
 			for i := 0; i < N; i++ {
@@ -561,7 +561,7 @@ func TestTable(t *testing.T) {
 			r.Bytes("search", checks)
 			checks = checks[:0]
 
-			ms := GetMilliseconds(ticks)
+			ms := milliseconds(ticks)
 			t.Logf("set: count = %d, containsKey = %.5f ms, ave = %.5f us\n", itemCount, ms, 1000.0*ms/float32(itemCount))
 
 			for i := 0; i < N; i++ {

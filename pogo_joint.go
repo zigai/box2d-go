@@ -37,11 +37,9 @@ var pogoAxis = Vec2{X: 0.0, Y: 1.0}
 
 // Set the rest length of a pogo joint
 func (p PogoJoint) SetRestLength(length float32) {
-	if !checkInput(IsValidFloat(length), "b2IsValidFloat( length )") {
-		return
-	}
+	checkInput(IsValidFloat(length), "b2IsValidFloat( length )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePogoJointSetRestLength(world.recording, &recArgsPogoJointSetRestLength{joint: p.Joint, length: length})
 	}
@@ -64,11 +62,9 @@ func (p PogoJoint) SpringHertz() float32 {
 
 // Set the spring stiffness in Hertz
 func (p PogoJoint) SetSpringHertz(hertz float32) {
-	if !checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )") {
-		return
-	}
+	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePogoJointSetSpringHertz(world.recording, &recArgsPogoJointSetSpringHertz{joint: p.Joint, hertz: hertz})
 	}
@@ -79,11 +75,9 @@ func (p PogoJoint) SetSpringHertz(hertz float32) {
 
 // Set the spring damping ratio, non-dimensional
 func (p PogoJoint) SetSpringDampingRatio(dampingRatio float32) {
-	if !checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )") {
-		return
-	}
+	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePogoJointSetSpringDampingRatio(world.recording, &recArgsPogoJointSetSpringDampingRatio{joint: p.Joint, dampingRatio: dampingRatio})
 	}
@@ -100,20 +94,20 @@ func (p PogoJoint) SpringDampingRatio() float32 {
 
 // Get the current length of the pogo.
 func (p PogoJoint) Length() float32 {
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	jointSim := getJointSimCheckType(p.Joint, PogoJointType)
 
 	// Relative to body A so the difference stays in float precision far from the origin
 	wxfA := getBodyTransform(world, jointSim.bodyIdA)
-	transformA := ToRelativeTransform(wxfA, wxfA.P)
-	transformB := ToRelativeTransform(getBodyTransform(world, jointSim.bodyIdB), wxfA.P)
+	transformA := wxfA.Relative(wxfA.P)
+	transformB := getBodyTransform(world, jointSim.bodyIdB).Relative(wxfA.P)
 
-	axis := RotateVector(jointSim.localFrameB.Q, pogoAxis)
-	axis = RotateVector(transformB.Q, axis)
-	pA := TransformPoint(transformA, jointSim.localFrameA.P)
-	pB := TransformPoint(transformB, jointSim.localFrameB.P)
-	d := Sub(pB, pA)
-	length := Dot(d, axis)
+	axis := jointSim.localFrameB.Q.Rotate(pogoAxis)
+	axis = transformB.Q.Rotate(axis)
+	pA := transformA.Apply(jointSim.localFrameA.P)
+	pB := transformB.Apply(jointSim.localFrameB.P)
+	d := pB.Sub(pA)
+	length := d.Dot(axis)
 	return length
 }
 
@@ -129,7 +123,7 @@ func (p PogoJoint) Velocity() float32 {
 	return joint.pogoJoint.velocity
 }
 
-func getPogoJointForce(world *world, base *jointSim) Vec2 {
+func getPogoJointForce(world *World, base *jointSim) Vec2 {
 	force := Vec2{X: float32((float32(world.invH * base.pogoJoint.impulse)) * base.pogoJoint.normal.X), Y: float32((float32(world.invH * base.pogoJoint.impulse)) * base.pogoJoint.normal.Y)}
 	return force
 }
@@ -180,20 +174,20 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 	}
 
 	// Compute joint anchor frames with world space rotation, relative to center of mass
-	joint.frameA.Q = MulRot(bodySimA.transform.Q, base.localFrameA.Q)
-	joint.frameA.P = RotateVector(bodySimA.transform.Q, Sub(base.localFrameA.P, bodySimA.localCenter))
-	joint.frameB.Q = MulRot(bodySimB.transform.Q, base.localFrameB.Q)
-	joint.frameB.P = RotateVector(bodySimB.transform.Q, Sub(base.localFrameB.P, bodySimB.localCenter))
+	joint.frameA.Q = bodySimA.transform.Q.Mul(base.localFrameA.Q)
+	joint.frameA.P = bodySimA.transform.Q.Rotate(base.localFrameA.P.Sub(bodySimA.localCenter))
+	joint.frameB.Q = bodySimB.transform.Q.Mul(base.localFrameB.Q)
+	joint.frameB.P = bodySimB.transform.Q.Rotate(base.localFrameB.P.Sub(bodySimB.localCenter))
 
 	// Compute the initial center delta. Incremental position updates are relative to this.
-	joint.deltaCenter = SubPos(bodySimB.center, bodySimA.center)
+	joint.deltaCenter = bodySimB.center.Sub(bodySimA.center)
 
 	rA := joint.frameA.P
 	rB := joint.frameB.P
 
 	// compute effective mass
-	crA := Cross(rA, joint.normal)
-	crB := Cross(rB, joint.normal)
+	crA := rA.Cross(joint.normal)
+	crB := rB.Cross(joint.normal)
 	k := mA + mB + float32(float32(iA*crA)*crA) + float32(float32(iB*crB)*crB)
 	if k > float32(0.0) {
 		joint.linearMass = float32(1.0) / k
@@ -236,19 +230,19 @@ func warmStartPogoJoint(base *jointSim, context *stepContext) {
 	} else {
 		stateB = &context.states[joint.indexB]
 	}
-	rA := RotateVector(stateA.deltaRotation, joint.frameA.P)
-	rB := RotateVector(stateB.deltaRotation, joint.frameB.P)
+	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
+	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
 	linearImpulse := Vec2{X: float32((joint.impulse) * joint.normal.X), Y: float32((joint.impulse) * joint.normal.Y)}
 
 	if stateA.flags&dynamicFlag != 0 {
-		stateA.linearVelocity = MulSub(stateA.linearVelocity, mA, linearImpulse)
-		stateA.angularVelocity -= float32(iA * Cross(rA, linearImpulse))
+		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, linearImpulse)
+		stateA.angularVelocity -= float32(iA * rA.Cross(linearImpulse))
 	}
 
 	if stateB.flags&dynamicFlag != 0 {
-		stateB.linearVelocity = MulAdd(stateB.linearVelocity, mB, linearImpulse)
-		stateB.angularVelocity += float32(iB * Cross(rB, linearImpulse))
+		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, linearImpulse)
+		stateB.angularVelocity += float32(iB * rB.Cross(linearImpulse))
 	}
 }
 
@@ -287,8 +281,8 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 	vB := stateB.linearVelocity
 	wB := stateB.angularVelocity
 
-	rA := RotateVector(stateA.deltaRotation, joint.frameA.P)
-	rB := RotateVector(stateB.deltaRotation, joint.frameB.P)
+	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
+	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
 	bias := float32(0.0)
 	if useBias {
@@ -298,11 +292,11 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 		// However, this position delta is not observer contact forces and can lead to tunnelling.
 		dcA := stateA.deltaPosition
 		dcB := stateB.deltaPosition
-		d := Add(Add(Sub(dcB, dcA), Sub(rB, rA)), joint.deltaCenter)
+		d := dcB.Sub(dcA).Add(rB.Sub(rA)).Add(joint.deltaCenter)
 
 		// The pogo axis is usually fixed as the world y-axis. Different than the ground normal.
-		pogoAxis := RotateVector(joint.frameB.Q, pogoAxis)
-		c := Dot(pogoAxis, d) - joint.restLength
+		pogoAxis := joint.frameB.Q.Rotate(pogoAxis)
+		c := pogoAxis.Dot(d) - joint.restLength
 
 		// This could be divided by dot(joint->normal, pogoAxis) to account for the constraint
 		// direction, but I'd rather diminish the pogo recovery rate than risk making it huge.
@@ -310,21 +304,21 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 		bias = -joint.velocity
 	}
 
-	vr := Sub(Add(vB, Vec2{X: float32(-(wB) * rB.Y), Y: float32((wB) * rB.X)}), Add(vA, Vec2{X: float32(-(wA) * rA.Y), Y: float32((wA) * rA.X)}))
-	cdot := Dot(joint.normal, vr)
+	vr := vB.Add(Vec2{X: float32(-(wB) * rB.Y), Y: float32((wB) * rB.X)}).Sub(vA.Add(Vec2{X: float32(-(wA) * rA.Y), Y: float32((wA) * rA.X)}))
+	cdot := joint.normal.Dot(vr)
 
 	maxTensionImpulse := float32(context.h * joint.maxTensionForce)
 	maxCompressionImpulse := float32(context.h * joint.maxCompressionForce)
 	oldImpulse := joint.impulse
 	impulse := float32(-joint.linearMass * (cdot + bias))
-	joint.impulse = ClampFloat(joint.impulse+impulse, -maxTensionImpulse, maxCompressionImpulse)
+	joint.impulse = clampFloat(joint.impulse+impulse, -maxTensionImpulse, maxCompressionImpulse)
 	impulse = joint.impulse - oldImpulse
 
 	P := Vec2{X: float32((impulse) * joint.normal.X), Y: float32((impulse) * joint.normal.Y)}
-	vA = MulSub(vA, mA, P)
-	wA -= float32(iA * Cross(rA, P))
-	vB = MulAdd(vB, mB, P)
-	wB += float32(iB * Cross(rB, P))
+	vA = vA.MulSub(mA, P)
+	wA -= float32(iA * rA.Cross(P))
+	vB = vB.MulAdd(mB, P)
+	wB += float32(iB * rB.Cross(P))
 
 	if stateA.flags&dynamicFlag != 0 {
 		stateA.linearVelocity = vA

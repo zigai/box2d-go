@@ -23,7 +23,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 			base := frame.base
 			wd := DefaultWorldDef()
 			wd.WorkerCount = 1
-			w := CreateWorld(&wd)
+			w := NewWorld(&wd)
 			BTWorldCleanup(t, w)
 			inspect := func() { spatialInspect(r, w); r.I32("awakeBodies", int32(w.AwakeBodyCount())) }
 			inspect()
@@ -37,7 +37,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 				if i == 1 {
 					offset = Vec2{0, .45}
 				}
-				bd.Position = OffsetPos(base, offset)
+				bd.Position = base.Add(offset)
 				if i == 1 || i == 2 {
 					bd.Type = DynamicBody
 				}
@@ -76,15 +76,14 @@ func TestWorldDrawTypedParity(t *testing.T) {
 				case 5:
 					cd := DefaultChainDef()
 					cd.Points = []Vec2{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}
-					cd.PointCount = 4
 					cd.IsLoop = true
 					bodies[i].CreateChain(&cd)
 				}
 				inspect()
 			}
 			jd := DefaultDistanceJointDef()
-			jd.Base.BodyIDA = bodies[1]
-			jd.Base.BodyIDB = bodies[2]
+			jd.Base.BodyA = bodies[1]
+			jd.Base.BodyB = bodies[2]
 			jd.Length = 4
 			jd.EnableSpring = true
 			jd.Hertz = 2
@@ -99,6 +98,8 @@ func TestWorldDrawTypedParity(t *testing.T) {
 			}
 			for option := range 17 {
 				d := DefaultDebugDraw()
+				dFuncs := &BTFuncDrawer{}
+				d.Drawer = dFuncs
 				commands := 0
 				command := func(kind int, color HexColor) {
 					commands++
@@ -113,26 +114,26 @@ func TestWorldDrawTypedParity(t *testing.T) {
 						r.Vec2("vertex", p.X, p.Y)
 					}
 				}
-				d.DrawPolygonFunc = func(xf WorldTransform, v []Vec2, c HexColor) { command(1, c); transform(xf); vertices(v) }
-				d.DrawSolidPolygonFunc = func(xf WorldTransform, v []Vec2, radius float32, c HexColor) {
+				dFuncs.Polygon = func(xf WorldTransform, v []Vec2, c HexColor) { command(1, c); transform(xf); vertices(v) }
+				dFuncs.SolidPolygon = func(xf WorldTransform, v []Vec2, radius float32, c HexColor) {
 					command(2, c)
 					transform(xf)
 					vertices(v)
 					r.F32("radius", radius)
 				}
-				d.DrawCircleFunc = func(p Pos, radius float32, c HexColor) { command(3, c); point(p); r.F32("radius", radius) }
-				d.DrawSolidCircleFunc = func(xf WorldTransform, p Vec2, radius float32, c HexColor) {
+				dFuncs.Circle = func(p Pos, radius float32, c HexColor) { command(3, c); point(p); r.F32("radius", radius) }
+				dFuncs.SolidCircle = func(xf WorldTransform, p Vec2, radius float32, c HexColor) {
 					command(4, c)
 					transform(xf)
 					r.Vec2("center", p.X, p.Y)
 					r.F32("radius", radius)
 				}
-				d.DrawSolidCapsuleFunc = func(p, q Pos, radius float32, c HexColor) { command(5, c); point(p); point(q); r.F32("radius", radius) }
-				d.DrawLineFunc = func(p, q Pos, c HexColor) { command(6, c); point(p); point(q) }
-				d.DrawTransformFunc = func(xf WorldTransform) { command(7, 0); transform(xf) }
-				d.DrawPointFunc = func(p Pos, size float32, c HexColor) { command(8, c); point(p); r.F32("size", size) }
-				d.DrawStringFunc = func(p Pos, text string, c HexColor) { command(9, c); point(p); r.Bytes("text", []byte(text)) }
-				d.DrawBoundsFunc = func(a AABB, c HexColor) {
+				dFuncs.SolidCapsule = func(p, q Pos, radius float32, c HexColor) { command(5, c); point(p); point(q); r.F32("radius", radius) }
+				dFuncs.Line = func(p, q Pos, c HexColor) { command(6, c); point(p); point(q) }
+				dFuncs.TransformFunc = func(xf WorldTransform) { command(7, 0); transform(xf) }
+				dFuncs.Point = func(p Pos, size float32, c HexColor) { command(8, c); point(p); r.F32("size", size) }
+				dFuncs.String = func(p Pos, text string, c HexColor) { command(9, c); point(p); r.Bytes("text", []byte(text)) }
+				dFuncs.Bounds = func(a AABB, c HexColor) {
 					command(10, c)
 					r.Vec2("lower", a.LowerBound.X, a.LowerBound.Y)
 					r.Vec2("upper", a.UpperBound.X, a.UpperBound.Y)
@@ -155,7 +156,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 				d.DrawFrictionForces = option == 12 || option == 15
 				d.DrawIslands = option == 14 || option == 15
 				if option == 16 {
-					center := ToVec2(base)
+					center := base.Vec2()
 					d.DrawingBounds = AABB{Vec2{center.X - 1, center.Y - 1}, Vec2{center.X + 1, center.Y + 1}}
 				}
 				before := w.StateHash()

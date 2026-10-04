@@ -20,7 +20,7 @@ type candidatePair struct {
 }
 
 type pairContext struct {
-	world      *world
+	world      *World
 	pairKeys   *[]uint64
 	batch      [candidateBatch]candidatePair
 	batchCount int
@@ -37,22 +37,21 @@ type indexPair struct {
 }
 
 type crossContext struct {
-	world           *world
+	world           *World
 	seeds           []nodePair
 	staticSeedCount int
 }
 
 func createBroadPhase(bp *broadPhase, capacity *Capacity) {
 	bp.pairSet = createSet(max(32, 2*capacity.ContactCount))
-	bp.trees[StaticBody] = CreateDynamicTree(max(16, capacity.StaticShapeCount))
-	bp.trees[KinematicBody] = CreateDynamicTree(16)
-	bp.trees[DynamicBody] = CreateDynamicTree(max(16, capacity.DynamicShapeCount))
+	bp.trees[StaticBody] = NewDynamicTree(max(16, capacity.StaticShapeCount))
+	bp.trees[KinematicBody] = NewDynamicTree(16)
+	bp.trees[DynamicBody] = NewDynamicTree(max(16, capacity.DynamicShapeCount))
 	bp.movedSiblings = nil
 }
 
 func destroyBroadPhase(bp *broadPhase) {
 	for i := 0; i < int(BodyTypeCount); i++ {
-		bp.trees[i].Destroy()
 	}
 	destroySet(&bp.pairSet)
 	*bp = broadPhase{}
@@ -137,8 +136,8 @@ func flushCandidatePairs(context *pairContext) {
 		if shapeA.enableCustomFiltering || shapeB.enableCustomFiltering {
 			customFilter := w.customFilterFcn
 			if customFilter != nil {
-				idA := Shape{index1: int32(shapeIDA + 1), world0: w.worldID, generation: shapeA.generation}
-				idB := Shape{index1: int32(shapeIDB + 1), world0: w.worldID, generation: shapeB.generation}
+				idA := Shape{index1: int32(shapeIDA + 1), world: w, generation: shapeA.generation}
+				idB := Shape{index1: int32(shapeIDB + 1), world: w, generation: shapeB.generation}
 				if !customFilter(idA, idB) {
 					continue
 				}
@@ -233,7 +232,7 @@ func collideCrossPairs(arrayA, arrayB []TreeNode, subtreeA, subtreeB *TreeNode, 
 	}
 }
 
-func selfPairsTask(startIndex, endIndex, workerIndex int, context *world) {
+func selfPairsTask(startIndex, endIndex, workerIndex int, context *World) {
 	w := context
 	bp := &w.broadPhase
 	nodes := bp.trees[DynamicBody].nodes
@@ -302,12 +301,12 @@ func crossPairsTask(startIndex, endIndex, workerIndex int, context *crossContext
 	flushCandidatePairs(&pairs)
 }
 
-func updateTreesTask(context *world) {
+func updateTreesTask(context *World) {
 	context.broadPhase.trees[DynamicBody].rebuild(false)
 	context.broadPhase.trees[KinematicBody].rebuild(false)
 }
 
-func enqueueTreeUpdate(w *world) {
+func enqueueTreeUpdate(w *World) {
 	if w.taskCount < MaxTasks {
 		w.userTreeTask = w.enqueueTaskFcn(func() { updateTreesTask(w) })
 		w.taskCount++
@@ -320,7 +319,7 @@ func enqueueTreeUpdate(w *world) {
 	}
 }
 
-func updateBroadPhasePairs(w *world) {
+func updateBroadPhasePairs(w *World) {
 	bp := &w.broadPhase
 	needUpdate := hasTreeMoved(&bp.trees[StaticBody])
 	needUpdate = needUpdate || needsRebuild(&bp.trees[KinematicBody])

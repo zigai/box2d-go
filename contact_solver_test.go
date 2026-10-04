@@ -102,7 +102,7 @@ func TestContactSolverGatherScatter(t *testing.T) {
 }
 
 func solverContext() (*stepContext, *contactConstraint, *contactConstraintWide) {
-	w := &world{contactSpeed: 10, restitutionThreshold: 1, hitEventThreshold: 1, solverSets: make([]solverSet, 3), taskContexts: make([]taskContext, 2)}
+	w := &World{contactSpeed: 10, restitutionThreshold: 1, hitEventThreshold: 1, solverSets: make([]solverSet, 3), taskContexts: make([]taskContext, 2)}
 	states := []bodyState{{linearVelocity: Vec2{2, -4}, angularVelocity: 2, flags: dynamicFlag, deltaRotation: Rot{C: 1}}}
 	w.solverSets[awakeSet].bodyStates = states
 	color := &w.constraintGraph.colors[overflowIndex]

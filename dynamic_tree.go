@@ -173,7 +173,7 @@ func freePair(tree *DynamicTree, pair int) {
 }
 
 // Constructing the tree initializes the node pool.
-func CreateDynamicTree(proxyCapacity int) DynamicTree {
+func NewDynamicTree(proxyCapacity int) DynamicTree {
 	capacity := max(proxyCapacity, 16)
 	tree := DynamicTree{}
 	tree.nodeCapacity = int32(2 * capacity)
@@ -195,11 +195,6 @@ func CreateDynamicTree(proxyCapacity int) DynamicTree {
 	tree.proxies[capacity-1].Node = int32(nullIndex)
 	tree.proxies[capacity-1].Next = int32(nullIndex)
 	return tree
-}
-
-// Destroy the tree, freeing the node pool.
-func (tree *DynamicTree) Destroy() {
-	*tree = DynamicTree{}
 }
 
 func allocateProxy(tree *DynamicTree) int {
@@ -307,7 +302,7 @@ func findBestSibling(tree *DynamicTree, boxD AABB) int {
 			}
 		} else {
 			area1 = perimeter(box1)
-			lowerCost1 = inheritedCost + directCost1 + MinFloat(areaD-area1, 0)
+			lowerCost1 = inheritedCost + directCost1 + minFloat(areaD-area1, 0)
 		}
 		lowerCost2 := float32(math.MaxFloat32)
 		box2 := nodes[child2].AABB
@@ -321,7 +316,7 @@ func findBestSibling(tree *DynamicTree, boxD AABB) int {
 			}
 		} else {
 			area2 = perimeter(box2)
-			lowerCost2 = inheritedCost + directCost2 + MinFloat(areaD-area2, 0)
+			lowerCost2 = inheritedCost + directCost2 + minFloat(areaD-area2, 0)
 		}
 		if leaf1 && leaf2 {
 			break
@@ -332,10 +327,10 @@ func findBestSibling(tree *DynamicTree, boxD AABB) int {
 		if lowerCost1 == lowerCost2 && !leaf1 {
 			assert(lowerCost1 < math.MaxFloat32, "lowerCost1 < FLT_MAX")
 			assert(lowerCost2 < math.MaxFloat32, "lowerCost2 < FLT_MAX")
-			d1 := Sub(box1.Center(), centerD)
-			d2 := Sub(box2.Center(), centerD)
-			lowerCost1 = LengthSquared(d1)
-			lowerCost2 = LengthSquared(d2)
+			d1 := box1.Center().Sub(centerD)
+			d2 := box2.Center().Sub(centerD)
+			lowerCost1 = d1.LengthSquared()
+			lowerCost2 = d2.LengthSquared()
 		}
 		if lowerCost1 < lowerCost2 && !leaf1 {
 			nodeIndex = child1
@@ -465,7 +460,7 @@ func removeLeaf(tree *DynamicTree, proxyID int) {
 }
 
 func createTreeProxyInternal(tree *DynamicTree, aabb AABB, categoryBits, userData uint64, markMoved bool) int {
-	validate(IsValidAABB(aabb), "b2IsValidAABB( aabb )")
+	validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
 	proxyID := allocateProxy(tree)
 	proxy := &tree.proxies[proxyID]
 	proxy.CategoryBits = categoryBits
@@ -492,7 +487,7 @@ func (tree *DynamicTree) ProxyCount() int {
 }
 
 func (tree *DynamicTree) moveProxyInternal(proxyID int, aabb AABB, markMoved bool) {
-	validate(IsValidAABB(aabb), "b2IsValidAABB( aabb )")
+	validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
 	validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
 	validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
 	assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
@@ -506,7 +501,7 @@ func (tree *DynamicTree) MoveProxy(proxyID int, aabb AABB) {
 }
 
 func (tree *DynamicTree) enlargeProxy(proxyID int, aabb AABB) {
-	validate(IsValidAABB(aabb), "b2IsValidAABB( aabb )")
+	validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
 	validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
 	validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
 	assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
@@ -793,12 +788,12 @@ func (tree *DynamicTree) CastRay(input *RayCastInput, maskBits uint64, callback 
 	}
 	p1 := input.Origin
 	d := input.Translation
-	r := Normalize(d)
-	v := CrossSV(1, r)
-	absV := Abs(v)
+	r := d.Normalize()
+	v := r.ScalarCross(1)
+	absV := v.Abs()
 	maxFraction := input.MaxFraction
-	p2 := MulAdd(p1, maxFraction, d)
-	segmentAABB := AABB{LowerBound: Min(p1, p2), UpperBound: Max(p1, p2)}
+	p2 := p1.MulAdd(maxFraction, d)
+	segmentAABB := AABB{LowerBound: p1.Min(p2), UpperBound: p1.Max(p2)}
 	boxv := loadAABBV(&segmentAABB)
 	nodes := tree.nodes
 	var stack [treeStackSize]int
@@ -820,8 +815,8 @@ func (tree *DynamicTree) CastRay(input *RayCastInput, maskBits uint64, callback 
 			nodeAABB := node.AABB
 			c := nodeAABB.Center()
 			h := nodeAABB.Extents()
-			term1 := AbsFloat(Dot(v, Sub(p1, c)))
-			term2 := Dot(absV, h)
+			term1 := absFloat(v.Dot(p1.Sub(c)))
+			term2 := absV.Dot(h)
 			if term2 < term1 {
 				continue
 			}
@@ -832,8 +827,8 @@ func (tree *DynamicTree) CastRay(input *RayCastInput, maskBits uint64, callback 
 		if hitCount == 2 && !leaf[0] && !leaf[1] {
 			center1 := hit[0].AABB.Center()
 			center2 := hit[1].AABB.Center()
-			d1 := DistanceSquared(center1, p1)
-			d2 := DistanceSquared(center2, p1)
+			d1 := center1.DistanceSquared(p1)
+			d2 := center2.DistanceSquared(p1)
 			if d1 < d2 {
 				hit[0], hit[1] = hit[1], hit[0]
 			}
@@ -853,9 +848,9 @@ func (tree *DynamicTree) CastRay(input *RayCastInput, maskBits uint64, callback 
 				}
 				if 0 < value && value <= maxFraction {
 					maxFraction = value
-					p2 = MulAdd(p1, maxFraction, d)
-					segmentAABB.LowerBound = Min(p1, p2)
-					segmentAABB.UpperBound = Max(p1, p2)
+					p2 = p1.MulAdd(maxFraction, d)
+					segmentAABB.LowerBound = p1.Min(p2)
+					segmentAABB.UpperBound = p1.Max(p2)
 					boxv = loadAABBV(&segmentAABB)
 				}
 			} else {
@@ -887,11 +882,11 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 	p1 := originAABB.Center()
 	extension := originAABB.Extents()
 	r := input.Translation
-	v := CrossSV(1, r)
-	absV := Abs(v)
+	v := r.ScalarCross(1)
+	absV := v.Abs()
 	maxFraction := input.MaxFraction
 	t := Vec2{X: float32(maxFraction * input.Translation.X), Y: float32(maxFraction * input.Translation.Y)}
-	totalAABB := AABB{LowerBound: Min(originAABB.LowerBound, Add(originAABB.LowerBound, t)), UpperBound: Max(originAABB.UpperBound, Add(originAABB.UpperBound, t))}
+	totalAABB := AABB{LowerBound: originAABB.LowerBound.Min(originAABB.LowerBound.Add(t)), UpperBound: originAABB.UpperBound.Max(originAABB.UpperBound.Add(t))}
 	boxv := loadAABBV(&totalAABB)
 	nodes := tree.nodes
 	var stack [treeStackSize]int
@@ -912,9 +907,9 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 			}
 			nodeAABB := node.AABB
 			c := nodeAABB.Center()
-			h := Add(nodeAABB.Extents(), extension)
-			term1 := AbsFloat(Dot(v, Sub(p1, c)))
-			term2 := Dot(absV, h)
+			h := nodeAABB.Extents().Add(extension)
+			term1 := absFloat(v.Dot(p1.Sub(c)))
+			term2 := absV.Dot(h)
 			if term2 < term1 {
 				continue
 			}
@@ -925,8 +920,8 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 		if hitCount == 2 && !leaf[0] && !leaf[1] {
 			center1 := hit[0].AABB.Center()
 			center2 := hit[1].AABB.Center()
-			d1 := DistanceSquared(center1, p1)
-			d2 := DistanceSquared(center2, p1)
+			d1 := center1.DistanceSquared(p1)
+			d2 := center2.DistanceSquared(p1)
 			if d1 < d2 {
 				hit[0], hit[1] = hit[1], hit[0]
 			}
@@ -947,8 +942,8 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 				if 0 < value && value < maxFraction {
 					maxFraction = value
 					t = Vec2{X: float32(maxFraction * input.Translation.X), Y: float32(maxFraction * input.Translation.Y)}
-					totalAABB.LowerBound = Min(originAABB.LowerBound, Add(originAABB.LowerBound, t))
-					totalAABB.UpperBound = Max(originAABB.UpperBound, Add(originAABB.UpperBound, t))
+					totalAABB.LowerBound = originAABB.LowerBound.Min(originAABB.LowerBound.Add(t))
+					totalAABB.UpperBound = originAABB.UpperBound.Max(originAABB.UpperBound.Add(t))
 					boxv = loadAABBV(&totalAABB)
 				}
 			} else {
@@ -970,10 +965,10 @@ func partitionMid(indices []int32, centers []Vec2, count int) int {
 	}
 	lowerBound, upperBound := centers[0], centers[0]
 	for i := 1; i < count; i++ {
-		lowerBound = Min(lowerBound, centers[i])
-		upperBound = Max(upperBound, centers[i])
+		lowerBound = lowerBound.Min(centers[i])
+		upperBound = upperBound.Max(centers[i])
 	}
-	d := Sub(upperBound, lowerBound)
+	d := upperBound.Sub(lowerBound)
 	c := Vec2{X: 0.5 * (lowerBound.X + upperBound.X), Y: 0.5 * (lowerBound.Y + upperBound.Y)}
 	i1, i2 := 0, count
 	if d.X > d.Y {

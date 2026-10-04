@@ -14,9 +14,9 @@ type solverScratchObservation struct {
 	overflow  []contactConstraint
 }
 
-func newSolverScratchWorld(t *testing.T, workers int) (World, Body, *solverScratchObservation) {
+func newSolverScratchWorld(t *testing.T, workers int) (*World, Body, *solverScratchObservation) {
 	t.Helper()
-	var state *world
+	var state *World
 	observed := new(solverScratchObservation)
 	observe := func() {
 		for i := range state.constraintGraph.colors {
@@ -48,9 +48,9 @@ func newSolverScratchWorld(t *testing.T, workers int) (World, Body, *solverScrat
 			observe()
 		}
 	}
-	w := CreateWorld(&def)
-	t.Cleanup(w.Destroy)
-	state = getWorldFromId(w)
+	w := NewWorld(&def)
+	t.Cleanup(w.Close)
+	state = w
 	groundDef := DefaultBodyDef()
 	groundDef.Position = Pos{Y: -0.5}
 	ground := w.CreateBody(&groundDef)
@@ -68,9 +68,9 @@ func newSolverScratchWorld(t *testing.T, workers int) (World, Body, *solverScrat
 	return w, body, observed
 }
 
-func checkSolverScratchReleased(t *testing.T, w World) {
+func checkSolverScratchReleased(t *testing.T, w *World) {
 	t.Helper()
-	state := getWorldFromId(w)
+	state := w
 	for i := range state.constraintGraph.colors {
 		color := &state.constraintGraph.colors[i]
 		if color.wideConstraints != nil || color.overflowConstraints != nil || color.wideConstraintCount != 0 {
@@ -86,7 +86,7 @@ func TestSolverScratchLifetime(t *testing.T) {
 		t.Run(strconv.Itoa(workers), func(t *testing.T) {
 			t.Run("RepeatedContacts", func(t *testing.T) {
 				w, body, observed := newSolverScratchWorld(t, workers)
-				body.EnableSleep(false)
+				body.SetSleepEnabled(false)
 				for step := range 8 {
 					*observed = solverScratchObservation{}
 					w.Step(1.0/60.0, 4)
@@ -104,10 +104,10 @@ func TestSolverScratchLifetime(t *testing.T) {
 				}
 				body.SetTransform(Pos{X: 100, Y: 0.5}, Rot{C: 1})
 				w.Step(1.0/60.0, 4)
-				if !body.IsAwake() {
+				if !body.Awake() {
 					t.Fatal("separated body is not awake")
 				}
-				state := getWorldFromId(w)
+				state := w
 				for i := range state.constraintGraph.colors {
 					if len(state.constraintGraph.colors[i].contactSims) != 0 {
 						t.Fatalf("color %d still has active contacts after separation", i)
@@ -122,10 +122,10 @@ func TestSolverScratchLifetime(t *testing.T) {
 					t.Fatalf("contact step did not use both scratch buffers: wide=%d overflow=%d", len(observed.wide), len(observed.overflow))
 				}
 				body.SetAwake(false)
-				if body.IsAwake() || w.AwakeBodyCount() != 0 {
+				if body.Awake() || w.AwakeBodyCount() != 0 {
 					t.Fatal("world did not transition to no awake bodies")
 				}
-				state := getWorldFromId(w)
+				state := w
 				color := &state.constraintGraph.colors[observed.wideColor]
 				color.wideConstraints = observed.wide
 				color.wideConstraintCount = len(observed.wide)

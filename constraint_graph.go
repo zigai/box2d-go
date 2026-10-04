@@ -58,7 +58,7 @@ func destroyGraph(graph *constraintGraph) {
 	}
 }
 
-func addContactToGraph(world *world, contactSim *contactSim, contact *contact) {
+func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 	assert(contactSim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
 	assert((contactSim.simFlags&simTouchingFlag) != 0, "contactSim->simFlags & b2_simTouchingFlag")
 	assert((contact.flags&contactTouchingFlag) != 0, "contact->flags & b2_contactTouchingFlag")
@@ -157,7 +157,7 @@ func addContactToGraph(world *world, contactSim *contactSim, contact *contact) {
 	}
 }
 
-func removeContactFromGraph(world *world, bodyIDA int, bodyIDB int, colorIndex int, localIndex int) {
+func removeContactFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex int, localIndex int) {
 	graph := &world.constraintGraph
 
 	assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
@@ -227,7 +227,7 @@ func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA Bo
 	return overflowIndex
 }
 
-func createJointInGraph(world *world, joint *joint) *jointSim {
+func createJointInGraph(world *World, joint *joint) *jointSim {
 	graph := &world.constraintGraph
 
 	bodyIDA := joint.edges[0].bodyId
@@ -245,12 +245,12 @@ func createJointInGraph(world *world, joint *joint) *jointSim {
 	return jointSim
 }
 
-func addJointToGraph(world *world, jointSim *jointSim, joint *joint) {
+func addJointToGraph(world *World, jointSim *jointSim, joint *joint) {
 	jointDst := createJointInGraph(world, joint)
 	*jointDst = *jointSim
 }
 
-func removeJointFromGraph(world *world, bodyIDA int, bodyIDB int, colorIndex int, localIndex int) {
+func removeJointFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex int, localIndex int) {
 	graph := &world.constraintGraph
 
 	assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
@@ -278,7 +278,7 @@ func removeJointFromGraph(world *world, bodyIDA int, bodyIDB int, colorIndex int
 
 // Get the visualization color assigned to a constraint graph color slot. The last index
 // (GraphColorCount - 1) is the overflow color.
-func GetGraphColor(index int) HexColor {
+func colorForGraph(index int) HexColor {
 	assert(0 <= index && index < GraphColorCount, "0 <= index && index < B2_GRAPH_COLOR_COUNT")
 	return graphColors[index]
 }

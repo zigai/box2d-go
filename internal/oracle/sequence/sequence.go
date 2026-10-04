@@ -33,38 +33,43 @@ func Execute(t *testing.T, r *oracle.Reader, input []byte) {
 // operation whose object precondition is absent reports acted=false.
 // See oracle/differential.c for the independent native implementation.
 type differentialSequence struct {
-	t                 *testing.T
-	r                 *oracle.Reader
-	world             box2d.World
-	bodies            [4]box2d.Body
-	shapes            [4]box2d.Shape
-	joints            [2]box2d.Joint
-	savedBodies       [4]box2d.Body
-	savedShapes       [4]box2d.Shape
-	savedJoints       [2]box2d.Joint
-	oldBodies         []box2d.Body
-	oldShapes         []box2d.Shape
-	oldJoints         []box2d.Joint
-	image             []byte
-	epoch             uint32
-	initialGeneration uint16
-	initialSlot       uint16
+	t           *testing.T
+	r           *oracle.Reader
+	world       *box2d.World
+	bodies      [4]box2d.Body
+	shapes      [4]box2d.Shape
+	joints      [2]box2d.Joint
+	savedBodies [4]box2d.Body
+	savedShapes [4]box2d.Shape
+	savedJoints [2]box2d.Joint
+	oldBodies   []box2d.Body
+	oldShapes   []box2d.Shape
+	oldJoints   []box2d.Joint
+	image       []byte
+	epoch       uint32
 }
 
 func differentialScalar(x byte) float32 { return float32(int8(x)) / 16 }
 func differentialPosition(x, y byte) box2d.Pos {
-	return box2d.OffsetPos(box2d.Pos{}, box2d.Vec2{X: differentialScalar(x), Y: differentialScalar(y)})
+	return box2d.Pos{}.Add(box2d.Vec2{X: differentialScalar(x), Y: differentialScalar(y)})
 }
 
 // Map only the world slot, which is process-local. Keep every allocation index
 // and object generation bit. Never access state through a retained invalid ID.
 func differentialID(id uint64) uint64 { return id &^ uint64(0xffff0000) }
-func differentialWorld() box2d.World {
+func differentialWorld() *box2d.World {
 	d := box2d.DefaultWorldDef()
 	d.Gravity = box2d.Vec2{Y: -10}
 	d.EnableSleep = false
 	d.WorkerCount = 0
-	return box2d.CreateWorld(&d)
+	return box2d.NewWorld(&d)
+}
+func (s *differentialSequence) snapshot(w *box2d.World) []byte {
+	image, err := w.MarshalBinary()
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return image
 }
 func (s *differentialSequence) vec(key string, v box2d.Vec2) { s.r.Vec2(key, v.X, v.Y) }
 func (s *differentialSequence) pos(key string, p box2d.Pos) {
@@ -72,30 +77,30 @@ func (s *differentialSequence) pos(key string, p box2d.Pos) {
 }
 func (s *differentialSequence) rot(key string, q box2d.Rot) { s.r.Rot(key, q.C, q.S) }
 func (s *differentialSequence) pair(a, b box2d.Shape, c box2d.Contact) {
-	s.r.U64("pair.a", differentialID(a.Store()))
-	s.r.U64("pair.b", differentialID(b.Store()))
+	s.r.U64("pair.a", differentialID(a.ID()))
+	s.r.U64("pair.b", differentialID(b.ID()))
 	s.r.Bool("pair.a.valid", a.IsValid())
 	s.r.Bool("pair.b.valid", b.IsValid())
-	id := c.Store()
-	s.r.U32("contact.index", id[0])
-	s.r.U32("contact.generation", id[2])
+	id := c.ID()
+	s.r.U32("contact.index", uint32(id>>32))
+	s.r.U32("contact.generation", uint32(id))
 	s.r.Bool("contact.valid", c.IsValid())
 }
-func (s *differentialSequence) events(w box2d.World) {
+func (s *differentialSequence) events(w *box2d.World) {
 	begin := slices.Collect(w.ContactBeginEvents())
 	s.r.I32("begin.count", int32(len(begin)))
 	for _, e := range begin {
-		s.pair(e.ShapeIDA, e.ShapeIDB, e.ContactID)
+		s.pair(e.ShapeA, e.ShapeB, e.Contact)
 	}
 	end := slices.Collect(w.ContactEndEvents())
 	s.r.I32("end.count", int32(len(end)))
 	for _, e := range end {
-		s.pair(e.ShapeIDA, e.ShapeIDB, e.ContactID)
+		s.pair(e.ShapeA, e.ShapeB, e.Contact)
 	}
 	hit := slices.Collect(w.ContactHitEvents())
 	s.r.I32("hit.count", int32(len(hit)))
 	for _, h := range hit {
-		s.pair(h.ShapeIDA, h.ShapeIDB, h.ContactID)
+		s.pair(h.ShapeA, h.ShapeB, h.Contact)
 		s.pos("hit.point", h.Point)
 		s.vec("hit.normal", h.Normal)
 		s.r.F32("hit.speed", h.ApproachSpeed)
@@ -103,14 +108,14 @@ func (s *differentialSequence) events(w box2d.World) {
 	moves := slices.Collect(w.BodyMoveEvents())
 	s.r.I32("move.count", int32(len(moves)))
 	for _, b := range moves {
-		s.r.U64("move.body", differentialID(b.BodyID.Store()))
+		s.r.U64("move.body", differentialID(b.Body.ID()))
 		s.pos("move.position", b.Transform.P)
 		s.rot("move.rotation", b.Transform.Q)
 		s.r.Bool("move.sleep", b.FellAsleep)
 	}
 }
 func (s *differentialSequence) body(b box2d.Body) {
-	s.r.U64("body.id", differentialID(b.Store()))
+	s.r.U64("body.id", differentialID(b.ID()))
 	valid := b.IsValid()
 	s.r.Bool("body.valid", valid)
 	if !valid {
@@ -121,13 +126,13 @@ func (s *differentialSequence) body(b box2d.Body) {
 	s.vec("body.velocity", b.LinearVelocity())
 	s.r.F32("body.angular", b.AngularVelocity())
 	s.r.I32("body.type", int32(b.Type()))
-	s.r.Bool("body.enabled", b.IsEnabled())
-	s.r.Bool("body.awake", b.IsAwake())
+	s.r.Bool("body.enabled", b.Enabled())
+	s.r.Bool("body.awake", b.Awake())
 	s.r.F32("body.mass", b.Mass())
 	contacts := slices.Collect(b.ContactData())
 	s.r.I32("body.contacts", int32(len(contacts)))
 	for _, c := range contacts {
-		s.pair(c.ShapeIDA, c.ShapeIDB, c.ContactID)
+		s.pair(c.ShapeA, c.ShapeB, c.Contact)
 		s.vec("manifold.normal", c.Manifold.Normal)
 		s.r.F32("manifold.rolling", c.Manifold.RollingImpulse)
 		s.r.I32("manifold.count", int32(c.Manifold.PointCount))
@@ -144,7 +149,7 @@ func (s *differentialSequence) body(b box2d.Body) {
 		}
 	}
 }
-func (s *differentialSequence) state(w box2d.World) {
+func (s *differentialSequence) state(w *box2d.World) {
 	c := w.Counters()
 	s.r.I32("world.bodies", int32(c.BodyCount))
 	s.r.I32("world.shapes", int32(c.ShapeCount))
@@ -155,14 +160,12 @@ func (s *differentialSequence) state(w box2d.World) {
 }
 func (s *differentialSequence) observe() {
 	s.r.U32("world.epoch", s.epoch)
-	s.r.U32("world.generation.delta", uint32(uint16(s.world.Store())-s.initialGeneration))
-	s.r.Bool("world.slot.reused", uint16(s.world.Store()>>16) == s.initialSlot)
 	s.state(s.world)
 	for i := range 4 {
 		s.r.I32("slot", int32(i))
 		s.body(s.bodies[i])
 		sh := s.shapes[i]
-		s.r.U64("shape.id", differentialID(sh.Store()))
+		s.r.U64("shape.id", differentialID(sh.ID()))
 		valid := sh.IsValid()
 		s.r.Bool("shape.valid", valid)
 		if valid {
@@ -173,40 +176,40 @@ func (s *differentialSequence) observe() {
 		}
 	}
 	for _, j := range s.joints {
-		s.r.U64("joint.id", differentialID(j.Store()))
+		s.r.U64("joint.id", differentialID(j.ID()))
 		valid := j.IsValid()
 		s.r.Bool("joint.valid", valid)
 		if valid {
-			s.r.U64("joint.a", differentialID(j.BodyA().Store()))
-			s.r.U64("joint.b", differentialID(j.BodyB().Store()))
+			s.r.U64("joint.a", differentialID(j.BodyA().ID()))
+			s.r.U64("joint.b", differentialID(j.BodyB().ID()))
 			s.r.F32("joint.length", (box2d.DistanceJoint{Joint: j}).Length())
 			s.vec("joint.force", j.ConstraintForce())
 		}
 	}
 	s.r.I32("retained.bodies", int32(len(s.oldBodies)))
 	for _, b := range s.oldBodies {
-		s.r.U64("retained.body", differentialID(b.Store()))
+		s.r.U64("retained.body", differentialID(b.ID()))
 		s.r.Bool("retained.body.valid", b.IsValid())
 	}
 	s.r.I32("retained.shapes", int32(len(s.oldShapes)))
 	for _, sh := range s.oldShapes {
-		s.r.U64("retained.shape", differentialID(sh.Store()))
+		s.r.U64("retained.shape", differentialID(sh.ID()))
 		s.r.Bool("retained.shape.valid", sh.IsValid())
 	}
 	s.r.I32("retained.joints", int32(len(s.oldJoints)))
 	for _, j := range s.oldJoints {
-		s.r.U64("retained.joint", differentialID(j.Store()))
+		s.r.U64("retained.joint", differentialID(j.ID()))
 		s.r.Bool("retained.joint.valid", j.IsValid())
 	}
 	s.r.U64("world.hash", s.world.StateHash())
 }
-func (s *differentialSequence) query(w box2d.World, x, y byte) {
+func (s *differentialSequence) query(w *box2d.World, x, y byte) {
 	p := differentialPosition(x, y)
 	a := box2d.AABB{LowerBound: box2d.Vec2{X: -2, Y: -2}, UpperBound: box2d.Vec2{X: 2, Y: 2}}
 	f := box2d.DefaultQueryFilter()
 	var hits []uint64
 	w.OverlapAABB(p, a, f, func(sh box2d.Shape) bool {
-		hits = append(hits, differentialID(sh.Store()))
+		hits = append(hits, differentialID(sh.ID()))
 		return true
 	})
 	// Query traversal order is not promised; retain duplicate hits and generation
@@ -219,11 +222,11 @@ func (s *differentialSequence) query(w box2d.World, x, y byte) {
 	count := int32(0)
 	w.OverlapAABB(p, a, f, func(box2d.Shape) bool { count++; return false })
 	s.r.I32("query.cancel.count", count)
-	origin := box2d.OffsetPos(box2d.Pos{}, box2d.Vec2{X: -10, Y: differentialScalar(y)})
+	origin := box2d.Pos{}.Add(box2d.Vec2{X: -10, Y: differentialScalar(y)})
 	r := w.CastRayClosest(origin, box2d.Vec2{X: 20}, f)
 	s.r.Bool("ray.hit", r.Hit)
 	if r.Hit {
-		s.r.U64("ray.shape", differentialID(r.ShapeID.Store()))
+		s.r.U64("ray.shape", differentialID(r.Shape.ID()))
 		s.pos("ray.point", r.Point)
 		s.vec("ray.normal", r.Normal)
 		s.r.F32("ray.fraction", r.Fraction)
@@ -235,10 +238,10 @@ func (s *differentialSequence) replay(p *box2d.Replay) {
 	s.r.Bool("replay.end", p.IsAtEnd())
 	s.r.Bool("replay.diverged", p.HasDiverged())
 	s.r.I32("replay.diverge.frame", int32(p.DivergeFrame()))
-	s.state(p.WorldID())
+	s.state(p.World())
 	s.r.I32("replay.bodies", int32(p.BodyCount()))
 	for i := range p.BodyCount() {
-		s.body(p.BodyID(i))
+		s.body(p.Body(i))
 	}
 	s.r.I32("replay.queries", int32(p.FrameQueryCount()))
 	for i := range p.FrameQueryCount() {
@@ -247,7 +250,7 @@ func (s *differentialSequence) replay(p *box2d.Replay) {
 		s.r.I32("replay.query.hits", int32(q.HitCount))
 		for j := range q.HitCount {
 			h := p.FrameQueryHit(i, j)
-			s.r.U64("replay.query.shape", differentialID(h.Shape.Store()))
+			s.r.U64("replay.query.shape", differentialID(h.Shape.ID()))
 			if q.Type != box2d.ReplayQueryOverlapAABB && q.Type != box2d.ReplayQueryOverlapShape {
 				s.pos("replay.query.point", h.Point)
 				s.vec("replay.query.normal", h.Normal)
@@ -255,11 +258,10 @@ func (s *differentialSequence) replay(p *box2d.Replay) {
 			}
 		}
 	}
-	s.r.U64("world.hash", p.WorldID().StateHash())
+	s.r.U64("world.hash", p.World().StateHash())
 }
 func (s *differentialSequence) recording(x, y byte) {
-	r := box2d.CreateRecording(0)
-	defer r.Destroy()
+	r := box2d.NewRecording(0)
 	s.world.StartRecording(r)
 	defer s.world.StopRecording()
 	bd := box2d.DefaultBodyDef()
@@ -273,7 +275,7 @@ func (s *differentialSequence) recording(x, y byte) {
 	var transientJoint box2d.Joint
 	if s.bodies[0].IsValid() {
 		jd := box2d.DefaultDistanceJointDef()
-		jd.Base.BodyIDA, jd.Base.BodyIDB, jd.Base.CollideConnected = s.bodies[0], transient, true
+		jd.Base.BodyA, jd.Base.BodyB, jd.Base.CollideConnected = s.bodies[0], transient, true
 		transientJoint = s.world.CreateDistanceJoint(&jd).Joint
 	}
 	for i := range 3 {
@@ -292,11 +294,11 @@ func (s *differentialSequence) recording(x, y byte) {
 		s.r.I32("record.step", int32(i))
 		s.state(s.world)
 		s.body(transient)
-		s.r.U64("record.first.shape", differentialID(first.Store()))
+		s.r.U64("record.first.shape", differentialID(first.ID()))
 		s.r.Bool("record.first.shape.valid", first.IsValid())
-		s.r.U64("record.current.shape", differentialID(current.Store()))
+		s.r.U64("record.current.shape", differentialID(current.ID()))
 		s.r.Bool("record.current.shape.valid", current.IsValid())
-		s.r.U64("record.joint", differentialID(transientJoint.Store()))
+		s.r.U64("record.joint", differentialID(transientJoint.ID()))
 		s.r.Bool("record.joint.valid", transientJoint.IsValid())
 		for _, b := range s.bodies {
 			s.body(b)
@@ -304,12 +306,12 @@ func (s *differentialSequence) recording(x, y byte) {
 		s.r.U64("world.hash", s.world.StateHash())
 	}
 	s.world.StopRecording()
-	p, err := box2d.CreateReplay(r.Data(), 0)
+	p, err := box2d.NewReplay(r.Data(), 0)
 	s.r.Bool("replay.created", err == nil && p != nil)
 	if err != nil {
 		s.t.Fatalf("native Go recording cannot replay: %v", err)
 	}
-	defer p.Destroy()
+	defer p.Close()
 	info := p.Info()
 	s.r.I32("replay.frames", int32(info.FrameCount))
 	s.r.I32("replay.workers", int32(info.WorkerCount))
@@ -323,10 +325,10 @@ func (s *differentialSequence) recording(x, y byte) {
 		s.replay(p)
 	}
 	p.SeekFrame(1)
-	rw := p.WorldID()
-	snap := rw.Snapshot()
+	rw := p.World()
+	snap := s.snapshot(rw)
 	for i := range 2 {
-		err := rw.Restore(snap)
+		err := rw.UnmarshalBinary(snap)
 		s.r.Bool("replay.restore", err == nil)
 		if err != nil {
 			s.t.Fatalf("restoring native Go replay snapshot: %v", err)
@@ -336,28 +338,27 @@ func (s *differentialSequence) recording(x, y byte) {
 		s.r.I32("replay.restep", int32(i))
 		s.state(rw)
 		for j := range p.BodyCount() {
-			s.body(p.BodyID(j))
+			s.body(p.Body(j))
 		}
 		s.r.U64("world.hash", rw.StateHash())
 	}
 	for i := range p.BodyCount() {
-		if b := p.BodyID(i); b.IsValid() {
+		if b := p.Body(i); b.IsValid() {
 			b.ApplyForceToCenter(box2d.Vec2{X: differentialScalar(y), Y: differentialScalar(x)}, true)
 		}
 	}
 	rw.Step(1.0/60.0, 4)
 	s.state(rw)
 	for j := range p.BodyCount() {
-		s.body(p.BodyID(j))
+		s.body(p.Body(j))
 	}
 	s.r.U64("world.hash", rw.StateHash())
 }
 func (s *differentialSequence) execute(input []byte) {
 	s.world = differentialWorld()
-	s.initialGeneration, s.initialSlot = uint16(s.world.Store()), uint16(s.world.Store()>>16)
 	defer func() {
 		if s.world.IsValid() {
-			s.world.Destroy()
+			s.world.Close()
 		}
 	}()
 	s.r.Bytes("input", input)
@@ -456,7 +457,7 @@ func (s *differentialSequence) execute(input []byte) {
 			if !s.joints[joint].IsValid() && bv && other != slot && s.bodies[other].IsValid() &&
 				(b.Type() == box2d.DynamicBody || s.bodies[other].Type() == box2d.DynamicBody) {
 				d := box2d.DefaultDistanceJointDef()
-				d.Base.BodyIDA, d.Base.BodyIDB = b, s.bodies[other]
+				d.Base.BodyA, d.Base.BodyB = b, s.bodies[other]
 				d.Length, d.Base.CollideConnected = 0.5+float32(float32(op[3]%8)*0.25), true
 				s.joints[joint] = s.world.CreateDistanceJoint(&d).Joint
 				s.oldJoints = append(s.oldJoints, s.joints[joint])
@@ -468,12 +469,12 @@ func (s *differentialSequence) execute(input []byte) {
 				acted = true
 			}
 		case 16:
-			s.image = s.world.Snapshot()
+			s.image = s.snapshot(s.world)
 			s.savedBodies, s.savedShapes, s.savedJoints = s.bodies, s.shapes, s.joints
 			acted = true
 		case 17:
 			if s.image != nil {
-				err := s.world.Restore(s.image)
+				err := s.world.UnmarshalBinary(s.image)
 				s.r.Bool("snapshot.restore", err == nil)
 				if err != nil {
 					s.t.Fatalf("restoring native Go snapshot: %v", err)
@@ -491,7 +492,7 @@ func (s *differentialSequence) execute(input []byte) {
 			acted = true
 		case 20:
 			old := s.world
-			old.Destroy()
+			old.Close()
 			s.r.Bool("world.destroyed", !old.IsValid())
 			s.world = differentialWorld()
 			s.r.Bool("world.old.valid", old.IsValid())
@@ -505,7 +506,7 @@ func (s *differentialSequence) execute(input []byte) {
 		s.observe()
 	}
 	s.r.U32("operation.count", uint32((len(input)+3)/4))
-	s.world.Destroy()
+	s.world.Close()
 	s.r.Bool("world.final.invalid", !s.world.IsValid())
 }
 

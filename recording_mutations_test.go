@@ -14,12 +14,10 @@ func TestRecordingMutationParity(t *testing.T) {
 	r := oracle.Open(t, "recording/MutationParity")
 	wd := box2d.DefaultWorldDef()
 	wd.Gravity = box2d.Vec2{}
-	w := box2d.CreateWorld(&wd)
+	w := box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, w)
-	rec := box2d.CreateRecording(0)
-	ignored := box2d.CreateRecording(0)
-	t.Cleanup(rec.Destroy)
-	t.Cleanup(ignored.Destroy)
+	rec := box2d.NewRecording(0)
+	ignored := box2d.NewRecording(0)
 	w.StartRecording(rec)
 	w.StartRecording(ignored)
 	bd := box2d.DefaultBodyDef()
@@ -37,30 +35,28 @@ func TestRecordingMutationParity(t *testing.T) {
 	sensorCircle := box2d.Circle{Center: box2d.Vec2{X: 2, Y: 3}, Radius: 2}
 	ground.CreateCircleShape(&sensorDef, &sensorCircle)
 	md := box2d.DefaultMoverJointDef()
-	md.Base.BodyIDA = ground
-	md.Base.BodyIDB = body
+	md.Base.BodyA = ground
+	md.Base.BodyB = body
 	mover := w.CreateMoverJoint(&md)
 	pd := box2d.DefaultPogoJointDef()
-	pd.Base.BodyIDA = ground
-	pd.Base.BodyIDB = body
+	pd.Base.BodyA = ground
+	pd.Base.BodyB = body
 	pd.Normal = box2d.Vec2{Y: 1}
 	pd.RestLength = 3
 	pd.MaxCompressionForce = 15
 	pd.MaxTensionForce = 5
 	pogo := w.CreatePogoJoint(&pd)
 	wheelDef := box2d.DefaultWheelJointDef()
-	wheelDef.Base.BodyIDA = ground
-	wheelDef.Base.BodyIDB = body
+	wheelDef.Base.BodyA = ground
+	wheelDef.Base.BodyB = body
 	wheel := w.CreateWheelJoint(&wheelDef)
-	wheel.EnableSpring(false)
+	wheel.SetSpringEnabled(false)
 	points := []box2d.Vec2{{X: -4}, {X: -2}, {}, {X: 2}, {X: 4}}
 	cd := box2d.DefaultChainDef()
 	cd.Points = points
-	cd.PointCount = len(points)
 	cd.Ghost1 = box2d.Vec2{X: -6}
 	cd.Ghost2 = box2d.Vec2{X: 6}
 	cd.Materials = []box2d.SurfaceMaterial{box2d.DefaultSurfaceMaterial()}
-	cd.MaterialCount = 1
 	chain := ground.CreateChain(&cd)
 	for phase := range 18 {
 		switch phase {
@@ -69,8 +65,8 @@ func TestRecordingMutationParity(t *testing.T) {
 			shape.SetCapsule(&cap)
 			body.SetMassData(box2d.MassData{Mass: 7, Center: box2d.Vec2{X: 0.2}, RotationalInertia: 2})
 			body.SetName("mutated name")
-			body.EnableContactEvents(true)
-			body.EnableHitEvents(true)
+			body.SetContactEventsEnabled(true)
+			body.SetHitEventsEnabled(true)
 			surface := box2d.DefaultSurfaceMaterial()
 			surface.Friction = 0.65
 			surface.Restitution = 0.35
@@ -79,8 +75,8 @@ func TestRecordingMutationParity(t *testing.T) {
 			surface.UserMaterialID = 0x123456789abcdef0
 			surface.CustomColor = 0xabcdef
 			shape.SetSurfaceMaterial(&surface)
-			shape.EnableSensorEvents(true)
-			shape.EnablePreSolveEvents(true)
+			shape.SetSensorEventsEnabled(true)
+			shape.SetPreSolveEventsEnabled(true)
 			chain.SetAllSurfaceMaterials(&surface)
 			surface.Friction = 0.85
 			surface.UserMaterialID = 19
@@ -96,19 +92,19 @@ func TestRecordingMutationParity(t *testing.T) {
 			mover.SetConstraintTuning(17, 0.3)
 			mover.SetForceThreshold(0.01)
 			mover.SetTorqueThreshold(0.02)
-			w.EnableSleeping(false)
-			w.EnableContinuous(false)
-			w.EnableWarmStarting(false)
-			w.EnableRestitutionPropagation(false)
+			w.SetSleepingEnabled(false)
+			w.SetContinuousEnabled(false)
+			w.SetWarmStartingEnabled(false)
+			w.SetRestitutionPropagationEnabled(false)
 		case 1:
 			body.UpdateMassFromShapes()
 			polygon := box2d.MakeBox(0.7, 0.2)
 			shape.SetPolygon(&polygon)
 			shape.SetUserMaterial(0xfedcba9876543210)
-			body.EnableContactEvents(false)
-			body.EnableHitEvents(false)
-			shape.EnableSensorEvents(false)
-			shape.EnablePreSolveEvents(false)
+			body.SetContactEventsEnabled(false)
+			body.SetHitEventsEnabled(false)
+			shape.SetSensorEventsEnabled(false)
+			shape.SetPreSolveEventsEnabled(false)
 		case 2:
 			body.SetType(box2d.KinematicBody)
 			body.SetLinearVelocity(box2d.Vec2{X: 0.25})
@@ -124,15 +120,15 @@ func TestRecordingMutationParity(t *testing.T) {
 		case 5:
 			body.Enable()
 			body.SetMotionLocks(box2d.MotionLocks{LinearX: true, AngularZ: true})
-			body.EnableSleep(true)
-			w.EnableSleeping(true)
+			body.SetSleepEnabled(true)
+			w.SetSleepingEnabled(true)
 		case 6:
 			body.SetAwake(false)
 		case 7:
 			mover.WakeBodies()
 			body.SetMotionLocks(box2d.MotionLocks{})
 		case 8:
-			body.EnableSleep(false)
+			body.SetSleepEnabled(false)
 			body.ApplyForceToCenter(box2d.Vec2{X: 40, Y: 20}, true)
 			body.ApplyTorque(3, true)
 			body.ClearForces()
@@ -155,22 +151,22 @@ func TestRecordingMutationParity(t *testing.T) {
 			body.SetLinearVelocity(box2d.Vec2{Y: -1})
 			body.SetAngularVelocity(0.4)
 		case 12:
-			body.EnableSleep(true)
+			body.SetSleepEnabled(true)
 			body.SetAwake(false)
 		case 13:
 			body.SetAwake(true)
 		case 14:
 			support := box2d.Circle{Center: box2d.Vec2{X: 5, Y: 7}, Radius: 1}
 			ground.CreateCircleShape(&sd, &support)
-			body.EnableContactEvents(true)
-			body.EnableHitEvents(true)
+			body.SetContactEventsEnabled(true)
+			body.SetHitEventsEnabled(true)
 			w.SetHitEventThreshold(0.01)
 		case 15:
 			body.SetAwake(false)
 		case 16:
 			ground.WakeTouching()
 		case 17:
-			point := box2d.OffsetPos(body.Position(), box2d.Vec2{X: 0.3, Y: 0.2})
+			point := body.Position().Add(box2d.Vec2{X: 0.3, Y: 0.2})
 			body.ApplyForce(box2d.Vec2{X: 4, Y: 6}, point, true)
 			body.ApplyForceToCenter(box2d.Vec2{X: 2, Y: 3}, true)
 			body.ApplyTorque(1.5, true)
@@ -189,29 +185,28 @@ func TestRecordingMutationParity(t *testing.T) {
 	w.StopRecording()
 	w.StopRecording()
 	r.Bool("repeatedStart/ignoredEmpty", ignored.Size() == 0)
-	ignored.Destroy()
 	body.SetName("after stop")
-	w.Destroy()
+	w.Close()
 	p, destroy := recordingParityPlayer(t, rec.Data(), 0)
 	p.SetKeyframePolicy(1<<26, 2)
 	for p.StepFrame() {
 		key := fmt.Sprintf("replay/%d", p.Frame())
-		r.U64(key+"/state", p.WorldID().StateHash())
-		recordingProperties(r, p.WorldID(), key)
-		recordingEvents(r, p.WorldID(), key)
+		r.U64(key+"/state", p.World().StateHash())
+		recordingProperties(r, p.World(), key)
+		recordingEvents(r, p.World(), key)
 	}
 	r.Bool("replay/diverged", p.HasDiverged())
 	for i, target := range []int{36, 1, 14, 10, 0, 18, 35, 99, -5} {
 		p.SeekFrame(target)
 		key := fmt.Sprintf("seek/%d", i)
 		recordingObserve(t, r, p, key)
-		recordingProperties(r, p.WorldID(), key)
-		recordingEvents(r, p.WorldID(), key)
+		recordingProperties(r, p.World(), key)
+		recordingEvents(r, p.World(), key)
 	}
 	destroy()
 	// Reusing a stopped buffer replaces the old session rather than appending it.
 	wd.Gravity = box2d.Vec2{Y: -2}
-	w = box2d.CreateWorld(&wd)
+	w = box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, w)
 	w.StartRecording(rec)
 	bd.Name = "new session"
@@ -219,11 +214,10 @@ func TestRecordingMutationParity(t *testing.T) {
 	body.CreateCircleShape(&sd, &circle)
 	w.Step(1.0/20.0, 3)
 	w.StopRecording()
-	w.Destroy()
+	w.Close()
 	p, destroy = recordingParityPlayer(t, rec.Data(), 0)
 	recordingObserve(t, r, p, "reuse/open")
 	r.Bool("reuse/step", p.StepFrame())
 	recordingObserve(t, r, p, "reuse/after")
 	destroy()
-	rec.Destroy()
 }

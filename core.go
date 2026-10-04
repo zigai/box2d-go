@@ -16,38 +16,19 @@ const (
 var lengthUnitsPerMeter float32 = 1
 
 func SetLengthUnitsPerMeter(lengthUnits float32) {
-	if !checkInput(IsValidFloat(lengthUnits) && lengthUnits > 0, "IsValidFloat(lengthUnits) && lengthUnits > 0.0f") {
-		return
-	}
+	checkInput(IsValidFloat(lengthUnits) && lengthUnits > 0, "IsValidFloat(lengthUnits) && lengthUnits > 0.0f")
 	lengthUnitsPerMeter = lengthUnits
 }
 
-func GetLengthUnitsPerMeter() float32 {
+func LengthUnitsPerMeter() float32 {
 	return lengthUnitsPerMeter
 }
 
-func checkInput(ok bool, condition string) bool {
+// checkInput panics when an API argument is invalid. Invalid input is a programmer error, so it
+// is rejected regardless of the box2d_noassert build tag.
+func checkInput(ok bool, condition string) {
 	if !ok {
-		pc, file, line, _ := runtime.Caller(1)
-		function := runtime.FuncForPC(pc).Name()
-		log("invalid input: %s in %s\n", condition, function)
-		if assertsEnabled {
-			assertFail(condition, file, line)
-		}
-		return false
+		_, file, line, _ := runtime.Caller(1)
+		panic(&AssertError{Condition: condition, File: file, Line: line})
 	}
-	return true
-}
-
-func checkInputReturn(ok bool, condition string) bool {
-	if !ok {
-		pc, file, line, _ := runtime.Caller(1)
-		function := runtime.FuncForPC(pc).Name()
-		log("invalid input: %s in %s\n", condition, function)
-		if assertsEnabled {
-			assertFail(condition, file, line)
-		}
-		return false
-	}
-	return true
 }

@@ -125,7 +125,7 @@ func TestDistancePublic(t *testing.T) {
 		}
 		for i, sweep := range sweeps {
 			for j, time := range []float32{0, 0.25, 0.5, 0.75, 1} {
-				xf := box2d.GetSweepTransform(&sweep, time)
+				xf := sweep.Transform(time)
 				key := fmt.Sprintf("%d/%d", i, j)
 				r.Vec2(key+"/p", xf.P.X, xf.P.Y)
 				r.Rot(key+"/q", xf.Q.C, xf.Q.S)
@@ -248,7 +248,7 @@ func TestDistancePublic(t *testing.T) {
 		for _, c := range cases {
 			t.Run(c.name, func(t *testing.T) {
 				r := oracle.Open(t, "distance_public/toi/"+c.name)
-				input := box2d.TOIInput{ProxyA: distancePublicBox(0.125), ProxyB: distancePublicBox(0.125), SweepA: box2d.Sweep{C1: box2d.Vec2{-1, 2}, C2: box2d.Vec2{-1, 2}, Q1: box2d.RotIdentity, Q2: box2d.RotIdentity}, SweepB: box2d.Sweep{LocalCenter: c.localCenter, C1: box2d.Add(c.start, box2d.Vec2{-1, 2}), C2: box2d.Add(c.end, box2d.Vec2{-1, 2}), Q1: c.q1, Q2: c.q2}, MaxFraction: c.max}
+				input := box2d.TOIInput{ProxyA: distancePublicBox(0.125), ProxyB: distancePublicBox(0.125), SweepA: box2d.Sweep{C1: box2d.Vec2{-1, 2}, C2: box2d.Vec2{-1, 2}, Q1: box2d.RotIdentity, Q2: box2d.RotIdentity}, SweepB: box2d.Sweep{LocalCenter: c.localCenter, C1: c.start.Add(box2d.Vec2{-1, 2}), C2: c.end.Add(box2d.Vec2{-1, 2}), Q1: c.q1, Q2: c.q2}, MaxFraction: c.max}
 				distancePublicTOI(r, "output", box2d.TimeOfImpact(&input))
 			})
 		}

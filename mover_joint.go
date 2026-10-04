@@ -22,11 +22,9 @@ type MoverJointDef struct {
 
 // Set the desired relative linear velocity in meters per second
 func (m MoverJoint) SetLinearVelocity(velocity Vec2) {
-	if !checkInput(IsValidVec2(velocity), "b2IsValidVec2( velocity )") {
-		return
-	}
+	checkInput(velocity.IsValid(), "b2IsValidVec2( velocity )")
 
-	world := getWorld(int(m.Joint.world0))
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMoverJointSetLinearVelocity(world.recording, &recArgsMoverJointSetLinearVelocity{joint: m.Joint, velocity: velocity})
 	}
@@ -43,11 +41,9 @@ func (m MoverJoint) LinearVelocity() Vec2 {
 
 // Set the motor joint maximum force, usually in newtons
 func (m MoverJoint) SetMaxVelocityForce(maxForce Vec2) {
-	if !checkInput(IsValidVec2(maxForce), "b2IsValidVec2( maxForce )") {
-		return
-	}
+	checkInput(maxForce.IsValid(), "b2IsValidVec2( maxForce )")
 
-	world := getWorld(int(m.Joint.world0))
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMoverJointSetMaxVelocityForce(world.recording, &recArgsMoverJointSetMaxVelocityForce{joint: m.Joint, maxForce: maxForce})
 	}
@@ -62,7 +58,7 @@ func (m MoverJoint) MaxVelocityForce() Vec2 {
 	return joint.moverJoint.maxVelocityForce
 }
 
-func getMoverJointForce(world *world, base *jointSim) Vec2 {
+func getMoverJointForce(world *World, base *jointSim) Vec2 {
 	force := Vec2{X: float32((world.invH) * base.moverJoint.linearVelocityImpulse.X), Y: float32((world.invH) * base.moverJoint.linearVelocityImpulse.Y)}
 	return force
 }
@@ -146,11 +142,11 @@ func warmStartMoverJoint(base *jointSim, context *stepContext) {
 	}
 
 	if stateA.flags&dynamicFlag != 0 {
-		stateA.linearVelocity = MulSub(stateA.linearVelocity, mA, joint.linearVelocityImpulse)
+		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, joint.linearVelocityImpulse)
 	}
 
 	if stateB.flags&dynamicFlag != 0 {
-		stateB.linearVelocity = MulAdd(stateB.linearVelocity, mB, joint.linearVelocityImpulse)
+		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, joint.linearVelocityImpulse)
 	}
 }
 
@@ -182,21 +178,21 @@ func solveMoverJoint(base *jointSim, context *stepContext) {
 
 	// linear velocity
 	if joint.maxVelocityForce.X > float32(0.0) || joint.maxVelocityForce.Y > float32(0.0) {
-		cdot := Sub(vB, vA)
-		cdot = Sub(cdot, joint.linearVelocity)
+		cdot := vB.Sub(vA)
+		cdot = cdot.Sub(joint.linearVelocity)
 		b := Vec2{X: float32((joint.linearMass) * cdot.X), Y: float32((joint.linearMass) * cdot.Y)}
 		impulse := Vec2{X: -b.X, Y: -b.Y}
 
 		oldImpulse := joint.linearVelocityImpulse
-		joint.linearVelocityImpulse = Add(joint.linearVelocityImpulse, impulse)
+		joint.linearVelocityImpulse = joint.linearVelocityImpulse.Add(impulse)
 		maxImpulse := Vec2{X: float32((context.h) * joint.maxVelocityForce.X), Y: float32((context.h) * joint.maxVelocityForce.Y)}
 
 		// clamp x and y separately
-		joint.linearVelocityImpulse = Clamp(joint.linearVelocityImpulse, Neg(maxImpulse), maxImpulse)
+		joint.linearVelocityImpulse = joint.linearVelocityImpulse.Clamp(maxImpulse.Neg(), maxImpulse)
 
-		impulse = Sub(joint.linearVelocityImpulse, oldImpulse)
-		vA = MulSub(vA, mA, impulse)
-		vB = MulAdd(vB, mB, impulse)
+		impulse = joint.linearVelocityImpulse.Sub(oldImpulse)
+		vA = vA.MulSub(mA, impulse)
+		vB = vB.MulAdd(mB, impulse)
 	} else {
 		joint.linearVelocityImpulse = Vec2{}
 	}

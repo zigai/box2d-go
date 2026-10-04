@@ -8,7 +8,7 @@
 static void collision_policy( b2JointType family );
 
 // The pinned C dispatch rejects mover/pogo torque and separation getters.
-// Compare callback-visible assertions as well as the handler-controlled return.
+// Compare callback-visible assertions, and the return only when nothing was rejected.
 static int getter_assertions;
 static int count_getter_assertion( const char* condition, const char* file, int line )
 {
@@ -30,7 +30,10 @@ static void scalar_getter( const char* phase, const char* field, b2JointId joint
 	float value = get( joint );
 	b2SetAssertFcn( fatal_assertion );
 	ORACLE_I32( ORACLE_KEY( "%s/%sAssertions", phase, field ), getter_assertions );
-	ORACLE_F32( ORACLE_KEY( "%s/%s", phase, field ), value );
+	if ( getter_assertions == 0 )
+	{
+		ORACLE_F32( ORACLE_KEY( "%s/%s", phase, field ), value );
+	}
 }
 
 // Direct API observations, not a transform digest: every field is labelled by action/step.

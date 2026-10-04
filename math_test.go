@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
 
@@ -51,7 +52,7 @@ func TestMath(t *testing.T) {
 			t.Fatal("condition false")
 		}
 
-		diff := box2d.AbsFloat(a - xn)
+		diff := float32(math.Abs(float64(a - xn)))
 
 		// The two results can be off by 360 degrees (-pi and pi)
 		if diff > box2d.Pi {
@@ -69,7 +70,7 @@ func TestMath(t *testing.T) {
 		for x := float32(-1.0); x <= 1.0; x += 0.01 {
 			a1 := box2d.Atan2(y, x)
 			a2 := checks.reference(51)
-			diff := box2d.AbsFloat(a1 - a2)
+			diff := float32(math.Abs(float64(a1 - a2)))
 			checks.f32(309, a1)
 			checks.boolean(53, box2d.IsValidFloat(a1))
 			if !(box2d.IsValidFloat(a1)) {
@@ -85,7 +86,7 @@ func TestMath(t *testing.T) {
 	{
 		a1 := box2d.Atan2(1.0, 0.0)
 		a2 := checks.reference(60)
-		diff := box2d.AbsFloat(a1 - a2)
+		diff := float32(math.Abs(float64(a1 - a2)))
 		checks.f32(318, a1)
 		checks.boolean(62, box2d.IsValidFloat(a1))
 		if !(box2d.IsValidFloat(a1)) {
@@ -100,7 +101,7 @@ func TestMath(t *testing.T) {
 	{
 		a1 := box2d.Atan2(-1.0, 0.0)
 		a2 := checks.reference(68)
-		diff := box2d.AbsFloat(a1 - a2)
+		diff := float32(math.Abs(float64(a1 - a2)))
 		checks.f32(326, a1)
 		checks.boolean(70, box2d.IsValidFloat(a1))
 		if !(box2d.IsValidFloat(a1)) {
@@ -115,7 +116,7 @@ func TestMath(t *testing.T) {
 	{
 		a1 := box2d.Atan2(0.0, 1.0)
 		a2 := checks.reference(76)
-		diff := box2d.AbsFloat(a1 - a2)
+		diff := float32(math.Abs(float64(a1 - a2)))
 		checks.f32(334, a1)
 		checks.boolean(78, box2d.IsValidFloat(a1))
 		if !(box2d.IsValidFloat(a1)) {
@@ -130,7 +131,7 @@ func TestMath(t *testing.T) {
 	{
 		a1 := box2d.Atan2(0.0, -1.0)
 		a2 := checks.reference(84)
-		diff := box2d.AbsFloat(a1 - a2)
+		diff := float32(math.Abs(float64(a1 - a2)))
 		checks.f32(342, a1)
 		checks.boolean(86, box2d.IsValidFloat(a1))
 		if !(box2d.IsValidFloat(a1)) {
@@ -145,7 +146,7 @@ func TestMath(t *testing.T) {
 	{
 		a1 := box2d.Atan2(0.0, 0.0)
 		a2 := checks.reference(92)
-		diff := box2d.AbsFloat(a1 - a2)
+		diff := float32(math.Abs(float64(a1 - a2)))
 		checks.f32(350, a1)
 		checks.boolean(94, box2d.IsValidFloat(a1))
 		if !(box2d.IsValidFloat(a1)) {
@@ -161,7 +162,7 @@ func TestMath(t *testing.T) {
 	one := box2d.Vec2{1.0, 1.0}
 	two := box2d.Vec2{2.0, 2.0}
 
-	v := box2d.Add(one, two)
+	v := one.Add(two)
 	checks.f32(359, v.X)
 	checks.f32(615, v.Y)
 	checks.boolean(103, v.X == 3.0 && v.Y == 3.0)
@@ -169,7 +170,7 @@ func TestMath(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	v = box2d.Sub(zero, two)
+	v = zero.Sub(two)
 	checks.f32(362, v.X)
 	checks.f32(618, v.Y)
 	checks.boolean(106, v.X == -2.0 && v.Y == -2.0)
@@ -177,7 +178,7 @@ func TestMath(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	v = box2d.Add(two, two)
+	v = two.Add(two)
 	checks.f32(365, v.X)
 	checks.f32(621, v.Y)
 	checks.boolean(109, v.X != 5.0 && v.Y != 5.0)
@@ -188,10 +189,10 @@ func TestMath(t *testing.T) {
 	transform1 := box2d.Transform{box2d.Vec2{-2.0, 3.0}, box2d.MakeRot(1.0)}
 	transform2 := box2d.Transform{box2d.Vec2{1.0, 0.0}, box2d.MakeRot(-2.0)}
 
-	transform := box2d.MulTransforms(transform2, transform1)
+	transform := transform2.Mul(transform1)
 
-	v = box2d.TransformPoint(transform2, box2d.TransformPoint(transform1, two))
-	u := box2d.TransformPoint(transform, two)
+	v = transform2.Apply(transform1.Apply(two))
+	u := transform.Apply(two)
 
 	checks.f32(120, u.X-v.X)
 	if v := u.X - v.X; v < -(10.0*float32(0x1p-23)) || (10.0*float32(0x1p-23)) < v {
@@ -202,8 +203,8 @@ func TestMath(t *testing.T) {
 		t.Fatalf("condition false: abs(%v) < %v", v, 10.0*float32(0x1p-23))
 	}
 
-	v = box2d.TransformPoint(transform1, two)
-	v = box2d.InvTransformPoint(transform1, v)
+	v = transform1.Apply(two)
+	v = transform1.InvApply(v)
 	checks.f32(126, v.X-two.X)
 	if v := v.X - two.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
 		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
@@ -213,17 +214,17 @@ func TestMath(t *testing.T) {
 		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
 	}
 
-	v = box2d.Normalize(box2d.Vec2{0.2, -0.5})
+	v = box2d.Vec2{0.2, -0.5}.Normalize()
 	for y := float32(-1.0); y <= 1.0; y += 0.01 {
 		for x := float32(-1.0); x <= 1.0; x += 0.01 {
 			if x == 0.0 && y == 0.0 {
 				continue
 			}
 
-			u = box2d.Normalize(box2d.Vec2{x, y})
+			u = box2d.Vec2{x, y}.Normalize()
 			r := box2d.ComputeRotationBetweenUnitVectors(v, u)
 
-			w := box2d.RotateVector(r, v)
+			w := r.Rotate(v)
 			checks.f32(144, w.X-u.X)
 			if v := w.X - u.X; v < -(4.0*float32(0x1p-23)) || (4.0*float32(0x1p-23)) < v {
 				t.Fatalf("condition false: abs(%v) < %v", v, 4.0*float32(0x1p-23))
@@ -242,7 +243,7 @@ func TestMath(t *testing.T) {
 	n := 100
 	for i := 0; i <= n; i++ {
 		alpha := float32(i) / float32(n)
-		q := box2d.NLerp(q1, q2, alpha)
+		q := q1.NLerp(q2, alpha)
 		angle := q.Angle()
 		checks.f32(159, float32(float32(alpha*0.5)*box2d.Pi)-angle)
 		if v := float32(float32(alpha*0.5)*box2d.Pi) - angle; v < -(5.0*box2d.Pi/180.0) || (5.0*box2d.Pi/180.0) < v {
@@ -257,7 +258,7 @@ func TestMath(t *testing.T) {
 	for angleT := float32(-10.0); angleT < 10.0; angleT += 0.01 {
 		angle := float32(box2d.Pi * angleT)
 		q2 = box2d.MakeRot(angle)
-		relativeAngle := box2d.RelativeAngle(q1, q2)
+		relativeAngle := q1.RelativeAngle(q2)
 		unwoundAngle := box2d.UnwindAngle(angle - baseAngle)
 		tolerance := 0.1 * box2d.Pi / 180.0
 		checks.f32(174, relativeAngle-unwoundAngle)
@@ -271,8 +272,8 @@ func TestMath(t *testing.T) {
 	{
 		d := box2d.Vec2{0.25, -0.5}
 		base := box2d.Pos{10.0, -20.0}
-		p := box2d.OffsetPos(base, d)
-		back := box2d.SubPos(p, base)
+		p := base.Add(d)
+		back := p.Sub(base)
 		checks.f32(184, back.X-d.X)
 		if v := back.X - d.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
 			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
@@ -282,7 +283,7 @@ func TestMath(t *testing.T) {
 			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
 		}
 
-		r := box2d.ToVec2(base)
+		r := base.Vec2()
 		checks.f32(444, r.X)
 		checks.f32(700, r.Y)
 		checks.boolean(188, r.X == 10.0 && r.Y == -20.0)
@@ -290,29 +291,29 @@ func TestMath(t *testing.T) {
 			t.Fatal("condition false")
 		}
 
-		checks.boolean(190, box2d.IsValidPosition(p))
-		if !(box2d.IsValidPosition(p)) {
+		checks.boolean(190, p.IsValid())
+		if !(p.IsValid()) {
 			t.Fatal("condition false")
 		}
-		checks.boolean(191, box2d.IsValidPosition(box2d.PosZero))
-		if !(box2d.IsValidPosition(box2d.PosZero)) {
+		checks.boolean(191, box2d.PosZero.IsValid())
+		if !(box2d.PosZero.IsValid()) {
 			t.Fatal("condition false")
 		}
-		checks.boolean(192, box2d.IsValidWorldTransform(box2d.WorldTransformIdentity))
-		if !(box2d.IsValidWorldTransform(box2d.WorldTransformIdentity)) {
+		checks.boolean(192, box2d.WorldTransformIdentity.IsValid())
+		if !(box2d.WorldTransformIdentity.IsValid()) {
 			t.Fatal("condition false")
 		}
 
 		wt := box2d.WorldTransform{box2d.Pos{3.0, -4.0}, box2d.MakeRot(0.7)}
-		checks.boolean(195, box2d.IsValidWorldTransform(wt))
-		if !(box2d.IsValidWorldTransform(wt)) {
+		checks.boolean(195, wt.IsValid())
+		if !(wt.IsValid()) {
 			t.Fatal("condition false")
 		}
 
 		// Local to world to local round trip
 		local := box2d.Vec2{1.5, 2.5}
-		world := box2d.TransformWorldPoint(wt, local)
-		backLocal := box2d.InvTransformWorldPoint(wt, world)
+		world := wt.Apply(local)
+		backLocal := wt.InvApply(world)
 		checks.f32(201, backLocal.X-local.X)
 		if v := backLocal.X - local.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
 			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
@@ -325,10 +326,10 @@ func TestMath(t *testing.T) {
 		// Relative transform of B in A matches a float reference at modest coordinates
 		A := box2d.WorldTransform{box2d.Pos{-2.0, 3.0}, box2d.MakeRot(1.0)}
 		B := box2d.WorldTransform{box2d.Pos{1.0, 0.0}, box2d.MakeRot(-2.0)}
-		rel := box2d.InvMulWorldTransforms(A, B)
-		refA := box2d.Transform{box2d.ToVec2(A.P), A.Q}
-		refB := box2d.Transform{box2d.ToVec2(B.P), B.Q}
-		ref := box2d.InvMulTransforms(refA, refB)
+		rel := A.InvMul(B)
+		refA := box2d.Transform{A.P.Vec2(), A.Q}
+		refB := box2d.Transform{B.P.Vec2(), B.Q}
+		ref := refA.InvMul(refB)
 		checks.f32(211, rel.P.X-ref.P.X)
 		if v := rel.P.X - ref.P.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
 			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
@@ -345,8 +346,8 @@ func TestMath(t *testing.T) {
 		{
 			d := box2d.Vec2{0.25, -0.5}
 			base := box2d.Pos{1.0e7, 0.0}
-			p := box2d.OffsetPos(base, d)
-			back := box2d.SubPos(p, base)
+			p := base.Add(d)
+			back := p.Sub(base)
 			checks.f32(223, back.X-d.X)
 			if v := back.X - d.X; v < -(1.0e-4) || (1.0e-4) < v {
 				t.Fatalf("condition false: abs(%v) < %v", v, 1.0e-4)

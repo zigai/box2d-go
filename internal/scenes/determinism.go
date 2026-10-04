@@ -25,7 +25,7 @@ type FallingHingeData struct {
 	Hash      uint32
 }
 
-func CreateFallingHinges(worldID box2d.World) FallingHingeData {
+func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Position = box2d.Pos{X: 0, Y: -1}
@@ -68,7 +68,7 @@ func CreateFallingHinges(worldID box2d.World) FallingHingeData {
 		for i := 0; i < rowCount; i++ {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.ToPos(box2d.Vec2{X: x + float32(offset*float32(i)), Y: h + float32(float32(2)*h*float32(i))})
+			bodyDef.Position = box2d.Vec2{X: x + float32(offset*float32(i)), Y: h + float32(float32(2)*h*float32(i))}.Pos()
 			// this tests the deterministic cosine and sine functions
 			angle := float32(0.1)
 			if i&1 == 0 {
@@ -79,8 +79,8 @@ func CreateFallingHinges(worldID box2d.World) FallingHingeData {
 			if i&1 == 0 {
 				prevBodyID = bodyID
 			} else {
-				jointDef.Base.BodyIDA = prevBodyID
-				jointDef.Base.BodyIDB = bodyID
+				jointDef.Base.BodyA = prevBodyID
+				jointDef.Base.BodyB = bodyID
 				worldID.CreateRevoluteJoint(&jointDef)
 				prevBodyID = box2d.Body{}
 			}
@@ -99,7 +99,7 @@ func CreateFallingHinges(worldID box2d.World) FallingHingeData {
 	return data
 }
 
-func UpdateFallingHinges(worldID box2d.World, data *FallingHingeData) bool {
+func UpdateFallingHinges(worldID *box2d.World, data *FallingHingeData) bool {
 	if data.Hash == 0 {
 		moveCount := 0
 		for range worldID.BodyMoveEvents() {

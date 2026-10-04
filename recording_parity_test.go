@@ -12,10 +12,10 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
-func recordingObserveShapeID(r *oracle.Reader, key string, id box2d.Shape, world box2d.World) {
-	r.I32(key+"/index", int32(id.Store()>>32))
-	r.U32(key+"/generation", uint32(uint16(id.Store())))
-	r.Bool(key+"/owner", id.IsNull() || id.World() == world)
+func recordingObserveShapeID(r *oracle.Reader, key string, id box2d.Shape, world *box2d.World) {
+	r.I32(key+"/index", int32(id.ID()>>32))
+	r.U32(key+"/generation", uint32(uint16(id.ID())))
+	r.Bool(key+"/owner", id == (box2d.Shape{}) || id.World() == world)
 }
 
 func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, prefix string) {
@@ -33,13 +33,13 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 		r.Vec2(key+"/upper", q.AABB.UpperBound.X, q.AABB.UpperBound.Y)
 		r.Pos(key+"/origin", oracle.Real(q.Origin.X), oracle.Real(q.Origin.Y))
 		r.Vec2(key+"/translation", q.Translation.X, q.Translation.Y)
-		recordingObserveShapeID(r, key+"/shape", q.Shape, p.WorldID())
+		recordingObserveShapeID(r, key+"/shape", q.Shape, p.World())
 		r.I32(key+"/hits", int32(q.HitCount))
 		for ordinal := range q.HitCount + 2 {
 			j := ordinal - 1
 			hk := fmt.Sprintf("%s/h%d", key, j)
 			h := p.FrameQueryHit(i, j)
-			recordingObserveShapeID(r, hk+"/shape", h.Shape, p.WorldID())
+			recordingObserveShapeID(r, hk+"/shape", h.Shape, p.World())
 			validHit := i >= 0 && i < count && j >= 0 && j < q.HitCount
 			identityOnly := validHit && (q.Type == box2d.ReplayQueryOverlapAABB || q.Type == box2d.ReplayQueryOverlapShape || q.Type == box2d.ReplayQueryCollideMover)
 			if !identityOnly {
@@ -67,24 +67,26 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 		}
 	}
 	draw := box2d.DefaultDebugDraw()
+	drawFuncs := &box2d.BTFuncDrawer{}
+	draw.Drawer = drawFuncs
 	hash, calls := uint64(oracle.HashInit), 0
 	pos := func(p box2d.Pos) { hash = oracle.HashPos(hash, oracle.Real(p.X), oracle.Real(p.Y)) }
 	vec := func(v box2d.Vec2) { hash = oracle.HashF32(hash, v.X); hash = oracle.HashF32(hash, v.Y) }
-	draw.DrawLineFunc = func(a, b box2d.Pos, c box2d.HexColor) {
+	drawFuncs.Line = func(a, b box2d.Pos, c box2d.HexColor) {
 		calls++
 		hash = oracle.HashU32(hash, 1)
 		pos(a)
 		pos(b)
 		hash = oracle.HashU32(hash, uint32(c))
 	}
-	draw.DrawPointFunc = func(p box2d.Pos, size float32, c box2d.HexColor) {
+	drawFuncs.Point = func(p box2d.Pos, size float32, c box2d.HexColor) {
 		calls++
 		hash = oracle.HashU32(hash, 2)
 		pos(p)
 		hash = oracle.HashF32(hash, size)
 		hash = oracle.HashU32(hash, uint32(c))
 	}
-	draw.DrawPolygonFunc = func(xf box2d.WorldTransform, vertices []box2d.Vec2, c box2d.HexColor) {
+	drawFuncs.Polygon = func(xf box2d.WorldTransform, vertices []box2d.Vec2, c box2d.HexColor) {
 		calls++
 		hash = oracle.HashU32(hash, 3)
 		hash = oracle.HashTransform(hash, oracle.Real(xf.P.X), oracle.Real(xf.P.Y), xf.Q.C, xf.Q.S)
@@ -94,7 +96,7 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 		}
 		hash = oracle.HashU32(hash, uint32(c))
 	}
-	draw.DrawSolidCapsuleFunc = func(a, b box2d.Pos, radius float32, c box2d.HexColor) {
+	drawFuncs.SolidCapsule = func(a, b box2d.Pos, radius float32, c box2d.HexColor) {
 		calls++
 		hash = oracle.HashU32(hash, 4)
 		pos(a)
@@ -118,7 +120,7 @@ func recordingObserve(t *testing.T, r *oracle.Reader, p *box2d.Replay, prefix st
 	r.Bool(prefix+"/end", p.IsAtEnd())
 	r.Bool(prefix+"/diverged", p.HasDiverged())
 	r.I32(prefix+"/divergeFrame", int32(p.DivergeFrame()))
-	r.U64(prefix+"/state", p.WorldID().StateHash())
+	r.U64(prefix+"/state", p.World().StateHash())
 	r.I32(prefix+"/info/frames", int32(info.FrameCount))
 	r.I32(prefix+"/info/workers", int32(info.WorkerCount))
 	r.F32(prefix+"/info/dt", info.TimeStep)
@@ -131,11 +133,11 @@ func recordingObserve(t *testing.T, r *oracle.Reader, p *box2d.Replay, prefix st
 	for ordinal := range count + 3 {
 		i := ordinal - 1
 		key := fmt.Sprintf("%s/body%d", prefix, i)
-		id := p.BodyID(i)
-		r.I32(key+"/index", int32(id.Store()>>32))
-		r.U32(key+"/generation", uint32(uint16(id.Store())))
+		id := p.Body(i)
+		r.I32(key+"/index", int32(id.ID()>>32))
+		r.U32(key+"/generation", uint32(uint16(id.ID())))
 		r.Bool(key+"/valid", id.IsValid())
-		r.Bool(key+"/owner", id.IsNull() || id.World() == p.WorldID())
+		r.Bool(key+"/owner", id == (box2d.Body{}) || id.World() == p.World())
 		if id.IsValid() {
 			r.Bytes(key+"/name", []byte(id.Name()))
 		}
@@ -148,7 +150,7 @@ func recordingLifecycleSource(t *testing.T, steps int) *box2d.Recording {
 	wd := box2d.DefaultWorldDef()
 	wd.Gravity = box2d.Vec2{}
 	wd.WorkerCount = 1
-	w := box2d.CreateWorld(&wd)
+	w := box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, w)
 	bd := box2d.DefaultBodyDef()
 	bd.Type = box2d.DynamicBody
@@ -158,9 +160,8 @@ func recordingLifecycleSource(t *testing.T, steps int) *box2d.Recording {
 	sd := box2d.DefaultShapeDef()
 	circle := box2d.Circle{Radius: 0.5}
 	seed.CreateCircleShape(&sd, &circle)
-	rec := box2d.CreateRecording(0)
+	rec := box2d.NewRecording(0)
 	w.StartRecording(rec)
-	t.Cleanup(rec.Destroy)
 	for frame := range steps {
 		if frame == 1 {
 			seed.Destroy()
@@ -184,13 +185,13 @@ func recordingLifecycleSource(t *testing.T, steps int) *box2d.Recording {
 	}
 	w.StopRecording()
 	seed.SetName("not recorded")
-	w.Destroy()
+	w.Close()
 	return rec
 }
 
 func TestRecordingLifecycleParity(t *testing.T) {
 	r := oracle.Open(t, "recording/LifecycleParity")
-	oldScale := box2d.GetLengthUnitsPerMeter()
+	oldScale := box2d.LengthUnitsPerMeter()
 	box2d.SetLengthUnitsPerMeter(2)
 	t.Cleanup(func() { box2d.SetLengthUnitsPerMeter(oldScale) })
 	for _, steps := range []int{0, 1, 16} {
@@ -203,9 +204,9 @@ func TestRecordingLifecycleParity(t *testing.T) {
 				r.Bool(fmt.Sprintf("%s/step%d/return", prefix, action), p.StepFrame())
 				recordingObserve(t, r, p, fmt.Sprintf("%s/step%d", prefix, action))
 			}
-			world := p.WorldID()
+			world := p.World()
 			p.Restart()
-			r.Bool(prefix+"/restart/identity", world == p.WorldID())
+			r.Bool(prefix+"/restart/identity", world == p.World())
 			recordingObserve(t, r, p, prefix+"/restart")
 			p.SetKeyframePolicy(1<<26, 2)
 			r.U64(prefix+"/policy/budget", uint64(p.KeyframeBudget()))
@@ -234,7 +235,6 @@ func TestRecordingLifecycleParity(t *testing.T) {
 			destroy()
 			r.Bool(prefix+"/destroy/worldValid", world.IsValid())
 		}
-		rec.Destroy()
 	}
 }
 
@@ -246,7 +246,6 @@ func TestRecordingOwnedSourceParity(t *testing.T) {
 	for i := range source {
 		source[i] = 0xA5
 	}
-	rec.Destroy()
 	recordingObserve(t, r, p, "open")
 	for p.StepFrame() {
 		recordingObserve(t, r, p, fmt.Sprintf("step%d", p.Frame()))
@@ -257,7 +256,7 @@ func TestRecordingOwnedSourceParity(t *testing.T) {
 		p.SeekFrame(target)
 		recordingObserve(t, r, p, fmt.Sprintf("seek%d", i))
 	}
-	w := p.WorldID()
+	w := p.World()
 	destroy()
 	r.Bool("destroy/worldValid", w.IsValid())
 }
@@ -267,8 +266,7 @@ func TestRecordingDivergenceParity(t *testing.T) {
 	for _, kind := range []string{"state", "query"} {
 		rec := recordingLifecycleSource(t, 16)
 		data := box2d.RecordingMismatch(rec.Data(), kind)
-		rec.Destroy()
-		r.Bool(kind+"/validate", box2d.ValidateReplay(data, 0))
+		r.Bool(kind+"/validate", box2d.ValidateReplay(data, 0) == nil)
 		p, destroy := recordingParityPlayer(t, data, 0)
 		p.SetKeyframePolicy(1<<26, 2)
 		recordingObserve(t, r, p, kind+"/open")
@@ -288,27 +286,26 @@ func TestRecordingDivergenceParity(t *testing.T) {
 func TestRecordingFileAndFramingParity(t *testing.T) {
 	r := oracle.Open(t, "recording/FileAndFramingParity")
 	rec := recordingLifecycleSource(t, 1)
-	defer rec.Destroy()
 	root := t.TempDir()
-	err := rec.SaveToFile(filepath.Join(root, "absent", "out.b2rec"))
+	err := box2d.RecordingSaveFile(rec, filepath.Join(root, "absent", "out.b2rec"))
 	var pe *os.PathError
 	r.Bool("save/missingParent", err != nil)
 	if !errors.As(err, &pe) {
 		t.Fatalf("save error category: %v", err)
 	}
-	loaded, err := box2d.LoadRecordingFromFile(filepath.Join(root, "missing.b2rec"))
+	loaded, err := box2d.RecordingLoadFile(filepath.Join(root, "missing.b2rec"))
 	r.Bool("load/missing", loaded == nil && errors.Is(err, os.ErrNotExist))
-	loaded, err = box2d.LoadRecordingFromFile(root)
+	loaded, err = box2d.RecordingLoadFile(root)
 	r.Bool("load/directory", loaded == nil && err != nil)
 	if !errors.As(err, &pe) {
 		t.Fatalf("directory error category: %v", err)
 	}
 	for _, name := range []string{"empty", "short", "magic", "major", "minor", "endian", "snapshotZero", "snapshotOversize", "incompleteFrame", "truncatedHash", "unknown", "unknownOverflow"} {
 		data := box2d.RecordingMalformed(rec.Data(), name)
-		p, err := box2d.CreateReplay(data, 0)
+		p, err := box2d.NewReplay(data, 0)
 		r.Bool(name+"/open", p != nil && err == nil)
 		destroy := box2d.BTReplayCleanup(t, p)
-		r.Bool(name+"/validate", box2d.ValidateReplay(data, 0))
+		r.Bool(name+"/validate", box2d.ValidateReplay(data, 0) == nil)
 		if p != nil {
 			for p.StepFrame() {
 			}
@@ -330,30 +327,26 @@ func TestRecordingDiagnosticUnregistered(t *testing.T) {
 	r := oracle.Open(t, "recording/DiagnosticUnregistered")
 	trace := newRecordingTrace(t, "DiagnosticUnregistered")
 	path := filepath.Join(t.TempDir(), "diverge.b2rec")
-	missing, err := box2d.LoadRecordingFromFile(path)
+	missing, err := box2d.RecordingLoadFile(path)
 	if missing != nil || !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing diagnostic file: %v", err)
 	}
 	r.I32("missing/result", 0)
 	rec := recordingRecordScene(t, r, trace, recordingBuildPyramidScene, 1, 12)
-	t.Cleanup(rec.Destroy)
-	if err := rec.SaveToFile(path); err != nil {
+	if err := box2d.RecordingSaveFile(rec, path); err != nil {
 		t.Fatal(err)
 	}
-	rec.Destroy()
-	loaded, err := box2d.LoadRecordingFromFile(path)
+	loaded, err := box2d.RecordingLoadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(loaded.Destroy)
 	result := recordingScrubRecording(t, r, trace, loaded, 0)
-	loaded.Destroy()
 	r.I32("present/result", int32(result))
 }
 
 func recordingParityPlayer(t *testing.T, data []byte, workers int) (*box2d.Replay, func()) {
 	t.Helper()
-	p, err := box2d.CreateReplay(data, workers)
+	p, err := box2d.NewReplay(data, workers)
 	if err != nil {
 		t.Fatal(err)
 	}

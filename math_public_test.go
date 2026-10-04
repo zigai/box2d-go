@@ -77,38 +77,6 @@ func TestMathPublicSpecialAngles(t *testing.T) {
 	r.U64("hash", hash)
 }
 
-func TestMathPublicScalars(t *testing.T) {
-	r := oracle.Open(t, "math/PublicScalars")
-	integers := []int{0, 1, -1, 17, -17, math.MaxInt32, math.MinInt32 + 1}
-	r.I32("integers/count", int32(len(integers)))
-	for i, a := range integers {
-		b := integers[len(integers)-1-i]
-		r.I32(fmt.Sprintf("integers/%d/min", i), int32(box2d.MinInt(a, b)))
-		r.I32(fmt.Sprintf("integers/%d/max", i), int32(box2d.MaxInt(a, b)))
-		r.I32(fmt.Sprintf("integers/%d/abs", i), int32(box2d.AbsInt(a)))
-		r.I32(fmt.Sprintf("integers/%d/clamp", i), int32(box2d.ClampInt(a, -1, 1)))
-	}
-	divisions := [][2]int{{0, 3}, {1, 3}, {3, 3}, {4, 3}, {17, 5}, {math.MaxInt32 - 2, 2}}
-	r.I32("ceiling/count", int32(len(divisions)))
-	for i, pair := range divisions {
-		r.I32(fmt.Sprintf("ceiling/%d", i), int32(box2d.CeilingInt(pair[0], pair[1])))
-	}
-	negativeZero := math.Float32frombits(0x80000000)
-	floats := []float32{0, negativeZero, -3.25, 3.25, -2, 2, 0x1p-126, 0x1p-149, math.MaxFloat32}
-	r.I32("floats/count", int32(len(floats)))
-	for i, a := range floats {
-		b := floats[len(floats)-1-i]
-		r.F32(fmt.Sprintf("floats/%d/min", i), box2d.MinFloat(a, b))
-		r.F32(fmt.Sprintf("floats/%d/max", i), box2d.MaxFloat(a, b))
-		r.F32(fmt.Sprintf("floats/%d/abs", i), box2d.AbsFloat(a))
-		r.F32(fmt.Sprintf("floats/%d/clamp", i), box2d.ClampFloat(a, -2, 2))
-	}
-	r.F32("zero/min-negative-first", box2d.MinFloat(negativeZero, 0))
-	r.F32("zero/min-positive-first", box2d.MinFloat(0, negativeZero))
-	r.F32("zero/max-negative-first", box2d.MaxFloat(negativeZero, 0))
-	r.F32("zero/max-positive-first", box2d.MaxFloat(0, negativeZero))
-}
-
 func TestMathPublicVectors(t *testing.T) {
 	r := oracle.Open(t, "math/PublicVectors")
 	negativeZero := math.Float32frombits(0x80000000)
@@ -125,28 +93,28 @@ func TestMathPublicVectors(t *testing.T) {
 	}
 	r.I32("count", int32(len(cases)))
 	for i, c := range cases {
-		r.F32(mathPublicKey(i, "dot"), box2d.Dot(c.a, c.b))
-		r.F32(mathPublicKey(i, "cross"), box2d.Cross(c.a, c.b))
-		mathPublicVec(r, mathPublicKey(i, "cross-vs"), box2d.CrossVS(c.a, c.s))
-		mathPublicVec(r, mathPublicKey(i, "cross-sv"), box2d.CrossSV(c.s, c.a))
-		mathPublicVec(r, mathPublicKey(i, "left"), box2d.LeftPerp(c.a))
-		mathPublicVec(r, mathPublicKey(i, "right"), box2d.RightPerp(c.a))
-		mathPublicVec(r, mathPublicKey(i, "add"), box2d.Add(c.a, c.b))
-		mathPublicVec(r, mathPublicKey(i, "sub"), box2d.Sub(c.a, c.b))
-		mathPublicVec(r, mathPublicKey(i, "neg"), box2d.Neg(c.a))
-		mathPublicVec(r, mathPublicKey(i, "lerp"), box2d.Lerp(c.a, c.b, c.t))
-		mathPublicVec(r, mathPublicKey(i, "mul"), box2d.Mul(c.a, c.b))
-		mathPublicVec(r, mathPublicKey(i, "mul-sv"), box2d.MulSV(c.s, c.a))
-		mathPublicVec(r, mathPublicKey(i, "mul-add"), box2d.MulAdd(c.a, c.s, c.b))
-		mathPublicVec(r, mathPublicKey(i, "mul-sub"), box2d.MulSub(c.a, c.s, c.b))
-		mathPublicVec(r, mathPublicKey(i, "abs"), box2d.Abs(c.a))
-		mathPublicVec(r, mathPublicKey(i, "min"), box2d.Min(c.a, c.b))
-		mathPublicVec(r, mathPublicKey(i, "max"), box2d.Max(c.a, c.b))
-		mathPublicVec(r, mathPublicKey(i, "clamp"), box2d.Clamp(c.a, box2d.Vec2{X: -1, Y: -2}, box2d.Vec2{X: 1, Y: 2}))
-		r.F32(mathPublicKey(i, "length"), box2d.Length(c.a))
-		r.F32(mathPublicKey(i, "length-squared"), box2d.LengthSquared(c.a))
-		r.F32(mathPublicKey(i, "distance"), box2d.Distance(c.a, c.b))
-		r.F32(mathPublicKey(i, "distance-squared"), box2d.DistanceSquared(c.a, c.b))
+		r.F32(mathPublicKey(i, "dot"), c.a.Dot(c.b))
+		r.F32(mathPublicKey(i, "cross"), c.a.Cross(c.b))
+		mathPublicVec(r, mathPublicKey(i, "cross-vs"), c.a.CrossScalar(c.s))
+		mathPublicVec(r, mathPublicKey(i, "cross-sv"), c.a.ScalarCross(c.s))
+		mathPublicVec(r, mathPublicKey(i, "left"), c.a.LeftPerp())
+		mathPublicVec(r, mathPublicKey(i, "right"), c.a.RightPerp())
+		mathPublicVec(r, mathPublicKey(i, "add"), c.a.Add(c.b))
+		mathPublicVec(r, mathPublicKey(i, "sub"), c.a.Sub(c.b))
+		mathPublicVec(r, mathPublicKey(i, "neg"), c.a.Neg())
+		mathPublicVec(r, mathPublicKey(i, "lerp"), c.a.Lerp(c.b, c.t))
+		mathPublicVec(r, mathPublicKey(i, "mul"), c.a.Mul(c.b))
+		mathPublicVec(r, mathPublicKey(i, "mul-sv"), c.a.Scale(c.s))
+		mathPublicVec(r, mathPublicKey(i, "mul-add"), c.a.MulAdd(c.s, c.b))
+		mathPublicVec(r, mathPublicKey(i, "mul-sub"), c.a.MulSub(c.s, c.b))
+		mathPublicVec(r, mathPublicKey(i, "abs"), c.a.Abs())
+		mathPublicVec(r, mathPublicKey(i, "min"), c.a.Min(c.b))
+		mathPublicVec(r, mathPublicKey(i, "max"), c.a.Max(c.b))
+		mathPublicVec(r, mathPublicKey(i, "clamp"), c.a.Clamp(box2d.Vec2{X: -1, Y: -2}, box2d.Vec2{X: 1, Y: 2}))
+		r.F32(mathPublicKey(i, "length"), c.a.Length())
+		r.F32(mathPublicKey(i, "length-squared"), c.a.LengthSquared())
+		r.F32(mathPublicKey(i, "distance"), c.a.Distance(c.b))
+		r.F32(mathPublicKey(i, "distance-squared"), c.a.DistanceSquared(c.b))
 	}
 
 	// Adjacent float inputs straddle sqrt(1000 * FLT_MIN). Compare direct
@@ -162,12 +130,11 @@ func TestMathPublicVectors(t *testing.T) {
 	}
 	r.I32("normalize/count", int32(len(normals)))
 	for i, input := range normals {
-		mathPublicVec(r, fmt.Sprintf("normalize/%d/value", i), box2d.Normalize(input))
-		length := float32(-123)
-		value := box2d.GetLengthAndNormalize(&length, input)
+		mathPublicVec(r, fmt.Sprintf("normalize/%d/value", i), input.Normalize())
+		length, value := input.LengthAndNormalize()
 		mathPublicVec(r, fmt.Sprintf("normalize/%d/with-length", i), value)
 		r.F32(fmt.Sprintf("normalize/%d/length", i), length)
-		r.Bool(fmt.Sprintf("normalize/%d/unit", i), box2d.IsNormalized(input))
+		r.Bool(fmt.Sprintf("normalize/%d/unit", i), input.IsNormalized())
 	}
 }
 
@@ -187,20 +154,20 @@ func TestMathPublicRotations(t *testing.T) {
 		a, b := box2d.MakeRot(c.a), box2d.MakeRot(c.b)
 		mathPublicRot(r, mathPublicKey(i, "a"), a)
 		mathPublicRot(r, mathPublicKey(i, "b"), b)
-		mathPublicRot(r, mathPublicKey(i, "integrate"), box2d.IntegrateRotation(a, c.delta))
+		mathPublicRot(r, mathPublicKey(i, "integrate"), a.Integrate(c.delta))
 		mathPublicRot(r, mathPublicKey(i, "from-vector"), box2d.MakeRotFromUnitVector(a.XAxis()))
 		mathPublicRot(r, mathPublicKey(i, "between-vectors"), box2d.ComputeRotationBetweenUnitVectors(a.XAxis(), b.XAxis()))
-		mathPublicRot(r, mathPublicKey(i, "inverse"), box2d.InvertRot(a))
-		mathPublicRot(r, mathPublicKey(i, "nlerp"), box2d.NLerp(a, b, c.t))
-		r.F32(mathPublicKey(i, "angular-velocity"), box2d.ComputeAngularVelocity(a, b, c.invH))
+		mathPublicRot(r, mathPublicKey(i, "inverse"), a.Invert())
+		mathPublicRot(r, mathPublicKey(i, "nlerp"), a.NLerp(b, c.t))
+		r.F32(mathPublicKey(i, "angular-velocity"), a.AngularVelocity(b, c.invH))
 		r.F32(mathPublicKey(i, "angle"), a.Angle())
 		mathPublicVec(r, mathPublicKey(i, "x-axis"), a.XAxis())
 		mathPublicVec(r, mathPublicKey(i, "y-axis"), a.YAxis())
-		mathPublicRot(r, mathPublicKey(i, "mul"), box2d.MulRot(a, b))
-		mathPublicRot(r, mathPublicKey(i, "inv-mul"), box2d.InvMulRot(a, b))
-		r.F32(mathPublicKey(i, "relative-angle"), box2d.RelativeAngle(a, b))
-		mathPublicVec(r, mathPublicKey(i, "rotate"), box2d.RotateVector(a, box2d.Vec2{X: 2.25, Y: -3.5}))
-		mathPublicVec(r, mathPublicKey(i, "inv-rotate"), box2d.InvRotateVector(a, box2d.Vec2{X: 2.25, Y: -3.5}))
+		mathPublicRot(r, mathPublicKey(i, "mul"), a.Mul(b))
+		mathPublicRot(r, mathPublicKey(i, "inv-mul"), a.InvMul(b))
+		r.F32(mathPublicKey(i, "relative-angle"), a.RelativeAngle(b))
+		mathPublicVec(r, mathPublicKey(i, "rotate"), a.Rotate(box2d.Vec2{X: 2.25, Y: -3.5}))
+		mathPublicVec(r, mathPublicKey(i, "inv-rotate"), a.InvRotate(box2d.Vec2{X: 2.25, Y: -3.5}))
 	}
 	negativeZero := math.Float32frombits(0x80000000)
 	raw := []box2d.Rot{
@@ -209,9 +176,9 @@ func TestMathPublicRotations(t *testing.T) {
 	}
 	r.I32("normalize/count", int32(len(raw)))
 	for i, input := range raw {
-		mathPublicRot(r, fmt.Sprintf("normalize/%d", i), box2d.NormalizeRot(input))
+		mathPublicRot(r, fmt.Sprintf("normalize/%d", i), input.Normalize())
 	}
-	mathPublicRot(r, "nlerp-opposite", box2d.NLerp(box2d.Rot{C: 1}, box2d.Rot{C: -1}, 0.5))
+	mathPublicRot(r, "nlerp-opposite", box2d.Rot{C: 1}.NLerp(box2d.Rot{C: -1}, 0.5))
 	directions := []box2d.Vec2{
 		{X: 0, Y: 0}, {X: negativeZero, Y: negativeZero}, {X: 1, Y: 0}, {X: -1, Y: 0},
 		{X: 0, Y: 1}, {X: 0, Y: -1}, {X: 1, Y: 1}, {X: -1, Y: 1},
@@ -236,11 +203,11 @@ func TestMathPublicMatrixSpring(t *testing.T) {
 	r.I32("matrix/count", int32(len(matrices)))
 	for i, matrix := range matrices {
 		rhs := box2d.Vec2{X: 2.5, Y: -3.75}
-		mathPublicVec(r, fmt.Sprintf("matrix/%d/mul", i), box2d.MulMV(matrix, rhs))
-		inverse := box2d.GetInverse22(matrix)
+		mathPublicVec(r, fmt.Sprintf("matrix/%d/mul", i), matrix.MulVec(rhs))
+		inverse := matrix.Inverse()
 		mathPublicVec(r, fmt.Sprintf("matrix/%d/inverse-cx", i), inverse.Cx)
 		mathPublicVec(r, fmt.Sprintf("matrix/%d/inverse-cy", i), inverse.Cy)
-		mathPublicVec(r, fmt.Sprintf("matrix/%d/solve", i), box2d.Solve22(matrix, rhs))
+		mathPublicVec(r, fmt.Sprintf("matrix/%d/solve", i), matrix.Solve(rhs))
 	}
 	springs := [][5]float32{
 		{0, 0, 2, -3, 0.016}, {2, 0, 2, -3, 0.016},
@@ -270,25 +237,25 @@ func TestMathPublicTransforms(t *testing.T) {
 	for i, c := range cases {
 		a := box2d.Transform{P: c.a, Q: box2d.MakeRot(c.angleA)}
 		b := box2d.Transform{P: c.b, Q: box2d.MakeRot(c.angleB)}
-		mathPublicVec(r, mathPublicKey(i, "point"), box2d.TransformPoint(a, c.point))
-		mathPublicVec(r, mathPublicKey(i, "inv-point"), box2d.InvTransformPoint(a, c.point))
-		mathPublicTransform(r, mathPublicKey(i, "mul"), box2d.MulTransforms(a, b))
-		mathPublicTransform(r, mathPublicKey(i, "inv-mul"), box2d.InvMulTransforms(a, b))
+		mathPublicVec(r, mathPublicKey(i, "point"), a.Apply(c.point))
+		mathPublicVec(r, mathPublicKey(i, "inv-point"), a.InvApply(c.point))
+		mathPublicTransform(r, mathPublicKey(i, "mul"), a.Mul(b))
+		mathPublicTransform(r, mathPublicKey(i, "inv-mul"), a.InvMul(b))
 		world := box2d.Pos{X: oracle.Real(c.worldX), Y: oracle.Real(c.worldY)}
 		wa := box2d.WorldTransform{P: world, Q: a.Q}
-		wb := box2d.WorldTransform{P: box2d.OffsetPos(world, b.P), Q: b.Q}
-		mathPublicPos(r, mathPublicKey(i, "to-pos"), box2d.ToPos(c.point))
-		mathPublicVec(r, mathPublicKey(i, "to-vec"), box2d.ToVec2(world))
-		mathPublicPos(r, mathPublicKey(i, "offset"), box2d.OffsetPos(world, c.point))
-		mathPublicVec(r, mathPublicKey(i, "sub-pos"), box2d.SubPos(wb.P, wa.P))
-		mathPublicPos(r, mathPublicKey(i, "world-point"), box2d.TransformWorldPoint(wa, c.point))
-		mathPublicVec(r, mathPublicKey(i, "inv-world-point"), box2d.InvTransformWorldPoint(wa, wb.P))
-		mathPublicTransform(r, mathPublicKey(i, "inv-world-mul"), box2d.InvMulWorldTransforms(wa, wb))
-		mathPublicWorldTransform(r, mathPublicKey(i, "world-mul"), box2d.MulWorldTransforms(wa, b))
-		mathPublicTransform(r, mathPublicKey(i, "relative"), box2d.ToRelativeTransform(wb, world))
+		wb := box2d.WorldTransform{P: world.Add(b.P), Q: b.Q}
+		mathPublicPos(r, mathPublicKey(i, "to-pos"), c.point.Pos())
+		mathPublicVec(r, mathPublicKey(i, "to-vec"), world.Vec2())
+		mathPublicPos(r, mathPublicKey(i, "offset"), world.Add(c.point))
+		mathPublicVec(r, mathPublicKey(i, "sub-pos"), wb.P.Sub(wa.P))
+		mathPublicPos(r, mathPublicKey(i, "world-point"), wa.Apply(c.point))
+		mathPublicVec(r, mathPublicKey(i, "inv-world-point"), wa.InvApply(wb.P))
+		mathPublicTransform(r, mathPublicKey(i, "inv-world-mul"), wa.InvMul(wb))
+		mathPublicWorldTransform(r, mathPublicKey(i, "world-mul"), wa.Mul(b))
+		mathPublicTransform(r, mathPublicKey(i, "relative"), wb.Relative(world))
 		mathPublicWorldTransform(r, mathPublicKey(i, "promote"), box2d.MakeWorldTransform(a))
 		for j, sample := range []float32{0, 0.3, 0.5, 1} {
-			mathPublicPos(r, fmt.Sprintf("%d/interpolate/%d", i, j), box2d.LerpPosition(wa.P, wb.P, sample))
+			mathPublicPos(r, fmt.Sprintf("%d/interpolate/%d", i, j), wa.P.Lerp(wb.P, sample))
 		}
 	}
 }
@@ -320,13 +287,13 @@ func TestMathPublicValidity(t *testing.T) {
 	r.I32("numbers/count", int32(len(values)))
 	for i, x := range values {
 		r.Bool(fmt.Sprintf("numbers/%d/float", i), box2d.IsValidFloat(x))
-		r.Bool(fmt.Sprintf("numbers/%d/vector-x", i), box2d.IsValidVec2(box2d.Vec2{X: x}))
-		r.Bool(fmt.Sprintf("numbers/%d/vector-y", i), box2d.IsValidVec2(box2d.Vec2{Y: x}))
-		r.Bool(fmt.Sprintf("numbers/%d/position-x", i), box2d.IsValidPosition(box2d.Pos{X: oracle.Real(x)}))
-		r.Bool(fmt.Sprintf("numbers/%d/position-y", i), box2d.IsValidPosition(box2d.Pos{Y: oracle.Real(x)}))
-		r.Bool(fmt.Sprintf("numbers/%d/transform", i), box2d.IsValidTransform(box2d.Transform{P: box2d.Vec2{X: x}, Q: box2d.Rot{C: 1}}))
-		r.Bool(fmt.Sprintf("numbers/%d/world-transform", i), box2d.IsValidWorldTransform(box2d.WorldTransform{P: box2d.Pos{Y: oracle.Real(x)}, Q: box2d.Rot{C: 1}}))
-		r.Bool(fmt.Sprintf("numbers/%d/plane-offset", i), box2d.IsValidPlane(box2d.Plane{Normal: box2d.Vec2{X: 1}, Offset: x}))
+		r.Bool(fmt.Sprintf("numbers/%d/vector-x", i), box2d.Vec2{X: x}.IsValid())
+		r.Bool(fmt.Sprintf("numbers/%d/vector-y", i), box2d.Vec2{Y: x}.IsValid())
+		r.Bool(fmt.Sprintf("numbers/%d/position-x", i), box2d.Pos{X: oracle.Real(x)}.IsValid())
+		r.Bool(fmt.Sprintf("numbers/%d/position-y", i), box2d.Pos{Y: oracle.Real(x)}.IsValid())
+		r.Bool(fmt.Sprintf("numbers/%d/transform", i), (box2d.Transform{P: box2d.Vec2{X: x}, Q: box2d.Rot{C: 1}}).IsValid())
+		r.Bool(fmt.Sprintf("numbers/%d/world-transform", i), (box2d.WorldTransform{P: box2d.Pos{Y: oracle.Real(x)}, Q: box2d.Rot{C: 1}}).IsValid())
+		r.Bool(fmt.Sprintf("numbers/%d/plane-offset", i), (box2d.Plane{Normal: box2d.Vec2{X: 1}, Offset: x}).IsValid())
 	}
 	worldValues := []float64{0, math.Copysign(0, -1), math.MaxFloat32, -math.MaxFloat32, math.NaN(), math.Inf(1), math.Inf(-1)}
 	if oracle.DoublePrecision {
@@ -336,9 +303,9 @@ func TestMathPublicValidity(t *testing.T) {
 	for i, value := range worldValues {
 		px := box2d.Pos{X: oracle.Real(value)}
 		py := box2d.Pos{Y: oracle.Real(value)}
-		r.Bool(fmt.Sprintf("world-numbers/%d/x", i), box2d.IsValidPosition(px))
-		r.Bool(fmt.Sprintf("world-numbers/%d/y", i), box2d.IsValidPosition(py))
-		r.Bool(fmt.Sprintf("world-numbers/%d/transform", i), box2d.IsValidWorldTransform(box2d.WorldTransform{P: px, Q: box2d.Rot{C: 1}}))
+		r.Bool(fmt.Sprintf("world-numbers/%d/x", i), px.IsValid())
+		r.Bool(fmt.Sprintf("world-numbers/%d/y", i), py.IsValid())
+		r.Bool(fmt.Sprintf("world-numbers/%d/transform", i), (box2d.WorldTransform{P: px, Q: box2d.Rot{C: 1}}).IsValid())
 	}
 	rotations := []box2d.Rot{
 		{C: 1}, {S: 1}, {C: -1, S: negativeZero}, {}, {C: 2}, {C: 0.9997}, {C: 1.0003},
@@ -346,11 +313,11 @@ func TestMathPublicValidity(t *testing.T) {
 	}
 	r.I32("rotation/count", int32(len(rotations)))
 	for i, q := range rotations {
-		r.Bool(fmt.Sprintf("rotation/%d/normalized", i), box2d.IsNormalizedRot(q))
-		r.Bool(fmt.Sprintf("rotation/%d/valid", i), box2d.IsValidRotation(q))
-		r.Bool(fmt.Sprintf("rotation/%d/transform", i), box2d.IsValidTransform(box2d.Transform{Q: q}))
-		r.Bool(fmt.Sprintf("rotation/%d/world-transform", i), box2d.IsValidWorldTransform(box2d.WorldTransform{Q: q}))
-		r.Bool(fmt.Sprintf("rotation/%d/plane-normal", i), box2d.IsValidPlane(box2d.Plane{Normal: box2d.Vec2{X: q.C, Y: q.S}}))
+		r.Bool(fmt.Sprintf("rotation/%d/normalized", i), q.IsNormalized())
+		r.Bool(fmt.Sprintf("rotation/%d/valid", i), q.IsValid())
+		r.Bool(fmt.Sprintf("rotation/%d/transform", i), box2d.Transform{Q: q}.IsValid())
+		r.Bool(fmt.Sprintf("rotation/%d/world-transform", i), box2d.WorldTransform{Q: q}.IsValid())
+		r.Bool(fmt.Sprintf("rotation/%d/plane-normal", i), (box2d.Plane{Normal: box2d.Vec2{X: q.C, Y: q.S}}).IsValid())
 	}
 	boxes := []box2d.AABB{
 		{}, {LowerBound: box2d.Vec2{X: negativeZero, Y: negativeZero}},
@@ -363,16 +330,16 @@ func TestMathPublicValidity(t *testing.T) {
 	}
 	r.I32("aabb/count", int32(len(boxes)))
 	for i, input := range boxes {
-		r.Bool(fmt.Sprintf("aabb/%d", i), box2d.IsValidAABB(input))
+		r.Bool(fmt.Sprintf("aabb/%d", i), input.IsValid())
 	}
 
 	// This serial test temporarily owns process-global units. Restore even
 	// when an oracle mismatch calls Fatal; never use t.Parallel here.
-	oldScale := box2d.GetLengthUnitsPerMeter()
+	oldScale := box2d.LengthUnitsPerMeter()
 	t.Cleanup(func() { box2d.SetLengthUnitsPerMeter(oldScale) })
 	for scaleIndex, scale := range []float32{1, 32} {
 		box2d.SetLengthUnitsPerMeter(scale)
-		r.F32(fmt.Sprintf("ray/%d/scale", scaleIndex), box2d.GetLengthUnitsPerMeter())
+		r.F32(fmt.Sprintf("ray/%d/scale", scaleIndex), box2d.LengthUnitsPerMeter())
 		huge := box2d.Huge()
 		r.F32(fmt.Sprintf("ray/%d/huge", scaleIndex), huge)
 		r.F32(fmt.Sprintf("ray/%d/linear-slop", scaleIndex), box2d.LinearSlop())
@@ -394,7 +361,7 @@ func TestMathPublicValidity(t *testing.T) {
 		}
 		r.I32(fmt.Sprintf("ray/%d/count", scaleIndex), int32(len(rays)))
 		for i, input := range rays {
-			r.Bool(fmt.Sprintf("ray/%d/%d", scaleIndex, i), box2d.IsValidRay(&input))
+			r.Bool(fmt.Sprintf("ray/%d/%d", scaleIndex, i), input.IsValid())
 		}
 	}
 }
@@ -444,7 +411,7 @@ func TestMathPublicBoundsPlanes(t *testing.T) {
 	}{{1, 0}, {3, 0}, {3, 0.125}}
 	r.I32("cloud/count", int32(len(clouds)))
 	for i, cloud := range clouds {
-		bounds := box2d.MakeAABB(points, cloud.count, cloud.radius)
+		bounds := box2d.MakeAABB(points[:cloud.count], cloud.radius)
 		mathPublicVec(r, fmt.Sprintf("cloud/%d/lower", i), bounds.LowerBound)
 		mathPublicVec(r, fmt.Sprintf("cloud/%d/upper", i), bounds.UpperBound)
 	}
@@ -460,6 +427,6 @@ func TestMathPublicBoundsPlanes(t *testing.T) {
 	}
 	r.I32("plane/count", int32(len(planes)))
 	for i, input := range planes {
-		r.F32(fmt.Sprintf("plane/%d/separation", i), box2d.PlaneSeparation(input.plane, input.point))
+		r.F32(fmt.Sprintf("plane/%d/separation", i), input.plane.Separation(input.point))
 	}
 }

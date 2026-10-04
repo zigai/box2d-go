@@ -106,7 +106,7 @@ func TestMover(t *testing.T) {
 
 		// Both planes hold at once, rather than the second relaxing the first
 		for i := int(0); i < len(planes); i++ {
-			separation := box2d.PlaneSeparation(planes[i].Plane, result.Delta)
+			separation := planes[i].Plane.Separation(result.Delta)
 			r.F32("mover:82", separation+box2d.LinearSlop())
 			if v := separation + box2d.LinearSlop(); v < -(box2d.LinearSlop()) || (box2d.LinearSlop()) < v {
 				t.Fatalf("condition false: abs(%v) < %v", v, box2d.LinearSlop())
@@ -130,7 +130,7 @@ func TestMover(t *testing.T) {
 		// Settling means resting on both faces. Stopping early leaves the mover shoved
 		// clear of one of them, which reads as a large positive separation
 		for i := int(0); i < len(planes); i++ {
-			separation := box2d.PlaneSeparation(planes[i].Plane, result.Delta)
+			separation := planes[i].Plane.Separation(result.Delta)
 			r.F32("mover:106", separation+box2d.LinearSlop())
 			if v := separation + box2d.LinearSlop(); v < -(box2d.LinearSlop()) || (box2d.LinearSlop()) < v {
 				t.Fatalf("condition false: abs(%v) < %v", v, box2d.LinearSlop())

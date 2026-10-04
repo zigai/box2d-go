@@ -21,7 +21,7 @@ const (
 	firstSleepingSet int = 3
 )
 
-func destroySolverSet(world *world, setIndex int) {
+func destroySolverSet(world *World, setIndex int) {
 	set := &world.solverSets[setIndex]
 	set.bodySims = nil
 	set.bodyStates = nil
@@ -33,7 +33,7 @@ func destroySolverSet(world *world, setIndex int) {
 	set.setIndex = nullIndex
 }
 
-func wakeSolverSet(world *world, setIndex int) {
+func wakeSolverSet(world *World, setIndex int) {
 	assert(setIndex >= firstSleepingSet, "setIndex >= b2_firstSleepingSet")
 	set := &world.solverSets[setIndex]
 	awake := &world.solverSets[awakeSet]
@@ -167,7 +167,7 @@ func wakeSolverSet(world *world, setIndex int) {
 	destroySolverSet(world, setIndex)
 }
 
-func trySleepIsland(world *world, islandID int) {
+func trySleepIsland(world *World, islandID int) {
 	island := &world.islands[islandID]
 	assert(island.setIndex == awakeSet, "island->setIndex == b2_awakeSet")
 
@@ -218,8 +218,8 @@ func trySleepIsland(world *world, islandID int) {
 			// It could happen the body is forced asleep before it ever moves.
 			if body.bodyMoveIndex != nullIndex {
 				moveEvent := &world.bodyMoveEvents[body.bodyMoveIndex]
-				assert(int(moveEvent.BodyID.index1)-1 == bodyId, "moveEvent->bodyId.index1 - 1 == bodyId")
-				assert(moveEvent.BodyID.generation == body.generation, "moveEvent->bodyId.generation == body->generation")
+				assert(int(moveEvent.Body.index1)-1 == bodyId, "moveEvent->bodyId.index1 - 1 == bodyId")
+				assert(moveEvent.Body.generation == body.generation, "moveEvent->bodyId.generation == body->generation")
 				moveEvent.FellAsleep = true
 				body.bodyMoveIndex = nullIndex
 			}
@@ -429,7 +429,7 @@ func trySleepIsland(world *world, islandID int) {
 	validateSolverSets(world)
 }
 
-func mergeSolverSets(world *world, setId1 int, setId2 int) {
+func mergeSolverSets(world *World, setId1 int, setId2 int) {
 	assert(setId1 >= firstSleepingSet, "setId1 >= b2_firstSleepingSet")
 	assert(setId2 >= firstSleepingSet, "setId2 >= b2_firstSleepingSet")
 	set1 := &world.solverSets[setId1]
@@ -521,7 +521,7 @@ func mergeSolverSets(world *world, setId1 int, setId2 int) {
 	validateSolverSets(world)
 }
 
-func removeBodySim(world *world, set *solverSet, localIndex int) *body {
+func removeBodySim(world *World, set *solverSet, localIndex int) *body {
 	bodySims := set.bodySims
 	assert(0 <= localIndex && localIndex < len(bodySims), "0 <= localIndex && localIndex < bodySims->count")
 	lastIndex := len(bodySims) - 1
@@ -540,7 +540,7 @@ func removeBodySim(world *world, set *solverSet, localIndex int) *body {
 	return movedBody
 }
 
-func transferBody(world *world, targetSet *solverSet, sourceSet *solverSet, body *body) {
+func transferBody(world *World, targetSet *solverSet, sourceSet *solverSet, body *body) {
 	assert(body.headContactKey == nullIndex, "body->headContactKey == B2_NULL_INDEX")
 
 	if targetSet == sourceSet {
@@ -583,7 +583,7 @@ func transferBody(world *world, targetSet *solverSet, sourceSet *solverSet, body
 	body.localIndex = targetIndex
 }
 
-func transferJoint(world *world, targetSet *solverSet, sourceSet *solverSet, joint *joint) {
+func transferJoint(world *World, targetSet *solverSet, sourceSet *solverSet, joint *joint) {
 	if targetSet == sourceSet {
 		return
 	}

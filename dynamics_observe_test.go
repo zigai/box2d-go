@@ -7,12 +7,12 @@ import (
 
 // BTObserveDynamics observes post-step public state, never pre-solve scratch impulses.
 // Handle generations are retained; world membership is relative to the tested world.
-func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [36]uint64 {
+func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) [36]uint64 {
 	var h [36]uint64
 	for i := range h {
 		h[i] = oracle.HashInit
 	}
-	w := getWorldFromId(id)
+	w := id
 
 	h[0] = oracle.HashU32(h[0], uint32(int32(id.Counters().BodyCount)))
 	if direct {
@@ -38,9 +38,9 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 			r.I32(key+"generation", int32(b.generation))
 		}
 
-		h[3] = btDynamicsBool(h[3], b.world0 == w.worldID)
+		h[3] = btDynamicsBool(h[3], b.world == w)
 		if direct {
-			r.Bool(key+"world", b.world0 == w.worldID)
+			r.Bool(key+"world", b.world == w)
 		}
 		p, q, v := b.Position(), b.Rotation(), b.LinearVelocity()
 
@@ -64,14 +64,14 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 			r.F32(key+"angularVelocity", b.AngularVelocity())
 		}
 
-		h[8] = btDynamicsBool(h[8], b.IsAwake())
+		h[8] = btDynamicsBool(h[8], b.Awake())
 		if direct {
-			r.Bool(key+"awake", b.IsAwake())
+			r.Bool(key+"awake", b.Awake())
 		}
 
-		h[9] = btDynamicsBool(h[9], b.IsEnabled())
+		h[9] = btDynamicsBool(h[9], b.Enabled())
 		if direct {
-			r.Bool(key+"enabled", b.IsEnabled())
+			r.Bool(key+"enabled", b.Enabled())
 		}
 
 		h[10] = oracle.HashU32(h[10], uint32(int32(b.Type())))
@@ -84,7 +84,7 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 			if direct {
 				ck = fmt.Sprintf("%scontact/%d/", key, count)
 			}
-			btDynamicsContact(r, ck, c.ContactID, c.ShapeIDA, c.ShapeIDB, w.worldID, &h, direct)
+			btDynamicsContact(r, ck, c.Contact, c.ShapeA, c.ShapeB, w, &h, direct)
 			m := c.Manifold
 
 			h[11] = oracle.HashRot(h[11], m.Normal.X, m.Normal.Y)
@@ -173,19 +173,19 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 			key = fmt.Sprintf("%smove/%d/", prefix, count)
 		}
 
-		h[1] = oracle.HashU32(h[1], uint32(e.BodyID.index1))
+		h[1] = oracle.HashU32(h[1], uint32(e.Body.index1))
 		if direct {
-			r.I32(key+"index", e.BodyID.index1)
+			r.I32(key+"index", e.Body.index1)
 		}
 
-		h[2] = oracle.HashU32(h[2], uint32(int32(e.BodyID.generation)))
+		h[2] = oracle.HashU32(h[2], uint32(int32(e.Body.generation)))
 		if direct {
-			r.I32(key+"generation", int32(e.BodyID.generation))
+			r.I32(key+"generation", int32(e.Body.generation))
 		}
 
-		h[3] = btDynamicsBool(h[3], e.BodyID.world0 == w.worldID)
+		h[3] = btDynamicsBool(h[3], e.Body.world == w)
 		if direct {
-			r.Bool(key+"world", e.BodyID.world0 == w.worldID)
+			r.Bool(key+"world", e.Body.world == w)
 		}
 
 		h[4] = oracle.HashPos(h[4], e.Transform.P.X, e.Transform.P.Y)
@@ -215,7 +215,7 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 		if direct {
 			key = fmt.Sprintf("%sbegin/%d/", prefix, count)
 		}
-		btDynamicsContact(r, key, e.ContactID, e.ShapeIDA, e.ShapeIDB, w.worldID, &h, direct)
+		btDynamicsContact(r, key, e.Contact, e.ShapeA, e.ShapeB, w, &h, direct)
 		count++
 	}
 
@@ -229,7 +229,7 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 		if direct {
 			key = fmt.Sprintf("%send/%d/", prefix, count)
 		}
-		btDynamicsContact(r, key, e.ContactID, e.ShapeIDA, e.ShapeIDB, w.worldID, &h, direct)
+		btDynamicsContact(r, key, e.Contact, e.ShapeA, e.ShapeB, w, &h, direct)
 		count++
 	}
 
@@ -243,7 +243,7 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 		if direct {
 			key = fmt.Sprintf("%shit/%d/", prefix, count)
 		}
-		btDynamicsContact(r, key, e.ContactID, e.ShapeIDA, e.ShapeIDB, w.worldID, &h, direct)
+		btDynamicsContact(r, key, e.Contact, e.ShapeA, e.ShapeB, w, &h, direct)
 
 		h[29] = oracle.HashPos(h[29], e.Point.X, e.Point.Y)
 		if direct {
@@ -272,8 +272,8 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 		if direct {
 			key = fmt.Sprintf("%ssensorBegin/%d/", prefix, count)
 		}
-		btDynamicsShape(r, key+"sensor/", e.SensorShapeID, w.worldID, &h, direct)
-		btDynamicsShape(r, key+"visitor/", e.VisitorShapeID, w.worldID, &h, direct)
+		btDynamicsShape(r, key+"sensor/", e.SensorShape, w, &h, direct)
+		btDynamicsShape(r, key+"visitor/", e.VisitorShape, w, &h, direct)
 		count++
 	}
 
@@ -287,8 +287,8 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 		if direct {
 			key = fmt.Sprintf("%ssensorEnd/%d/", prefix, count)
 		}
-		btDynamicsShape(r, key+"sensor/", e.SensorShapeID, w.worldID, &h, direct)
-		btDynamicsShape(r, key+"visitor/", e.VisitorShapeID, w.worldID, &h, direct)
+		btDynamicsShape(r, key+"sensor/", e.SensorShape, w, &h, direct)
+		btDynamicsShape(r, key+"visitor/", e.VisitorShape, w, &h, direct)
 		count++
 	}
 
@@ -300,7 +300,7 @@ func BTObserveDynamics(r *oracle.Reader, id World, prefix string, direct bool) [
 	return h
 }
 
-func btDynamicsShape(r *oracle.Reader, key string, s Shape, worldID uint16, h *[36]uint64, direct bool) {
+func btDynamicsShape(r *oracle.Reader, key string, s Shape, worldID *World, h *[36]uint64, direct bool) {
 
 	h[1] = oracle.HashU32(h[1], uint32(s.index1))
 	if direct {
@@ -312,9 +312,9 @@ func btDynamicsShape(r *oracle.Reader, key string, s Shape, worldID uint16, h *[
 		r.I32(key+"generation", int32(s.generation))
 	}
 
-	h[3] = btDynamicsBool(h[3], s.world0 == uint16(worldID))
+	h[3] = btDynamicsBool(h[3], s.world == worldID)
 	if direct {
-		r.Bool(key+"world", s.world0 == uint16(worldID))
+		r.Bool(key+"world", s.world == worldID)
 	}
 
 	h[34] = btDynamicsBool(h[34], s.IsValid())
@@ -322,7 +322,7 @@ func btDynamicsShape(r *oracle.Reader, key string, s Shape, worldID uint16, h *[
 		r.Bool(key+"valid", s.IsValid())
 	}
 }
-func btDynamicsContact(r *oracle.Reader, key string, c Contact, a, b Shape, worldID uint16, h *[36]uint64, direct bool) {
+func btDynamicsContact(r *oracle.Reader, key string, c Contact, a, b Shape, worldID *World, h *[36]uint64, direct bool) {
 
 	h[1] = oracle.HashU32(h[1], uint32(c.index1))
 	if direct {
@@ -334,9 +334,9 @@ func btDynamicsContact(r *oracle.Reader, key string, c Contact, a, b Shape, worl
 		r.U64(key+"generation", uint64(c.generation))
 	}
 
-	h[3] = btDynamicsBool(h[3], c.world0 == uint16(worldID))
+	h[3] = btDynamicsBool(h[3], c.world == worldID)
 	if direct {
-		r.Bool(key+"world", c.world0 == uint16(worldID))
+		r.Bool(key+"world", c.world == worldID)
 	}
 
 	h[34] = btDynamicsBool(h[34], c.IsValid())

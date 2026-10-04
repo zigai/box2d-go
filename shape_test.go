@@ -45,7 +45,7 @@ func TestShape(t *testing.T) {
 
 		{
 			radius := capsule.Radius
-			length := box2d.Distance(capsule.Center1, capsule.Center2)
+			length := capsule.Center1.Distance(capsule.Center2)
 
 			md := box2d.ComputeCapsuleMass(&capsule, 1.0)
 			geometryOriginalMass(o, md)
@@ -75,7 +75,7 @@ func TestShape(t *testing.T) {
 				o.Vec2("full/capsule-input", points[i].X, points[i].Y)
 			}
 
-			hull := box2d.ComputeHull(points[:], 2*collisionShapeN)
+			hull := box2d.ComputeHull(points[:])
 			geometryOriginalHull(o, hull)
 			ac := box2d.MakePolygon(&hull, 0.0)
 			geometryOriginalPolygon(o, ac)

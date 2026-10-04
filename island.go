@@ -29,7 +29,7 @@ type islandSim struct {
 	islandID int
 }
 
-func createIsland(world *world, setIndex int) *island {
+func createIsland(world *World, setIndex int) *island {
 	assert(setIndex == awakeSet || setIndex >= firstSleepingSet, "setIndex == b2_awakeSet || setIndex >= b2_firstSleepingSet")
 
 	islandID := allocID(&world.islandIDPool)
@@ -59,7 +59,7 @@ func createIsland(world *world, setIndex int) *island {
 	return island
 }
 
-func destroyIsland(world *world, islandID int) {
+func destroyIsland(world *World, islandID int) {
 	if world.splitIslandID == islandID {
 		world.splitIslandID = nullIndex
 	}
@@ -91,7 +91,7 @@ func destroyIsland(world *world, islandID int) {
 	freeID(&world.islandIDPool, islandID)
 }
 
-func mergeIslands(world *world, islandIDA int, islandIDB int) int {
+func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 	if islandIDA == islandIDB {
 		return islandIDA
 	}
@@ -171,7 +171,7 @@ func mergeIslands(world *world, islandIDA int, islandIDB int) int {
 	return bigIslandID
 }
 
-func addContactToIsland(world *world, islandID int, contact *contact) {
+func addContactToIsland(world *World, islandID int, contact *contact) {
 	assert(contact.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
 	assert(contact.islandIndex == nullIndex, "contact->islandIndex == B2_NULL_INDEX")
 
@@ -189,7 +189,7 @@ func addContactToIsland(world *world, islandID int, contact *contact) {
 	validateIsland(world, islandID)
 }
 
-func linkContact(world *world, contact *contact) {
+func linkContact(world *World, contact *contact) {
 	assert((contact.flags&contactTouchingFlag) != 0, "( contact->flags & b2_contactTouchingFlag ) != 0")
 
 	bodyIDA := contact.edges[0].bodyID
@@ -226,7 +226,7 @@ func linkContact(world *world, contact *contact) {
 	addContactToIsland(world, finalIslandID, contact)
 }
 
-func unlinkContact(world *world, contact *contact) {
+func unlinkContact(world *World, contact *contact) {
 	assert(contact.islandID != nullIndex, "contact->islandId != B2_NULL_INDEX")
 
 	// remove from island
@@ -254,7 +254,7 @@ func unlinkContact(world *world, contact *contact) {
 	validateIsland(world, islandID)
 }
 
-func addJointToIsland(world *world, islandID int, joint *joint) {
+func addJointToIsland(world *World, islandID int, joint *joint) {
 	assert(joint.islandId == nullIndex, "joint->islandId == B2_NULL_INDEX")
 	assert(joint.islandIndex == nullIndex, "joint->islandIndex == B2_NULL_INDEX")
 
@@ -272,7 +272,7 @@ func addJointToIsland(world *world, islandID int, joint *joint) {
 	validateIsland(world, islandID)
 }
 
-func linkJoint(world *world, joint *joint) {
+func linkJoint(world *World, joint *joint) {
 	bodyA := &world.bodies[joint.edges[0].bodyId]
 	bodyB := &world.bodies[joint.edges[1].bodyId]
 
@@ -296,7 +296,7 @@ func linkJoint(world *world, joint *joint) {
 	addJointToIsland(world, finalIslandID, joint)
 }
 
-func unlinkJoint(world *world, joint *joint) {
+func unlinkJoint(world *World, joint *joint) {
 	if joint.islandId == nullIndex {
 		return
 	}
@@ -358,7 +358,7 @@ func islandUnion(parents []int, ranks []int, node1 int, node2 int, contactCounts
 	}
 }
 
-func splitIsland(world *world, baseID int) {
+func splitIsland(world *World, baseID int) {
 	baseIsland := &world.islands[baseID]
 	assert(baseIsland.constraintRemoveCount > 0, "baseIsland->constraintRemoveCount > 0")
 	assert(baseIsland.setIndex == awakeSet, "baseIsland->setIndex == b2_awakeSet")
@@ -581,8 +581,8 @@ func splitIsland(world *world, baseID int) {
 	destroyIsland(world, baseID)
 }
 
-func splitIslandTask(context *world) {
-	var ticks uint64 = GetTicks()
+func splitIslandTask(context *World) {
+	var ticks uint64 = currentTicks()
 	world := context
 
 	assert(world.splitIslandID != nullIndex, "world->splitIslandId != B2_NULL_INDEX")
@@ -590,10 +590,10 @@ func splitIslandTask(context *world) {
 	splitIsland(world, world.splitIslandID)
 
 	world.splitIslandID = nullIndex
-	world.profile.SplitIslands += GetMilliseconds(ticks)
+	world.profile.SplitIslands += milliseconds(ticks)
 }
 
-func validateIsland(world *world, islandID int) {
+func validateIsland(world *World, islandID int) {
 	if !validationEnabled {
 		return
 	}

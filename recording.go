@@ -5,10 +5,9 @@ package box2d
 
 import (
 	"encoding/binary"
-	"errors"
+	"fmt"
 	"io"
 	"math"
-	"os"
 	"strings"
 	"sync"
 )
@@ -162,24 +161,20 @@ func recWWORLDXF(buf *recBuffer, v WorldTransform) {
 	recWROT(buf, v.Q)
 }
 
-func recWWORLDID(buf *recBuffer, v World) {
-	recWU32(buf, v.Store())
-}
-
 func recWBODYID(buf *recBuffer, v Body) {
-	recWU64(buf, v.Store())
+	recWU64(buf, v.ID())
 }
 
 func recWSHAPEID(buf *recBuffer, v Shape) {
-	recWU64(buf, v.Store())
+	recWU64(buf, v.ID())
 }
 
 func recWCHAINID(buf *recBuffer, v Chain) {
-	recWU64(buf, v.Store())
+	recWU64(buf, v.ID())
 }
 
 func recWJOINTID(buf *recBuffer, v Joint) {
-	recWU64(buf, v.Store())
+	recWU64(buf, v.ID())
 }
 
 func recWCIRCLE(buf *recBuffer, v Circle) {
@@ -292,15 +287,15 @@ func recWSHAPEDEF(buf *recBuffer, v ShapeDef) {
 
 func recWCHAINDEF(buf *recBuffer, v ChainDef) {
 	recWU64(buf, 0)
-	recWI32(buf, int32(v.PointCount))
-	for i := 0; i < v.PointCount; i++ {
-		recWVEC2(buf, v.Points[i])
+	recWI32(buf, int32(len(v.Points)))
+	for _, p := range v.Points {
+		recWVEC2(buf, p)
 	}
 	recWVEC2(buf, v.Ghost1)
 	recWVEC2(buf, v.Ghost2)
-	recWI32(buf, int32(v.MaterialCount))
-	for i := 0; i < v.MaterialCount; i++ {
-		recWMATERIAL(buf, v.Materials[i])
+	recWI32(buf, int32(len(v.Materials)))
+	for _, m := range v.Materials {
+		recWMATERIAL(buf, m)
 	}
 	recWFILTER(buf, v.Filter)
 	recWBOOL(buf, v.IsLoop)
@@ -317,8 +312,8 @@ func recWEXPLOSIONDEF(buf *recBuffer, v ExplosionDef) {
 
 func recWJointBase(buf *recBuffer, base *JointDef) {
 	recWU64(buf, 0)
-	recWBODYID(buf, base.BodyIDA)
-	recWBODYID(buf, base.BodyIDB)
+	recWBODYID(buf, base.BodyA)
+	recWBODYID(buf, base.BodyB)
 	recWXF(buf, base.LocalFrameA)
 	recWXF(buf, base.LocalFrameB)
 	recWF32(buf, base.ForceThreshold)
@@ -458,7 +453,7 @@ func recWWORLDCASTOUTPUT(buf *recBuffer, v WorldCastOutput) {
 }
 
 func recWRAYRESULT(buf *recBuffer, v RayResult) {
-	recWSHAPEID(buf, v.ShapeID)
+	recWSHAPEID(buf, v.Shape)
 	recWPOSITION(buf, v.Point)
 	recWVEC2(buf, v.Normal)
 	recWF32(buf, v.Fraction)
@@ -553,24 +548,15 @@ func recEndRecord(rec *Recording) {
 
 // Create a recording buffer. The buffer grows on demand. byteCapacity pre-sizes it to avoid
 // reallocations during a known-length session. Pass 0 for a small default.
-func CreateRecording(byteCapacity int) *Recording {
+func NewRecording(byteCapacity int) *Recording {
 	if byteCapacity <= 0 {
 		byteCapacity = 65536
 	}
 	return &Recording{buffer: recBuffer{data: make([]byte, byteCapacity), capacity: byteCapacity}, lock: new(sync.Mutex)}
 }
 
-// Destroy a recording buffer and free its memory.
-func (r *Recording) Destroy() {
-	if r == nil {
-		return
-	}
-	recBufFree(&r.buffer)
-	r.lock = nil
-}
-
 // Get the recorded bytes, for saving to a file or transmitting. Valid until the
-// next recording call or Destroy.
+// next recording call.
 func (r *Recording) Data() []byte {
 	return r.buffer.data[:r.buffer.size]
 }
@@ -589,7 +575,7 @@ func recAccumulateBounds(rec *Recording, bounds AABB) {
 	rec.haveBounds = true
 }
 
-func startRecordingIntoBuffer(world *world, recording *Recording) {
+func startRecordingIntoBuffer(world *World, recording *Recording) {
 	recording.buffer.size = 0
 	recording.recordStart = 0
 	recording.haveBounds = false
@@ -599,7 +585,7 @@ func startRecordingIntoBuffer(world *world, recording *Recording) {
 	recWU16(&recording.buffer, recVersionMajor)
 	recWU16(&recording.buffer, recVersionMinor)
 	recWU32(&recording.buffer, 0)
-	recWF32(&recording.buffer, GetLengthUnitsPerMeter())
+	recWF32(&recording.buffer, LengthUnitsPerMeter())
 	recWU8(&recording.buffer, 0)
 	recWU8(&recording.buffer, 0)
 	recWU8(&recording.buffer, 0)
@@ -613,11 +599,10 @@ func startRecordingIntoBuffer(world *world, recording *Recording) {
 	if computeWorldBounds(world, &seed) {
 		recAccumulateBounds(recording, seed)
 	}
-	id := World{index1: world.worldID + 1, generation: world.generation}
-	recWriteStateHash(recording, &recArgsStateHash{world: id, hash: hashWorldState(world)})
+	recWriteStateHash(recording, &recArgsStateHash{hash: hashWorldState(world)})
 }
 
-func stopRecordingInternal(world *world) {
+func stopRecordingInternal(world *World) {
 	if world.recording == nil {
 		return
 	}
@@ -628,47 +613,35 @@ func stopRecordingInternal(world *world) {
 		rb.bounds = rec.accumulatedBounds
 	}
 	recWriteRecordingBounds(rec, &rb)
-	id := World{index1: world.worldID + 1, generation: world.generation}
-	recWriteDestroyWorld(rec, &recArgsDestroyWorld{world: id})
+	recWriteDestroyWorld(rec, &recArgsDestroyWorld{})
 }
 
-// Save a recording buffer to a file. Convenience wrapper over your own file I/O.
-func (r *Recording) SaveToFile(path string) error {
-	if r == nil {
-		return errors.New("box2d: nil recording")
-	}
-	return os.WriteFile(path, r.Data(), 0666)
+// WriteTo writes the recorded bytes to w.
+func (r *Recording) WriteTo(w io.Writer) (int64, error) {
+	n, err := w.Write(r.Data())
+	return int64(n), err
 }
 
-// Load a recording from a file into a new recording buffer. Convenience wrapper over your own
-// file I/O. Destroy the result with (*Recording).Destroy.
-func LoadRecordingFromFile(path string) (*Recording, error) {
-	f, err := os.Open(path)
+// ReadRecording reads a recording written by WriteTo into a new recording buffer. It returns
+// ErrCorrupt for data too short to hold a header and ErrBadMagic for data that is not a recording.
+func ReadRecording(src io.Reader) (*Recording, error) {
+	data, err := io.ReadAll(src)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return nil, err
+	if len(data) < 32 {
+		return nil, fmt.Errorf("%w: recording too small", ErrCorrupt)
 	}
-	if info.Size() < 32 || info.Size() > math.MaxInt32 {
-		return nil, errors.New("box2d: invalid recording size")
+	if binary.LittleEndian.Uint32(data) != recMagic {
+		return nil, fmt.Errorf("%w: recording magic 0x%08X", ErrBadMagic, binary.LittleEndian.Uint32(data))
 	}
-	r := CreateRecording(int(info.Size()))
-	if _, err = io.ReadFull(f, r.buffer.data); err != nil {
-		r.Destroy()
-		return nil, err
-	}
-	if binary.LittleEndian.Uint32(r.buffer.data) != recMagic {
-		r.Destroy()
-		return nil, errors.New("box2d: invalid recording magic")
-	}
-	r.buffer.size = int(info.Size())
+	r := NewRecording(len(data))
+	copy(r.buffer.data, data)
+	r.buffer.size = len(data)
 	return r, nil
 }
 
-func hashWorldState(world *world) uint64 {
+func hashWorldState(world *World) uint64 {
 	hash := snapFNVInit
 	for i := range world.bodies {
 		b := &world.bodies[i]

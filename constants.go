@@ -15,8 +15,6 @@ const (
 	// find a color are added to the overflow set which are solved single-threaded.
 	// The compound barrel benchmark has minor overflow with 24 colors
 	GraphColorCount = 24
-	// Maximum number of simultaneous worlds that can be allocated
-	MaxWorlds = 128
 	// Maximum length of the body name. Can be 0 if you don't need names.
 	NameLength = 10
 	// The maximum rotation of a body per time step. This limit is very large and is used

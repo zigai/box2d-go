@@ -4,19 +4,18 @@
 package box2d
 
 import (
-	"fmt"
 	"iter"
+	"log/slog"
 	"math"
 	"math/bits"
-	"sync"
 )
 
 type EnqueueTaskFunc func(task func()) (finish func())
 type FrictionFunc func(frictionA float32, userMaterialIDA uint64, frictionB float32, userMaterialIDB uint64) float32
 type RestitutionFunc func(restitutionA float32, userMaterialIDA uint64, restitutionB float32, userMaterialIDB uint64) float32
-type CustomFilterFunc func(shapeIDA, shapeIDB Shape) bool
-type PreSolveFunc func(shapeIDA, shapeIDB Shape, manifold *Manifold)
-type PreContinuousFunc func(shapeIDA, shapeIDB Shape, point Pos, normal Vec2) bool
+type CustomFilterFunc func(shapeA, shapeB Shape) bool
+type PreSolveFunc func(shapeA, shapeB Shape, manifold *Manifold)
+type PreContinuousFunc func(shapeA, shapeB Shape, point Pos, normal Vec2) bool
 
 type Capacity struct {
 	StaticShapeCount  int
@@ -44,7 +43,9 @@ type WorldDef struct {
 	EnqueueTask                  EnqueueTaskFunc
 	UserData                     any
 	Capacity                     Capacity
-	internalValue                int32
+	// Logger receives simulation warnings. DefaultWorldDef sets it to slog.Default().
+	Logger        *slog.Logger
+	internalValue int32
 }
 
 type Profile struct {
@@ -103,7 +104,8 @@ type taskContext struct {
 	recycledContactCount int
 }
 
-type world struct {
+// World is a physics simulation. Create one with NewWorld and release it with Close.
+type World struct {
 	broadPhase                   broadPhase
 	constraintGraph              constraintGraph
 	solverWideScratch            []contactConstraintWide
@@ -152,7 +154,6 @@ type world struct {
 	contactRecycleDistance       float32
 	frictionCallback             FrictionFunc
 	restitutionCallback          RestitutionFunc
-	generation                   uint16
 	profile                      Profile
 	maxCapacity                  Capacity
 	preSolveFcn                  PreSolveFunc
@@ -163,12 +164,12 @@ type world struct {
 	userTreeTask                 func()
 	scheduler                    *scheduler
 	userData                     any
+	logger                       *slog.Logger
 	recording                    *Recording
 	invH                         float32
 	invDT                        float32
 	activeTaskCount              int
 	taskCount                    int
-	worldID                      uint16
 	enableSleep                  bool
 	locked                       bool
 	enableWarmStarting           bool
@@ -176,41 +177,7 @@ type world struct {
 	inUse                        bool
 }
 
-var worlds [MaxWorlds]world
-var worldsMutex sync.Mutex
-
-func getUnlockedWorldFromId(id World) *world {
-	assert(1 <= id.index1 && id.index1 <= MaxWorlds, "1 <= id.index1 && id.index1 <= B2_MAX_WORLDS")
-	w := &worlds[id.index1-1]
-	assert(id.index1 == w.worldID+1, "id.index1 == world->worldId + 1")
-	assert(id.generation == w.generation, "id.generation == world->generation")
-	// A world accessed from an id should not be locked
-	if w.locked {
-		assert(false, "false")
-		return nil
-	}
-	return w
-}
-
-func getWorldFromId(id World) *world {
-	assert(1 <= id.index1 && id.index1 <= MaxWorlds, "1 <= id.index1 && id.index1 <= B2_MAX_WORLDS")
-	w := &worlds[id.index1-1]
-	assert(id.index1 == w.worldID+1, "id.index1 == world->worldId + 1")
-	assert(id.generation == w.generation, "id.generation == world->generation")
-	return w
-}
-
-func getWorld(index int) *world {
-	assert(0 <= index && index < MaxWorlds, "0 <= index && index < B2_MAX_WORLDS")
-	w := &worlds[index]
-	assert(int(w.worldID) == index, "world->worldId == index")
-	return w
-}
-
-func getWorldLocked(index int) *world {
-	assert(0 <= index && index < MaxWorlds, "0 <= index && index < B2_MAX_WORLDS")
-	w := &worlds[index]
-	assert(int(w.worldID) == index, "world->worldId == index")
+func getWorldLocked(w *World) *World {
 	if w.locked {
 		assert(false, "false")
 		return nil
@@ -227,7 +194,7 @@ func defaultFinishTaskFcn(finish func()) {
 
 }
 
-func createWorkerContexts(w *world) {
+func createWorkerContexts(w *World) {
 	w.taskContexts = make([]taskContext, w.workerCount)
 	w.sensorTaskContexts = make([]sensorTaskContext, w.workerCount)
 	for i := 0; i < w.workerCount; i++ {
@@ -243,7 +210,7 @@ func createWorkerContexts(w *world) {
 	}
 }
 
-func destroyWorkerContexts(w *world) {
+func destroyWorkerContexts(w *World) {
 	for i := 0; i < w.workerCount; i++ {
 		c := &w.taskContexts[i]
 		c.sensorHits = nil
@@ -259,50 +226,18 @@ func destroyWorkerContexts(w *world) {
 	w.sensorTaskContexts = nil
 }
 
-func CreateWorld(def *WorldDef) World {
-	assert(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
-	if !checkInputReturn(IsValidVec2(def.Gravity), "b2IsValidVec2( def->gravity )") {
-		return World{}
-	}
-	if !checkInputReturn(IsValidFloat(def.RestitutionThreshold), "b2IsValidFloat( def->restitutionThreshold )") {
-		return World{}
-	}
-	if !checkInputReturn(def.RestitutionIterations >= 0, "def->restitutionIterations >= 0") {
-		return World{}
-	}
-	if !checkInputReturn(IsValidFloat(def.HitEventThreshold), "b2IsValidFloat( def->hitEventThreshold )") {
-		return World{}
-	}
-	if !checkInputReturn(IsValidFloat(def.ContactHertz), "b2IsValidFloat( def->contactHertz )") {
-		return World{}
-	}
-	if !checkInputReturn(IsValidFloat(def.ContactDampingRatio), "b2IsValidFloat( def->contactDampingRatio )") {
-		return World{}
-	}
-	if !checkInputReturn(IsValidFloat(def.ContactSpeed), "b2IsValidFloat( def->contactSpeed )") {
-		return World{}
-	}
-	if !checkInputReturn(IsValidFloat(def.MaximumLinearSpeed) && def.MaximumLinearSpeed > 0, "b2IsValidFloat( def->maximumLinearSpeed ) && def->maximumLinearSpeed > 0.0f") {
-		return World{}
-	}
-	worldsMutex.Lock()
-	defer worldsMutex.Unlock()
-	worldID := nullIndex
-	for i := 0; i < MaxWorlds; i++ {
-		if !worlds[i].inUse {
-			worldID = i
-			break
-		}
-	}
-	if worldID == nullIndex {
-		return World{}
-	}
-	w := &worlds[worldID]
-	generation := w.generation
-	*w = world{}
-	w.worldID = uint16(worldID)
-	w.generation = generation
-	w.inUse = true
+func NewWorld(def *WorldDef) *World {
+	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
+	checkInput(def.Logger != nil, "def.Logger != nil")
+	checkInput(def.Gravity.IsValid(), "b2IsValidVec2( def->gravity )")
+	checkInput(IsValidFloat(def.RestitutionThreshold), "b2IsValidFloat( def->restitutionThreshold )")
+	checkInput(def.RestitutionIterations >= 0, "def->restitutionIterations >= 0")
+	checkInput(IsValidFloat(def.HitEventThreshold), "b2IsValidFloat( def->hitEventThreshold )")
+	checkInput(IsValidFloat(def.ContactHertz), "b2IsValidFloat( def->contactHertz )")
+	checkInput(IsValidFloat(def.ContactDampingRatio), "b2IsValidFloat( def->contactDampingRatio )")
+	checkInput(IsValidFloat(def.ContactSpeed), "b2IsValidFloat( def->contactSpeed )")
+	checkInput(IsValidFloat(def.MaximumLinearSpeed) && def.MaximumLinearSpeed > 0, "b2IsValidFloat( def->maximumLinearSpeed ) && def->maximumLinearSpeed > 0.0f")
+	w := &World{inUse: true}
 	createBroadPhase(&w.broadPhase, &def.Capacity)
 	createGraph(&w.constraintGraph, &def.Capacity)
 	// pools
@@ -349,15 +284,15 @@ func CreateWorld(def *WorldDef) World {
 	w.jointEvents = make([]JointEvent, 0, 4)
 	w.splitIslandID = nullIndex
 	w.gravity = def.Gravity
-	w.hitEventThreshold = ClampFloat(def.HitEventThreshold, 0, math.MaxFloat32)
-	w.restitutionThreshold = ClampFloat(def.RestitutionThreshold, 0, math.MaxFloat32)
+	w.hitEventThreshold = clampFloat(def.HitEventThreshold, 0, math.MaxFloat32)
+	w.restitutionThreshold = clampFloat(def.RestitutionThreshold, 0, math.MaxFloat32)
 	// Clamp this to avoid overflowing the solver sync flags.
-	w.restitutionIterations = ClampInt(def.RestitutionIterations, 0, MaxRestitutionIterations)
+	w.restitutionIterations = min(max(def.RestitutionIterations, 0), MaxRestitutionIterations)
 	w.enableRestitutionPropagation = def.EnableRestitutionPropagation
 	w.maxLinearSpeed = def.MaximumLinearSpeed
-	w.contactSpeed = ClampFloat(def.ContactSpeed, 0, math.MaxFloat32)
-	w.contactHertz = ClampFloat(def.ContactHertz, 0, math.MaxFloat32)
-	w.contactDampingRatio = ClampFloat(def.ContactDampingRatio, 0, math.MaxFloat32)
+	w.contactSpeed = clampFloat(def.ContactSpeed, 0, math.MaxFloat32)
+	w.contactHertz = clampFloat(def.ContactHertz, 0, math.MaxFloat32)
+	w.contactDampingRatio = clampFloat(def.ContactDampingRatio, 0, math.MaxFloat32)
 	w.contactRecycleDistance = ContactRecycleDistance()
 	w.frictionCallback = def.FrictionCallback
 	w.restitutionCallback = def.RestitutionCallback
@@ -365,6 +300,7 @@ func CreateWorld(def *WorldDef) World {
 	w.enableWarmStarting = true
 	w.enableContinuous = def.EnableContinuous
 	w.userData = def.UserData
+	w.logger = def.Logger
 	if def.WorkerCount > 0 && def.EnqueueTask != nil {
 		// External task system
 		w.workerCount = min(def.WorkerCount, MaxWorkers)
@@ -384,14 +320,11 @@ func CreateWorld(def *WorldDef) World {
 	w.debugJointSet = createBitSet(256)
 	w.debugContactSet = createBitSet(256)
 	w.debugIslandSet = createBitSet(256)
-	// add one to worldID so that 0 represents a null World
-	return World{index1: uint16(worldID + 1), generation: w.generation}
+	return w
 }
 
-func (w World) Destroy() {
-	worldsMutex.Lock()
-	defer worldsMutex.Unlock()
-	state := getWorldFromId(w)
+func (w *World) Close() {
+	state := w
 	// Detach any recording before teardown. The user owns and frees the recording buffer.
 	stopRecordingInternal(state)
 	if state.scheduler != nil {
@@ -449,17 +382,14 @@ func (w World) Destroy() {
 	destroyIDPool(&state.jointIDPool)
 	destroyIDPool(&state.islandIDPool)
 	destroyIDPool(&state.solverSetIDPool)
-	// Wipe world but preserve generation
-	generation := state.generation
-	*state = world{}
-	state.generation = generation + 1
+	*state = World{}
 }
 
 func relativeCos(a, b Rot) float32 {
 	return float32(a.C*b.C) + float32(a.S*b.S)
 }
 
-func resolveContactBodySim(w *world, awakeSims, staticSims []bodySim, encodedIndex, bodyID int) *bodySim {
+func resolveContactBodySim(w *World, awakeSims, staticSims []bodySim, encodedIndex, bodyID int) *bodySim {
 	if encodedIndex >= 0 {
 		return &awakeSims[encodedIndex]
 	}
@@ -487,7 +417,7 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 	spanBase := spans[spanIndex].contacts
 	recycleDistance := w.contactRecycleDistance
 	speculativeDistance := SpeculativeDistance()
-	recycleDistanceNonTouching := MinFloat(recycleDistance, speculativeDistance)
+	recycleDistanceNonTouching := minFloat(recycleDistance, speculativeDistance)
 	for contactIndex := startIndex; contactIndex < endIndex; contactIndex++ {
 		if contactIndex == spanEnd {
 			spanIndex++
@@ -529,10 +459,10 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 				cachedQA := sim.cachedRotationA
 				cachedQB := sim.cachedRotationB
 				xfc := sim.cachedRelativePose
-				xf := InvMulWorldTransforms(transformA, transformB)
+				xf := transformA.InvMul(transformB)
 				cosA := relativeCos(transformA.Q, cachedQA)
 				cosB := relativeCos(transformB.Q, cachedQB)
-				minCos := MinFloat(cosA, cosB)
+				minCos := minFloat(cosA, cosB)
 				var maxExtentA, maxExtentB float32
 				if !isStaticSimIndex(encodedA) {
 					maxExtentA = bodySimA.maxExtent
@@ -540,9 +470,9 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 				if !isStaticSimIndex(encodedB) {
 					maxExtentB = bodySimB.maxExtent
 				}
-				maxExtent := MaxFloat(maxExtentA, maxExtentB)
-				distance := Distance(xf.P, xfc.P)
-				qr := InvMulRot(xf.Q, xfc.Q)
+				maxExtent := maxFloat(maxExtentA, maxExtentB)
+				distance := xf.P.Distance(xfc.P)
+				qr := xf.Q.InvMul(xfc.Q)
 				// This metric is used for fast bodies and sleeping. It comes from conservative advancement.
 				// Note that qr.S == sin(theta) ~= theta for small angles.
 				// Need a tighter tolerance for non-touching shapes so that contacts are not missed.
@@ -550,19 +480,19 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 				if wasTouching {
 					tolerance = recycleDistance
 				}
-				if minCos > ContactRecycleCosAngle && distance+float32(maxExtent*AbsFloat(qr.S)) < tolerance {
-					dqA := MulRot(transformA.Q, InvertRot(cachedQA))
-					dqB := MulRot(transformB.Q, InvertRot(cachedQB))
+				if minCos > ContactRecycleCosAngle && distance+float32(maxExtent*absFloat(qr.S)) < tolerance {
+					dqA := transformA.Q.Mul(cachedQA.Invert())
+					dqB := transformB.Q.Mul(cachedQB.Invert())
 					normal := sim.manifold.Normal
 					// Minimize round-off
-					dc := SubPos(bodySimB.center, bodySimA.center)
+					dc := bodySimB.center.Sub(bodySimA.center)
 					for i := 0; i < sim.manifold.PointCount; i++ {
 						// Keep anchors but update separation, same as sub-stepping. This eliminates jitter.
 						mp := &sim.manifold.Points[i]
-						rA := RotateVector(dqA, mp.AnchorA)
-						rB := RotateVector(dqB, mp.AnchorB)
-						dp := Add(dc, Sub(rB, rA))
-						mp.Separation = mp.BaseSeparation + Dot(dp, normal)
+						rA := dqA.Rotate(mp.AnchorA)
+						rB := dqB.Rotate(mp.AnchorB)
+						dp := dc.Add(rB.Sub(rA))
+						mp.Separation = mp.BaseSeparation + dp.Dot(normal)
 						mp.NormalVelocity = 0
 						mp.Persisted = true
 					}
@@ -575,10 +505,10 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 			// Caching for contact recycling.
 			sim.cachedRotationA = transformA.Q
 			sim.cachedRotationB = transformB.Q
-			sim.cachedRelativePose = InvMulWorldTransforms(transformA, transformB)
+			sim.cachedRelativePose = transformA.InvMul(transformB)
 			sim.simFlags |= simRelativeTransformValid
-			centerOffsetA := RotateVector(transformA.Q, bodySimA.localCenter)
-			centerOffsetB := RotateVector(transformB.Q, bodySimB.localCenter)
+			centerOffsetA := transformA.Q.Rotate(bodySimA.localCenter)
+			centerOffsetB := transformB.Q.Rotate(bodySimB.localCenter)
 			// This updates solid contacts
 			touching := updateContact(w, sim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB)
 			// State changes that affect island connectivity. Also affects contact events.
@@ -600,7 +530,7 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 	}
 }
 
-func addNonTouchingContact(w *world, c *contact, sim *contactSim) {
+func addNonTouchingContact(w *World, c *contact, sim *contactSim) {
 	assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
 	set := &w.solverSets[awakeSet]
 	c.colorIndex = nullIndex
@@ -608,7 +538,7 @@ func addNonTouchingContact(w *world, c *contact, sim *contactSim) {
 	set.contactSims = arrayPush(set.contactSims, *sim)
 }
 
-func removeNonTouchingContact(w *world, setIndex, localIndex int) {
+func removeNonTouchingContact(w *World, setIndex, localIndex int) {
 	set := &w.solverSets[setIndex]
 	var movedIndex int
 	set.contactSims, movedIndex = arrayRemoveSwap(set.contactSims, localIndex)
@@ -676,7 +606,6 @@ func collide(context *stepContext) {
 	awake := &w.solverSets[awakeSet]
 	endEventArrayIndex := w.endEventArrayIndex
 	shapes := w.shapes
-	worldID := w.worldID
 	// Process contact state changes. Iterate over set bits
 	for k := uint32(0); k < bitSet.blockCount; k++ {
 		word := bitSet.bits[k]
@@ -705,10 +634,10 @@ func collide(context *stepContext) {
 				if flags&contactEnableContactEvents != 0 {
 					shapeA := &shapes[c.shapeIDA]
 					shapeB := &shapes[c.shapeIDB]
-					shapeIDA := Shape{index1: int32(shapeA.id + 1), world0: worldID, generation: shapeA.generation}
-					shapeIDB := Shape{index1: int32(shapeB.id + 1), world0: worldID, generation: shapeB.generation}
-					fullID := Contact{index1: int32(contactID + 1), world0: worldID, generation: c.generation}
-					w.contactBeginEvents = arrayPush(w.contactBeginEvents, ContactBeginTouchEvent{ShapeIDA: shapeIDA, ShapeIDB: shapeIDB, ContactID: fullID})
+					shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
+					shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
+					fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
+					w.contactBeginEvents = arrayPush(w.contactBeginEvents, ContactBeginTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
 				}
 				assert(sim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
 				assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
@@ -733,10 +662,10 @@ func collide(context *stepContext) {
 				if c.flags&contactEnableContactEvents != 0 {
 					shapeA := &shapes[c.shapeIDA]
 					shapeB := &shapes[c.shapeIDB]
-					shapeIDA := Shape{index1: int32(shapeA.id + 1), world0: worldID, generation: shapeA.generation}
-					shapeIDB := Shape{index1: int32(shapeB.id + 1), world0: worldID, generation: shapeB.generation}
-					fullID := Contact{index1: int32(contactID + 1), world0: worldID, generation: c.generation}
-					w.contactEndEvents[endEventArrayIndex] = arrayPush(w.contactEndEvents[endEventArrayIndex], ContactEndTouchEvent{ShapeIDA: shapeIDA, ShapeIDB: shapeIDB, ContactID: fullID})
+					shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
+					shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
+					fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
+					w.contactEndEvents[endEventArrayIndex] = arrayPush(w.contactEndEvents[endEventArrayIndex], ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
 				}
 				assert(sim.manifold.PointCount == 0, "contactSim->manifold.pointCount == 0")
 				unlinkContact(w, c)
@@ -754,19 +683,17 @@ func collide(context *stepContext) {
 	validateContacts(w)
 }
 
-func (w World) Step(timeStep float32, subStepCount int) {
-	if !checkInput(IsValidFloat(timeStep), "b2IsValidFloat( timeStep )") {
-		return
-	}
+func (w *World) Step(timeStep float32, subStepCount int) {
+	checkInput(IsValidFloat(timeStep), "b2IsValidFloat( timeStep )")
 	assert(0 < subStepCount, "0 < subStepCount")
-	state := getWorldFromId(w)
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	// Record step inputs before simulation runs
 	if state.recording != nil {
-		recWriteStep(state.recording, &recArgsStep{world: w, dt: timeStep, subStepCount: int32(subStepCount)})
+		recWriteStep(state.recording, &recArgsStep{dt: timeStep, subStepCount: int32(subStepCount)})
 	}
 	// Prepare to capture events
 	// Ensure user does not access stale data if there is an early return
@@ -782,7 +709,7 @@ func (w World) Step(timeStep float32, subStepCount int) {
 	if state.scheduler != nil {
 		resetScheduler(state.scheduler)
 	}
-	stepTicks := GetTicks()
+	stepTicks := currentTicks()
 	{
 		c := &state.maxCapacity
 		c.StaticShapeCount = max(c.StaticShapeCount, int(state.broadPhase.trees[StaticBody].proxyCount))
@@ -797,9 +724,9 @@ func (w World) Step(timeStep float32, subStepCount int) {
 	}
 	// Update collision pairs and create contacts
 	{
-		pairTicks := GetTicks()
+		pairTicks := currentTicks()
 		updateBroadPhasePairs(state)
-		state.profile.Pairs = GetMilliseconds(pairTicks)
+		state.profile.Pairs = milliseconds(pairTicks)
 	}
 	context := stepContext{world: state, dt: timeStep, subStepCount: max(1, subStepCount)}
 	if timeStep > 0 {
@@ -810,7 +737,7 @@ func (w World) Step(timeStep float32, subStepCount int) {
 	state.invH = context.invH
 	state.invDT = context.invDt
 	// Hertz values get reduced for large time steps
-	contactHertz := MinFloat(state.contactHertz, 0.125*context.invH)
+	contactHertz := minFloat(state.contactHertz, 0.125*context.invH)
 	context.contactSoftness = makeSoft(contactHertz, state.contactDampingRatio, context.h)
 	context.staticSoftness = makeSoft(2*contactHertz, state.contactDampingRatio, context.h)
 	context.restitutionThreshold = state.restitutionThreshold
@@ -818,15 +745,15 @@ func (w World) Step(timeStep float32, subStepCount int) {
 	context.enableWarmStarting = state.enableWarmStarting
 	// Narrow phase : update contacts
 	{
-		collideTicks := GetTicks()
+		collideTicks := currentTicks()
 		collide(&context)
-		state.profile.Collide = GetMilliseconds(collideTicks)
+		state.profile.Collide = milliseconds(collideTicks)
 	}
 	// Integrate velocities, solve velocity constraints, and integrate positions.
 	if timeStep > 0 {
-		solveTicks := GetTicks()
+		solveTicks := currentTicks()
 		solve(state, &context)
-		state.profile.Solve = GetMilliseconds(solveTicks)
+		state.profile.Solve = milliseconds(solveTicks)
 	}
 	// Finish the tree task in case solve didn't finish it
 	if state.userTreeTask != nil {
@@ -837,11 +764,11 @@ func (w World) Step(timeStep float32, subStepCount int) {
 	}
 	// Update sensors
 	{
-		sensorTicks := GetTicks()
+		sensorTicks := currentTicks()
 		overlapSensors(state)
-		state.profile.Sensors = GetMilliseconds(sensorTicks)
+		state.profile.Sensors = milliseconds(sensorTicks)
 	}
-	state.profile.Step = GetMilliseconds(stepTicks)
+	state.profile.Step = milliseconds(stepTicks)
 	// Make sure all tasks that were started were also finished
 	assert(state.activeTaskCount == 0, "world->activeTaskCount == 0")
 	// Swap end event array buffers
@@ -853,7 +780,7 @@ func (w World) Step(timeStep float32, subStepCount int) {
 		// locked, so this keeps the shared recording buffer single-writer without a lock. StateHash
 		// proves the simulation reproduced exactly on replay.
 		hash := hashWorldState(state)
-		recWriteStateHash(state.recording, &recArgsStateHash{world: w, hash: hash})
+		recWriteStateHash(state.recording, &recArgsStateHash{hash: hash})
 		// Grow the recorded bounds so a replay can frame the whole motion, not just frame 0
 		var bounds AABB
 		if computeWorldBounds(state, &bounds) {
@@ -863,7 +790,7 @@ func (w World) Step(timeStep float32, subStepCount int) {
 	state.locked = false
 }
 
-func computeWorldBounds(w *world, bounds *AABB) bool {
+func computeWorldBounds(w *World, bounds *AABB) bool {
 	worldBounds := AABB{}
 	haveBounds := false
 	for i := 0; i < int(BodyTypeCount); i++ {
@@ -883,8 +810,8 @@ func computeWorldBounds(w *world, bounds *AABB) bool {
 	return haveBounds
 }
 
-func (w World) Bounds() AABB {
-	state := getUnlockedWorldFromId(w)
+func (w *World) Bounds() AABB {
+	state := getWorldLocked(w)
 	if state == nil {
 		return AABB{}
 	}
@@ -893,8 +820,8 @@ func (w World) Bounds() AABB {
 	return bounds
 }
 
-func (w World) BodyMoveEvents() iter.Seq[BodyMoveEvent] {
-	state := getWorldFromId(w)
+func (w *World) BodyMoveEvents() iter.Seq[BodyMoveEvent] {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return func(yield func(BodyMoveEvent) bool) {}
@@ -909,8 +836,8 @@ func (w World) BodyMoveEvents() iter.Seq[BodyMoveEvent] {
 	}
 }
 
-func (w World) SensorBeginEvents() iter.Seq[SensorBeginTouchEvent] {
-	state := getWorldFromId(w)
+func (w *World) SensorBeginEvents() iter.Seq[SensorBeginTouchEvent] {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return func(yield func(SensorBeginTouchEvent) bool) {}
@@ -925,8 +852,8 @@ func (w World) SensorBeginEvents() iter.Seq[SensorBeginTouchEvent] {
 	}
 }
 
-func (w World) SensorEndEvents() iter.Seq[SensorEndTouchEvent] {
-	state := getWorldFromId(w)
+func (w *World) SensorEndEvents() iter.Seq[SensorEndTouchEvent] {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return func(yield func(SensorEndTouchEvent) bool) {}
@@ -942,8 +869,8 @@ func (w World) SensorEndEvents() iter.Seq[SensorEndTouchEvent] {
 	}
 }
 
-func (w World) ContactBeginEvents() iter.Seq[ContactBeginTouchEvent] {
-	state := getWorldFromId(w)
+func (w *World) ContactBeginEvents() iter.Seq[ContactBeginTouchEvent] {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return func(yield func(ContactBeginTouchEvent) bool) {}
@@ -958,8 +885,8 @@ func (w World) ContactBeginEvents() iter.Seq[ContactBeginTouchEvent] {
 	}
 }
 
-func (w World) ContactEndEvents() iter.Seq[ContactEndTouchEvent] {
-	state := getWorldFromId(w)
+func (w *World) ContactEndEvents() iter.Seq[ContactEndTouchEvent] {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return func(yield func(ContactEndTouchEvent) bool) {}
@@ -975,8 +902,8 @@ func (w World) ContactEndEvents() iter.Seq[ContactEndTouchEvent] {
 	}
 }
 
-func (w World) ContactHitEvents() iter.Seq[ContactHitEvent] {
-	state := getWorldFromId(w)
+func (w *World) ContactHitEvents() iter.Seq[ContactHitEvent] {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return func(yield func(ContactHitEvent) bool) {}
@@ -991,8 +918,8 @@ func (w World) ContactHitEvents() iter.Seq[ContactHitEvent] {
 	}
 }
 
-func (w World) JointEvents() iter.Seq[JointEvent] {
-	state := getWorldFromId(w)
+func (w *World) JointEvents() iter.Seq[JointEvent] {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return func(yield func(JointEvent) bool) {}
@@ -1007,23 +934,13 @@ func (w World) JointEvents() iter.Seq[JointEvent] {
 	}
 }
 
-func (w World) IsValid() bool {
-	if w.index1 < 1 || w.index1 > MaxWorlds {
-		return false
-	}
-	state := &worlds[w.index1-1]
-	if state.worldID != w.index1-1 {
-		return false
-	}
-	return w.generation == state.generation
+func (w *World) IsValid() bool {
+	return w != nil && w.inUse
 }
 
 func (b Body) IsValid() bool {
-	if b.world0 >= MaxWorlds {
-		return false
-	}
-	state := &worlds[b.world0]
-	if state.worldID != b.world0 {
+	state := b.world
+	if !state.IsValid() {
 		return false
 	}
 	index := int(b.index1) - 1
@@ -1039,11 +956,8 @@ func (b Body) IsValid() bool {
 }
 
 func (s Shape) IsValid() bool {
-	if s.world0 >= MaxWorlds {
-		return false
-	}
-	state := &worlds[s.world0]
-	if state.worldID != s.world0 {
+	state := s.world
+	if !state.IsValid() {
 		return false
 	}
 	index := int(s.index1) - 1
@@ -1059,11 +973,8 @@ func (s Shape) IsValid() bool {
 }
 
 func (c Chain) IsValid() bool {
-	if c.world0 >= MaxWorlds {
-		return false
-	}
-	state := &worlds[c.world0]
-	if state.worldID != c.world0 {
+	state := c.world
+	if !state.IsValid() {
 		return false
 	}
 	index := int(c.index1) - 1
@@ -1079,11 +990,8 @@ func (c Chain) IsValid() bool {
 }
 
 func (j Joint) IsValid() bool {
-	if j.world0 >= MaxWorlds {
-		return false
-	}
-	state := &worlds[j.world0]
-	if state.worldID != j.world0 {
+	state := j.world
+	if !state.IsValid() {
 		return false
 	}
 	index := int(j.index1) - 1
@@ -1099,11 +1007,8 @@ func (j Joint) IsValid() bool {
 }
 
 func (c Contact) IsValid() bool {
-	if c.world0 >= MaxWorlds {
-		return false
-	}
-	state := &worlds[c.world0]
-	if state.worldID != c.world0 {
+	state := c.world
+	if !state.IsValid() {
 		return false
 	}
 	index := int(c.index1) - 1
@@ -1118,14 +1023,14 @@ func (c Contact) IsValid() bool {
 	return item.generation == c.generation
 }
 
-func (w World) EnableSleeping(flag bool) {
-	state := getWorldFromId(w)
+func (w *World) SetSleepingEnabled(flag bool) {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldEnableSleeping(state.recording, &recArgsWorldEnableSleeping{world: w, flag: flag})
+		recWriteWorldEnableSleeping(state.recording, &recArgsWorldEnableSleeping{flag: flag})
 	}
 	if flag == state.enableSleep {
 		return
@@ -1140,186 +1045,170 @@ func (w World) EnableSleeping(flag bool) {
 	}
 }
 
-func (w World) IsSleepingEnabled() bool {
-	return getWorldFromId(w).enableSleep
+func (w *World) SleepingEnabled() bool {
+	return w.enableSleep
 }
 
-func (w World) EnableWarmStarting(flag bool) {
-	state := getWorldFromId(w)
+func (w *World) SetWarmStartingEnabled(flag bool) {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldEnableWarmStarting(state.recording, &recArgsWorldEnableWarmStarting{world: w, flag: flag})
+		recWriteWorldEnableWarmStarting(state.recording, &recArgsWorldEnableWarmStarting{flag: flag})
 	}
 	state.enableWarmStarting = flag
 }
 
-func (w World) IsWarmStartingEnabled() bool {
-	return getWorldFromId(w).enableWarmStarting
+func (w *World) WarmStartingEnabled() bool {
+	return w.enableWarmStarting
 }
 
-func (w World) AwakeBodyCount() int {
-	return len(getWorldFromId(w).solverSets[awakeSet].bodySims)
+func (w *World) AwakeBodyCount() int {
+	return len(w.solverSets[awakeSet].bodySims)
 }
 
-func (w World) EnableContinuous(flag bool) {
-	state := getWorldFromId(w)
+func (w *World) SetContinuousEnabled(flag bool) {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldEnableContinuous(state.recording, &recArgsWorldEnableContinuous{world: w, flag: flag})
+		recWriteWorldEnableContinuous(state.recording, &recArgsWorldEnableContinuous{flag: flag})
 	}
 	state.enableContinuous = flag
 }
 
-func (w World) IsContinuousEnabled() bool {
-	return getWorldFromId(w).enableContinuous
+func (w *World) ContinuousEnabled() bool {
+	return w.enableContinuous
 }
 
-func (w World) SetRestitutionThreshold(value float32) {
-	if !checkInput(IsValidFloat(value), "b2IsValidFloat( value )") {
-		return
-	}
-	state := getWorldFromId(w)
+func (w *World) SetRestitutionThreshold(value float32) {
+	checkInput(IsValidFloat(value), "b2IsValidFloat( value )")
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldSetRestitutionThreshold(state.recording, &recArgsWorldSetRestitutionThreshold{world: w, value: value})
+		recWriteWorldSetRestitutionThreshold(state.recording, &recArgsWorldSetRestitutionThreshold{value: value})
 	}
-	state.restitutionThreshold = ClampFloat(value, 0, math.MaxFloat32)
+	state.restitutionThreshold = clampFloat(value, 0, math.MaxFloat32)
 }
 
-func (w World) RestitutionThreshold() float32 {
-	return getWorldFromId(w).restitutionThreshold
+func (w *World) RestitutionThreshold() float32 {
+	return w.restitutionThreshold
 }
 
-func (w World) SetRestitutionIterations(iterations int) {
-	if !checkInput(iterations >= 0, "iterations >= 0") {
-		return
-	}
-	state := getWorldFromId(w)
+func (w *World) SetRestitutionIterations(iterations int) {
+	checkInput(iterations >= 0, "iterations >= 0")
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldSetRestitutionIterations(state.recording, &recArgsWorldSetRestitutionIterations{world: w, iterations: int32(iterations)})
+		recWriteWorldSetRestitutionIterations(state.recording, &recArgsWorldSetRestitutionIterations{iterations: int32(iterations)})
 	}
-	state.restitutionIterations = ClampInt(iterations, 0, MaxRestitutionIterations)
+	state.restitutionIterations = min(max(iterations, 0), MaxRestitutionIterations)
 }
 
-func (w World) RestitutionIterations() int {
-	return getWorldFromId(w).restitutionIterations
+func (w *World) RestitutionIterations() int {
+	return w.restitutionIterations
 }
 
-func (w World) EnableRestitutionPropagation(flag bool) {
-	state := getWorldFromId(w)
+func (w *World) SetRestitutionPropagationEnabled(flag bool) {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldEnableRestitutionPropagation(state.recording, &recArgsWorldEnableRestitutionPropagation{world: w, flag: flag})
+		recWriteWorldEnableRestitutionPropagation(state.recording, &recArgsWorldEnableRestitutionPropagation{flag: flag})
 	}
 	state.enableRestitutionPropagation = flag
 }
 
-func (w World) IsRestitutionPropagationEnabled() bool {
-	return getWorldFromId(w).enableRestitutionPropagation
+func (w *World) RestitutionPropagationEnabled() bool {
+	return w.enableRestitutionPropagation
 }
 
-func (w World) SetHitEventThreshold(value float32) {
-	if !checkInput(IsValidFloat(value), "b2IsValidFloat( value )") {
-		return
-	}
-	state := getWorldFromId(w)
+func (w *World) SetHitEventThreshold(value float32) {
+	checkInput(IsValidFloat(value), "b2IsValidFloat( value )")
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldSetHitEventThreshold(state.recording, &recArgsWorldSetHitEventThreshold{world: w, value: value})
+		recWriteWorldSetHitEventThreshold(state.recording, &recArgsWorldSetHitEventThreshold{value: value})
 	}
-	state.hitEventThreshold = ClampFloat(value, 0, math.MaxFloat32)
+	state.hitEventThreshold = clampFloat(value, 0, math.MaxFloat32)
 }
 
-func (w World) HitEventThreshold() float32 {
-	return getWorldFromId(w).hitEventThreshold
+func (w *World) HitEventThreshold() float32 {
+	return w.hitEventThreshold
 }
 
-func (w World) SetContactTuning(hertz, dampingRatio, pushSpeed float32) {
-	if !checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )") {
-		return
-	}
-	if !checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )") {
-		return
-	}
-	if !checkInput(IsValidFloat(pushSpeed), "b2IsValidFloat( pushSpeed )") {
-		return
-	}
-	state := getWorldFromId(w)
+func (w *World) SetContactTuning(hertz, dampingRatio, pushSpeed float32) {
+	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
+	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
+	checkInput(IsValidFloat(pushSpeed), "b2IsValidFloat( pushSpeed )")
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldSetContactTuning(state.recording, &recArgsWorldSetContactTuning{world: w, hertz: hertz, dampingRatio: dampingRatio, pushSpeed: pushSpeed})
+		recWriteWorldSetContactTuning(state.recording, &recArgsWorldSetContactTuning{hertz: hertz, dampingRatio: dampingRatio, pushSpeed: pushSpeed})
 	}
-	state.contactHertz = ClampFloat(hertz, 0, math.MaxFloat32)
-	state.contactDampingRatio = ClampFloat(dampingRatio, 0, math.MaxFloat32)
-	state.contactSpeed = ClampFloat(pushSpeed, 0, math.MaxFloat32)
+	state.contactHertz = clampFloat(hertz, 0, math.MaxFloat32)
+	state.contactDampingRatio = clampFloat(dampingRatio, 0, math.MaxFloat32)
+	state.contactSpeed = clampFloat(pushSpeed, 0, math.MaxFloat32)
 }
 
-func (w World) SetContactRecycleDistance(recycleDistance float32) {
-	if !checkInput(IsValidFloat(recycleDistance), "b2IsValidFloat( recycleDistance )") {
-		return
-	}
-	state := getWorldFromId(w)
+func (w *World) SetContactRecycleDistance(recycleDistance float32) {
+	checkInput(IsValidFloat(recycleDistance), "b2IsValidFloat( recycleDistance )")
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldSetContactRecycleDistance(state.recording, &recArgsWorldSetContactRecycleDistance{world: w, recycleDistance: recycleDistance})
+		recWriteWorldSetContactRecycleDistance(state.recording, &recArgsWorldSetContactRecycleDistance{recycleDistance: recycleDistance})
 	}
-	state.contactRecycleDistance = ClampFloat(recycleDistance, 0, math.MaxFloat32)
+	state.contactRecycleDistance = clampFloat(recycleDistance, 0, math.MaxFloat32)
 }
 
-func (w World) ContactRecycleDistance() float32 {
-	return getWorldFromId(w).contactRecycleDistance
+func (w *World) ContactRecycleDistance() float32 {
+	return w.contactRecycleDistance
 }
 
-func (w World) SetMaximumLinearSpeed(maximumLinearSpeed float32) {
-	if !checkInput(IsValidFloat(maximumLinearSpeed) && maximumLinearSpeed > 0, "b2IsValidFloat( maximumLinearSpeed ) && maximumLinearSpeed > 0.0f") {
-		return
-	}
-	state := getWorldFromId(w)
+func (w *World) SetMaximumLinearSpeed(maximumLinearSpeed float32) {
+	checkInput(IsValidFloat(maximumLinearSpeed) && maximumLinearSpeed > 0, "b2IsValidFloat( maximumLinearSpeed ) && maximumLinearSpeed > 0.0f")
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldSetMaximumLinearSpeed(state.recording, &recArgsWorldSetMaximumLinearSpeed{world: w, maximumLinearSpeed: maximumLinearSpeed})
+		recWriteWorldSetMaximumLinearSpeed(state.recording, &recArgsWorldSetMaximumLinearSpeed{maximumLinearSpeed: maximumLinearSpeed})
 	}
 	state.maxLinearSpeed = maximumLinearSpeed
 }
 
-func (w World) MaximumLinearSpeed() float32 {
-	return getWorldFromId(w).maxLinearSpeed
+func (w *World) MaximumLinearSpeed() float32 {
+	return w.maxLinearSpeed
 }
 
-func (w World) Profile() Profile {
-	return getWorldFromId(w).profile
+func (w *World) Profile() Profile {
+	return w.profile
 }
 
-func (w World) Counters() Counters {
-	state := getWorldFromId(w)
+func (w *World) Counters() Counters {
+	state := w
 	s := Counters{}
 	s.BodyCount = getIDCount(&state.bodyIDPool)
 	s.ShapeCount = getIDCount(&state.shapeIDPool)
@@ -1341,36 +1230,36 @@ func (w World) Counters() Counters {
 	return s
 }
 
-func (w World) MaxCapacity() Capacity {
-	return getWorldFromId(w).maxCapacity
+func (w *World) MaxCapacity() Capacity {
+	return w.maxCapacity
 }
 
-func (w World) SetUserData(userData any) {
-	getWorldFromId(w).userData = userData
+func (w *World) SetUserData(userData any) {
+	w.userData = userData
 }
 
-func (w World) UserData() any {
-	return getWorldFromId(w).userData
+func (w *World) UserData() any {
+	return w.userData
 }
 
-func (w World) SetFrictionCallback(callback FrictionFunc) {
-	state := getWorldFromId(w)
+func (w *World) SetFrictionCallback(callback FrictionFunc) {
+	state := w
 	if state.locked {
 		return
 	}
 	state.frictionCallback = callback
 }
 
-func (w World) SetRestitutionCallback(callback RestitutionFunc) {
-	state := getWorldFromId(w)
+func (w *World) SetRestitutionCallback(callback RestitutionFunc) {
+	state := w
 	if state.locked {
 		return
 	}
 	state.restitutionCallback = callback
 }
 
-func (w World) SetWorkerCount(count int) {
-	state := getUnlockedWorldFromId(w)
+func (w *World) SetWorkerCount(count int) {
+	state := getWorldLocked(w)
 	if state == nil {
 		return
 	}
@@ -1378,81 +1267,79 @@ func (w World) SetWorkerCount(count int) {
 		return
 	}
 	destroyWorkerContexts(state)
-	state.workerCount = ClampInt(count, 1, MaxWorkers)
+	state.workerCount = min(max(count, 1), MaxWorkers)
 	createWorkerContexts(state)
 }
 
-func (w World) WorkerCount() int {
-	state := getUnlockedWorldFromId(w)
+func (w *World) WorkerCount() int {
+	state := getWorldLocked(w)
 	if state == nil {
 		return 0
 	}
 	return state.workerCount
 }
 
-func (w World) StartRecording(recording *Recording) {
+func (w *World) StartRecording(recording *Recording) {
 	// Must be a step boundary, so refuse a locked world
-	state := getUnlockedWorldFromId(w)
+	state := getWorldLocked(w)
 	if state == nil || recording == nil || state.recording != nil {
 		return
 	}
 	if state.preSolveFcn != nil || state.preContinuousFcn != nil {
-		fmt.Print("b2World_StartRecording: preSolve not supported when recording\n")
+		state.logger.Warn("box2d: recording does not support pre-solve callbacks")
 		return
 	}
 	startRecordingIntoBuffer(state, recording)
 }
 
-func (w World) StopRecording() {
-	state := getUnlockedWorldFromId(w)
+func (w *World) StopRecording() {
+	state := getWorldLocked(w)
 	if state == nil {
 		return
 	}
 	stopRecordingInternal(state)
 }
 
-func (w World) SetCustomFilterCallback(fcn CustomFilterFunc) {
-	state := getWorldFromId(w)
+func (w *World) SetCustomFilterCallback(fcn CustomFilterFunc) {
+	state := w
 	if fcn != nil && state.recording != nil {
-		fmt.Print("b2World_SetCustomFilterCallback: customFilter not supported while recording\n")
+		state.logger.Warn("box2d: custom filter callbacks are not supported while recording")
 		assert(false, "false && \"customFilter callbacks are not supported while recording\"")
 	}
 	state.customFilterFcn = fcn
 }
 
-func (w World) SetPreSolveCallback(preSolveFcn PreSolveFunc, preContinuousFcn PreContinuousFunc) {
-	state := getWorldFromId(w)
+func (w *World) SetPreSolveCallback(preSolveFcn PreSolveFunc, preContinuousFcn PreContinuousFunc) {
+	state := w
 	if (preSolveFcn != nil || preContinuousFcn != nil) && state.recording != nil {
-		fmt.Print("b2World_SetPreSolveCallback: preSolve not supported while recording\n")
+		state.logger.Warn("box2d: pre-solve callbacks are not supported while recording")
 		assert(false, "false && \"preSolve callbacks are not supported while recording\"")
 	}
 	state.preSolveFcn = preSolveFcn
 	state.preContinuousFcn = preContinuousFcn
 }
 
-func (w World) SetGravity(gravity Vec2) {
-	if !checkInput(IsValidVec2(gravity), "b2IsValidVec2( gravity )") {
-		return
-	}
-	state := getWorldFromId(w)
+func (w *World) SetGravity(gravity Vec2) {
+	checkInput(gravity.IsValid(), "b2IsValidVec2( gravity )")
+	state := w
 	if state.recording != nil {
-		recWriteWorldSetGravity(state.recording, &recArgsWorldSetGravity{world: w, gravity: gravity})
+		recWriteWorldSetGravity(state.recording, &recArgsWorldSetGravity{gravity: gravity})
 	}
 	state.gravity = gravity
 }
 
-func (w World) Gravity() Vec2 {
-	return getWorldFromId(w).gravity
+func (w *World) Gravity() Vec2 {
+	return w.gravity
 }
 
-func (w World) RebuildStaticTree() {
-	state := getWorldFromId(w)
+func (w *World) RebuildStaticTree() {
+	state := w
 	assert(!state.locked, "world->locked == false")
 	if state.locked {
 		return
 	}
 	if state.recording != nil {
-		recWriteWorldRebuildStaticTree(state.recording, &recArgsWorldRebuildStaticTree{world: w})
+		recWriteWorldRebuildStaticTree(state.recording, &recArgsWorldRebuildStaticTree{})
 	}
 	tree := &state.broadPhase.trees[StaticBody]
 	// Moved proxies must retain the flag in the rebuild.

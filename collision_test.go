@@ -19,15 +19,15 @@ func TestCollision(t *testing.T) {
 		a.LowerBound = Vec2{-1.0, -1.0}
 		a.UpperBound = Vec2{-2.0, -2.0}
 
-		r.Bool("collision:17", IsValidAABB(a) == false)
+		r.Bool("collision:17", a.IsValid() == false)
 
-		if !(IsValidAABB(a) == false) {
+		if !(a.IsValid() == false) {
 			t.Fatal("condition false")
 		}
 
 		a.UpperBound = Vec2{1.0, 1.0}
-		r.Bool("collision:21", IsValidAABB(a) == true)
-		if !(IsValidAABB(a) == true) {
+		r.Bool("collision:21", a.IsValid() == true)
+		if !(a.IsValid() == true) {
 			t.Fatal("condition false")
 		}
 
@@ -439,8 +439,8 @@ func TestCollision(t *testing.T) {
 		sep := Vec2{0.9, 0.0}
 
 		xfAo := WorldTransformIdentity
-		xfBo := WorldTransform{OffsetPos(PosZero, sep), RotIdentity}
-		mOrigin := CollidePolygons(&boxA, &boxB, InvMulWorldTransforms(xfAo, xfBo))
+		xfBo := WorldTransform{PosZero.Add(sep), RotIdentity}
+		mOrigin := CollidePolygons(&boxA, &boxB, xfAo.InvMul(xfBo))
 		geometryCheckManifold(r, "full/origin", mOrigin)
 
 		r.I32("collision:218/value0", int32(mOrigin.PointCount))
@@ -464,10 +464,10 @@ func TestCollision(t *testing.T) {
 			// Same relative configuration shifted far from the origin. The relative pose differences the
 			// world positions in double, so in double the frame A manifold is preserved to float precision.
 			// In float it would collapse since the offset is below the ULP.
-			base := OffsetPos(PosZero, Vec2{1.0e7, 1.0e7})
+			base := PosZero.Add(Vec2{1.0e7, 1.0e7})
 			xfAl := WorldTransform{base, RotIdentity}
-			xfBl := WorldTransform{OffsetPos(base, sep), RotIdentity}
-			mLarge := CollidePolygons(&boxA, &boxB, InvMulWorldTransforms(xfAl, xfBl))
+			xfBl := WorldTransform{base.Add(sep), RotIdentity}
+			mLarge := CollidePolygons(&boxA, &boxB, xfAl.InvMul(xfBl))
 			geometryCheckManifold(r, "full/large", mLarge)
 
 			r.I32("collision:231/value0", int32(mLarge.PointCount))

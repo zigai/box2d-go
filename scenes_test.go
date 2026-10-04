@@ -69,8 +69,8 @@ func testScenes(t *testing.T, workers int) {
 
 	cases := []struct {
 		name    string
-		create  func(box2d.World)
-		step    func(box2d.World, int) float32
+		create  func(*box2d.World)
+		step    func(*box2d.World, int) float32
 		stats   func() box2d.TreeStats
 		destroy func()
 		horizon int
@@ -96,8 +96,8 @@ func testScenes(t *testing.T, workers int) {
 			isolateSceneRandomSeed(t)
 			def := box2d.DefaultWorldDef()
 			def.WorkerCount = workers
-			world := box2d.CreateWorld(&def)
-			defer world.Destroy()
+			world := box2d.NewWorld(&def)
+			defer world.Close()
 			if tc.destroy != nil {
 				defer tc.destroy()
 			}
@@ -143,8 +143,8 @@ func testScenes(t *testing.T, workers int) {
 
 		def := box2d.DefaultWorldDef()
 		def.WorkerCount = workers
-		world := box2d.CreateWorld(&def)
-		defer world.Destroy()
+		world := box2d.NewWorld(&def)
+		defer world.Close()
 		data := scenes.CreateFallingHinges(world)
 		fixture := fmt.Sprintf("FallingHinges_workers%d", workers)
 		r := oracle.Open(t, "scenes/"+fixture)
@@ -168,8 +168,8 @@ func testScenes(t *testing.T, workers int) {
 		isolateSceneRandomSeed(t)
 		def := box2d.DefaultWorldDef()
 		def.WorkerCount = workers
-		world := box2d.CreateWorld(&def)
-		defer world.Destroy()
+		world := box2d.NewWorld(&def)
+		defer world.Close()
 		var human scenes.Human
 		scenes.CreateHuman(&human, world, box2d.Pos{X: 0, Y: 5}, 1, 0.05, 5, 0.5, 1, nil, true)
 		fixture := fmt.Sprintf("Human_workers%d", workers)
@@ -205,7 +205,7 @@ func testScenes(t *testing.T, workers int) {
 				var enabled bool
 				for shape := range human.Bones[int(scenes.BoneTorso)].BodyID.Shapes() {
 					count++
-					enabled = shape.AreSensorEventsEnabled()
+					enabled = shape.SensorEventsEnabled()
 					break
 				}
 				r.I32(fmt.Sprintf("%d.torsoShapes", step), count)
@@ -226,7 +226,7 @@ func testScenes(t *testing.T, workers int) {
 	})
 }
 
-func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, world box2d.World, step int) {
+func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, world *box2d.World, step int) {
 	t.Helper()
 	counters := world.Counters()
 	r.I32(fmt.Sprintf("%d.b", step), int32(counters.BodyCount))
@@ -261,7 +261,7 @@ func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, wor
 	}
 }
 
-func checkSceneObservations(t *testing.T, r *oracle.Reader, world box2d.World, step int) {
+func checkSceneObservations(t *testing.T, r *oracle.Reader, world *box2d.World, step int) {
 	t.Helper()
 	for i, state := range box2d.SceneStateForTest(world) {
 		lane := []string{"dynamic", "contact", "joint"}[i]

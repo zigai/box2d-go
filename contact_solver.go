@@ -208,7 +208,7 @@ func prepareContactsOverflow(context *stepContext) {
 		}
 
 		normal := constraint.normal
-		tangent := RightPerp(constraint.normal)
+		tangent := constraint.normal.RightPerp()
 
 		for j := 0; j < pointCount; j++ {
 			mp := &manifold.Points[j]
@@ -224,10 +224,10 @@ func prepareContactsOverflow(context *stepContext) {
 
 			cp.anchorA = rA
 			cp.anchorB = rB
-			cp.baseSeparation = mp.Separation - Dot(Sub(rB, rA), normal)
+			cp.baseSeparation = mp.Separation - rB.Sub(rA).Dot(normal)
 
-			rnA := Cross(rA, normal)
-			rnB := Cross(rB, normal)
+			rnA := rA.Cross(normal)
+			rnB := rB.Cross(normal)
 			kNormal := mA + mB + float32(iA*rnA*rnA) + float32(iB*rnB*rnB)
 			if kNormal > 0.0 {
 				cp.normalMass = 1.0 / kNormal
@@ -235,8 +235,8 @@ func prepareContactsOverflow(context *stepContext) {
 				cp.normalMass = 0.0
 			}
 
-			rtA := Cross(rA, tangent)
-			rtB := Cross(rB, tangent)
+			rtA := rA.Cross(tangent)
+			rtB := rB.Cross(tangent)
 			kTangent := mA + mB + float32(iA*rtA*rtA) + float32(iB*rtB*rtB)
 			if kTangent > 0.0 {
 				cp.tangentMass = 1.0 / kTangent
@@ -246,9 +246,9 @@ func prepareContactsOverflow(context *stepContext) {
 
 			// Only compute the normal velocity terms if needed.
 			if sampleVelocity {
-				vrA := Add(vA, CrossSV(wA, rA))
-				vrB := Add(vB, CrossSV(wB, rB))
-				vn := Dot(normal, Sub(vrB, vrA))
+				vrA := vA.Add(rA.ScalarCross(wA))
+				vrB := vB.Add(rB.ScalarCross(wB))
+				vn := normal.Dot(vrB.Sub(vrA))
 
 				cp.relativeVelocity = vn
 				mp.NormalVelocity = vn
@@ -304,7 +304,7 @@ func warmStartContactsOverflow(context *stepContext) {
 
 		// Stiffer for static contacts to avoid bodies getting pushed through the ground
 		normal := constraint.normal
-		tangent := RightPerp(constraint.normal)
+		tangent := constraint.normal.RightPerp()
 		pointCount := constraint.pointCount
 
 		for j := 0; j < pointCount; j++ {
@@ -314,14 +314,14 @@ func warmStartContactsOverflow(context *stepContext) {
 			rA := cp.anchorA
 			rB := cp.anchorB
 
-			P := Add(MulSV(cp.normalImpulse, normal), MulSV(cp.tangentImpulse, tangent))
+			P := normal.Scale(cp.normalImpulse).Add(tangent.Scale(cp.tangentImpulse))
 
 			cp.totalNormalImpulse += cp.normalImpulse
 
-			wA -= float32(iA * Cross(rA, P))
-			vA = MulAdd(vA, -mA, P)
-			wB += float32(iB * Cross(rB, P))
-			vB = MulAdd(vB, mB, P)
+			wA -= float32(iA * rA.Cross(P))
+			vA = vA.MulAdd(-mA, P)
+			wB += float32(iB * rB.Cross(P))
+			vB = vB.MulAdd(mB, P)
 		}
 
 		wA -= float32(iA * constraint.rollingImpulse)
@@ -381,7 +381,7 @@ func pushContactsOverflow(context *stepContext) {
 		wB := stateB.angularVelocity
 		dqB := stateB.deltaRotation
 
-		dp := Sub(stateB.deltaPosition, stateA.deltaPosition)
+		dp := stateB.deltaPosition.Sub(stateA.deltaPosition)
 
 		normal := constraint.normal
 		softness := constraint.softness
@@ -396,8 +396,8 @@ func pushContactsOverflow(context *stepContext) {
 
 			// compute current separation
 			// this is subject to round-off error if the anchor is far from the body center of mass
-			ds := Add(dp, Sub(RotateVector(dqB, rB), RotateVector(dqA, rA)))
-			s := cp.baseSeparation + Dot(ds, normal)
+			ds := dp.Add(dqB.Rotate(rB).Sub(dqA.Rotate(rA)))
+			s := cp.baseSeparation + ds.Dot(normal)
 
 			var velocityBias float32
 			var massScale float32
@@ -409,32 +409,32 @@ func pushContactsOverflow(context *stepContext) {
 				impulseScale = 0.0
 			} else {
 				// overlap bias is negative
-				velocityBias = MaxFloat(float32(softness.massScale*softness.biasRate*s), -contactSpeed)
+				velocityBias = maxFloat(float32(softness.massScale*softness.biasRate*s), -contactSpeed)
 				massScale = softness.massScale
 				impulseScale = softness.impulseScale
 			}
 
 			// relative normal velocity at contact
-			vrA := Add(vA, CrossSV(wA, rA))
-			vrB := Add(vB, CrossSV(wB, rB))
-			vn := Dot(Sub(vrB, vrA), normal)
+			vrA := vA.Add(rA.ScalarCross(wA))
+			vrB := vB.Add(rB.ScalarCross(wB))
+			vn := vrB.Sub(vrA).Dot(normal)
 
 			// incremental normal impulse
 			impulse := float32(-cp.normalMass*(float32(massScale*vn)+velocityBias)) - float32(impulseScale*cp.normalImpulse)
 
 			// clamp the accumulated impulse
-			newImpulse := MaxFloat(cp.normalImpulse+impulse, 0.0)
+			newImpulse := maxFloat(cp.normalImpulse+impulse, 0.0)
 			impulse = newImpulse - cp.normalImpulse
 			cp.normalImpulse = newImpulse
 			cp.totalNormalImpulse += impulse
 
 			// apply normal impulse
-			P := MulSV(impulse, normal)
-			vA = MulSub(vA, mA, P)
-			wA -= float32(iA * Cross(rA, P))
+			P := normal.Scale(impulse)
+			vA = vA.MulSub(mA, P)
+			wA -= float32(iA * rA.Cross(P))
 
-			vB = MulAdd(vB, mB, P)
-			wB += float32(iB * Cross(rB, P))
+			vB = vB.MulAdd(mB, P)
+			wB += float32(iB * rB.Cross(P))
 		}
 
 		if stateA.flags&dynamicFlag != 0 {
@@ -490,10 +490,10 @@ func solveContactsOverflow(context *stepContext) {
 		wB := stateB.angularVelocity
 		dqB := stateB.deltaRotation
 
-		dp := Sub(stateB.deltaPosition, stateA.deltaPosition)
+		dp := stateB.deltaPosition.Sub(stateA.deltaPosition)
 
 		normal := constraint.normal
-		tangent := RightPerp(normal)
+		tangent := normal.RightPerp()
 		friction := constraint.friction
 
 		pointCount := constraint.pointCount
@@ -508,8 +508,8 @@ func solveContactsOverflow(context *stepContext) {
 
 			// compute current separation
 			// this is subject to round-off error if the anchor is far from the body center of mass
-			ds := Add(dp, Sub(RotateVector(dqB, rB), RotateVector(dqA, rA)))
-			s := cp.baseSeparation + Dot(ds, normal)
+			ds := dp.Add(dqB.Rotate(rB).Sub(dqA.Rotate(rA)))
+			s := cp.baseSeparation + ds.Dot(normal)
 
 			// speculative bias, zero when overlapped
 			velocityBias := float32(0.0)
@@ -518,15 +518,15 @@ func solveContactsOverflow(context *stepContext) {
 			}
 
 			// relative normal velocity at contact
-			vrA := Add(vA, CrossSV(wA, rA))
-			vrB := Add(vB, CrossSV(wB, rB))
-			vn := Dot(Sub(vrB, vrA), normal)
+			vrA := vA.Add(rA.ScalarCross(wA))
+			vrB := vB.Add(rB.ScalarCross(wB))
+			vn := vrB.Sub(vrA).Dot(normal)
 
 			// incremental normal impulse
 			impulse := float32(-cp.normalMass * (vn + velocityBias))
 
 			// clamp the accumulated impulse
-			newImpulse := MaxFloat(cp.normalImpulse+impulse, 0.0)
+			newImpulse := maxFloat(cp.normalImpulse+impulse, 0.0)
 			impulse = newImpulse - cp.normalImpulse
 			cp.normalImpulse = newImpulse
 			cp.totalNormalImpulse += impulse
@@ -535,12 +535,12 @@ func solveContactsOverflow(context *stepContext) {
 			totalNormalImpulse += newImpulse
 
 			// apply normal impulse
-			P := MulSV(impulse, normal)
-			vA = MulSub(vA, mA, P)
-			wA -= float32(iA * Cross(rA, P))
+			P := normal.Scale(impulse)
+			vA = vA.MulSub(mA, P)
+			wA -= float32(iA * rA.Cross(P))
 
-			vB = MulAdd(vB, mB, P)
-			wB += float32(iB * Cross(rB, P))
+			vB = vB.MulAdd(mB, P)
+			wB += float32(iB * rB.Cross(P))
 		}
 
 		// Rolling resistance
@@ -548,7 +548,7 @@ func solveContactsOverflow(context *stepContext) {
 			deltaLambda := float32(-constraint.rollingMass * (wB - wA))
 			lambda := constraint.rollingImpulse
 			maxLambda := float32(constraint.rollingResistance * totalNormalImpulse)
-			constraint.rollingImpulse = ClampFloat(lambda+deltaLambda, -maxLambda, maxLambda)
+			constraint.rollingImpulse = clampFloat(lambda+deltaLambda, -maxLambda, maxLambda)
 			deltaLambda = constraint.rollingImpulse - lambda
 
 			wA -= float32(iA * deltaLambda)
@@ -564,29 +564,29 @@ func solveContactsOverflow(context *stepContext) {
 			rB := cp.anchorB
 
 			// relative tangent velocity at contact
-			vrB := Add(vB, CrossSV(wB, rB))
-			vrA := Add(vA, CrossSV(wA, rA))
+			vrB := vB.Add(rB.ScalarCross(wB))
+			vrA := vA.Add(rA.ScalarCross(wA))
 
 			// vt = dot(vrB - sB * tangent - (vrA + sA * tangent), tangent)
 			//    = dot(vrB - vrA, tangent) - (sA + sB)
 
-			vt := Dot(Sub(vrB, vrA), tangent) - constraint.tangentSpeed
+			vt := vrB.Sub(vrA).Dot(tangent) - constraint.tangentSpeed
 
 			// incremental tangent impulse
 			impulse := float32(cp.tangentMass * (-vt))
 
 			// clamp the accumulated force
 			maxFriction := float32(friction * cp.normalImpulse)
-			newImpulse := ClampFloat(cp.tangentImpulse+impulse, -maxFriction, maxFriction)
+			newImpulse := clampFloat(cp.tangentImpulse+impulse, -maxFriction, maxFriction)
 			impulse = newImpulse - cp.tangentImpulse
 			cp.tangentImpulse = newImpulse
 
 			// apply tangent impulse
-			P := MulSV(impulse, tangent)
-			vA = MulSub(vA, mA, P)
-			wA -= float32(iA * Cross(rA, P))
-			vB = MulAdd(vB, mB, P)
-			wB += float32(iB * Cross(rB, P))
+			P := tangent.Scale(impulse)
+			vA = vA.MulSub(mA, P)
+			wA -= float32(iA * rA.Cross(P))
+			vB = vB.MulAdd(mB, P)
+			wB += float32(iB * rB.Cross(P))
 		}
 
 		if stateA.flags&dynamicFlag != 0 {
@@ -646,7 +646,7 @@ func applyRestitutionOverflow(context *stepContext) {
 		wB := stateB.angularVelocity
 		dqB := stateB.deltaRotation
 
-		dp := Sub(stateB.deltaPosition, stateA.deltaPosition)
+		dp := stateB.deltaPosition.Sub(stateA.deltaPosition)
 
 		normal := constraint.normal
 		restitution := constraint.restitution
@@ -666,8 +666,8 @@ func applyRestitutionOverflow(context *stepContext) {
 			if armed {
 				velocityBias = float32(restitution * cp.relativeVelocity)
 			} else {
-				ds := Add(dp, Sub(RotateVector(dqB, rB), RotateVector(dqA, rA)))
-				s := cp.baseSeparation + Dot(ds, normal)
+				ds := dp.Add(dqB.Rotate(rB).Sub(dqA.Rotate(rA)))
+				s := cp.baseSeparation + ds.Dot(normal)
 
 				if s > 0.0 {
 					velocityBias = float32(s * invH)
@@ -676,33 +676,33 @@ func applyRestitutionOverflow(context *stepContext) {
 				}
 			}
 
-			vrA := Add(vA, CrossSV(wA, rA))
-			vrB := Add(vB, CrossSV(wB, rB))
-			vn := Dot(Sub(vrB, vrA), normal)
+			vrA := vA.Add(rA.ScalarCross(wA))
+			vrB := vB.Add(rB.ScalarCross(wB))
+			vn := vrB.Sub(vrA).Dot(normal)
 
 			impulse := float32(-cp.normalMass * (vn + velocityBias))
 
-			newImpulse := MaxFloat(cp.normalImpulse+impulse, 0.0)
+			newImpulse := maxFloat(cp.normalImpulse+impulse, 0.0)
 			impulse = newImpulse - cp.normalImpulse
 
-			approachImpulse := float32(MinFloat(MaxFloat(-cp.normalMass*vn, 0.0), MaxFloat(impulse, 0.0)))
+			approachImpulse := float32(minFloat(maxFloat(-cp.normalMass*vn, 0.0), maxFloat(impulse, 0.0)))
 
 			if armed {
 				// Poisson kinetic restitution guarantees no energy gain.
 				allowance := float32(restitution*(compressionImpulse+approachImpulse)) - cp.restitutionImpulse
-				impulse = MinFloat(impulse, approachImpulse+MaxFloat(allowance, 0.0))
+				impulse = minFloat(impulse, approachImpulse+maxFloat(allowance, 0.0))
 			}
 
 			cp.normalImpulse += impulse
 			cp.restitutionImpulse += impulse - approachImpulse
 			cp.totalNormalImpulse += impulse
 
-			P := MulSV(impulse, normal)
-			vA = MulSub(vA, mA, P)
-			wA -= float32(iA * Cross(rA, P))
+			P := normal.Scale(impulse)
+			vA = vA.MulSub(mA, P)
+			wA -= float32(iA * rA.Cross(P))
 
-			vB = MulAdd(vB, mB, P)
-			wB += float32(iB * Cross(rB, P))
+			vB = vB.MulAdd(mB, P)
+			wB += float32(iB * rB.Cross(P))
 		}
 
 		if stateA.flags&dynamicFlag != 0 {
@@ -854,10 +854,10 @@ func maxW(a floatW, b floatW) floatW {
 // a = clamp(a, -b, b)
 func symClampW(a floatW, b floatW) floatW {
 	var r floatW
-	r.x = ClampFloat(a.x, -b.x, b.x)
-	r.y = ClampFloat(a.y, -b.y, b.y)
-	r.z = ClampFloat(a.z, -b.z, b.z)
-	r.w = ClampFloat(a.w, -b.w, b.w)
+	r.x = clampFloat(a.x, -b.x, b.x)
+	r.y = clampFloat(a.y, -b.y, b.y)
+	r.z = clampFloat(a.z, -b.z, b.z)
+	r.w = clampFloat(a.w, -b.w, b.w)
 	return r
 }
 
@@ -1146,7 +1146,7 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 	// Loop over block
 	for wideIndex < endWideIndex {
 		colorWideStart := spans[colorIndex].start
-		colorWideEndIndex := MinInt(spans[colorIndex+1].start, endWideIndex)
+		colorWideEndIndex := min(spans[colorIndex+1].start, endWideIndex)
 		colorContactCount := spans[colorIndex].count
 		contactSims := spans[colorIndex].contacts
 
@@ -1950,7 +1950,7 @@ func storeImpulsesWide(block solverBlock, context *stepContext, workerIndex int)
 	}
 
 	for wideIndex < endWideIndex {
-		colorWideEndIndex := MinInt(spans[colorIndex+1].start, endWideIndex)
+		colorWideEndIndex := min(spans[colorIndex+1].start, endWideIndex)
 		colorWideStart := spans[colorIndex].start
 		colorContactCount := spans[colorIndex].count
 		contactSims := spans[colorIndex].contacts

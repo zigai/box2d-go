@@ -30,7 +30,7 @@ func TestDynamicTree(t *testing.T) {
 			LowerBound: Vec2{-1.0, -1.0},
 			UpperBound: Vec2{2.0, 2.0},
 		}
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/22", &tree)
 		createTreeProxyInternal(&tree, a, 1, 0, false)
 		s.tree("step/23", &tree)
@@ -46,7 +46,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/26")
 		s.tree("check-state/26", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/28", &tree)
 		s.check(30, uint64(tree.nodeEnd), tree.nodeEnd == 0)
 		if !(tree.nodeEnd == 0) {
@@ -68,7 +68,7 @@ func TestDynamicTree(t *testing.T) {
 		s.r.U32("rng/start", s.randomState)
 		// Test AABB centered at origin with bounds [-1, -1] to [1, 1]
 		a := AABB{LowerBound: Vec2{-1.0, -1.0}, UpperBound: Vec2{1.0, 1.0}}
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/50", &tree)
 		proxyId := createTreeProxyInternal(&tree, a, 1, 0, false)
 		s.tree("step/51", &tree)
@@ -79,7 +79,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{-3.0, 0.0}
 			p2 := Vec2{3.0, 0.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/65", &tree)
@@ -95,7 +95,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{3.0, 0.0}
 			p2 := Vec2{-3.0, 0.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/78", &tree)
@@ -111,7 +111,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{0.0, -3.0}
 			p2 := Vec2{0.0, 3.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/91", &tree)
@@ -127,7 +127,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{0.0, 3.0}
 			p2 := Vec2{0.0, -3.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/104", &tree)
@@ -143,7 +143,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{-3.0, 2.0}
 			p2 := Vec2{3.0, 2.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/117", &tree)
@@ -159,7 +159,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{2.0, -3.0}
 			p2 := Vec2{2.0, 3.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/130", &tree)
@@ -175,7 +175,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{0.0, 0.0}
 			p2 := Vec2{2.0, 0.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/143", &tree)
@@ -191,7 +191,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{-2.0, -2.0}
 			p2 := Vec2{2.0, 2.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/156", &tree)
@@ -207,7 +207,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{-2.0, 1.5}
 			p2 := Vec2{2.0, 1.5}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/169", &tree)
@@ -223,7 +223,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{-2.0, 1.0}
 			p2 := Vec2{2.0, 1.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/182", &tree)
@@ -239,7 +239,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{-3.0, 0.0}
 			p2 := Vec2{-2.5, 0.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/195", &tree)
@@ -255,7 +255,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{0.0, 0.0}
 			p2 := Vec2{0.0, 0.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/208", &tree)
@@ -271,7 +271,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{-2.0, 0.0}
 			p2 := Vec2{-1.0, 0.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/221", &tree)
@@ -292,7 +292,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{0.0, 5.0}
 			p2 := Vec2{21.0, 5.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/239", &tree)
@@ -308,7 +308,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{10.5, 0.0}
 			p2 := Vec2{10.5, 21.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/252", &tree)
@@ -324,7 +324,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{0.0, 7.0}
 			p2 := Vec2{21.0, 7.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/265", &tree)
@@ -340,7 +340,7 @@ func TestDynamicTree(t *testing.T) {
 			p1 := Vec2{12.0, 0.0}
 			p2 := Vec2{12.0, 21.0}
 			input.Origin = p1
-			input.Translation = Sub(p2, p1)
+			input.Translation = p2.Sub(p1)
 			proxyHit := -1
 			tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
 			s.tree("step/278", &tree)
@@ -351,7 +351,7 @@ func TestDynamicTree(t *testing.T) {
 			s.flush("check/280")
 			s.tree("check-state/280", &tree)
 		}
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/283", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -359,7 +359,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeMultipleProxiesTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/308", &tree)
 		a1 := AABB{LowerBound: Vec2{-5.0, -1.0}, UpperBound: Vec2{-3.0, 1.0}}
 		a2 := AABB{LowerBound: Vec2{-1.0, -1.0}, UpperBound: Vec2{1.0, 1.0}}
@@ -412,7 +412,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/326")
 		s.tree("check-state/326", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/328", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -420,7 +420,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeQueryTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/334", &tree)
 		a1 := AABB{LowerBound: Vec2{-5.0, -1.0}, UpperBound: Vec2{-3.0, 1.0}}
 		a2 := AABB{LowerBound: Vec2{-1.0, -1.0}, UpperBound: Vec2{1.0, 1.0}}
@@ -464,7 +464,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/357")
 		s.tree("check-state/357", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/359", &tree)
 		_ = id1
 		_ = id3
@@ -474,7 +474,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeMoveAndEnlargeTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/366", &tree)
 		a := AABB{LowerBound: Vec2{0.0, 0.0}, UpperBound: Vec2{1.0, 1.0}}
 		id := createTreeProxyInternal(&tree, a, 0x1, 100, false)
@@ -525,7 +525,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/387")
 		s.tree("check-state/387", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/389", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -533,7 +533,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeRebuildAndValidateTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/395", &tree)
 		// Create a number of proxies to make rebuild meaningful
 		for i := 0; i < 12; i++ {
@@ -562,7 +562,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/409")
 		s.tree("check-state/409", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/411", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -570,7 +570,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeRowHeightTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/417", &tree)
 		columnCount := 200
 		for i := 0; i < columnCount; i++ {
@@ -588,7 +588,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/430")
 		s.tree("check-state/430", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/432", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -596,7 +596,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeGridHeightTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/438", &tree)
 		columnCount := 20
 		rowCount := 20
@@ -618,7 +618,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/456")
 		s.tree("check-state/456", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/458", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -626,7 +626,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeGridMovementTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/466", &tree)
 		var proxyIds [treeGridCount * treeGridCount]int
 		index := 0
@@ -661,8 +661,8 @@ func TestDynamicTree(t *testing.T) {
 		for i := 0; i < treeGridCount; i++ {
 			for j := 0; j < treeGridCount; j++ {
 				a := tree.AABB(proxyIds[index])
-				a.LowerBound = Add(a.LowerBound, offset)
-				a.UpperBound = Add(a.UpperBound, offset)
+				a.LowerBound = a.LowerBound.Add(offset)
+				a.UpperBound = a.UpperBound.Add(offset)
 				tree.moveProxyInternal(proxyIds[index], a, false)
 				s.tree("step/499", &tree)
 				index += 1
@@ -686,7 +686,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/512")
 		s.tree("check-state/512", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/514", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -694,7 +694,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeOneProxyTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(1)
+		tree := NewDynamicTree(1)
 		s.tree("step/798", &tree)
 		box := AABB{Vec2{0.0, 0.0}, Vec2{1.0, 1.0}}
 		proxyId := createTreeProxyInternal(&tree, box, 1, 7, false)
@@ -903,7 +903,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/859")
 		s.tree("check-state/859", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/861", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -911,7 +911,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeLeafRootTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/869", &tree)
 		boxA := AABB{Vec2{0.0, 0.0}, Vec2{1.0, 1.0}}
 		boxB := AABB{Vec2{10.0, 0.0}, Vec2{11.0, 1.0}}
@@ -1138,7 +1138,7 @@ func TestDynamicTree(t *testing.T) {
 		}
 		s.flush("check/934")
 		s.tree("check-state/934", &tree)
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/936", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -1146,7 +1146,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeQueryBruteForceTest", 12345)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(treeProxyCount)
+		tree := NewDynamicTree(treeProxyCount)
 		s.tree("step/942", &tree)
 		var proxyIds [treeProxyCount]int
 		for i := 0; i < treeProxyCount; i++ {
@@ -1195,7 +1195,7 @@ func TestDynamicTree(t *testing.T) {
 			s.flush("check/971")
 			s.tree("check-state/971", &tree)
 		}
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/974", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -1203,7 +1203,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeCastBruteForceTest", 1416758761)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(treeProxyCount)
+		tree := NewDynamicTree(treeProxyCount)
 		s.tree("step/980", &tree)
 		var proxyIds [treeProxyCount]int
 		for i := 0; i < treeProxyCount; i++ {
@@ -1235,7 +1235,7 @@ func TestDynamicTree(t *testing.T) {
 			s.flush("check/996")
 			s.tree("check-state/996", &tree)
 			halfExtent := Vec2{s.randomFloat(0.25, 2.0), s.randomFloat(0.25, 2.0)}
-			box := AABB{Sub(origin, halfExtent), Add(origin, halfExtent)}
+			box := AABB{origin.Sub(halfExtent), origin.Add(halfExtent)}
 			result1000 := treeCompareBoxCast(t, s, &tree, proxyIds[:], treeProxyCount, box, translation)
 			s.check(1000, uint64(result1000), result1000 == 0)
 			if !(result1000 == 0) {
@@ -1244,7 +1244,7 @@ func TestDynamicTree(t *testing.T) {
 			s.flush("check/1000")
 			s.tree("check-state/1000", &tree)
 		}
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/1003", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -1252,7 +1252,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeMarkAndRefitTest", 2736551817)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(treeProxyCount)
+		tree := NewDynamicTree(treeProxyCount)
 		s.tree("step/1010", &tree)
 		var proxyIds [treeProxyCount]int
 		for i := 0; i < treeProxyCount; i++ {
@@ -1450,7 +1450,7 @@ func TestDynamicTree(t *testing.T) {
 		s.flush("check/1082")
 		s.tree("check-state/1082", &tree)
 		tree.validateNoMoved()
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/1085", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -1459,7 +1459,7 @@ func TestDynamicTree(t *testing.T) {
 		s := treeOpen(t, "TreeDfsOrderTest", 4061065257)
 		s.r.U32("rng/start", s.randomState)
 		proxyCount := 50
-		tree := CreateDynamicTree(treeProxyCount)
+		tree := NewDynamicTree(treeProxyCount)
 		s.tree("step/1094", &tree)
 		var proxyIds [treeProxyCount]int
 		for i := 0; i < proxyCount; i++ {
@@ -1686,7 +1686,7 @@ func TestDynamicTree(t *testing.T) {
 			s.flush("check/1177")
 			s.tree("check-state/1177", &tree)
 		}
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/1180", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -1694,7 +1694,7 @@ func TestDynamicTree(t *testing.T) {
 
 		s := treeOpen(t, "TreeStaleAfterInsertRemoveTest", 1530990073)
 		s.r.U32("rng/start", s.randomState)
-		tree := CreateDynamicTree(16)
+		tree := NewDynamicTree(16)
 		s.tree("step/1188", &tree)
 		var ids [16]int
 		for i := 0; i < 16; i++ {
@@ -1755,7 +1755,7 @@ func TestDynamicTree(t *testing.T) {
 		s.flush("check/1216")
 		s.tree("check-state/1216", &tree)
 		tree.Validate()
-		tree.Destroy()
+		tree = DynamicTree{}
 		s.tree("step/1219", &tree)
 		s.r.U32("rng/end", s.randomState)
 	})
@@ -2043,7 +2043,7 @@ type treeCastHit struct {
 
 // Entry fraction along the full translation, negative for a miss
 func treeRayBoxFraction(box AABB, origin, translation Vec2) float32 {
-	output := aabbRayCast(box, origin, Add(origin, translation))
+	output := aabbRayCast(box, origin, origin.Add(translation))
 	if output.Hit {
 		return output.Fraction
 	}
@@ -2053,7 +2053,7 @@ func treeRayBoxFraction(box AABB, origin, translation Vec2) float32 {
 // A box sweep against a box is a ray against the box grown by the swept extents
 func treeBoxCastFraction(box AABB, input *BoxCastInput) float32 {
 	extents := input.Box.Extents()
-	grown := AABB{Sub(box.LowerBound, extents), Add(box.UpperBound, extents)}
+	grown := AABB{box.LowerBound.Sub(extents), box.UpperBound.Add(extents)}
 	return treeRayBoxFraction(grown, input.Box.Center(), input.Translation)
 }
 

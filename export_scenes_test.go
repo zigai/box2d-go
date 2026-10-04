@@ -16,8 +16,8 @@ type SceneBodyTransformForTest struct {
 	Transform WorldTransform
 }
 
-func SceneBodyTransformsForTest(worldID World) []SceneBodyTransformForTest {
-	world := getWorldFromId(worldID)
+func SceneBodyTransformsForTest(worldID *World) []SceneBodyTransformForTest {
+	world := worldID
 	var transforms []SceneBodyTransformForTest
 	for index := range world.bodies {
 		body := &world.bodies[index]
@@ -84,8 +84,8 @@ func (d *sceneDigest) manifold(m Manifold, hitEvents bool) {
 }
 
 // Each lane is a canonical, explicitly encoded public outcome, not a native image.
-func SceneStateForTest(w World) [3]SceneObservationForTest {
-	world := getWorldFromId(w)
+func SceneStateForTest(w *World) [3]SceneObservationForTest {
+	world := w
 	var result [3]SceneObservationForTest
 	d := newSceneDigest()
 	for i := range world.bodies {
@@ -94,12 +94,12 @@ func SceneStateForTest(w World) [3]SceneObservationForTest {
 			continue
 		}
 		id := makeBodyId(world, i)
-		d.id(id.Store())
+		d.id(id.ID())
 		d.u32(uint32(id.Type()))
 		d.vec(id.LinearVelocity())
 		d.f(id.AngularVelocity())
-		d.flag(id.IsAwake())
-		d.flag(id.IsEnabled())
+		d.flag(id.Awake())
+		d.flag(id.Enabled())
 		mass := id.MassData()
 		d.f(mass.Mass)
 		d.vec(mass.Center)
@@ -130,25 +130,25 @@ func SceneStateForTest(w World) [3]SceneObservationForTest {
 		if j.setIndex == nullIndex {
 			continue
 		}
-		id := Joint{int32(i + 1), world.worldID, j.generation}
-		d.id(id.Store())
+		id := Joint{int32(i + 1), world, j.generation}
+		d.id(id.ID())
 		d.u32(uint32(id.Type()))
-		d.id(id.BodyA().Store())
-		d.id(id.BodyB().Store())
+		d.id(id.BodyA().ID())
+		d.id(id.BodyB().ID())
 		d.frame(id.LocalFrameA())
 		d.frame(id.LocalFrameB())
 		d.vec(id.ConstraintForce())
 		d.f(id.ConstraintTorque())
 		if id.Type() == RevoluteJointType {
 			r := RevoluteJoint{Joint: id}
-			d.flag(r.IsMotorEnabled())
+			d.flag(r.MotorEnabled())
 			d.f(r.MotorSpeed())
 			d.f(r.MaxMotorTorque())
 			d.f(r.MotorTorque())
-			d.flag(r.IsSpringEnabled())
+			d.flag(r.SpringEnabled())
 			d.f(r.SpringHertz())
 			d.f(r.SpringDampingRatio())
-			d.flag(r.IsLimitEnabled())
+			d.flag(r.LimitEnabled())
 			d.f(r.LowerLimit())
 			d.f(r.UpperLimit())
 		}
@@ -158,7 +158,7 @@ func SceneStateForTest(w World) [3]SceneObservationForTest {
 	return result
 }
 
-func SceneEventsForTest(w World) [7]SceneObservationForTest {
+func SceneEventsForTest(w *World) [7]SceneObservationForTest {
 	var lanes [7][][]byte
 	u := func(p []byte, v uint32) []byte { return binary.LittleEndian.AppendUint32(p, v) }
 	id := func(p []byte, v uint64) []byte { p = u(p, uint32(v>>32)); return u(p, uint32(v&0xffff)) }
@@ -175,7 +175,7 @@ func SceneEventsForTest(w World) [7]SceneObservationForTest {
 		return f(p, float32(v.Y))
 	}
 	for e := range w.BodyMoveEvents() {
-		p := id(nil, e.BodyID.Store())
+		p := id(nil, e.Body.ID())
 		p = pos(p, e.Transform.P)
 		p = f(p, e.Transform.Q.C)
 		p = f(p, e.Transform.Q.S)
@@ -191,25 +191,25 @@ func SceneEventsForTest(w World) [7]SceneObservationForTest {
 		lanes[0] = append(lanes[0], u(p, v))
 	}
 	for e := range w.SensorBeginEvents() {
-		lanes[1] = append(lanes[1], id(id(nil, e.SensorShapeID.Store()), e.VisitorShapeID.Store()))
+		lanes[1] = append(lanes[1], id(id(nil, e.SensorShape.ID()), e.VisitorShape.ID()))
 	}
 	for e := range w.SensorEndEvents() {
-		lanes[2] = append(lanes[2], id(id(nil, e.SensorShapeID.Store()), e.VisitorShapeID.Store()))
+		lanes[2] = append(lanes[2], id(id(nil, e.SensorShape.ID()), e.VisitorShape.ID()))
 	}
 	for e := range w.ContactBeginEvents() {
-		lanes[3] = append(lanes[3], contact(id(id(nil, e.ShapeIDA.Store()), e.ShapeIDB.Store()), e.ContactID))
+		lanes[3] = append(lanes[3], contact(id(id(nil, e.ShapeA.ID()), e.ShapeB.ID()), e.Contact))
 	}
 	for e := range w.ContactEndEvents() {
-		lanes[4] = append(lanes[4], contact(id(id(nil, e.ShapeIDA.Store()), e.ShapeIDB.Store()), e.ContactID))
+		lanes[4] = append(lanes[4], contact(id(id(nil, e.ShapeA.ID()), e.ShapeB.ID()), e.Contact))
 	}
 	for e := range w.ContactHitEvents() {
-		p := contact(id(id(nil, e.ShapeIDA.Store()), e.ShapeIDB.Store()), e.ContactID)
+		p := contact(id(id(nil, e.ShapeA.ID()), e.ShapeB.ID()), e.Contact)
 		p = pos(p, e.Point)
 		p = vec(p, e.Normal)
 		lanes[5] = append(lanes[5], f(p, e.ApproachSpeed))
 	}
 	for e := range w.JointEvents() {
-		p := id(nil, e.JointID.Store())
+		p := id(nil, e.Joint.ID())
 		v := uint32(0)
 		if e.UserData == nil {
 			v = 1

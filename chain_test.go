@@ -24,10 +24,8 @@ func inputCreateTaggedChain(bodyID box2d.Body, points []box2d.Vec2, pointCount, 
 		materials[i].UserMaterialID = uint64(i + 1)
 	}
 	chainDef := box2d.DefaultChainDef()
-	chainDef.Points = points
-	chainDef.PointCount = pointCount
-	chainDef.Materials = materials
-	chainDef.MaterialCount = materialCount
+	chainDef.Points = points[:pointCount]
+	chainDef.Materials = materials[:materialCount]
 	chainDef.IsLoop = isLoop
 	chainDef.Ghost1 = inputGhostBegin
 	chainDef.Ghost2 = inputGhostEnd
@@ -57,7 +55,7 @@ func TestChain(t *testing.T) {
 
 		r := oracle.Open(t, "input/chain/SegmentCountTest")
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
@@ -68,7 +66,7 @@ func TestChain(t *testing.T) {
 		pair := inputCreateTaggedChain(bodyID, inputOpenPair, 2, 1, false).SegmentCount()
 		line := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 1, false).SegmentCount()
 
-		worldID.Destroy()
+		worldID.Close()
 
 		{
 			ok := triangle == 3
@@ -104,7 +102,7 @@ func TestChain(t *testing.T) {
 
 		r := oracle.Open(t, "input/chain/SegmentGeometryTest")
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
@@ -141,7 +139,7 @@ func TestChain(t *testing.T) {
 			open[i] = openSegments[i].ChainSegment()
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 
 		{
 			ok := loopCount == 4
@@ -249,16 +247,8 @@ func TestChain(t *testing.T) {
 	t.Run("LoopMaterialTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/chain/LoopMaterialTest")
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		assertCount := 0
-		beginCountingAsserts := func() {
-			assertCount = 0
-			box2d.SetAssertFunc(func(string, string, int) bool { assertCount++; return false })
-		}
-		endCountingAsserts := func() int { restore(); return assertCount }
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
@@ -271,9 +261,8 @@ func TestChain(t *testing.T) {
 		material := box2d.DefaultSurfaceMaterial()
 		material.UserMaterialID = 99
 
-		beginCountingAsserts()
-		chainID.SetSurfaceMaterial(&material, 1)
-		assertsTripped := endCountingAsserts()
+		assertsTripped := 0
+		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 1) })
 
 		var updated [4]uint64
 		var reported [4]uint64
@@ -282,7 +271,7 @@ func TestChain(t *testing.T) {
 			reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 
 		{
 			ok := assertsTripped == 0
@@ -326,16 +315,8 @@ func TestChain(t *testing.T) {
 	t.Run("OpenMaterialTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/chain/OpenMaterialTest")
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		assertCount := 0
-		beginCountingAsserts := func() {
-			assertCount = 0
-			box2d.SetAssertFunc(func(string, string, int) bool { assertCount++; return false })
-		}
-		endCountingAsserts := func() int { restore(); return assertCount }
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
@@ -348,11 +329,10 @@ func TestChain(t *testing.T) {
 		material := box2d.DefaultSurfaceMaterial()
 		material.UserMaterialID = 99
 
-		beginCountingAsserts()
-		chainID.SetSurfaceMaterial(&material, 0)
+		assertsTripped := 0
+		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 0) })
 		material.UserMaterialID = 98
-		chainID.SetSurfaceMaterial(&material, 4)
-		assertsTripped := endCountingAsserts()
+		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 4) })
 
 		var updated [5]uint64
 		var reported [5]uint64
@@ -361,7 +341,7 @@ func TestChain(t *testing.T) {
 			reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 
 		{
 			ok := assertsTripped == 0
@@ -406,16 +386,8 @@ func TestChain(t *testing.T) {
 	t.Run("SingleMaterialTest", func(t *testing.T) {
 
 		r := oracle.Open(t, "input/chain/SingleMaterialTest")
-		restore := box2d.InputSaveInputHooks()
-		t.Cleanup(restore)
-		assertCount := 0
-		beginCountingAsserts := func() {
-			assertCount = 0
-			box2d.SetAssertFunc(func(string, string, int) bool { assertCount++; return false })
-		}
-		endCountingAsserts := func() int { restore(); return assertCount }
 		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.CreateWorld(&worldDef)
+		worldID := box2d.NewWorld(&worldDef)
 		box2d.BTWorldCleanup(t, worldID)
 
 		bodyDef := box2d.DefaultBodyDef()
@@ -428,9 +400,8 @@ func TestChain(t *testing.T) {
 		material := box2d.DefaultSurfaceMaterial()
 		material.UserMaterialID = 99
 
-		beginCountingAsserts()
-		chainID.SetAllSurfaceMaterials(&material)
-		assertsTripped := endCountingAsserts()
+		assertsTripped := 0
+		inputRejected(&assertsTripped, func() { chainID.SetAllSurfaceMaterials(&material) })
 
 		var broadcast [5]uint64
 		inputReadSegmentTags(chainID, broadcast[:], 5)
@@ -438,9 +409,7 @@ func TestChain(t *testing.T) {
 		// One material at creation must not narrow the segment index, which is what the old count
 		// bound would have rejected here
 		material.UserMaterialID = 98
-		beginCountingAsserts()
-		chainID.SetSurfaceMaterial(&material, 2)
-		assertsTripped += endCountingAsserts()
+		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 2) })
 
 		var single [5]uint64
 		var reported [5]uint64
@@ -449,7 +418,7 @@ func TestChain(t *testing.T) {
 			reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
 		}
 
-		worldID.Destroy()
+		worldID.Close()
 
 		{
 			ok := assertsTripped == 0

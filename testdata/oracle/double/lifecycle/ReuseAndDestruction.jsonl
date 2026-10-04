@@ -147,8 +147,6 @@
 {"k":"chain.valid","t":"bool","v":"0"}
 {"k":"joint.valid","t":"bool","v":"0"}
 {"k":"contact.valid","t":"bool","v":"0"}
-{"k":"world.reused","t":"bool","v":"1"}
-{"k":"world.generation.delta","t":"u32","v":"00000001"}
 {"k":"body.world","t":"bool","v":"1"}
 {"k":"shape.world","t":"bool","v":"1"}
 {"k":"shape.body","t":"bool","v":"1"}
@@ -292,8 +290,6 @@
 {"k":"chain.valid","t":"bool","v":"0"}
 {"k":"joint.valid","t":"bool","v":"0"}
 {"k":"contact.valid","t":"bool","v":"0"}
-{"k":"world.reused","t":"bool","v":"1"}
-{"k":"world.generation.delta","t":"u32","v":"00000001"}
 {"k":"body.world","t":"bool","v":"1"}
 {"k":"shape.world","t":"bool","v":"1"}
 {"k":"shape.body","t":"bool","v":"1"}
@@ -437,8 +433,6 @@
 {"k":"chain.valid","t":"bool","v":"0"}
 {"k":"joint.valid","t":"bool","v":"0"}
 {"k":"contact.valid","t":"bool","v":"0"}
-{"k":"world.reused","t":"bool","v":"1"}
-{"k":"world.generation.delta","t":"u32","v":"00000001"}
 {"k":"body.world","t":"bool","v":"1"}
 {"k":"shape.world","t":"bool","v":"1"}
 {"k":"shape.body","t":"bool","v":"1"}

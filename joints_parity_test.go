@@ -15,22 +15,22 @@ func jointBodyState(r *oracle.Reader, phase string, b box2d.Body) {
 	velocity := b.LinearVelocity()
 	r.Vec2(phase+"/velocity", velocity.X, velocity.Y)
 	r.F32(phase+"/angularVelocity", b.AngularVelocity())
-	r.Bool(phase+"/awake", b.IsAwake())
-	r.Bool(phase+"/enabled", b.IsEnabled())
+	r.Bool(phase+"/awake", b.Awake())
+	r.Bool(phase+"/enabled", b.Enabled())
 	r.I32(phase+"/type", int32(b.Type()))
 }
 
 func jointScalarGetter(r *oracle.Reader, key string, get func() float32) {
-	restore := box2d.InputSaveInputHooks()
 	assertions := 0
-	box2d.SetAssertFunc(func(string, string, int) bool { assertions++; return false })
-	value := get()
-	restore()
+	var value float32
+	inputRejected(&assertions, func() { value = get() })
 	r.I32(key+"Assertions", int32(assertions))
-	r.F32(key, value)
+	if assertions == 0 {
+		r.F32(key, value)
+	}
 }
 
-func observeJoint(r *oracle.Reader, phase string, w box2d.World, j box2d.Joint, a, b box2d.Body) {
+func observeJoint(r *oracle.Reader, phase string, w *box2d.World, j box2d.Joint, a, b box2d.Body) {
 	jointBodyState(r, phase+"/bodyA", a)
 	jointBodyState(r, phase+"/bodyB", b)
 	r.I32(phase+"/jointCount", int32(w.Counters().JointCount))
@@ -59,15 +59,15 @@ func observeJoint(r *oracle.Reader, phase string, w box2d.World, j box2d.Joint, 
 	case box2d.DistanceJointType:
 		f := box2d.DistanceJoint{Joint: j}
 		r.F32(phase+"/Length", f.Length())
-		r.Bool(phase+"/IsSpringEnabled", f.IsSpringEnabled())
+		r.Bool(phase+"/IsSpringEnabled", f.SpringEnabled())
 		r.F32(phase+"/SpringHertz", f.SpringHertz())
 		r.F32(phase+"/SpringDampingRatio", f.SpringDampingRatio())
 		r.F32(phase+"/SpringForce", f.SpringForce())
-		r.Bool(phase+"/IsLimitEnabled", f.IsLimitEnabled())
+		r.Bool(phase+"/IsLimitEnabled", f.LimitEnabled())
 		r.F32(phase+"/MinLength", f.MinLength())
 		r.F32(phase+"/MaxLength", f.MaxLength())
 		r.F32(phase+"/CurrentLength", f.CurrentLength())
-		r.Bool(phase+"/IsMotorEnabled", f.IsMotorEnabled())
+		r.Bool(phase+"/IsMotorEnabled", f.MotorEnabled())
 		r.F32(phase+"/MotorSpeed", f.MotorSpeed())
 		r.F32(phase+"/MaxMotorForce", f.MaxMotorForce())
 		r.F32(phase+"/MotorForce", f.MotorForce())
@@ -103,14 +103,14 @@ func observeJoint(r *oracle.Reader, phase string, w box2d.World, j box2d.Joint, 
 		r.F32(phase+"/Velocity", f.Velocity())
 	case box2d.PrismaticJointType:
 		f := box2d.PrismaticJoint{Joint: j}
-		r.Bool(phase+"/IsSpringEnabled", f.IsSpringEnabled())
+		r.Bool(phase+"/IsSpringEnabled", f.SpringEnabled())
 		r.F32(phase+"/SpringHertz", f.SpringHertz())
 		r.F32(phase+"/SpringDampingRatio", f.SpringDampingRatio())
 		r.F32(phase+"/TargetTranslation", f.TargetTranslation())
-		r.Bool(phase+"/IsLimitEnabled", f.IsLimitEnabled())
+		r.Bool(phase+"/IsLimitEnabled", f.LimitEnabled())
 		r.F32(phase+"/LowerLimit", f.LowerLimit())
 		r.F32(phase+"/UpperLimit", f.UpperLimit())
-		r.Bool(phase+"/IsMotorEnabled", f.IsMotorEnabled())
+		r.Bool(phase+"/IsMotorEnabled", f.MotorEnabled())
 		r.F32(phase+"/MotorSpeed", f.MotorSpeed())
 		r.F32(phase+"/MaxMotorForce", f.MaxMotorForce())
 		r.F32(phase+"/MotorForce", f.MotorForce())
@@ -118,15 +118,15 @@ func observeJoint(r *oracle.Reader, phase string, w box2d.World, j box2d.Joint, 
 		r.F32(phase+"/Speed", f.Speed())
 	case box2d.RevoluteJointType:
 		f := box2d.RevoluteJoint{Joint: j}
-		r.Bool(phase+"/IsSpringEnabled", f.IsSpringEnabled())
+		r.Bool(phase+"/IsSpringEnabled", f.SpringEnabled())
 		r.F32(phase+"/SpringHertz", f.SpringHertz())
 		r.F32(phase+"/SpringDampingRatio", f.SpringDampingRatio())
 		r.F32(phase+"/TargetAngle", f.TargetAngle())
 		r.F32(phase+"/Angle", f.Angle())
-		r.Bool(phase+"/IsLimitEnabled", f.IsLimitEnabled())
+		r.Bool(phase+"/IsLimitEnabled", f.LimitEnabled())
 		r.F32(phase+"/LowerLimit", f.LowerLimit())
 		r.F32(phase+"/UpperLimit", f.UpperLimit())
-		r.Bool(phase+"/IsMotorEnabled", f.IsMotorEnabled())
+		r.Bool(phase+"/IsMotorEnabled", f.MotorEnabled())
 		r.F32(phase+"/MotorSpeed", f.MotorSpeed())
 		r.F32(phase+"/MaxMotorTorque", f.MaxMotorTorque())
 		r.F32(phase+"/MotorTorque", f.MotorTorque())
@@ -138,44 +138,44 @@ func observeJoint(r *oracle.Reader, phase string, w box2d.World, j box2d.Joint, 
 		r.F32(phase+"/AngularDampingRatio", f.AngularDampingRatio())
 	case box2d.WheelJointType:
 		f := box2d.WheelJoint{Joint: j}
-		r.Bool(phase+"/IsSpringEnabled", f.IsSpringEnabled())
+		r.Bool(phase+"/IsSpringEnabled", f.SpringEnabled())
 		r.F32(phase+"/SpringHertz", f.SpringHertz())
 		r.F32(phase+"/SpringDampingRatio", f.SpringDampingRatio())
-		r.Bool(phase+"/IsLimitEnabled", f.IsLimitEnabled())
+		r.Bool(phase+"/IsLimitEnabled", f.LimitEnabled())
 		r.F32(phase+"/LowerLimit", f.LowerLimit())
 		r.F32(phase+"/UpperLimit", f.UpperLimit())
-		r.Bool(phase+"/IsMotorEnabled", f.IsMotorEnabled())
+		r.Bool(phase+"/IsMotorEnabled", f.MotorEnabled())
 		r.F32(phase+"/MotorSpeed", f.MotorSpeed())
 		r.F32(phase+"/MaxMotorTorque", f.MaxMotorTorque())
 		r.F32(phase+"/MotorTorque", f.MotorTorque())
 	}
 }
-func createParityJoint(family box2d.JointType, w box2d.World, a, b box2d.Body, fa, fb box2d.Transform, partition int, loaded bool) box2d.Joint {
+func createParityJoint(family box2d.JointType, w *box2d.World, a, b box2d.Body, fa, fb box2d.Transform, partition int, loaded bool) box2d.Joint {
 	switch family {
 	case box2d.DistanceJointType:
 		d := box2d.DefaultDistanceJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		d.Length = 1
 		return w.CreateDistanceJoint(&d).Joint
 	case box2d.FilterJointType:
 		d := box2d.DefaultFilterJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		return w.CreateFilterJoint(&d).Joint
 	case box2d.MotorJointType:
 		d := box2d.DefaultMotorJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		return w.CreateMotorJoint(&d).Joint
 	case box2d.MoverJointType:
 		d := box2d.DefaultMoverJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		return w.CreateMoverJoint(&d).Joint
 	case box2d.PogoJointType:
 		d := box2d.DefaultPogoJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		d.Normal = box2d.Vec2{X: 0.6, Y: 0.8}
 		d.RestLength, d.Hertz, d.DampingRatio = 1, 3, 0.2
@@ -192,22 +192,22 @@ func createParityJoint(family box2d.JointType, w box2d.World, a, b box2d.Body, f
 		return w.CreatePogoJoint(&d).Joint
 	case box2d.PrismaticJointType:
 		d := box2d.DefaultPrismaticJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		return w.CreatePrismaticJoint(&d).Joint
 	case box2d.RevoluteJointType:
 		d := box2d.DefaultRevoluteJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		return w.CreateRevoluteJoint(&d).Joint
 	case box2d.WeldJointType:
 		d := box2d.DefaultWeldJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		return w.CreateWeldJoint(&d).Joint
 	case box2d.WheelJointType:
 		d := box2d.DefaultWheelJointDef()
-		d.Base.BodyIDA, d.Base.BodyIDB = a, b
+		d.Base.BodyA, d.Base.BodyB = a, b
 		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
 		return w.CreateWheelJoint(&d).Joint
 	}
@@ -224,9 +224,9 @@ func mutateParityJoint(j box2d.Joint, stage int) {
 	switch j.Type() {
 	case box2d.DistanceJointType:
 		f := box2d.DistanceJoint{Joint: j}
-		f.EnableSpring(stage != 0)
-		f.EnableLimit(stage >= 2)
-		f.EnableMotor(stage >= 3)
+		f.SetSpringEnabled(stage != 0)
+		f.SetLimitEnabled(stage >= 2)
+		f.SetMotorEnabled(stage >= 3)
 		f.SetSpringHertz(func() float32 {
 			if stage == 1 {
 				return 0
@@ -337,9 +337,9 @@ func mutateParityJoint(j box2d.Joint, stage int) {
 		}())
 	case box2d.PrismaticJointType:
 		f := box2d.PrismaticJoint{Joint: j}
-		f.EnableSpring(stage != 0)
-		f.EnableLimit(stage >= 2)
-		f.EnableMotor(stage >= 3)
+		f.SetSpringEnabled(stage != 0)
+		f.SetLimitEnabled(stage >= 2)
+		f.SetMotorEnabled(stage >= 3)
 		f.SetSpringHertz(func() float32 {
 			if stage == 1 {
 				return 0
@@ -371,9 +371,9 @@ func mutateParityJoint(j box2d.Joint, stage int) {
 		}())
 	case box2d.RevoluteJointType:
 		f := box2d.RevoluteJoint{Joint: j}
-		f.EnableSpring(stage != 0)
-		f.EnableLimit(stage >= 2)
-		f.EnableMotor(stage >= 3)
+		f.SetSpringEnabled(stage != 0)
+		f.SetLimitEnabled(stage >= 2)
+		f.SetMotorEnabled(stage >= 3)
 		f.SetSpringHertz(func() float32 {
 			if stage == 1 {
 				return 0
@@ -437,9 +437,9 @@ func mutateParityJoint(j box2d.Joint, stage int) {
 		}())
 	case box2d.WheelJointType:
 		f := box2d.WheelJoint{Joint: j}
-		f.EnableSpring(stage != 0)
-		f.EnableLimit(stage >= 2)
-		f.EnableMotor(stage >= 3)
+		f.SetSpringEnabled(stage != 0)
+		f.SetLimitEnabled(stage >= 2)
+		f.SetMotorEnabled(stage >= 3)
 		f.SetSpringHertz(func() float32 {
 			if stage == 1 {
 				return 0
@@ -466,7 +466,7 @@ func mutateParityJoint(j box2d.Joint, stage int) {
 	}
 }
 
-func jointRunSteps(r *oracle.Reader, action string, count int, loaded bool, w box2d.World, j box2d.Joint, a, b box2d.Body) {
+func jointRunSteps(r *oracle.Reader, action string, count int, loaded bool, w *box2d.World, j box2d.Joint, a, b box2d.Body) {
 	for step := range count {
 		i := step + 1
 		if loaded {
@@ -491,14 +491,14 @@ func jointBoundary(j box2d.Joint, a, b box2d.Body, value float32) {
 	axis := box2d.Rot{S: 1}
 	q := axis
 	if j.Type() == box2d.RevoluteJointType {
-		q = box2d.MulRot(box2d.MulRot(axis, box2d.MakeRot(value)), box2d.Rot{C: fb.Q.C, S: -fb.Q.S})
+		q = axis.Mul(box2d.MakeRot(value)).Mul(box2d.Rot{C: fb.Q.C, S: -fb.Q.S})
 	}
-	delta := box2d.RotateVector(axis, box2d.Vec2{X: value})
+	delta := axis.Rotate(box2d.Vec2{X: value})
 	if j.Type() == box2d.RevoluteJointType {
 		delta = box2d.Vec2{}
 	}
-	offset := box2d.Sub(delta, box2d.RotateVector(q, fb.P))
-	b.SetTransform(box2d.OffsetPos(a.WorldPoint(fa.P), offset), q)
+	offset := delta.Sub(q.Rotate(fb.P))
+	b.SetTransform(a.WorldPoint(fa.P).Add(offset), q)
 	b.SetLinearVelocity(box2d.Vec2{})
 	b.SetAngularVelocity(0)
 	switch j.Type() {
@@ -534,8 +534,8 @@ func TestJointParity(t *testing.T) {
 						r := oracle.Open(t, "joints/"+name)
 						wd := box2d.DefaultWorldDef()
 						wd.Gravity = box2d.Vec2{}
-						w := box2d.CreateWorld(&wd)
-						t.Cleanup(w.Destroy)
+						w := box2d.NewWorld(&wd)
+						t.Cleanup(w.Close)
 						bd := box2d.DefaultBodyDef()
 						bd.Type = box2d.BodyType(partner)
 						bd.Position = box2d.Pos{X: 7, Y: -3}
@@ -543,7 +543,7 @@ func TestJointParity(t *testing.T) {
 						bd.IsAwake = loaded
 						a := w.CreateBody(&bd)
 						bd.Type = box2d.DynamicBody
-						bd.Position = box2d.OffsetPos(box2d.Pos{X: 7.5, Y: -2}, box2d.Vec2{X: 1.5 * float32(partition)})
+						bd.Position = box2d.Pos{X: 7.5, Y: -2}.Add(box2d.Vec2{X: 1.5 * float32(partition)})
 						bd.Rotation = box2d.MakeRot(-0.2)
 						b := w.CreateBody(&bd)
 						sd := box2d.DefaultShapeDef()
@@ -659,7 +659,7 @@ func TestJointParity(t *testing.T) {
 	}
 }
 
-func jointCollisionObserve(r *oracle.Reader, phase string, w box2d.World, a, b box2d.Body, sa, sb box2d.Shape) {
+func jointCollisionObserve(r *oracle.Reader, phase string, w *box2d.World, a, b box2d.Body, sa, sb box2d.Shape) {
 	r.I32(phase+"/contactCount", int32(w.Counters().ContactCount))
 	r.I32(phase+"/jointCount", int32(w.Counters().JointCount))
 	jointBodyState(r, phase+"/bodyA", a)
@@ -671,9 +671,9 @@ func jointCollisionObserve(r *oracle.Reader, phase string, w box2d.World, a, b b
 	r.I32(phase+"/touchingCount", int32(len(contacts)))
 	for i, c := range contacts {
 		key := fmt.Sprintf("%s/contact%d", phase, i)
-		r.Bool(key+"/shapeA", c.ShapeIDA == sa)
-		r.Bool(key+"/shapeB", c.ShapeIDB == sb)
-		r.Bool(key+"/valid", c.ContactID.IsValid())
+		r.Bool(key+"/shapeA", c.ShapeA == sa)
+		r.Bool(key+"/shapeB", c.ShapeB == sb)
+		r.Bool(key+"/valid", c.Contact.IsValid())
 		m := c.Manifold
 		r.Vec2(key+"/normal", m.Normal.X, m.Normal.Y)
 		r.I32(key+"/pointCount", int32(m.PointCount))
@@ -690,8 +690,8 @@ func TestJointCollisionPolicy(t *testing.T) {
 			r := oracle.Open(t, fmt.Sprintf("joints/collision/%d", family))
 			wd := box2d.DefaultWorldDef()
 			wd.Gravity = box2d.Vec2{}
-			w := box2d.CreateWorld(&wd)
-			t.Cleanup(w.Destroy)
+			w := box2d.NewWorld(&wd)
+			t.Cleanup(w.Close)
 			bd := box2d.DefaultBodyDef()
 			bd.Type = box2d.DynamicBody
 			bd.Position = box2d.Pos{X: 7, Y: -3}

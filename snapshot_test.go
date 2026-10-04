@@ -28,12 +28,12 @@ func snapshotTreeTailMatches(data []byte, tail []int32) bool {
 	}
 	return true
 }
-func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotIDs) World {
+func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotIDs) *World {
 	heldJoint := Joint{}
 	heldChain := Chain{}
 	def := DefaultWorldDef()
 	def.WorkerCount = workerCount
-	worldId := CreateWorld(&def)
+	worldId := NewWorld(&def)
 	BTWorldCleanup(t, worldId)
 	{
 		bd := DefaultBodyDef()
@@ -82,8 +82,8 @@ func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotI
 		rd.DampingRatio = 1.0
 		rd.EnableMotor = true
 		rd.MaxMotorTorque = 0.5
-		rd.Base.BodyIDA = jbA
-		rd.Base.BodyIDB = jbB
+		rd.Base.BodyA = jbA
+		rd.Base.BodyB = jbB
 		rd.Base.LocalFrameA.P = Vec2{X: 0.3, Y: 0.0}
 		rd.Base.LocalFrameB.P = Vec2{X: -0.3, Y: 0.0}
 		heldJoint = worldId.CreateRevoluteJoint(&rd).Joint
@@ -93,8 +93,8 @@ func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotI
 		pd.EnableLimit = true
 		pd.LowerTranslation = -0.5
 		pd.UpperTranslation = 0.5
-		pd.Base.BodyIDA = jbB
-		pd.Base.BodyIDB = jbC
+		pd.Base.BodyA = jbB
+		pd.Base.BodyB = jbC
 		pd.Base.LocalFrameA.P = Vec2{X: 0.3, Y: 0.0}
 		pd.Base.LocalFrameB.P = Vec2{X: -0.3, Y: 0.0}
 		worldId.CreatePrismaticJoint(&pd)
@@ -102,8 +102,8 @@ func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotI
 	{
 		dd := DefaultDistanceJointDef()
 		dd.Length = 2.0
-		dd.Base.BodyIDA = jbC
-		dd.Base.BodyIDB = jbD
+		dd.Base.BodyA = jbC
+		dd.Base.BodyB = jbD
 		dd.Base.LocalFrameA.P = Vec2{X: 0.3, Y: 0.0}
 		dd.Base.LocalFrameB.P = Vec2{X: -0.3, Y: 0.0}
 		worldId.CreateDistanceJoint(&dd)
@@ -112,8 +112,8 @@ func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotI
 		wd := DefaultWeldJointDef()
 		wd.LinearHertz = 5.0
 		wd.LinearDampingRatio = 0.7
-		wd.Base.BodyIDA = jbD
-		wd.Base.BodyIDB = stackTop
+		wd.Base.BodyA = jbD
+		wd.Base.BodyB = stackTop
 		wd.Base.LocalFrameA.P = Vec2{X: 0.3, Y: 0.0}
 		wd.Base.LocalFrameB.P = Vec2{X: 0.0, Y: 0.0}
 		worldId.CreateWeldJoint(&wd)
@@ -127,11 +127,9 @@ func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotI
 		chainMat.Friction = 0.4
 		chainDef := DefaultChainDef()
 		chainDef.Points = chainPoints
-		chainDef.PointCount = 3
 		chainDef.Ghost1 = Vec2{X: -4.0, Y: 0.0}
 		chainDef.Ghost2 = Vec2{X: 4.0, Y: 2.0}
 		chainDef.Materials = []SurfaceMaterial{chainMat}
-		chainDef.MaterialCount = 1
 		chainDef.IsLoop = false
 		heldChain = chainBodyId.CreateChain(&chainDef)
 	}
@@ -173,7 +171,7 @@ func snapshotBuildScene(t *testing.T, workerCount int, outIds *snapshotSnapshotI
 	}
 	return worldId
 }
-func snapshotStepUntilSleep(r *oracle.Reader, worldId World) int {
+func snapshotStepUntilSleep(r *oracle.Reader, worldId *World) int {
 	dt := float32(1.0) / 60.0
 	subSteps := 4
 	maxSteps := 500
@@ -193,7 +191,7 @@ func TestSnapshot(t *testing.T) {
 	snapPath := filepath.Join(t.TempDir(), "test_snapshot_midstream.b2rec")
 	worldAId := snapshotBuildScene(t, 1, nil)
 	snapshotStepUntilSleep(r, worldAId)
-	worldA := getWorldFromId(worldAId)
+	worldA := worldAId
 	if !(len(worldA.solverSets) > 3) {
 		t.Fatal("condition false")
 	}
@@ -211,13 +209,13 @@ func TestSnapshot(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L255", buf.size > 0)
-	worldBId, err := CreateWorldFromSnapshot(buf.data, 1)
+	worldBId, err := NewWorldFromSnapshot(buf.data, 1)
 	BTWorldCleanup(t, worldBId)
 	if !(err == nil && worldBId.IsValid()) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L259", worldBId.IsValid())
-	worldB := getWorldFromId(worldBId)
+	worldB := worldBId
 	hashA0 := hashWorldState(worldA)
 	r.U64("L264/value", hashA0)
 	hashB0 := hashWorldState(worldB)
@@ -295,20 +293,20 @@ func TestSnapshot(t *testing.T) {
 	recBufFree(&buf)
 	buf = recBuffer{}
 	serializeWorld(worldA, &buf)
-	worldA1Id, err := CreateWorldFromSnapshot(buf.data, 1)
+	worldA1Id, err := NewWorldFromSnapshot(buf.data, 1)
 	BTWorldCleanup(t, worldA1Id)
 	if !(err == nil && worldA1Id.IsValid()) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L322", worldA1Id.IsValid())
-	worldA1 := getWorldFromId(worldA1Id)
-	worldCId, err := CreateWorldFromSnapshot(buf.data, 4)
+	worldA1 := worldA1Id
+	worldCId, err := NewWorldFromSnapshot(buf.data, 4)
 	BTWorldCleanup(t, worldCId)
 	if !(err == nil && worldCId.IsValid()) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L326", worldCId.IsValid())
-	worldC := getWorldFromId(worldCId)
+	worldC := worldCId
 	if !(hashWorldState(worldA1) == hashWorldState(worldC)) {
 		t.Fatal("condition false")
 	}
@@ -332,14 +330,14 @@ func TestSnapshot(t *testing.T) {
 	var ids snapshotSnapshotIDs
 	rId := snapshotBuildScene(t, 1, &ids)
 	snapshotStepUntilSleep(r, rId)
-	rWorld := getWorldFromId(rId)
-	image := rId.Snapshot()
+	rWorld := rId
+	image := BTSnapshot(rId)
 	imageSize := len(image)
 	if !(imageSize > 0) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L354", imageSize > 0)
-	image = rId.Snapshot()
+	image = BTSnapshot(rId)
 	written := len(image)
 	if !(written == imageSize) {
 		t.Fatal("condition false")
@@ -361,7 +359,7 @@ func TestSnapshot(t *testing.T) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L372", hashWorldStateDeep(rWorld) != snapHash)
-	if !(rId.Restore(image) == nil) {
+	if !(rId.UnmarshalBinary(image) == nil) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L374", true)
@@ -395,14 +393,14 @@ func TestSnapshot(t *testing.T) {
 	r.Bool("L387", postBody.IsValid() == false)
 	preBadHash := hashWorldStateDeep(rWorld)
 	r.U64("L390/value", preBadHash)
-	if !(rId.Restore(nil) != nil) {
+	if !(rId.UnmarshalBinary(nil) != nil) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L391", true)
 	corrupt := make([]byte, imageSize)
 	copy(corrupt, image)
 	corrupt[0] ^= 0xFF
-	if !(rId.Restore(corrupt) != nil) {
+	if !(rId.UnmarshalBinary(corrupt) != nil) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L395", true)
@@ -431,7 +429,7 @@ func TestSnapshot(t *testing.T) {
 	copy(greedy, image)
 	hugeCapacity := 2147483647 / 64
 	binary.LittleEndian.PutUint32(greedy[treeOffset+4:], uint32(hugeCapacity))
-	if !(rId.Restore(greedy) == nil) {
+	if !(rId.UnmarshalBinary(greedy) == nil) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L422", true)
@@ -446,7 +444,7 @@ func TestSnapshot(t *testing.T) {
 	r.I32("L424/value0", int32(staticTree.nodeCapacity))
 	r.I32("L424/value1", int32(2*staticTree.nodeEnd))
 	for i := 0; i < 3; i++ {
-		if !(rId.Restore(image) == nil) {
+		if !(rId.UnmarshalBinary(image) == nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L430", true)
@@ -457,20 +455,20 @@ func TestSnapshot(t *testing.T) {
 	r.Bool("L432", hashWorldStateDeep(rWorld) == snapHash)
 	def4 := DefaultWorldDef()
 	def4.WorkerCount = 4
-	sId := CreateWorld(&def4)
+	sId := NewWorld(&def4)
 	BTWorldCleanup(t, sId)
-	if !(sId.Restore(image) == nil) {
+	if !(sId.UnmarshalBinary(image) == nil) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L439", true)
-	sWorld := getWorldFromId(sId)
-	freshId, err := CreateWorldFromSnapshot(image, 1)
+	sWorld := sId
+	freshId, err := NewWorldFromSnapshot(image, 1)
 	BTWorldCleanup(t, freshId)
 	if !(err == nil && freshId.IsValid()) {
 		t.Fatal("condition false")
 	}
 	r.Bool("L443", freshId.IsValid())
-	freshWorld := getWorldFromId(freshId)
+	freshWorld := freshId
 	if !(hashWorldState(sWorld) == hashWorldState(freshWorld)) {
 		t.Fatal("condition false")
 	}
@@ -498,49 +496,48 @@ func TestSnapshot(t *testing.T) {
 			wId.Step(dt, subSteps)
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L469/step/%d", step), step)
 		}
-		rec := CreateRecording(0)
+		rec := NewRecording(0)
 		wId.StartRecording(rec)
 		for step := 0; step < 60; step++ {
 			wId.Step(dt, subSteps)
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L476/step/%d", step), step)
 		}
 		wId.StopRecording()
-		wId.Destroy()
+		wId.Close()
 		recData := rec.Data()
 		recSize := rec.Size()
-		if !(ValidateReplay(recData[:recSize], 0)) {
+		if ValidateReplay(recData[:recSize], 0) != nil {
 			t.Fatal("condition false")
 		}
 		r.Bool("L483", true)
-		if !(ValidateReplay(recData[:recSize], 4)) {
+		if ValidateReplay(recData[:recSize], 4) != nil {
 			t.Fatal("condition false")
 		}
 		r.Bool("L484", true)
-		if !(rec.SaveToFile(snapPath) == nil) {
+		if !(RecordingSaveFile(rec, snapPath) == nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L487", true)
-		loaded, err := LoadRecordingFromFile(snapPath)
+		loaded, err := RecordingLoadFile(snapPath)
 		if !(err == nil && loaded != nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L489", loaded != nil)
-		if !(ValidateReplay(loaded.Data(), 0)) {
+		if ValidateReplay(loaded.Data(), 0) != nil {
 			t.Fatal("condition false")
 		}
 		r.Bool("L490", true)
-		loaded.Destroy()
-		player, err := CreateReplay(recData, 0)
+		player, err := NewReplay(recData, 0)
 		destroyPlayer := BTReplayCleanup(t, player)
 		if !(err == nil && player != nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L495", player != nil)
-		pid0 := player.WorldID()
+		pid0 := player.World()
 		frames := 0
 		for player.StepFrame() {
 			frames += 1
-			snapshotTransformTrace(r, player.WorldID(), fmt.Sprintf("L501/step/%d", frames), frames-1)
+			snapshotTransformTrace(r, player.World(), fmt.Sprintf("L501/step/%d", frames), frames-1)
 		}
 		if !(frames == 60) {
 			t.Fatal("condition false")
@@ -553,11 +550,11 @@ func TestSnapshot(t *testing.T) {
 		}
 		r.Bool("L504", player.HasDiverged() == false)
 		player.Restart()
-		pid1 := player.WorldID()
-		if !(pid0.index1 == pid1.index1 && pid0.generation == pid1.generation) {
+		pid1 := player.World()
+		if !(pid0 == pid1) {
 			t.Fatal("condition false")
 		}
-		r.Bool("L508", pid0.index1 == pid1.index1 && pid0.generation == pid1.generation)
+		r.Bool("L508", pid0 == pid1)
 		if !(player.Frame() == 0) {
 			t.Fatal("condition false")
 		}
@@ -567,7 +564,7 @@ func TestSnapshot(t *testing.T) {
 		frames2 := 0
 		for player.StepFrame() {
 			frames2 += 1
-			snapshotTransformTrace(r, player.WorldID(), fmt.Sprintf("L514/step/%d", frames2), frames2-1)
+			snapshotTransformTrace(r, player.World(), fmt.Sprintf("L514/step/%d", frames2), frames2-1)
 		}
 		if !(frames2 == 60) {
 			t.Fatal("condition false")
@@ -580,7 +577,6 @@ func TestSnapshot(t *testing.T) {
 		}
 		r.Bool("L517", player.HasDiverged() == false)
 		destroyPlayer()
-		rec.Destroy()
 	}
 	{
 		wId := snapshotBuildScene(t, 1, nil)
@@ -588,8 +584,8 @@ func TestSnapshot(t *testing.T) {
 			wId.Step(dt, subSteps)
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L531/step/%d", step), step)
 		}
-		snap := wId.Snapshot()
-		origin := getWorldFromId(wId)
+		snap := BTSnapshot(wId)
+		origin := wId
 		const tailSteps = 90
 		var realTail [tailSteps]uint64
 		var realDeepTail [tailSteps]uint64
@@ -600,13 +596,13 @@ func TestSnapshot(t *testing.T) {
 			realTail[step] = hashWorldState(origin)
 			realDeepTail[step] = wId.StateHash()
 		}
-		cId, err := CreateWorldFromSnapshot(snap, 1)
+		cId, err := NewWorldFromSnapshot(snap, 1)
 		BTWorldCleanup(t, cId)
 		if !(err == nil && cId.IsValid()) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L552", cId.IsValid())
-		clone := getWorldFromId(cId)
+		clone := cId
 		for step := 0; step < tailSteps; step++ {
 			cId.Step(dt, subSteps)
 			snapshotTransformTrace(r, cId, fmt.Sprintf("L556/step/%d", step), step)
@@ -621,15 +617,15 @@ func TestSnapshot(t *testing.T) {
 				}
 			}
 		}
-		wId.Destroy()
-		cId.Destroy()
+		wId.Close()
+		cId.Close()
 	}
 	{
 		wd := DefaultWorldDef()
 		wd.WorkerCount = 1
-		wId := CreateWorld(&wd)
+		wId := NewWorld(&wd)
 		BTWorldCleanup(t, wId)
-		rec := CreateRecording(0)
+		rec := NewRecording(0)
 		wId.StartRecording(rec)
 		bd := DefaultBodyDef()
 		bd.Type = DynamicBody
@@ -643,24 +639,24 @@ func TestSnapshot(t *testing.T) {
 			snapshotTransformTrace(r, wId, fmt.Sprintf("L589/step/%d", step), step)
 		}
 		wId.StopRecording()
-		wId.Destroy()
-		player, err := CreateReplay(rec.Data(), 0)
+		wId.Close()
+		player, err := NewReplay(rec.Data(), 0)
 		destroyPlayer := BTReplayCleanup(t, player)
 		if !(err == nil && player != nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L595", player != nil)
-		pid0 := player.WorldID()
+		pid0 := player.World()
 		for i := 0; i < 5; i++ {
 			player.StepFrame()
-			snapshotTransformTrace(r, player.WorldID(), fmt.Sprintf("L599/step/%d", i), i)
+			snapshotTransformTrace(r, player.World(), fmt.Sprintf("L599/step/%d", i), i)
 		}
 		player.Restart()
-		pid1 := player.WorldID()
-		if !(pid0.index1 == pid1.index1 && pid0.generation == pid1.generation) {
+		pid1 := player.World()
+		if !(pid0 == pid1) {
 			t.Fatal("condition false")
 		}
-		r.Bool("L603", pid0.index1 == pid1.index1 && pid0.generation == pid1.generation)
+		r.Bool("L603", pid0 == pid1)
 		if !(player.Frame() == 0) {
 			t.Fatal("condition false")
 		}
@@ -668,14 +664,13 @@ func TestSnapshot(t *testing.T) {
 		r.I32("L604/value0", int32(player.Frame()))
 		r.I32("L604/value0", int32(player.Frame()))
 		destroyPlayer()
-		rec.Destroy()
 	}
 	{
 		wd := DefaultWorldDef()
 		wd.WorkerCount = 1
-		wId := CreateWorld(&wd)
+		wId := NewWorld(&wd)
 		BTWorldCleanup(t, wId)
-		w := getWorldFromId(wId)
+		w := wId
 		gbd := DefaultBodyDef()
 		gbd.Position = Pos{X: 0.0, Y: -1.0}
 		ground := wId.CreateBody(&gbd)
@@ -699,14 +694,14 @@ func TestSnapshot(t *testing.T) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L641", wId.StateHash() == hashWorldStateDeep(w))
-		snap := wId.Snapshot()
+		snap := BTSnapshot(wId)
 		box.Disable()
 		if !(len(w.contactEndEvents[w.endEventArrayIndex]) >= 1) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L650", len(w.contactEndEvents[w.endEventArrayIndex]) >= 1)
 		r.I32("L650/value0", int32(len(w.contactEndEvents[w.endEventArrayIndex])))
-		if !(wId.Restore(snap) == nil) {
+		if !(wId.UnmarshalBinary(snap) == nil) {
 			t.Fatal("condition false")
 		}
 		r.Bool("L652", true)
@@ -732,16 +727,16 @@ func TestSnapshot(t *testing.T) {
 		r.Bool("L661", endCount == 0)
 		r.I32("L661/value0", int32(endCount))
 		r.I32("L661/value0", int32(endCount))
-		wId.Destroy()
+		wId.Close()
 	}
 	_ = os.Remove(snapPath)
-	worldAId.Destroy()
-	worldBId.Destroy()
-	worldA1Id.Destroy()
-	worldCId.Destroy()
-	rId.Destroy()
-	sId.Destroy()
-	freshId.Destroy()
+	worldAId.Close()
+	worldBId.Close()
+	worldA1Id.Close()
+	worldCId.Close()
+	rId.Close()
+	sId.Close()
+	freshId.Close()
 	recBufFree(&buf)
 	return
 }

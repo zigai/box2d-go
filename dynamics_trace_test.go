@@ -65,7 +65,7 @@ func BTDynamicsEnd(r *oracle.Reader, rows [][36]uint64) {
 	r.Bytes("dynamics/schema", []byte(BTDynamicsSchema))
 	r.Bytes("dynamics/rle-u32-36u64-le", BTDynamicsPack(rows))
 }
-func btDynamicsShort(r *dynamicsOracle, w World, prefix string, direct bool) {
+func btDynamicsShort(r *dynamicsOracle, w *World, prefix string, direct bool) {
 	row := BTObserveDynamics(r.Reader, w, prefix, direct)
 	r.observation++
 	BTDynamicsCompare(r.t, prefix, r.observation, row, r.expected)

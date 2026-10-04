@@ -41,7 +41,7 @@ func (d *queryDigest) pos(v box2d.Pos) {
 	}
 }
 func (d *queryDigest) id(id box2d.Shape) {
-	v := id.Store()
+	v := id.ID()
 	d.u(uint32(v >> 32))
 	d.u(uint32(v & 0xffff))
 }
@@ -49,7 +49,7 @@ func (d *queryDigest) stats(s box2d.TreeStats) { d.u(uint32(s.NodeVisits)); d.u(
 func (d *queryDigest) hit(r box2d.RayResult) {
 	if r.Hit {
 		d.u(1)
-		d.id(r.ShapeID)
+		d.id(r.Shape)
 		d.pos(r.Point)
 		d.vec(r.Normal)
 		d.f(r.Fraction)
@@ -67,12 +67,12 @@ func (d *queryDigest) overlaps(ids []uint64) {
 		d.u(uint32(id & 0xffff))
 	}
 }
-func queryIdentity(id box2d.Shape) uint64 { return id.Store() & 0xffffffff0000ffff }
+func queryIdentity(id box2d.Shape) uint64 { return id.ID() & 0xffffffff0000ffff }
 func queryObserve(r *oracle.Reader, step, partition int, kind, field string, d queryDigest) {
 	r.U64(fmt.Sprintf("%d.%d.%s.%s", step, partition, kind, field), d.h)
 }
 
-func observeQueriesPayload(r *oracle.Reader, world box2d.World, step int) {
+func observeQueriesPayload(r *oracle.Reader, world *box2d.World, step int) {
 	for f := range 2 {
 		filter := box2d.DefaultQueryFilter()
 		if f == 1 {
@@ -107,7 +107,7 @@ func observeQueriesPayload(r *oracle.Reader, world box2d.World, step int) {
 				case 1:
 					var result box2d.RayResult
 					stats := world.CastShape(origin, &circle, translation, filter, func(id box2d.Shape, p box2d.Pos, n box2d.Vec2, fraction float32) float32 {
-						result = box2d.RayResult{ShapeID: id, Point: p, Normal: n, Fraction: fraction, Hit: true}
+						result = box2d.RayResult{Shape: id, Point: p, Normal: n, Fraction: fraction, Hit: true}
 						return fraction
 					})
 					result.NodeVisits = stats.NodeVisits
@@ -185,7 +185,7 @@ func observeTreePayload(r *oracle.Reader, step int) {
 	}
 }
 
-func observeTilePayload(r *oracle.Reader, world box2d.World, step int) {
+func observeTilePayload(r *oracle.Reader, world *box2d.World, step int) {
 	for kind, name := range []string{"ray", "overlap"} {
 		input := newQueryDigest()
 		state := uint32(1234) + 7919*uint32(step)
@@ -194,7 +194,7 @@ func observeTilePayload(r *oracle.Reader, world box2d.World, step int) {
 			translation box2d.Vec2
 		}, tileQueryCount)
 		for i := range tileQueryCount {
-			origin := box2d.ToPos(box2d.Vec2{X: gTileWorld.xLeft + tileRandom(&state, 0, float32(gTileWorld.groundCount)*gTileWorld.bodySpan), Y: tileRandom(&state, -2, 18)})
+			origin := box2d.Vec2{X: gTileWorld.xLeft + tileRandom(&state, 0, float32(gTileWorld.groundCount)*gTileWorld.bodySpan), Y: tileRandom(&state, -2, 18)}.Pos()
 			angle := tileRandom(&state, 0, 2*box2d.Pi)
 			sine, cosine := boundedSinCos(angle)
 			translation := box2d.Vec2{X: tileRayLength * cosine, Y: tileRayLength * sine}
@@ -232,8 +232,8 @@ func TestScenePerQueryInputsAndPayloads(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/workers=%d", name, workers), func(t *testing.T) {
 				def := box2d.DefaultWorldDef()
 				def.WorkerCount = workers
-				world := box2d.CreateWorld(&def)
-				defer world.Destroy()
+				world := box2d.NewWorld(&def)
+				defer world.Close()
 				r := oracle.Open(t, fmt.Sprintf("scenes/%sPayload_workers%d", name, workers))
 				switch name {
 				case "Queries":

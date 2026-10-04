@@ -314,8 +314,7 @@
     },
     "IdTest": {
       "source": "test/test_id.c",
-      "go": "TestId",
-      "fixture": "id/IdTest",
+      "reason": "Covers b2Store*Id/b2Load*Id integer round trips. Go handles reference their world directly and have no integer load counterpart.",
       "cases": {}
     },
     "InvalidInputTest": {
@@ -678,7 +677,7 @@
     {
       "subject": "04/05",
       "go": [
-        "TestLifecycleStoredIDs",
+        "TestLifecycleNullHandles",
         "TestLifecycleReuseAndDestruction",
         "TestLifecycleCollectionTransitions",
         "TestLifecycleMultiworldDestroyRecreate",
@@ -720,7 +719,7 @@
       "go": [
         "TestInputGuardAssertionErrorNative",
         "TestMalformedSavedInputCorpus",
-        "TestMalformedSavedPayloadReleasesWorldSlots",
+        "TestMalformedSavedPayloadLeavesWorldsIntact",
         "FuzzMalformedSnapshotHeader",
         "FuzzMalformedSavedPayload"
       ]

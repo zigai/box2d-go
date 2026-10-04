@@ -39,8 +39,8 @@ type PrismaticJointDef struct {
 }
 
 // Enable/disable the joint spring.
-func (p PrismaticJoint) EnableSpring(enableSpring bool) {
-	world := getWorld(int(p.Joint.world0))
+func (p PrismaticJoint) SetSpringEnabled(enableSpring bool) {
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointEnableSpring(world.recording, &recArgsPrismaticJointEnableSpring{joint: p.Joint, enableSpring: enableSpring})
 	}
@@ -52,7 +52,7 @@ func (p PrismaticJoint) EnableSpring(enableSpring bool) {
 }
 
 // Is the prismatic joint spring enabled or not?
-func (p PrismaticJoint) IsSpringEnabled() bool {
+func (p PrismaticJoint) SpringEnabled() bool {
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
 	return joint.prismaticJoint.enableSpring
 }
@@ -61,11 +61,9 @@ func (p PrismaticJoint) IsSpringEnabled() bool {
 // This should usually be less than a quarter of the simulation rate. For example, if the simulation
 // runs at 60Hz then the joint stiffness should be 15Hz or less.
 func (p PrismaticJoint) SetSpringHertz(hertz float32) {
-	if !checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )") {
-		return
-	}
+	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointSetSpringHertz(world.recording, &recArgsPrismaticJointSetSpringHertz{joint: p.Joint, hertz: hertz})
 	}
@@ -81,11 +79,9 @@ func (p PrismaticJoint) SpringHertz() float32 {
 
 // Set the prismatic joint damping ratio (non-dimensional)
 func (p PrismaticJoint) SetSpringDampingRatio(dampingRatio float32) {
-	if !checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )") {
-		return
-	}
+	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointSetSpringDampingRatio(world.recording, &recArgsPrismaticJointSetSpringDampingRatio{joint: p.Joint, dampingRatio: dampingRatio})
 	}
@@ -101,11 +97,9 @@ func (p PrismaticJoint) SpringDampingRatio() float32 {
 
 // Set the prismatic joint spring target angle, usually in meters
 func (p PrismaticJoint) SetTargetTranslation(translation float32) {
-	if !checkInput(IsValidFloat(translation), "b2IsValidFloat( translation )") {
-		return
-	}
+	checkInput(IsValidFloat(translation), "b2IsValidFloat( translation )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointSetTargetTranslation(world.recording, &recArgsPrismaticJointSetTargetTranslation{joint: p.Joint, translation: translation})
 	}
@@ -120,8 +114,8 @@ func (p PrismaticJoint) TargetTranslation() float32 {
 }
 
 // Enable/disable a prismatic joint limit
-func (p PrismaticJoint) EnableLimit(enableLimit bool) {
-	world := getWorld(int(p.Joint.world0))
+func (p PrismaticJoint) SetLimitEnabled(enableLimit bool) {
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointEnableLimit(world.recording, &recArgsPrismaticJointEnableLimit{joint: p.Joint, enableLimit: enableLimit})
 	}
@@ -134,7 +128,7 @@ func (p PrismaticJoint) EnableLimit(enableLimit bool) {
 }
 
 // Is the prismatic joint limit enabled?
-func (p PrismaticJoint) IsLimitEnabled() bool {
+func (p PrismaticJoint) LimitEnabled() bool {
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
 	return joint.prismaticJoint.enableLimit
 }
@@ -153,27 +147,23 @@ func (p PrismaticJoint) UpperLimit() float32 {
 
 // Set the prismatic joint limits
 func (p PrismaticJoint) SetLimits(lower float32, upper float32) {
-	if !checkInput(IsValidFloat(lower), "b2IsValidFloat( lower )") {
-		return
-	}
-	if !checkInput(IsValidFloat(upper), "b2IsValidFloat( upper )") {
-		return
-	}
+	checkInput(IsValidFloat(lower), "b2IsValidFloat( lower )")
+	checkInput(IsValidFloat(upper), "b2IsValidFloat( upper )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointSetLimits(world.recording, &recArgsPrismaticJointSetLimits{joint: p.Joint, lower: lower, upper: upper})
 	}
 	assert(lower <= upper, "lower <= upper")
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
-	joint.prismaticJoint.lowerTranslation = MinFloat(lower, upper)
-	joint.prismaticJoint.upperTranslation = MaxFloat(lower, upper)
+	joint.prismaticJoint.lowerTranslation = minFloat(lower, upper)
+	joint.prismaticJoint.upperTranslation = maxFloat(lower, upper)
 }
 
 // Enable/disable a prismatic joint motor
-func (p PrismaticJoint) EnableMotor(enableMotor bool) {
-	world := getWorld(int(p.Joint.world0))
+func (p PrismaticJoint) SetMotorEnabled(enableMotor bool) {
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointEnableMotor(world.recording, &recArgsPrismaticJointEnableMotor{joint: p.Joint, enableMotor: enableMotor})
 	}
@@ -185,18 +175,16 @@ func (p PrismaticJoint) EnableMotor(enableMotor bool) {
 }
 
 // Is the prismatic joint motor enabled?
-func (p PrismaticJoint) IsMotorEnabled() bool {
+func (p PrismaticJoint) MotorEnabled() bool {
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
 	return joint.prismaticJoint.enableMotor
 }
 
 // Set the prismatic joint motor speed, usually in meters per second
 func (p PrismaticJoint) SetMotorSpeed(motorSpeed float32) {
-	if !checkInput(IsValidFloat(motorSpeed), "b2IsValidFloat( motorSpeed )") {
-		return
-	}
+	checkInput(IsValidFloat(motorSpeed), "b2IsValidFloat( motorSpeed )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointSetMotorSpeed(world.recording, &recArgsPrismaticJointSetMotorSpeed{joint: p.Joint, motorSpeed: motorSpeed})
 	}
@@ -212,18 +200,16 @@ func (p PrismaticJoint) MotorSpeed() float32 {
 
 // Get the prismatic joint current motor force, usually in newtons
 func (p PrismaticJoint) MotorForce() float32 {
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	base := getJointSimCheckType(p.Joint, PrismaticJointType)
 	return float32(world.invH * base.prismaticJoint.motorImpulse)
 }
 
 // Set the prismatic joint maximum motor force, usually in newtons
 func (p PrismaticJoint) SetMaxMotorForce(force float32) {
-	if !checkInput(IsValidFloat(force), "b2IsValidFloat( force )") {
-		return
-	}
+	checkInput(IsValidFloat(force), "b2IsValidFloat( force )")
 
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	if world.recording != nil {
 		recWritePrismaticJointSetMaxMotorForce(world.recording, &recArgsPrismaticJointSetMaxMotorForce{joint: p.Joint, force: force})
 	}
@@ -239,25 +225,25 @@ func (p PrismaticJoint) MaxMotorForce() float32 {
 
 // Get the current joint translation, usually in meters.
 func (p PrismaticJoint) Translation() float32 {
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	jointSim := getJointSimCheckType(p.Joint, PrismaticJointType)
 	// Relative to body A so the difference stays in float precision far from the origin
 	wxfA := getBodyTransform(world, jointSim.bodyIdA)
-	transformA := ToRelativeTransform(wxfA, wxfA.P)
-	transformB := ToRelativeTransform(getBodyTransform(world, jointSim.bodyIdB), wxfA.P)
+	transformA := wxfA.Relative(wxfA.P)
+	transformB := getBodyTransform(world, jointSim.bodyIdB).Relative(wxfA.P)
 
-	localAxisA := RotateVector(jointSim.localFrameA.Q, Vec2{X: float32(1.0), Y: float32(0.0)})
-	axisA := RotateVector(transformA.Q, localAxisA)
-	pA := TransformPoint(transformA, jointSim.localFrameA.P)
-	pB := TransformPoint(transformB, jointSim.localFrameB.P)
-	d := Sub(pB, pA)
-	translation := Dot(d, axisA)
+	localAxisA := jointSim.localFrameA.Q.Rotate(Vec2{X: float32(1.0), Y: float32(0.0)})
+	axisA := transformA.Q.Rotate(localAxisA)
+	pA := transformA.Apply(jointSim.localFrameA.P)
+	pB := transformB.Apply(jointSim.localFrameB.P)
+	d := pB.Sub(pA)
+	translation := d.Dot(axisA)
 	return translation
 }
 
 // Get the current joint translation speed, usually in meters per second.
 func (p PrismaticJoint) Speed() float32 {
-	world := getWorld(int(p.Joint.world0))
+	world := p.Joint.world
 	joint := getJointFullId(world, p.Joint)
 	assert(joint.jointType == PrismaticJointType, "joint->type == b2_prismaticJoint")
 	base := getJointSim(world, joint)
@@ -273,14 +259,14 @@ func (p PrismaticJoint) Speed() float32 {
 	qA := bodySimA.transform.Q
 	qB := bodySimB.transform.Q
 
-	localAxisA := RotateVector(base.localFrameA.Q, Vec2{X: float32(1.0), Y: float32(0.0)})
-	axisA := RotateVector(qA, localAxisA)
-	rA := RotateVector(qA, Sub(base.localFrameA.P, bodySimA.localCenter))
-	rB := RotateVector(qB, Sub(base.localFrameB.P, bodySimB.localCenter))
+	localAxisA := base.localFrameA.Q.Rotate(Vec2{X: float32(1.0), Y: float32(0.0)})
+	axisA := qA.Rotate(localAxisA)
+	rA := qA.Rotate(base.localFrameA.P.Sub(bodySimA.localCenter))
+	rB := qB.Rotate(base.localFrameB.P.Sub(bodySimB.localCenter))
 
 	// Difference the centers in double so the speed stays exact far from the origin
-	dc := SubPos(bodySimB.center, bodySimA.center)
-	d := Add(dc, Sub(rB, rA))
+	dc := bodySimB.center.Sub(bodySimA.center)
+	d := dc.Add(rB.Sub(rA))
 
 	var vA Vec2
 	if bodyStateA != nil {
@@ -307,29 +293,29 @@ func (p PrismaticJoint) Speed() float32 {
 		wB = float32(0.0)
 	}
 
-	vRel := Sub(Add(vB, Vec2{X: float32(-(wB) * rB.Y), Y: float32((wB) * rB.X)}), Add(vA, Vec2{X: float32(-(wA) * rA.Y), Y: float32((wA) * rA.X)}))
-	speed := Dot(d, Vec2{X: float32(-(wA) * axisA.Y), Y: float32((wA) * axisA.X)}) + Dot(axisA, vRel)
+	vRel := vB.Add(Vec2{X: float32(-(wB) * rB.Y), Y: float32((wB) * rB.X)}).Sub(vA.Add(Vec2{X: float32(-(wA) * rA.Y), Y: float32((wA) * rA.X)}))
+	speed := d.Dot(Vec2{X: float32(-(wA) * axisA.Y), Y: float32((wA) * axisA.X)}) + axisA.Dot(vRel)
 	return speed
 }
 
-func getPrismaticJointForce(world *world, base *jointSim) Vec2 {
+func getPrismaticJointForce(world *World, base *jointSim) Vec2 {
 	qA := getBodyTransform(world, base.bodyIdA).Q
 
 	joint := &base.prismaticJoint
 
-	localAxisA := RotateVector(base.localFrameA.Q, Vec2{X: float32(1.0), Y: float32(0.0)})
-	axisA := RotateVector(qA, localAxisA)
-	perpA := LeftPerp(axisA)
+	localAxisA := base.localFrameA.Q.Rotate(Vec2{X: float32(1.0), Y: float32(0.0)})
+	axisA := qA.Rotate(localAxisA)
+	perpA := axisA.LeftPerp()
 
 	invH := world.invH
 	perpForce := float32(invH * joint.impulse.X)
 	axialForce := float32(invH * (joint.motorImpulse + joint.lowerImpulse - joint.upperImpulse))
 
-	force := Add(Vec2{X: float32((perpForce) * perpA.X), Y: float32((perpForce) * perpA.Y)}, Vec2{X: float32((axialForce) * axisA.X), Y: float32((axialForce) * axisA.Y)})
+	force := Vec2{X: float32((perpForce) * perpA.X), Y: float32((perpForce) * perpA.Y)}.Add(Vec2{X: float32((axialForce) * axisA.X), Y: float32((axialForce) * axisA.Y)})
 	return force
 }
 
-func getPrismaticJointTorque(world *world, base *jointSim) float32 {
+func getPrismaticJointTorque(world *World, base *jointSim) float32 {
 	return float32(world.invH * base.prismaticJoint.impulse.Y)
 }
 
@@ -420,13 +406,13 @@ func preparePrismaticJoint(base *jointSim, context *stepContext) {
 	}
 
 	// Compute joint anchor frames with world space rotation, relative to center of mass
-	joint.frameA.Q = MulRot(bodySimA.transform.Q, base.localFrameA.Q)
-	joint.frameA.P = RotateVector(bodySimA.transform.Q, Sub(base.localFrameA.P, bodySimA.localCenter))
-	joint.frameB.Q = MulRot(bodySimB.transform.Q, base.localFrameB.Q)
-	joint.frameB.P = RotateVector(bodySimB.transform.Q, Sub(base.localFrameB.P, bodySimB.localCenter))
+	joint.frameA.Q = bodySimA.transform.Q.Mul(base.localFrameA.Q)
+	joint.frameA.P = bodySimA.transform.Q.Rotate(base.localFrameA.P.Sub(bodySimA.localCenter))
+	joint.frameB.Q = bodySimB.transform.Q.Mul(base.localFrameB.Q)
+	joint.frameB.P = bodySimB.transform.Q.Rotate(base.localFrameB.P.Sub(bodySimB.localCenter))
 
 	// Compute the initial center delta. Incremental position updates are relative to this.
-	joint.deltaCenter = SubPos(bodySimB.center, bodySimA.center)
+	joint.deltaCenter = bodySimB.center.Sub(bodySimA.center)
 
 	joint.springSoftness = makeSoft(joint.hertz, joint.dampingRatio, context.h)
 
@@ -465,37 +451,37 @@ func warmStartPrismaticJoint(base *jointSim, context *stepContext) {
 		stateB = &context.states[joint.indexB]
 	}
 
-	rA := RotateVector(stateA.deltaRotation, joint.frameA.P)
-	rB := RotateVector(stateB.deltaRotation, joint.frameB.P)
+	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
+	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
-	d := Add(Add(Sub(stateB.deltaPosition, stateA.deltaPosition), joint.deltaCenter), Sub(rB, rA))
+	d := stateB.deltaPosition.Sub(stateA.deltaPosition).Add(joint.deltaCenter).Add(rB.Sub(rA))
 
-	axisA := RotateVector(joint.frameA.Q, Vec2{X: float32(1.0), Y: float32(0.0)})
-	axisA = RotateVector(stateA.deltaRotation, axisA)
+	axisA := joint.frameA.Q.Rotate(Vec2{X: float32(1.0), Y: float32(0.0)})
+	axisA = stateA.deltaRotation.Rotate(axisA)
 
 	// impulse is applied at anchor point on body B
-	a1 := Cross(Add(rA, d), axisA)
-	a2 := Cross(rB, axisA)
+	a1 := rA.Add(d).Cross(axisA)
+	a2 := rB.Cross(axisA)
 	axialImpulse := joint.springImpulse + joint.motorImpulse + joint.lowerImpulse - joint.upperImpulse
 
 	// perpendicular constraint
-	perpA := LeftPerp(axisA)
-	s1 := Cross(Add(rA, d), perpA)
-	s2 := Cross(rB, perpA)
+	perpA := axisA.LeftPerp()
+	s1 := rA.Add(d).Cross(perpA)
+	s2 := rB.Cross(perpA)
 	perpImpulse := joint.impulse.X
 	angleImpulse := joint.impulse.Y
 
-	P := Add(Vec2{X: float32((axialImpulse) * axisA.X), Y: float32((axialImpulse) * axisA.Y)}, Vec2{X: float32((perpImpulse) * perpA.X), Y: float32((perpImpulse) * perpA.Y)})
+	P := Vec2{X: float32((axialImpulse) * axisA.X), Y: float32((axialImpulse) * axisA.Y)}.Add(Vec2{X: float32((perpImpulse) * perpA.X), Y: float32((perpImpulse) * perpA.Y)})
 	LA := float32(axialImpulse*a1) + float32(perpImpulse*s1) + angleImpulse
 	LB := float32(axialImpulse*a2) + float32(perpImpulse*s2) + angleImpulse
 
 	if stateA.flags&dynamicFlag != 0 {
-		stateA.linearVelocity = MulSub(stateA.linearVelocity, mA, P)
+		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, P)
 		stateA.angularVelocity -= float32(iA * LA)
 	}
 
 	if stateB.flags&dynamicFlag != 0 {
-		stateB.linearVelocity = MulAdd(stateB.linearVelocity, mB, P)
+		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, P)
 		stateB.angularVelocity += float32(iB * LB)
 	}
 }
@@ -531,23 +517,23 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 	vB := stateB.linearVelocity
 	wB := stateB.angularVelocity
 
-	qA := MulRot(stateA.deltaRotation, joint.frameA.Q)
-	qB := MulRot(stateB.deltaRotation, joint.frameB.Q)
-	relQ := InvMulRot(qA, qB)
+	qA := stateA.deltaRotation.Mul(joint.frameA.Q)
+	qB := stateB.deltaRotation.Mul(joint.frameB.Q)
+	relQ := qA.InvMul(qB)
 
 	// current anchors
-	rA := RotateVector(stateA.deltaRotation, joint.frameA.P)
-	rB := RotateVector(stateB.deltaRotation, joint.frameB.P)
+	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
+	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
-	d := Add(Add(Sub(stateB.deltaPosition, stateA.deltaPosition), joint.deltaCenter), Sub(rB, rA))
+	d := stateB.deltaPosition.Sub(stateA.deltaPosition).Add(joint.deltaCenter).Add(rB.Sub(rA))
 
-	axisA := RotateVector(joint.frameA.Q, Vec2{X: float32(1.0), Y: float32(0.0)})
-	axisA = RotateVector(stateA.deltaRotation, axisA)
-	translation := Dot(axisA, d)
+	axisA := joint.frameA.Q.Rotate(Vec2{X: float32(1.0), Y: float32(0.0)})
+	axisA = stateA.deltaRotation.Rotate(axisA)
+	translation := axisA.Dot(d)
 
 	// These scalars are for torques generated by axial forces
-	a1 := Cross(Add(rA, d), axisA)
-	a2 := Cross(rB, axisA)
+	a1 := rA.Add(d).Cross(axisA)
+	a2 := rB.Cross(axisA)
 
 	k := mA + mB + float32(float32(iA*a1)*a1) + float32(float32(iB*a2)*a2)
 	var axialMass float32
@@ -567,7 +553,7 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 		massScale := joint.springSoftness.massScale
 		impulseScale := joint.springSoftness.impulseScale
 
-		Cdot := Dot(axisA, Sub(vB, vA)) + float32(a2*wB) - float32(a1*wA)
+		Cdot := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
 		deltaImpulse := float32(float32(-massScale*axialMass)*(Cdot+bias)) - float32(impulseScale*joint.springImpulse)
 		joint.springImpulse += deltaImpulse
 
@@ -575,28 +561,28 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 		LA := float32(deltaImpulse * a1)
 		LB := float32(deltaImpulse * a2)
 
-		vA = MulSub(vA, mA, P)
+		vA = vA.MulSub(mA, P)
 		wA -= float32(iA * LA)
-		vB = MulAdd(vB, mB, P)
+		vB = vB.MulAdd(mB, P)
 		wB += float32(iB * LB)
 	}
 
 	// Solve motor constraint
 	if joint.enableMotor {
-		Cdot := Dot(axisA, Sub(vB, vA)) + float32(a2*wB) - float32(a1*wA)
+		Cdot := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
 		impulse := float32(axialMass * (joint.motorSpeed - Cdot))
 		oldImpulse := joint.motorImpulse
 		maxImpulse := float32(context.h * joint.maxMotorForce)
-		joint.motorImpulse = ClampFloat(joint.motorImpulse+impulse, -maxImpulse, maxImpulse)
+		joint.motorImpulse = clampFloat(joint.motorImpulse+impulse, -maxImpulse, maxImpulse)
 		impulse = joint.motorImpulse - oldImpulse
 
 		P := Vec2{X: float32((impulse) * axisA.X), Y: float32((impulse) * axisA.Y)}
 		LA := float32(impulse * a1)
 		LB := float32(impulse * a2)
 
-		vA = MulSub(vA, mA, P)
+		vA = vA.MulSub(mA, P)
 		wA -= float32(iA * LA)
-		vB = MulAdd(vB, mB, P)
+		vB = vB.MulAdd(mB, P)
 		wB += float32(iB * LB)
 	}
 
@@ -615,8 +601,8 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 
 				if C > float32(0.0) {
 					// speculation
-					safe := GetLengthUnitsPerMeter()
-					bias = float32(MinFloat(C, safe) * context.invH)
+					safe := LengthUnitsPerMeter()
+					bias = float32(minFloat(C, safe) * context.invH)
 				} else if useBias {
 					bias = float32(softness.biasRate * C)
 					massScale = softness.massScale
@@ -624,18 +610,18 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 				}
 
 				oldImpulse := joint.lowerImpulse
-				Cdot := Dot(axisA, Sub(vB, vA)) + float32(a2*wB) - float32(a1*wA)
+				Cdot := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
 				deltaImpulse := float32(float32(-axialMass*massScale)*(Cdot+bias)) - float32(impulseScale*oldImpulse)
-				joint.lowerImpulse = MaxFloat(oldImpulse+deltaImpulse, float32(0.0))
+				joint.lowerImpulse = maxFloat(oldImpulse+deltaImpulse, float32(0.0))
 				deltaImpulse = joint.lowerImpulse - oldImpulse
 
 				P := Vec2{X: float32((deltaImpulse) * axisA.X), Y: float32((deltaImpulse) * axisA.Y)}
 				LA := float32(deltaImpulse * a1)
 				LB := float32(deltaImpulse * a2)
 
-				vA = MulSub(vA, mA, P)
+				vA = vA.MulSub(mA, P)
 				wA -= float32(iA * LA)
-				vB = MulAdd(vB, mB, P)
+				vB = vB.MulAdd(mB, P)
 				wB += float32(iB * LB)
 			} else {
 				joint.lowerImpulse = float32(0.0)
@@ -656,8 +642,8 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 
 				if C > float32(0.0) {
 					// speculation
-					safe := GetLengthUnitsPerMeter()
-					bias = float32(MinFloat(C, safe) * context.invH)
+					safe := LengthUnitsPerMeter()
+					bias = float32(minFloat(C, safe) * context.invH)
 				} else if useBias {
 					bias = float32(softness.biasRate * C)
 					massScale = softness.massScale
@@ -667,9 +653,9 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 				oldImpulse := joint.upperImpulse
 
 				// sign flipped
-				Cdot := Dot(axisA, Sub(vA, vB)) + float32(a1*wA) - float32(a2*wB)
+				Cdot := axisA.Dot(vA.Sub(vB)) + float32(a1*wA) - float32(a2*wB)
 				deltaImpulse := float32(float32(-axialMass*massScale)*(Cdot+bias)) - float32(impulseScale*oldImpulse)
-				joint.upperImpulse = MaxFloat(oldImpulse+deltaImpulse, float32(0.0))
+				joint.upperImpulse = maxFloat(oldImpulse+deltaImpulse, float32(0.0))
 				deltaImpulse = joint.upperImpulse - oldImpulse
 
 				P := Vec2{X: float32((deltaImpulse) * axisA.X), Y: float32((deltaImpulse) * axisA.Y)}
@@ -677,9 +663,9 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 				LB := float32(deltaImpulse * a2)
 
 				// sign flipped
-				vA = MulAdd(vA, mA, P)
+				vA = vA.MulAdd(mA, P)
 				wA += float32(iA * LA)
-				vB = MulSub(vB, mB, P)
+				vB = vB.MulSub(mB, P)
 				wB -= float32(iB * LB)
 			} else {
 				joint.upperImpulse = float32(0.0)
@@ -689,14 +675,14 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 
 	// Solve the prismatic constraint in block form
 	{
-		perpA := LeftPerp(axisA)
+		perpA := axisA.LeftPerp()
 
 		// These scalars are for torques generated by the perpendicular constraint force
-		s1 := Cross(Add(d, rA), perpA)
-		s2 := Cross(rB, perpA)
+		s1 := d.Add(rA).Cross(perpA)
+		s2 := rB.Cross(perpA)
 
 		var Cdot Vec2
-		Cdot.X = Dot(perpA, Sub(vB, vA)) + float32(s2*wB) - float32(s1*wA)
+		Cdot.X = perpA.Dot(vB.Sub(vA)) + float32(s2*wB) - float32(s1*wA)
 		Cdot.Y = wB - wA
 
 		bias := Vec2{}
@@ -704,7 +690,7 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulseScale := float32(0.0)
 		if useBias {
 			var C Vec2
-			C.X = Dot(perpA, d)
+			C.X = perpA.Dot(d)
 			C.Y = relQ.Angle()
 
 			bias = Vec2{X: float32((softness.biasRate) * C.X), Y: float32((softness.biasRate) * C.Y)}
@@ -722,7 +708,7 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 
 		K := Mat22{Cx: Vec2{X: k11, Y: k12}, Cy: Vec2{X: k12, Y: k22}}
 
-		b := Solve22(K, Add(Cdot, bias))
+		b := K.Solve(Cdot.Add(bias))
 		b.X = float32(b.X)
 		b.Y = float32(b.Y)
 		var deltaImpulse Vec2
@@ -736,15 +722,15 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 		LA := float32(deltaImpulse.X*s1) + deltaImpulse.Y
 		LB := float32(deltaImpulse.X*s2) + deltaImpulse.Y
 
-		vA = MulSub(vA, mA, P)
+		vA = vA.MulSub(mA, P)
 		wA -= float32(iA * LA)
-		vB = MulAdd(vB, mB, P)
+		vB = vB.MulAdd(mB, P)
 		wB += float32(iB * LB)
 	}
 
-	assert(IsValidVec2(vA), "b2IsValidVec2( vA )")
+	assert(vA.IsValid(), "b2IsValidVec2( vA )")
 	assert(IsValidFloat(wA), "b2IsValidFloat( wA )")
-	assert(IsValidVec2(vB), "b2IsValidVec2( vB )")
+	assert(vB.IsValid(), "b2IsValidVec2( vB )")
 	assert(IsValidFloat(wB), "b2IsValidFloat( wB )")
 
 	if stateA.flags&dynamicFlag != 0 {
@@ -763,29 +749,29 @@ func drawPrismaticJoint(draw *DebugDraw, base *jointSim, transformA WorldTransfo
 
 	joint := &base.prismaticJoint
 
-	frameA := MulWorldTransforms(transformA, base.localFrameA)
-	frameB := MulWorldTransforms(transformB, base.localFrameB)
-	axisA := RotateVector(frameA.Q, Vec2{X: float32(1.0), Y: float32(0.0)})
+	frameA := transformA.Mul(base.localFrameA)
+	frameB := transformB.Mul(base.localFrameB)
+	axisA := frameA.Q.Rotate(Vec2{X: float32(1.0), Y: float32(0.0)})
 
-	draw.DrawLineFunc(frameA.P, frameB.P, ColorDimGray)
+	draw.DrawLine(frameA.P, frameB.P, ColorDimGray)
 
 	if joint.enableLimit {
 		b := float32(float32(0.25) * drawScale)
-		lower := OffsetPos(frameA.P, Vec2{X: float32((joint.lowerTranslation) * axisA.X), Y: float32((joint.lowerTranslation) * axisA.Y)})
-		upper := OffsetPos(frameA.P, Vec2{X: float32((joint.upperTranslation) * axisA.X), Y: float32((joint.upperTranslation) * axisA.Y)})
-		perp := LeftPerp(axisA)
-		draw.DrawLineFunc(lower, upper, ColorGray)
-		draw.DrawLineFunc(OffsetPos(lower, Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}), OffsetPos(lower, Vec2{X: float32((b) * perp.X), Y: float32((b) * perp.Y)}), ColorGreen)
-		draw.DrawLineFunc(OffsetPos(upper, Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}), OffsetPos(upper, Vec2{X: float32((b) * perp.X), Y: float32((b) * perp.Y)}), ColorRed)
+		lower := frameA.P.Add(Vec2{X: float32((joint.lowerTranslation) * axisA.X), Y: float32((joint.lowerTranslation) * axisA.Y)})
+		upper := frameA.P.Add(Vec2{X: float32((joint.upperTranslation) * axisA.X), Y: float32((joint.upperTranslation) * axisA.Y)})
+		perp := axisA.LeftPerp()
+		draw.DrawLine(lower, upper, ColorGray)
+		draw.DrawLine(lower.Add(Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}), lower.Add(Vec2{X: float32((b) * perp.X), Y: float32((b) * perp.Y)}), ColorGreen)
+		draw.DrawLine(upper.Add(Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}), upper.Add(Vec2{X: float32((b) * perp.X), Y: float32((b) * perp.Y)}), ColorRed)
 	} else {
-		draw.DrawLineFunc(OffsetPos(frameA.P, Neg(axisA)), OffsetPos(frameA.P, axisA), ColorGray)
+		draw.DrawLine(frameA.P.Add(axisA.Neg()), frameA.P.Add(axisA), ColorGray)
 	}
 
 	if joint.enableSpring {
-		p := OffsetPos(frameA.P, Vec2{X: float32((joint.targetTranslation) * axisA.X), Y: float32((joint.targetTranslation) * axisA.Y)})
-		draw.DrawPointFunc(p, float32(8.0), ColorViolet)
+		p := frameA.P.Add(Vec2{X: float32((joint.targetTranslation) * axisA.X), Y: float32((joint.targetTranslation) * axisA.Y)})
+		draw.DrawPoint(p, float32(8.0), ColorViolet)
 	}
 
-	draw.DrawPointFunc(frameA.P, float32(5.0), ColorGray)
-	draw.DrawPointFunc(frameB.P, float32(5.0), ColorBlue)
+	draw.DrawPoint(frameA.P, float32(5.0), ColorGray)
+	draw.DrawPoint(frameB.P, float32(5.0), ColorBlue)
 }

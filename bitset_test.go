@@ -11,15 +11,19 @@ import (
 )
 
 func TestBitset(t *testing.T) {
-
 	r := oracle.Open(t, "bitset/BitSetTest")
+
 	const count = 169
+
 	bitSet := createBitSet(count)
 	setBitCountAndClear(&bitSet, count)
+
 	var values [count]bool
+
 	i1, i2 := int32(0), int32(1)
 	setBit(&bitSet, uint32(i1))
 	values[i1] = true
+
 	for i2 < count {
 		setBit(&bitSet, uint32(i2))
 		values[i2] = true
@@ -27,12 +31,15 @@ func TestBitset(t *testing.T) {
 		i1 = i2
 		i2 = next
 	}
-	for i := int32(0); i < count; i++ {
+
+	for i := range int32(count) {
 		value := getBit(&bitSet, uint32(i))
-		if !(value == values[i]) {
+		if value != values[i] {
 			t.Fatal("condition false")
 		}
+
 		r.Bool(fmt.Sprintf("bit/%d", i), value)
 	}
+
 	destroyBitSet(&bitSet)
 }

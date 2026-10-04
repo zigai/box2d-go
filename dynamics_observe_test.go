@@ -2,6 +2,7 @@ package box2d
 
 import (
 	"fmt"
+
 	"github.com/zigai/box2d/internal/oracle"
 )
 
@@ -12,17 +13,21 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 	for i := range h {
 		h[i] = oracle.HashInit
 	}
+
 	w := id
 
 	h[0] = oracle.HashU32(h[0], uint32(int32(id.Counters().BodyCount)))
 	if direct {
 		r.I32(prefix+"bodyCount", int32(id.Counters().BodyCount))
 	}
+
 	for i := range w.bodies {
 		if w.bodies[i].id != i {
 			continue
 		}
+
 		b := makeBodyId(w, i)
+
 		key := ""
 		if direct {
 			key = fmt.Sprintf("%sbody/%d/", prefix, i)
@@ -42,6 +47,7 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 		if direct {
 			r.Bool(key+"world", b.world == w)
 		}
+
 		p, q, v := b.Position(), b.Rotation(), b.LinearVelocity()
 
 		h[4] = oracle.HashPos(h[4], p.X, p.Y)
@@ -78,12 +84,15 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 		if direct {
 			r.I32(key+"type", int32(b.Type()))
 		}
+
 		count := 0
+
 		for c := range b.ContactData() {
 			ck := ""
 			if direct {
 				ck = fmt.Sprintf("%scontact/%d/", key, count)
 			}
+
 			btDynamicsContact(r, ck, c.Contact, c.ShapeA, c.ShapeB, w, &h, direct)
 			m := c.Manifold
 
@@ -101,11 +110,13 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 			if direct {
 				r.I32(ck+"pointCount", int32(m.PointCount))
 			}
+
 			for j := range m.PointCount {
 				pk := ""
 				if direct {
 					pk = fmt.Sprintf("%spoint/%d/", ck, j)
 				}
+
 				p := m.Points[j]
 
 				h[14] = oracle.HashRot(h[14], p.AnchorA.X, p.AnchorA.Y)
@@ -158,6 +169,7 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 					r.Bool(pk+"persisted", p.Persisted)
 				}
 			}
+
 			count++
 		}
 
@@ -166,7 +178,9 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 			r.I32(key+"contactCount", int32(count))
 		}
 	}
+
 	count := 0
+
 	for e := range id.BodyMoveEvents() {
 		key := ""
 		if direct {
@@ -202,6 +216,7 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 		if direct {
 			r.Bool(key+"fellAsleep", e.FellAsleep)
 		}
+
 		count++
 	}
 
@@ -209,13 +224,17 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 	if direct {
 		r.I32(prefix+"moveCount", int32(count))
 	}
+
 	count = 0
+
 	for e := range id.ContactBeginEvents() {
 		key := ""
 		if direct {
 			key = fmt.Sprintf("%sbegin/%d/", prefix, count)
 		}
+
 		btDynamicsContact(r, key, e.Contact, e.ShapeA, e.ShapeB, w, &h, direct)
+
 		count++
 	}
 
@@ -223,13 +242,17 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 	if direct {
 		r.I32(prefix+"beginCount", int32(count))
 	}
+
 	count = 0
+
 	for e := range id.ContactEndEvents() {
 		key := ""
 		if direct {
 			key = fmt.Sprintf("%send/%d/", prefix, count)
 		}
+
 		btDynamicsContact(r, key, e.Contact, e.ShapeA, e.ShapeB, w, &h, direct)
+
 		count++
 	}
 
@@ -237,12 +260,15 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 	if direct {
 		r.I32(prefix+"endCount", int32(count))
 	}
+
 	count = 0
+
 	for e := range id.ContactHitEvents() {
 		key := ""
 		if direct {
 			key = fmt.Sprintf("%shit/%d/", prefix, count)
 		}
+
 		btDynamicsContact(r, key, e.Contact, e.ShapeA, e.ShapeB, w, &h, direct)
 
 		h[29] = oracle.HashPos(h[29], e.Point.X, e.Point.Y)
@@ -259,6 +285,7 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 		if direct {
 			r.F32(key+"approachSpeed", e.ApproachSpeed)
 		}
+
 		count++
 	}
 
@@ -266,14 +293,18 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 	if direct {
 		r.I32(prefix+"hitCount", int32(count))
 	}
+
 	count = 0
+
 	for e := range id.SensorBeginEvents() {
 		key := ""
 		if direct {
 			key = fmt.Sprintf("%ssensorBegin/%d/", prefix, count)
 		}
+
 		btDynamicsShape(r, key+"sensor/", e.SensorShape, w, &h, direct)
 		btDynamicsShape(r, key+"visitor/", e.VisitorShape, w, &h, direct)
+
 		count++
 	}
 
@@ -281,14 +312,18 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 	if direct {
 		r.I32(prefix+"sensorBeginCount", int32(count))
 	}
+
 	count = 0
+
 	for e := range id.SensorEndEvents() {
 		key := ""
 		if direct {
 			key = fmt.Sprintf("%ssensorEnd/%d/", prefix, count)
 		}
+
 		btDynamicsShape(r, key+"sensor/", e.SensorShape, w, &h, direct)
 		btDynamicsShape(r, key+"visitor/", e.VisitorShape, w, &h, direct)
+
 		count++
 	}
 
@@ -296,12 +331,13 @@ func BTObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) 
 	if direct {
 		r.I32(prefix+"sensorEndCount", int32(count))
 	}
+
 	h[35] = id.StateHash()
+
 	return h
 }
 
 func btDynamicsShape(r *oracle.Reader, key string, s Shape, worldID *World, h *[36]uint64, direct bool) {
-
 	h[1] = oracle.HashU32(h[1], uint32(s.index1))
 	if direct {
 		r.I32(key+"index", s.index1)
@@ -322,8 +358,8 @@ func btDynamicsShape(r *oracle.Reader, key string, s Shape, worldID *World, h *[
 		r.Bool(key+"valid", s.IsValid())
 	}
 }
-func btDynamicsContact(r *oracle.Reader, key string, c Contact, a, b Shape, worldID *World, h *[36]uint64, direct bool) {
 
+func btDynamicsContact(r *oracle.Reader, key string, c Contact, a, b Shape, worldID *World, h *[36]uint64, direct bool) {
 	h[1] = oracle.HashU32(h[1], uint32(c.index1))
 	if direct {
 		r.I32(key+"index", c.index1)
@@ -343,6 +379,7 @@ func btDynamicsContact(r *oracle.Reader, key string, c Contact, a, b Shape, worl
 	if direct {
 		r.Bool(key+"valid", c.IsValid())
 	}
+
 	btDynamicsShape(r, key+"shapeA/", a, worldID, h, direct)
 	btDynamicsShape(r, key+"shapeB/", b, worldID, h, direct)
 }
@@ -351,5 +388,6 @@ func btDynamicsBool(h uint64, value bool) uint64 {
 	if value {
 		return oracle.HashU32(h, 1)
 	}
+
 	return oracle.HashU32(h, 0)
 }

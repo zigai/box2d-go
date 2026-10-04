@@ -22,7 +22,9 @@ func createSet(capacity int) hashSet {
 	} else {
 		set.capacity = 16
 	}
+
 	set.items = make([]setItem, set.capacity)
+
 	return set
 }
 
@@ -40,10 +42,12 @@ func clearSet(set *hashSet) {
 func findSlot(set *hashSet, key uint64, hash uint64) int {
 	capacity := set.capacity
 	index := uint32(hash) & (capacity - 1)
+
 	items := set.items
 	for items[index].key != 0 && items[index].key != key {
 		index = (index + 1) & (capacity - 1)
 	}
+
 	return int(index)
 }
 
@@ -60,18 +64,22 @@ func growTable(set *hashSet) {
 	oldItems := set.items
 	set.count = 0
 	set.capacity = 2 * oldCapacity
+
 	set.items = nil
 	if set.capacity > 0 {
 		set.items = make([]setItem, set.capacity)
 	}
-	for i := uint32(0); i < oldCapacity; i++ {
+
+	for i := range oldCapacity {
 		item := &oldItems[i]
 		if item.key == 0 {
 			continue
 		}
+
 		hash := keyHash(item.key)
 		addKeyHaveCapacity(set, item.key, hash)
 	}
+
 	assert(set.count == oldCount, "set.count == oldCount")
 }
 
@@ -79,12 +87,14 @@ func containsKey(set *hashSet, key uint64) bool {
 	validate(key != 0, "key != 0")
 	hash := keyHash(key)
 	index := findSlot(set, key, hash)
+
 	return set.items[index].key == key
 }
 
 func containsHashedKey(set *hashSet, key uint64, hash uint64) bool {
 	validate(key != 0, "key != 0")
 	index := findSlot(set, key, hash)
+
 	return set.items[index].key == key
 }
 
@@ -96,36 +106,46 @@ func addKey(set *hashSet, key uint64) bool {
 	assert(key != 0, "key != 0")
 	hash := keyHash(key)
 	assert(hash != 0, "hash != 0")
+
 	index := findSlot(set, key, hash)
 	if set.items[index].key != 0 {
 		assert(set.items[index].key == key, "items[index].key == key")
 		return true
 	}
+
 	if 2*set.count >= set.capacity {
 		growTable(set)
 	}
+
 	addKeyHaveCapacity(set, key, hash)
+
 	return false
 }
 
 func removeKey(set *hashSet, key uint64) bool {
 	hash := keyHash(key)
 	i := findSlot(set, key, hash)
+
 	items := set.items
 	if items[i].key == 0 {
 		return false
 	}
+
 	items[i].key = 0
+
 	assert(set.count > 0, "set.count > 0")
 	set.count--
 	j := i
+
 	capacity := set.capacity
 	for {
 		j = int((uint32(j) + 1) & (capacity - 1))
 		if items[j].key == 0 {
 			break
 		}
+
 		hashJ := keyHash(items[j].key)
+
 		k := int(hashJ & uint64(capacity-1))
 		if i <= j {
 			if i < k && k <= j {
@@ -136,18 +156,21 @@ func removeKey(set *hashSet, key uint64) bool {
 				continue
 			}
 		}
+
 		items[i] = items[j]
 		items[j].key = 0
 		i = j
 	}
+
 	return true
 }
 
 func countSetBits(bitSet *bitSet) int {
 	popCount := 0
-	for i := uint32(0); i < bitSet.blockCount; i++ {
+	for i := range uint32(bitSet.blockCount) {
 		popCount += bits.OnesCount64(bitSet.bits[i])
 	}
+
 	return popCount
 }
 
@@ -158,6 +181,7 @@ func keyHash(key uint64) uint64 {
 	h ^= h >> 33
 	h *= 0xc4ceb9fe1a85ec53
 	h ^= h >> 33
+
 	return h
 }
 
@@ -173,5 +197,6 @@ func shapePairKey(k1, k2 int) uint64 {
 	if k1 < k2 {
 		return uint64(k1)<<32 | uint64(k2)
 	}
+
 	return uint64(k2)<<32 | uint64(k1)
 }

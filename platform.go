@@ -13,6 +13,7 @@ func boundingPowerOf2(x int) int {
 	if x <= 1 {
 		return 1
 	}
+
 	return 32 - bits.LeadingZeros32(uint32(x)-1)
 }
 
@@ -20,5 +21,6 @@ func roundUpPowerOf2(x int) int {
 	if x <= 1 {
 		return 1
 	}
+
 	return 1 << (32 - bits.LeadingZeros32(uint32(x)-1))
 }

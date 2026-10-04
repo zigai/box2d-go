@@ -50,6 +50,7 @@ func computeLayoutHash() uint32 {
 	} else {
 		h = (h ^ 4) * 16777619
 	}
+
 	return h
 }
 
@@ -61,12 +62,15 @@ func snapRCheck(r *snapReader, need int) {
 
 func snapRBytes(r *snapReader, dst []byte, n int) {
 	snapRCheck(r, n)
+
 	if n > len(dst) {
 		r.ok = false
 	}
+
 	if !r.ok {
 		return
 	}
+
 	copy(dst[:n], r.data[r.cursor:r.cursor+n])
 	r.cursor += n
 }
@@ -78,6 +82,7 @@ func snapRI32(r *snapReader) int {
 func snapRU32(r *snapReader) uint32 {
 	var b [4]byte
 	snapRBytes(r, b[:], 4)
+
 	return binary.LittleEndian.Uint32(b[:])
 }
 
@@ -98,6 +103,7 @@ func snapCheckCount(r *snapReader, count int, memSize int, minStreamBytes int) b
 	if count < 0 || memSize < 0 || minStreamBytes < 0 || (memSize > 0 && count > math.MaxInt32/memSize) || r.cursor < 0 || r.cursor > r.size {
 		return false
 	}
+
 	return minStreamBytes == 0 || count <= (r.size-r.cursor)/minStreamBytes
 }
 
@@ -109,9 +115,11 @@ func serIDPool(buf *recBuffer, pool *idPool) {
 func desIDPool(r *snapReader, pool *idPool) {
 	pool.nextIndex = snapRI32(r)
 	desPodArray(r, &pool.freeArray)
+
 	if pool.nextIndex < 0 || len(pool.freeArray) > pool.nextIndex {
 		r.ok = false
 	}
+
 	for _, id := range pool.freeArray {
 		if id < 0 || id >= pool.nextIndex {
 			r.ok = false
@@ -121,6 +129,7 @@ func desIDPool(r *snapReader, pool *idPool) {
 
 func serBitSet(buf *recBuffer, bs *bitSet) {
 	snapWU32(buf, bs.blockCount)
+
 	for _, v := range bs.bits[:bs.blockCount] {
 		recWU64(buf, v)
 	}
@@ -128,13 +137,17 @@ func serBitSet(buf *recBuffer, bs *bitSet) {
 
 func desBitSet(r *snapReader, bs *bitSet) {
 	n := snapRU32(r)
+
 	destroyBitSet(bs)
+
 	if !r.ok || !snapCheckCount(r, int(n), 8, 8) {
 		r.ok = false
 		return
 	}
+
 	bs.blockCount = n
 	bs.blockCapacity = max(n, 1)
+
 	bs.bits = make([]uint64, bs.blockCapacity)
 	for i := range n {
 		bs.bits[i] = snapReadU64(r)
@@ -144,6 +157,7 @@ func desBitSet(r *snapReader, bs *bitSet) {
 func serHashSet(buf *recBuffer, hs *hashSet) {
 	snapWU32(buf, hs.capacity)
 	snapWU32(buf, hs.count)
+
 	for _, v := range hs.items[:hs.capacity] {
 		recWU64(buf, v.key)
 	}
@@ -152,13 +166,17 @@ func serHashSet(buf *recBuffer, hs *hashSet) {
 func desHashSet(r *snapReader, hs *hashSet) {
 	n := snapRU32(r)
 	count := snapRU32(r)
+
 	destroySet(hs)
+
 	if !r.ok || !snapCheckCount(r, int(n), 8, 8) || n&(n-1) != 0 || count > n {
 		r.ok = false
 		return
 	}
+
 	hs.capacity = n
 	hs.count = count
+
 	hs.items = make([]setItem, n)
 	for i := range n {
 		hs.items[i].key = snapReadU64(r)
@@ -172,17 +190,21 @@ func serTree(buf *recBuffer, tree *DynamicTree) {
 	snapWI32(buf, int(tree.proxyCount))
 	snapWI32(buf, int(tree.proxyCapacity))
 	snapWI32(buf, int(tree.proxyFreeList))
+
 	if tree.dfsOrdered {
 		snapWI32(buf, 1)
 	} else {
 		snapWI32(buf, 0)
 	}
+
 	for _, v := range tree.nodes[:tree.nodeEnd] {
 		snapWriteTreeNode(buf, v)
 	}
+
 	for _, v := range tree.parents[:tree.nodeEnd] {
 		recWI32(buf, v)
 	}
+
 	for _, v := range tree.proxies[:tree.proxyCapacity] {
 		snapWriteTreeProxy(buf, v)
 	}
@@ -196,12 +218,15 @@ func desTree(r *snapReader, tree *DynamicTree) {
 	proxyCapacity := snapRI32(r)
 	proxyFreeList := snapRI32(r)
 	ordered := snapRI32(r)
+
 	valid := nodeEnd >= 2 && nodeEnd&1 == 0 && nodeCapacity >= nodeEnd && proxyCount >= 0 && proxyCapacity >= 1 && proxyCapacity >= proxyCount && snapCheckCount(r, nodeEnd, int(unsafe.Sizeof(TreeNode{})), 28) && snapCheckCount(r, proxyCapacity, 24, 24)
 	if !r.ok || !valid {
 		r.ok = false
 		*tree = NewDynamicTree(0)
+
 		return
 	}
+
 	nodeCapacity = int(min(int64(nodeCapacity), 2*int64(nodeEnd)))
 	tree.nodeEnd = int32(nodeEnd)
 	tree.nodeCapacity = int32(nodeCapacity)
@@ -212,13 +237,16 @@ func desTree(r *snapReader, tree *DynamicTree) {
 	tree.dfsOrdered = ordered != 0
 	tree.nodes = make([]TreeNode, nodeCapacity)
 	tree.parents = make([]int32, nodeCapacity)
+
 	tree.proxies = make([]TreeProxy, proxyCapacity)
 	for i := range nodeEnd {
 		snapReadTreeNode(r, &tree.nodes[i])
 	}
+
 	for i := range nodeEnd {
 		tree.parents[i] = int32(snapRI32(r))
 	}
+
 	for i := range proxyCapacity {
 		snapReadTreeProxy(r, &tree.proxies[i])
 	}
@@ -246,6 +274,7 @@ func serGraphColor(buf *recBuffer, color *graphColor, isOverflow bool) {
 	if !isOverflow {
 		serBitSet(buf, &color.bodySet)
 	}
+
 	serPodArray(buf, color.contactSims)
 	serPodArray(buf, color.jointSims)
 }
@@ -254,6 +283,7 @@ func desGraphColor(r *snapReader, color *graphColor, isOverflow bool) {
 	if !isOverflow {
 		desBitSet(r, &color.bodySet)
 	}
+
 	desPodArray(r, &color.contactSims)
 	desPodArray(r, &color.jointSims)
 	color.wideConstraints = nil
@@ -277,19 +307,24 @@ func serWorldConfig(buf *recBuffer, world *World) {
 	recWF32(buf, world.invDT)
 	snapWI32(buf, world.endEventArrayIndex)
 	snapWriteCapacity(buf, world.maxCapacity)
+
 	var flags uint8
 	if world.enableSleep {
 		flags |= 1
 	}
+
 	if world.enableWarmStarting {
 		flags |= 2
 	}
+
 	if world.enableContinuous {
 		flags |= 8
 	}
+
 	if world.enableRestitutionPropagation {
 		flags |= 16
 	}
+
 	recWU8(buf, flags)
 }
 
@@ -320,13 +355,16 @@ func serializeWorld(world *World, buf *recBuffer) {
 	snapWU32(buf, snapMagic)
 	snapWU32(buf, snapVersion)
 	snapWU32(buf, computeLayoutHash())
+
 	flags := uint32(0)
 	if validationEnabled {
 		flags |= snapFlagValidation
 	}
+
 	if doublePrecision {
 		flags |= snapFlagDoublePrecision
 	}
+
 	snapWU32(buf, flags)
 	serWorldConfig(buf, world)
 	serIDPool(buf, &world.bodyIDPool)
@@ -337,35 +375,43 @@ func serializeWorld(world *World, buf *recBuffer) {
 	serIDPool(buf, &world.islandIDPool)
 	serIDPool(buf, &world.solverSetIDPool)
 	snapWI32(buf, len(world.solverSets))
+
 	for i := range world.solverSets {
 		serSolverSet(buf, &world.solverSets[i])
 	}
+
 	serUserDataArray(buf, world.bodies, func(v *body) { v.userData = nil })
 	serUserDataArray(buf, world.shapes, func(v *shape) { v.userData = nil })
 	serPodArray(buf, world.fatAABBs)
 	serPodArray(buf, world.contacts)
 	serUserDataArray(buf, world.joints, func(v *joint) { v.userData = nil })
 	snapWI32(buf, len(world.chainShapes))
+
 	for _, chain := range world.chainShapes {
 		snapWI32(buf, chain.id)
 		snapWI32(buf, chain.bodyID)
 		snapWI32(buf, chain.nextChainID)
 		snapWI32(buf, chain.segmentCount)
 		recWU16(buf, chain.generation)
+
 		if chain.id != nullIndex {
 			for _, id := range chain.shapeIndices[:chain.segmentCount] {
 				snapWI32(buf, id)
 			}
 		}
 	}
+
 	snapWI32(buf, len(world.sensors))
+
 	for _, s := range world.sensors {
 		snapWI32(buf, s.shapeID)
 		serPodArray(buf, s.hits)
 		serPodArray(buf, s.overlaps1)
 		serPodArray(buf, s.overlaps2)
 	}
+
 	snapWI32(buf, len(world.islands))
+
 	for _, island := range world.islands {
 		snapWI32(buf, island.setIndex)
 		snapWI32(buf, island.localIndex)
@@ -375,10 +421,13 @@ func serializeWorld(world *World, buf *recBuffer) {
 		serPodArray(buf, island.contacts)
 		serPodArray(buf, island.joints)
 	}
+
 	for i := range world.broadPhase.trees {
 		serTree(buf, &world.broadPhase.trees[i])
 	}
+
 	serHashSet(buf, &world.broadPhase.pairSet)
+
 	for i := range world.constraintGraph.colors {
 		serGraphColor(buf, &world.constraintGraph.colors[i], i == overflowIndex)
 	}
@@ -388,11 +437,13 @@ func freeLiveSimElements(world *World) {
 	for i := range world.chainShapes {
 		world.chainShapes[i].shapeIndices = nil
 	}
+
 	for i := range world.sensors {
 		world.sensors[i].hits = nil
 		world.sensors[i].overlaps1 = nil
 		world.sensors[i].overlaps2 = nil
 	}
+
 	for i := range world.islands {
 		world.islands[i].bodies = nil
 		world.islands[i].contacts = nil
@@ -409,26 +460,32 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 	desIDPool(r, &world.jointIDPool)
 	desIDPool(r, &world.islandIDPool)
 	desIDPool(r, &world.solverSetIDPool)
+
 	n := snapReadCount(r, int(unsafe.Sizeof(solverSet{})), 24)
 	if !r.ok {
 		return false
 	}
+
 	world.solverSets = make([]solverSet, n)
 	for i := range world.solverSets {
 		desSolverSet(r, &world.solverSets[i])
+
 		if !r.ok {
 			return false
 		}
 	}
+
 	desPodArray(r, &world.bodies)
 	desPodArray(r, &world.shapes)
 	desPodArray(r, &world.fatAABBs)
 	desPodArray(r, &world.contacts)
 	desPodArray(r, &world.joints)
+
 	n = snapReadCount(r, int(unsafe.Sizeof(chainShape{})), 18)
 	if !r.ok {
 		return false
 	}
+
 	world.chainShapes = make([]chainShape, n)
 	for i := range world.chainShapes {
 		c := &world.chainShapes[i]
@@ -436,25 +493,30 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 		c.bodyID = snapRI32(r)
 		c.nextChainID = snapRI32(r)
 		c.segmentCount = snapRI32(r)
+
 		c.generation = snapReadU16(r)
 		if !r.ok {
 			return false
 		}
+
 		if c.id != nullIndex {
 			if !snapCheckCount(r, c.segmentCount, 8, 4) {
 				r.ok = false
 				return false
 			}
+
 			c.shapeIndices = make([]int, c.segmentCount)
 			for j := range c.shapeIndices {
 				c.shapeIndices[j] = snapRI32(r)
 			}
 		}
 	}
+
 	n = snapReadCount(r, int(unsafe.Sizeof(sensor{})), 16)
 	if !r.ok {
 		return false
 	}
+
 	world.sensors = make([]sensor, n)
 	for i := range world.sensors {
 		s := &world.sensors[i]
@@ -462,14 +524,17 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 		desPodArray(r, &s.hits)
 		desPodArray(r, &s.overlaps1)
 		desPodArray(r, &s.overlaps2)
+
 		if !r.ok {
 			return false
 		}
 	}
+
 	n = snapReadCount(r, int(unsafe.Sizeof(island{})), 28)
 	if !r.ok {
 		return false
 	}
+
 	world.islands = make([]island, n)
 	for i := range world.islands {
 		s := &world.islands[i]
@@ -480,26 +545,34 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 		desPodArray(r, &s.bodies)
 		desPodArray(r, &s.contacts)
 		desPodArray(r, &s.joints)
+
 		if !r.ok {
 			return false
 		}
 	}
+
 	for i := range world.broadPhase.trees {
 		desTree(r, &world.broadPhase.trees[i])
 	}
+
 	desHashSet(r, &world.broadPhase.pairSet)
+
 	for i := range world.constraintGraph.colors {
 		desGraphColor(r, &world.constraintGraph.colors[i], i == overflowIndex)
 	}
+
 	world.bodyMoveEvents = world.bodyMoveEvents[:0]
 	world.sensorBeginEvents = world.sensorBeginEvents[:0]
+
 	world.contactBeginEvents = world.contactBeginEvents[:0]
 	for i := range 2 {
 		world.sensorEndEvents[i] = world.sensorEndEvents[i][:0]
 		world.contactEndEvents[i] = world.contactEndEvents[i][:0]
 	}
+
 	world.contactHitEvents = world.contactHitEvents[:0]
 	world.jointEvents = world.jointEvents[:0]
+
 	return r.ok
 }
 
@@ -507,7 +580,9 @@ func openSnapshotImage(image []byte, size int, r *snapReader) bool {
 	if snapshotHeaderError(image, size) != nil {
 		return false
 	}
+
 	*r = snapReader{data: image[:size], cursor: 16, size: size, ok: true}
+
 	return true
 }
 
@@ -519,18 +594,23 @@ func NewWorldFromSnapshot(image []byte, workerCount int) (*World, error) {
 	if err := snapshotHeaderError(image, len(image)); err != nil {
 		return nil, err
 	}
+
 	var r snapReader
 	openSnapshotImage(image, len(image), &r)
+
 	def := DefaultWorldDef()
 	def.WorkerCount = workerCount
+
 	world := NewWorld(&def)
 	if !deserializeIntoShell(&r, world) {
 		world.Close()
 		return nil, &SnapshotError{Err: ErrCorrupt}
 	}
+
 	world.preSolveFcn = nil
 	world.customFilterFcn = nil
 	world.userData = nil
+
 	return world, nil
 }
 
@@ -546,14 +626,18 @@ func (w *World) UnmarshalBinary(image []byte) error {
 	if err := snapshotHeaderError(image, len(image)); err != nil {
 		return err
 	}
+
 	var r snapReader
 	openSnapshotImage(image, len(image), &r)
+
 	world := w
 	checkInput(!world.locked, "world->locked == false")
 	freeLiveSimElements(world)
+
 	if !deserializeIntoShell(&r, world) {
 		return &SnapshotError{Err: ErrCorrupt}
 	}
+
 	return nil
 }
 
@@ -561,8 +645,10 @@ func (w *World) UnmarshalBinary(image []byte) error {
 // step boundary.
 func (w *World) AppendBinary(b []byte) ([]byte, error) {
 	checkInput(!w.locked, "world->locked == false")
+
 	buf := recBuffer{data: b[:cap(b)], capacity: cap(b), size: len(b)}
 	serializeWorld(w, &buf)
+
 	return buf.data[:buf.size], nil
 }
 
@@ -576,6 +662,7 @@ func fnvMixBytes(hash uint64, data []byte, n int) uint64 {
 	for _, b := range data[:n] {
 		hash = (hash ^ uint64(b)) * snapFNVPrime
 	}
+
 	return hash
 }
 
@@ -589,33 +676,41 @@ func fnvMixInt(hash uint64, v int) uint64 {
 
 func hashWorldStateDeep(world *World) uint64 {
 	hash := snapFNVInit
+
 	for i := range world.bodies {
 		b := &world.bodies[i]
 		if b.id != i {
 			continue
 		}
+
 		sim := getBodySim(world, b)
 		hash = fnvMixPosition(hash, sim.transform.P)
 		hash = fnvMixFloat(hash, sim.transform.Q.C)
+
 		hash = fnvMixFloat(hash, sim.transform.Q.S)
 		if state := getBodyState(world, b); state != nil {
 			hash = fnvMixFloat(hash, state.linearVelocity.X)
 			hash = fnvMixFloat(hash, state.linearVelocity.Y)
 			hash = fnvMixFloat(hash, state.angularVelocity)
 		}
+
 		hash = fnvMixInt(hash, b.setIndex)
 		hash = fnvMixInt(hash, b.localIndex)
 	}
+
 	for i := range world.contacts {
 		c := &world.contacts[i]
 		if c.contactID != i {
 			continue
 		}
+
 		hash = fnvMixInt(hash, c.setIndex)
 		hash = fnvMixInt(hash, c.colorIndex)
+
 		hash = fnvMixInt(hash, c.localIndex)
 		if sim := getContactSim(world, c); sim != nil {
 			m := &sim.manifold
+
 			hash = fnvMixInt(hash, m.PointCount)
 			for p := range m.PointCount {
 				hash = fnvMixFloat(hash, m.Points[p].NormalImpulse)
@@ -624,13 +719,16 @@ func hashWorldStateDeep(world *World) uint64 {
 			}
 		}
 	}
+
 	for i := range world.joints {
 		j := &world.joints[i]
 		if j.jointId != i {
 			continue
 		}
+
 		hash = fnvMixInt(hash, j.setIndex)
 		hash = fnvMixInt(hash, j.colorIndex)
+
 		hash = fnvMixInt(hash, j.localIndex)
 		if sim := getJointSim(world, j); sim != nil {
 			switch sim.jointType {
@@ -658,6 +756,7 @@ func hashWorldStateDeep(world *World) uint64 {
 					recWVEC2(&b, sim.prismaticJoint.impulse)
 					hash = fnvMixBytes(hash, b.data, 8)
 				}
+
 				hash = fnvMixFloat(hash, sim.prismaticJoint.springImpulse)
 				hash = fnvMixFloat(hash, sim.prismaticJoint.motorImpulse)
 				hash = fnvMixFloat(hash, sim.prismaticJoint.lowerImpulse)
@@ -668,6 +767,7 @@ func hashWorldStateDeep(world *World) uint64 {
 					recWVEC2(&b, sim.revoluteJoint.linearImpulse)
 					hash = fnvMixBytes(hash, b.data, 8)
 				}
+
 				hash = fnvMixFloat(hash, sim.revoluteJoint.springImpulse)
 				hash = fnvMixFloat(hash, sim.revoluteJoint.motorImpulse)
 				hash = fnvMixFloat(hash, sim.revoluteJoint.lowerImpulse)
@@ -678,6 +778,7 @@ func hashWorldStateDeep(world *World) uint64 {
 					recWVEC2(&b, sim.weldJoint.linearImpulse)
 					hash = fnvMixBytes(hash, b.data, 8)
 				}
+
 				hash = fnvMixFloat(hash, sim.weldJoint.angularImpulse)
 			case WheelJointType:
 				hash = fnvMixFloat(hash, sim.wheelJoint.perpImpulse)
@@ -688,6 +789,7 @@ func hashWorldStateDeep(world *World) uint64 {
 			}
 		}
 	}
+
 	hash = fnvMixInt(hash, world.bodyIDPool.nextIndex)
 	hash = fnvMixInt(hash, getIDCount(&world.bodyIDPool))
 	hash = fnvMixInt(hash, world.shapeIDPool.nextIndex)
@@ -703,6 +805,7 @@ func hashWorldStateDeep(world *World) uint64 {
 	hash = fnvMixInt(hash, world.solverSetIDPool.nextIndex)
 	hash = fnvMixInt(hash, getIDCount(&world.solverSetIDPool))
 	hash = fnvMixInt(hash, len(world.solverSets))
+
 	return hash
 }
 
@@ -725,6 +828,7 @@ func (e *SnapshotError) Unwrap() error {
 
 func serPodArray[T any](buf *recBuffer, arr []T) {
 	snapWI32(buf, len(arr))
+
 	for _, v := range arr {
 		snapWriteValue(buf, v)
 	}
@@ -732,6 +836,7 @@ func serPodArray[T any](buf *recBuffer, arr []T) {
 
 func serUserDataArray[T any](buf *recBuffer, arr []T, clearUserData func(*T)) {
 	snapWI32(buf, len(arr))
+
 	for _, v := range arr {
 		clearUserData(&v)
 		snapWriteValue(buf, v)
@@ -741,20 +846,25 @@ func serUserDataArray[T any](buf *recBuffer, arr []T, clearUserData func(*T)) {
 func desPodArray[T any](r *snapReader, arr *[]T) {
 	n := snapRI32(r)
 	size := snapMinSize[T]()
+
 	if !r.ok {
 		return
 	}
+
 	if !snapCheckCount(r, n, int(unsafe.Sizeof(*new(T))), size) {
 		r.ok = false
 		return
 	}
+
 	if n == 0 {
 		*arr = (*arr)[:0]
 		return
 	}
+
 	*arr = make([]T, n)
 	for i := range *arr {
 		snapReadValue(r, &(*arr)[i])
+
 		if !r.ok {
 			return
 		}
@@ -783,6 +893,7 @@ func snapWriteBody(buf *recBuffer, v body) {
 	recWU32(buf, v.flags)
 	snapWI32(buf, int(v.bodyType))
 	recWU16(buf, v.generation)
+
 	for i := range v.name {
 		recWU8(buf, v.name[i])
 	}
@@ -810,6 +921,7 @@ func snapReadBody(r *snapReader, v *body) {
 	v.id = snapRI32(r)
 	v.flags = snapRU32(r)
 	v.bodyType = BodyType(snapRI32(r))
+
 	v.generation = snapReadU16(r)
 	for i := range v.name {
 		v.name[i] = snapReadU8(r)
@@ -822,6 +934,7 @@ func snapWritePos(buf *recBuffer, v Pos) {
 	} else {
 		recWF32(buf, float32(v.X))
 	}
+
 	if doublePrecision {
 		recWF64(buf, float64(v.Y))
 	} else {
@@ -835,6 +948,7 @@ func snapReadPos(r *snapReader, v *Pos) {
 	} else {
 		v.X = posScalar(math.Float32frombits(snapRU32(r)))
 	}
+
 	if doublePrecision {
 		v.Y = posScalar(math.Float64frombits(snapReadU64(r)))
 	} else {
@@ -992,9 +1106,11 @@ func snapWritePolygon(buf *recBuffer, v Polygon) {
 	for i := range v.Vertices {
 		snapWriteVec2(buf, v.Vertices[i])
 	}
+
 	for i := range v.Normals {
 		snapWriteVec2(buf, v.Normals[i])
 	}
+
 	snapWriteVec2(buf, v.Centroid)
 	recWF32(buf, v.Radius)
 	snapWI32(buf, v.Count)
@@ -1004,9 +1120,11 @@ func snapReadPolygon(r *snapReader, v *Polygon) {
 	for i := range v.Vertices {
 		snapReadVec2(r, &v.Vertices[i])
 	}
+
 	for i := range v.Normals {
 		snapReadVec2(r, &v.Normals[i])
 	}
+
 	snapReadVec2(r, &v.Centroid)
 	v.Radius = math.Float32frombits(snapRU32(r))
 	v.Count = snapRI32(r)
@@ -1056,6 +1174,7 @@ func snapWriteShape(buf *recBuffer, v shape) {
 	recWBOOL(buf, v.enableCustomFiltering)
 	recWBOOL(buf, v.enableHitEvents)
 	recWBOOL(buf, v.enablePreSolveEvents)
+
 	switch v.shapeType {
 	case CircleShape:
 		snapWriteCircle(buf, v.circle)
@@ -1090,6 +1209,7 @@ func snapReadShape(r *snapReader, v *shape) {
 	v.enableContactEvents = snapReadU8(r) != 0
 	v.enableCustomFiltering = snapReadU8(r) != 0
 	v.enableHitEvents = snapReadU8(r) != 0
+
 	v.enablePreSolveEvents = snapReadU8(r) != 0
 	switch v.shapeType {
 	case CircleShape:
@@ -1123,6 +1243,7 @@ func snapWriteContact(buf *recBuffer, v contact) {
 	for i := range v.edges {
 		snapWriteContactEdge(buf, v.edges[i])
 	}
+
 	snapWI32(buf, v.islandID)
 	snapWI32(buf, v.islandIndex)
 	snapWI32(buf, v.setIndex)
@@ -1139,6 +1260,7 @@ func snapReadContact(r *snapReader, v *contact) {
 	for i := range v.edges {
 		snapReadContactEdge(r, &v.edges[i])
 	}
+
 	v.islandID = snapRI32(r)
 	v.islandIndex = snapRI32(r)
 	v.setIndex = snapRI32(r)
@@ -1190,26 +1312,32 @@ func snapReadManifoldPoint(r *snapReader, v *ManifoldPoint) {
 func snapWriteManifold(buf *recBuffer, v Manifold) {
 	snapWriteVec2(buf, v.Normal)
 	recWF32(buf, v.RollingImpulse)
+
 	for i := range v.Points {
 		snapWriteManifoldPoint(buf, v.Points[i])
 	}
+
 	snapWI32(buf, v.PointCount)
 }
 
 func snapReadManifold(r *snapReader, v *Manifold) {
 	snapReadVec2(r, &v.Normal)
+
 	v.RollingImpulse = math.Float32frombits(snapRU32(r))
 	for i := range v.Points {
 		snapReadManifoldPoint(r, &v.Points[i])
 	}
+
 	v.PointCount = snapRI32(r)
 }
 
 func snapWriteSimplexCache(buf *recBuffer, v SimplexCache) {
 	recWU16(buf, v.Count)
+
 	for i := range v.IndexA {
 		recWU8(buf, v.IndexA[i])
 	}
+
 	for i := range v.IndexB {
 		recWU8(buf, v.IndexB[i])
 	}
@@ -1220,6 +1348,7 @@ func snapReadSimplexCache(r *snapReader, v *SimplexCache) {
 	for i := range v.IndexA {
 		v.IndexA[i] = snapReadU8(r)
 	}
+
 	for i := range v.IndexB {
 		v.IndexB[i] = snapReadU8(r)
 	}
@@ -1289,9 +1418,11 @@ func snapWriteJoint(buf *recBuffer, v joint) {
 	snapWI32(buf, v.setIndex)
 	snapWI32(buf, v.colorIndex)
 	snapWI32(buf, v.localIndex)
+
 	for i := range v.edges {
 		snapWriteJointEdge(buf, v.edges[i])
 	}
+
 	snapWI32(buf, v.jointId)
 	snapWI32(buf, v.islandId)
 	snapWI32(buf, v.islandIndex)
@@ -1305,10 +1436,12 @@ func snapReadJoint(r *snapReader, v *joint) {
 	v.userData = nil
 	v.setIndex = snapRI32(r)
 	v.colorIndex = snapRI32(r)
+
 	v.localIndex = snapRI32(r)
 	for i := range v.edges {
 		snapReadJointEdge(r, &v.edges[i])
 	}
+
 	v.jointId = snapRI32(r)
 	v.islandId = snapRI32(r)
 	v.islandIndex = snapRI32(r)
@@ -1700,6 +1833,7 @@ func snapWriteJointSim(buf *recBuffer, v jointSim) {
 	snapWriteSoftness(buf, v.constraintSoftness)
 	recWF32(buf, v.forceThreshold)
 	recWF32(buf, v.torqueThreshold)
+
 	switch v.jointType {
 	case DistanceJointType:
 		snapWriteDistanceJoint(buf, v.distanceJoint)
@@ -1735,6 +1869,7 @@ func snapReadJointSim(r *snapReader, v *jointSim) {
 	v.constraintDampingRatio = math.Float32frombits(snapRU32(r))
 	snapReadSoftness(r, &v.constraintSoftness)
 	v.forceThreshold = math.Float32frombits(snapRU32(r))
+
 	v.torqueThreshold = math.Float32frombits(snapRU32(r))
 	switch v.jointType {
 	case DistanceJointType:
@@ -1805,6 +1940,7 @@ func snapReadVisitor(r *snapReader, v *visitor) {
 func snapWriteTreeNode(buf *recBuffer, v TreeNode) {
 	snapWriteAABB(buf, v.AABB)
 	recWU32(buf, v.FlagIndex)
+
 	if v.FlagIndex&leafNode != 0 {
 		recWI32(buf, v.ShapeIndex)
 	} else {
@@ -1814,6 +1950,7 @@ func snapWriteTreeNode(buf *recBuffer, v TreeNode) {
 
 func snapReadTreeNode(r *snapReader, v *TreeNode) {
 	snapReadAABB(r, &v.AABB)
+
 	v.FlagIndex = snapRU32(r)
 	if v.FlagIndex&leafNode != 0 {
 		v.ShapeIndex = int32(snapRI32(r))
@@ -1906,6 +2043,7 @@ func snapWriteValue[T any](buf *recBuffer, value T) {
 		panic("box2d: unsupported snapshot element")
 	}
 }
+
 func snapReadValue[T any](r *snapReader, value *T) {
 	switch v := any(value).(type) {
 	case *AABB:
@@ -1952,6 +2090,7 @@ func snapReadValue[T any](r *snapReader, value *T) {
 		panic("box2d: unsupported snapshot element")
 	}
 }
+
 func snapMinSize[T any]() int {
 	switch any(*new(T)).(type) {
 	case AABB:
@@ -2003,33 +2142,43 @@ func snapReadU8(r *snapReader) uint8 { var b [1]byte; snapRBytes(r, b[:], 1); re
 func snapReadU16(r *snapReader) uint16 {
 	var b [2]byte
 	snapRBytes(r, b[:], 2)
+
 	return binary.LittleEndian.Uint16(b[:])
 }
+
 func snapReadU64(r *snapReader) uint64 {
 	var b [8]byte
 	snapRBytes(r, b[:], 8)
+
 	return binary.LittleEndian.Uint64(b[:])
 }
+
 func snapReadCount(r *snapReader, memSize, streamSize int) int {
 	n := snapRI32(r)
 	if !snapCheckCount(r, n, memSize, streamSize) {
 		r.ok = false
 	}
+
 	return n
 }
+
 func snapshotHeaderError(image []byte, size int) error {
 	if size < 16 || size > len(image) {
 		return &SnapshotError{Err: ErrCorrupt}
 	}
+
 	if binary.LittleEndian.Uint32(image) != snapMagic {
 		return &SnapshotError{Err: ErrBadMagic}
 	}
+
 	if binary.LittleEndian.Uint32(image[4:]) != snapVersion {
 		return &SnapshotError{Err: ErrVersion}
 	}
+
 	flags := binary.LittleEndian.Uint32(image[12:])
-	if (flags&snapFlagDoublePrecision != 0) != doublePrecision || binary.LittleEndian.Uint32(image[8:]) != computeLayoutHash() {
+	if (flags&snapFlagDoublePrecision != 0) || binary.LittleEndian.Uint32(image[8:]) != computeLayoutHash() {
 		return &SnapshotError{Err: ErrLayout}
 	}
+
 	return nil
 }

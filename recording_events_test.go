@@ -8,70 +8,91 @@ import (
 
 func recordingEventValues(w *box2d.World) [11]uint64 {
 	var row [11]uint64
+
 	hash := uint64(oracle.HashInit)
 	id := func(packed uint64, world *box2d.World) {
 		hash = oracle.HashU32(hash, uint32(packed>>32))
 		hash = oracle.HashU32(hash, uint32(uint16(packed)))
+
 		owner := uint32(0)
 		if world == w {
 			owner = 1
 		}
+
 		hash = oracle.HashU32(hash, owner)
 	}
 	contact := func(c box2d.Contact) {
 		packed := c.ID()
 		hash = oracle.HashU32(hash, uint32(packed>>32))
 		hash = oracle.HashU32(hash, uint32(packed))
+
 		owner := uint32(0)
 		if c.World() == w {
 			owner = 1
 		}
+
 		hash = oracle.HashU32(hash, owner)
 	}
+
 	count := 0
 	for e := range w.BodyMoveEvents() {
 		count++
+
 		id(e.Body.ID(), e.Body.World())
 		hash = oracle.HashTransform(hash, oracle.Real(e.Transform.P.X), oracle.Real(e.Transform.P.Y), e.Transform.Q.C, e.Transform.Q.S)
+
 		asleep := uint32(0)
 		if e.FellAsleep {
 			asleep = 1
 		}
+
 		hash = oracle.HashU32(hash, asleep)
 	}
+
 	row[0] = uint64(count)
 	row[1] = uint64(hash)
 	hash = oracle.HashInit
+
 	begin, end := 0, 0
 	for e := range w.SensorBeginEvents() {
 		begin++
+
 		id(e.SensorShape.ID(), e.SensorShape.World())
 		id(e.VisitorShape.ID(), e.VisitorShape.World())
 	}
+
 	for e := range w.SensorEndEvents() {
 		end++
+
 		id(e.SensorShape.ID(), e.SensorShape.World())
 		id(e.VisitorShape.ID(), e.VisitorShape.World())
 	}
+
 	row[2] = uint64(begin)
 	row[3] = uint64(end)
 	row[4] = uint64(hash)
 	hash = oracle.HashInit
+
 	begin, end, hits := 0, 0, 0
 	for e := range w.ContactBeginEvents() {
 		begin++
+
 		id(e.ShapeA.ID(), e.ShapeA.World())
 		id(e.ShapeB.ID(), e.ShapeB.World())
 		contact(e.Contact)
 	}
+
 	for e := range w.ContactEndEvents() {
 		end++
+
 		id(e.ShapeA.ID(), e.ShapeA.World())
 		id(e.ShapeB.ID(), e.ShapeB.World())
 		contact(e.Contact)
 	}
+
 	for e := range w.ContactHitEvents() {
 		hits++
+
 		id(e.ShapeA.ID(), e.ShapeA.World())
 		id(e.ShapeB.ID(), e.ShapeB.World())
 		contact(e.Contact)
@@ -80,18 +101,23 @@ func recordingEventValues(w *box2d.World) [11]uint64 {
 		hash = oracle.HashF32(hash, e.Normal.Y)
 		hash = oracle.HashF32(hash, e.ApproachSpeed)
 	}
+
 	row[5] = uint64(begin)
 	row[6] = uint64(end)
 	row[7] = uint64(hits)
 	row[8] = uint64(hash)
 	hash = oracle.HashInit
+
 	count = 0
 	for e := range w.JointEvents() {
 		count++
+
 		id(e.Joint.ID(), e.Joint.World())
 	}
+
 	row[9] = uint64(count)
 	row[10] = uint64(hash)
+
 	return row
 }
 

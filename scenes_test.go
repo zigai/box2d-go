@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -28,34 +29,41 @@ var sceneRandomSeed uint32
 
 func isolateSceneRandomSeed(t *testing.T) {
 	t.Helper()
+
 	seed := sceneRandomSeed
+
 	t.Cleanup(func() { sceneRandomSeed = seed })
+
 	sceneRandomSeed = 12345
 }
 
 func TestSceneRandomSeedIsolation(t *testing.T) {
-
 	seed := sceneRandomSeed
+
 	t.Cleanup(func() { sceneRandomSeed = seed })
+
 	var first uint32
-	for i := 0; i < 2; i++ {
+
+	for i := range 2 {
 		sceneRandomSeed = uint32(17 + i)
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-
 			isolateSceneRandomSeed(t)
-			if !(sceneRandomSeed == 12345) {
+
+			if sceneRandomSeed != 12345 {
 				t.Fatal("condition false")
 			}
+
 			bits := math.Float32bits(scenes.RandomFloatRange(-0.5, 0.5))
 			if i == 0 {
 				first = bits
 			} else {
-				if !(bits == first) {
+				if bits != first {
 					t.Fatal("condition false")
 				}
 			}
 		})
-		if !(sceneRandomSeed == uint32(17+i)) {
+
+		if sceneRandomSeed != uint32(17+i) {
 			t.Fatal("condition false")
 		}
 	}
@@ -66,7 +74,6 @@ func TestScenes(t *testing.T) { testScenes(t, 1) }
 func TestParallelScenes(t *testing.T) { testScenes(t, 4) }
 
 func testScenes(t *testing.T, workers int) {
-
 	cases := []struct {
 		name    string
 		create  func(*box2d.World)
@@ -92,21 +99,25 @@ func testScenes(t *testing.T, workers int) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			isolateSceneRandomSeed(t)
+
 			def := box2d.DefaultWorldDef()
 			def.WorkerCount = workers
+
 			world := box2d.NewWorld(&def)
 			defer world.Close()
+
 			if tc.destroy != nil {
 				defer tc.destroy()
 			}
+
 			tc.create(world)
 			fixture := fmt.Sprintf("%s_workers%d", tc.name, workers)
 			r := oracle.Open(t, "scenes/"+fixture)
 			full := readSceneFull(t, fixture)
 			actual := make(map[int][]byte)
 			checkScene(t, r, full, actual, world, -1)
+
 			if tc.name == "ManyPyramids" {
 				c := scenes.GetManyPyramidsCapacity()
 				r.I32("staticShapeCount", int32(c.StaticShapeCount))
@@ -115,44 +126,55 @@ func testScenes(t *testing.T, workers int) {
 				r.I32("dynamicBodyCount", int32(c.DynamicBodyCount))
 				r.I32("contactCount", int32(c.ContactCount))
 			}
+
 			if tc.name == "Queries" {
 				r.I32("queryCount", int32(scenes.GetQueryBenchmarkCount()))
 				r.F32("extent", scenes.GetQueryBenchmarkExtent())
+
 				for _, index := range []int{0, 999} {
 					origin, translation := scenes.GetQueryBenchmarkRay(index)
 					r.Pos(fmt.Sprintf("origin%d", index), origin.X, origin.Y)
 					r.Vec2(fmt.Sprintf("translation%d", index), translation.X, translation.Y)
 				}
 			}
+
 			for step := range tc.horizon {
 				if tc.step != nil {
 					r.F32(fmt.Sprintf("%d.v", step), tc.step(world, step))
 				}
+
 				world.Step(float32(1)/float32(60), 4)
 				checkScene(t, r, full, actual, world, step)
+
 				if tc.stats != nil {
 					stats := tc.stats()
 					r.I32(fmt.Sprintf("%d.n", step), int32(stats.NodeVisits))
 					r.I32(fmt.Sprintf("%d.l", step), int32(stats.LeafVisits))
 				}
 			}
+
 			r.Bytes("full", packSceneBundle(actual, sceneWidth()))
 		})
 	}
-	t.Run("FallingHinges", func(t *testing.T) {
 
+	t.Run("FallingHinges", func(t *testing.T) {
 		def := box2d.DefaultWorldDef()
 		def.WorkerCount = workers
+
 		world := box2d.NewWorld(&def)
 		defer world.Close()
+
 		data := scenes.CreateFallingHinges(world)
 		fixture := fmt.Sprintf("FallingHinges_workers%d", workers)
 		r := oracle.Open(t, "scenes/"+fixture)
 		full := readSceneFull(t, fixture)
 		actual := make(map[int][]byte)
+
 		defer scenes.DestroyFallingHinges(&data)
+
 		checkScene(t, r, full, actual, world, -1)
-		for step := 0; step < 300; step++ {
+
+		for step := range 300 {
 			world.Step(float32(1)/float32(60), 4)
 			done := scenes.UpdateFallingHinges(world, &data)
 			r.Bool(fmt.Sprintf("%d.done", step), done)
@@ -161,23 +183,28 @@ func testScenes(t *testing.T, workers int) {
 			r.I32(fmt.Sprintf("%d.step", step), int32(data.StepCount))
 			checkScene(t, r, full, actual, world, step)
 		}
+
 		r.Bytes("full", packSceneBundle(actual, sceneWidth()))
 	})
 	t.Run("Human", func(t *testing.T) {
-
 		isolateSceneRandomSeed(t)
+
 		def := box2d.DefaultWorldDef()
 		def.WorkerCount = workers
+
 		world := box2d.NewWorld(&def)
 		defer world.Close()
+
 		var human scenes.Human
 		scenes.CreateHuman(&human, world, box2d.Pos{X: 0, Y: 5}, 1, 0.05, 5, 0.5, 1, nil, true)
+
 		fixture := fmt.Sprintf("Human_workers%d", workers)
 		r := oracle.Open(t, "scenes/"+fixture)
 		full := readSceneFull(t, fixture)
 		actual := make(map[int][]byte)
 		checkScene(t, r, full, actual, world, -1)
-		for step := 0; step < 300; step++ {
+
+		for step := range 300 {
 			switch step {
 			case 0:
 				human.SetVelocity(box2d.Vec2{X: 1})
@@ -200,26 +227,35 @@ func testScenes(t *testing.T, workers int) {
 			case 180:
 				human.EnableSensorEvents(false)
 			}
+
 			if step == 140 || step == 180 {
 				count := int32(0)
+
 				var enabled bool
+
 				for shape := range human.Bones[int(scenes.BoneTorso)].BodyID.Shapes() {
 					count++
 					enabled = shape.SensorEventsEnabled()
+
 					break
 				}
+
 				r.I32(fmt.Sprintf("%d.torsoShapes", step), count)
 				r.Bool(fmt.Sprintf("%d.sensor", step), enabled)
-				if !(count == 1 && enabled == (step == 140)) {
+
+				if count != 1 || enabled != (step == 140) {
 					t.Fatal("condition false")
 				}
 			}
+
 			if step == 0 || (step >= 20 && step <= 180 && step%20 == 0) {
 				checkSceneObservations(t, r, world, 2000+step)
 			}
+
 			world.Step(float32(1)/float32(60), 4)
 			checkScene(t, r, full, actual, world, step)
 		}
+
 		scenes.DestroyHuman(&human)
 		checkScene(t, r, full, actual, world, 300)
 		r.Bytes("full", packSceneBundle(actual, sceneWidth()))
@@ -228,14 +264,18 @@ func testScenes(t *testing.T, workers int) {
 
 func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, world *box2d.World, step int) {
 	t.Helper()
+
 	counters := world.Counters()
 	r.I32(fmt.Sprintf("%d.b", step), int32(counters.BodyCount))
 	r.I32(fmt.Sprintf("%d.s", step), int32(counters.ShapeCount))
+
 	transforms := box2d.SceneBodyTransformsForTest(world)
 	hash := uint64(14695981039346656037)
+
 	var bytes []byte
 	for _, body := range transforms {
 		bytes = binary.LittleEndian.AppendUint32(bytes, uint32(body.Index))
+
 		start := len(bytes)
 		if unsafe.Sizeof(box2d.Pos{}) == 16 {
 			bytes = binary.LittleEndian.AppendUint64(bytes, math.Float64bits(float64(body.Transform.P.X)))
@@ -244,18 +284,23 @@ func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, wor
 			bytes = binary.LittleEndian.AppendUint32(bytes, math.Float32bits(float32(body.Transform.P.X)))
 			bytes = binary.LittleEndian.AppendUint32(bytes, math.Float32bits(float32(body.Transform.P.Y)))
 		}
+
 		bytes = binary.LittleEndian.AppendUint32(bytes, math.Float32bits(body.Transform.Q.C))
+
 		bytes = binary.LittleEndian.AppendUint32(bytes, math.Float32bits(body.Transform.Q.S))
 		for _, value := range bytes[start:] {
 			hash ^= uint64(value)
 			hash *= 1099511628211
 		}
 	}
+
 	if want, ok := full[step]; ok {
 		diagnoseSceneFull(t, step, want, bytes)
 	}
+
 	r.U64(fmt.Sprintf("%d.h", step), hash)
 	checkSceneObservations(t, r, world, step)
+
 	if step == -1 || (step < 300 && step%60 == 59) {
 		actual[step] = bytes
 	}
@@ -263,11 +308,13 @@ func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, wor
 
 func checkSceneObservations(t *testing.T, r *oracle.Reader, world *box2d.World, step int) {
 	t.Helper()
+
 	for i, state := range box2d.SceneStateForTest(world) {
 		lane := []string{"dynamic", "contact", "joint"}[i]
 		r.I32(fmt.Sprintf("%d.%s.count", step, lane), int32(state.Count))
 		r.U64(fmt.Sprintf("%d.%s.hash", step, lane), state.Hash)
 	}
+
 	for i, state := range box2d.SceneEventsForTest(world) {
 		lane := []string{"move", "sensorBegin", "sensorEnd", "contactBegin", "contactEnd", "hit", "jointEvent"}[i]
 		r.I32(fmt.Sprintf("%d.%s.count", step, lane), int32(state.Count))
@@ -277,18 +324,22 @@ func checkSceneObservations(t *testing.T, r *oracle.Reader, world *box2d.World, 
 
 func diagnoseSceneFull(t *testing.T, step int, want, got []byte) {
 	t.Helper()
+
 	stride := 2*sceneWidth() + 12
 	if len(want) != len(got) {
 		t.Fatalf("step %d: full-state body count: C %d, Go %d", step, len(want)/stride, len(got)/stride)
 	}
+
 	for offset, value := range want {
 		if got[offset] == value {
 			continue
 		}
+
 		bodyOffset := offset / stride * stride
 		body := binary.LittleEndian.Uint32(want[bodyOffset : bodyOffset+4])
 		component := "body ID"
 		byteInBody := offset % stride
+
 		positionWidth := int(unsafe.Sizeof(box2d.Pos{})) / 2
 		switch {
 		case byteInBody < 4:
@@ -301,12 +352,15 @@ func diagnoseSceneFull(t *testing.T, step int, want, got []byte) {
 		default:
 			component = "Q.S"
 		}
+
 		t.Fatalf("step %d: body %d, %s, byte %d: C 0x%02x, Go 0x%02x", step, body, component, byteInBody, value, got[offset])
 	}
 }
 
-const sceneLimit = 32 << 20
-const sceneWindow = 1 << 20
+const (
+	sceneLimit  = 32 << 20
+	sceneWindow = 1 << 20
+)
 
 var sceneSteps = []int{-1, 59, 119, 179, 239, 299}
 
@@ -320,13 +374,16 @@ func packSceneLZ(raw []byte) []byte {
 	if len(raw) > sceneLimit {
 		panic("scene packet exceeds limit")
 	}
+
 	out := binary.LittleEndian.AppendUint32(nil, uint32(len(raw)))
 	table := make([]uint32, sceneWindow)
+
 	start, i := 0, 0
 	for i+4 <= len(raw) {
 		key := sceneDictionaryKey(raw[i:])
 		entry := table[key]
 		table[key] = uint32(i) + 1
+
 		count, previous := 0, int(entry)-1
 		if entry != 0 && i-previous <= sceneWindow && bytes.Equal(raw[previous:previous+4], raw[i:i+4]) {
 			count = 4
@@ -334,94 +391,119 @@ func packSceneLZ(raw []byte) []byte {
 				count++
 			}
 		}
+
 		if count == 0 {
 			i++
 			continue
 		}
+
 		if i > start {
 			out = binary.AppendUvarint(out, uint64((i-start-1)<<1))
 			out = append(out, raw[start:i]...)
 		}
+
 		out = binary.AppendUvarint(out, uint64((count-4)<<1|1))
+
 		out = binary.AppendUvarint(out, uint64(i-previous))
 		for j := i + 1; j < i+count && j+4 <= len(raw); j++ {
 			table[sceneDictionaryKey(raw[j:])] = uint32(j) + 1
 		}
+
 		i += count
 		start = i
 	}
+
 	if start < len(raw) {
 		out = binary.AppendUvarint(out, uint64((len(raw)-start-1)<<1))
 		out = append(out, raw[start:]...)
 	}
+
 	return out
 }
 
 func sceneVarint(p *[]byte) (uint32, error) {
 	var value uint32
-	for i := 0; i < 5; i++ {
+
+	for i := range 5 {
 		if len(*p) == 0 {
-			return 0, fmt.Errorf("truncated varint")
+			return 0, errors.New("truncated varint")
 		}
+
 		b := (*p)[0]
 		*p = (*p)[1:]
+
 		if i == 4 && b > 15 {
-			return 0, fmt.Errorf("overflowing varint")
+			return 0, errors.New("overflowing varint")
 		}
+
 		value |= uint32(b&127) << (7 * i)
 		if b < 128 {
 			if i > 0 && b == 0 {
-				return 0, fmt.Errorf("noncanonical varint")
+				return 0, errors.New("noncanonical varint")
 			}
+
 			return value, nil
 		}
 	}
-	return 0, fmt.Errorf("overflowing varint")
+
+	return 0, errors.New("overflowing varint")
 }
 
 func unpackSceneLZ(p []byte) ([]byte, error) {
 	if len(p) < 4 {
-		return nil, fmt.Errorf("short packet")
+		return nil, errors.New("short packet")
 	}
+
 	declared := binary.LittleEndian.Uint32(p)
 	p = p[4:]
+
 	if declared > sceneLimit {
-		return nil, fmt.Errorf("packet exceeds limit")
+		return nil, errors.New("packet exceeds limit")
 	}
+
 	size := int(declared)
+
 	out := make([]byte, 0, size)
 	for len(out) < size {
 		command, err := sceneVarint(&p)
 		if err != nil {
 			return nil, err
 		}
+
 		if command>>1 >= sceneLimit {
-			return nil, fmt.Errorf("command exceeds limit")
+			return nil, errors.New("command exceeds limit")
 		}
+
 		count := int(command>>1) + 1
 		if command&1 == 0 {
 			if count > size-len(out) || count > len(p) {
-				return nil, fmt.Errorf("invalid literal length")
+				return nil, errors.New("invalid literal length")
 			}
+
 			out = append(out, p[:count]...)
 			p = p[count:]
 		} else {
 			count += 3
+
 			distance, err := sceneVarint(&p)
 			if err != nil {
 				return nil, err
 			}
+
 			if count > 65535 || count > size-len(out) || distance == 0 || distance > sceneWindow || int(distance) > len(out) {
-				return nil, fmt.Errorf("invalid match")
+				return nil, errors.New("invalid match")
 			}
+
 			for range count {
 				out = append(out, out[len(out)-int(distance)])
 			}
 		}
 	}
+
 	if len(p) != 0 {
-		return nil, fmt.Errorf("trailing packet bytes")
+		return nil, errors.New("trailing packet bytes")
 	}
+
 	return out, nil
 }
 
@@ -429,40 +511,50 @@ func packSceneBundle(full map[int][]byte, width int) []byte {
 	components, stride := 2*width+8, 2*width+12
 	raw := []byte{'S', 'C', 'N', 'L', byte(width), 6}
 	total := 0
+
 	for _, step := range sceneSteps {
 		state := full[step]
 		if len(state)%stride != 0 || len(state)/stride > 100000 {
 			panic("invalid scene state")
 		}
+
 		raw = binary.LittleEndian.AppendUint32(raw, uint32(int32(step)))
 		raw = binary.LittleEndian.AppendUint32(raw, uint32(len(state)/stride))
 		total += len(state) / stride
 	}
+
 	planes := make([]byte, total*components)
 	history := make(map[uint32][]byte)
 	record := 0
+
 	for _, step := range sceneSteps {
 		state := full[step]
 		preceding := uint32(math.MaxUint32)
+
 		for i := 0; i < len(state); i += stride {
 			id := binary.LittleEndian.Uint32(state[i:])
 			if id >= sceneWindow || preceding != math.MaxUint32 && id <= preceding {
 				panic("invalid scene ID")
 			}
+
 			raw = binary.AppendUvarint(raw, uint64(id-preceding))
 			preceding = id
+
 			previous := history[id]
 			if previous == nil {
 				previous = make([]byte, components)
 				history[id] = previous
 			}
+
 			for lane := range components {
 				planes[lane*total+record] = state[i+4+lane] ^ previous[lane]
 				previous[lane] = state[i+4+lane]
 			}
+
 			record++
 		}
 	}
+
 	return packSceneLZ(append(raw, planes...))
 }
 
@@ -471,52 +563,68 @@ func unpackSceneBundle(p []byte, width int) (map[int][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(raw) < 54 || string(raw[:4]) != "SCNL" || width != 4 && width != 8 || int(raw[4]) != width || raw[5] != 6 {
-		return nil, fmt.Errorf("invalid bundle header")
+		return nil, errors.New("invalid bundle header")
 	}
+
 	counts := make([]int, 6)
 	total := 0
+
 	for k, step := range sceneSteps {
 		if int32(binary.LittleEndian.Uint32(raw[6+8*k:])) != int32(step) {
-			return nil, fmt.Errorf("invalid checkpoint cadence")
+			return nil, errors.New("invalid checkpoint cadence")
 		}
+
 		count := binary.LittleEndian.Uint32(raw[10+8*k:])
 		if count > 100000 {
-			return nil, fmt.Errorf("body count exceeds limit")
+			return nil, errors.New("body count exceeds limit")
 		}
+
 		counts[k] = int(count)
 		total += counts[k]
 	}
+
 	components, stride := 2*width+8, 2*width+12
+
 	p = raw[54:]
 	if len(p) < total*(components+1) {
-		return nil, fmt.Errorf("short body planes")
+		return nil, errors.New("short body planes")
 	}
+
 	states := make(map[int][]byte)
 	maxID := uint32(0)
+
 	for k, step := range sceneSteps {
 		state := make([]byte, counts[k]*stride)
 		preceding := uint32(math.MaxUint32)
+
 		for i := range counts[k] {
 			gap, err := sceneVarint(&p)
 			if err != nil {
 				return nil, err
 			}
+
 			id := preceding + gap
 			if gap == 0 || id >= sceneWindow || preceding != math.MaxUint32 && id <= preceding {
-				return nil, fmt.Errorf("invalid body order")
+				return nil, errors.New("invalid body order")
 			}
+
 			binary.LittleEndian.PutUint32(state[i*stride:], id)
 			preceding = id
 			maxID = max(maxID, id)
 		}
+
 		states[step] = state
 	}
+
 	if len(p) != total*components {
-		return nil, fmt.Errorf("body plane length mismatch")
+		return nil, errors.New("body plane length mismatch")
 	}
+
 	history := make([]byte, (int(maxID)+1)*components)
 	record := 0
+
 	for _, step := range sceneSteps {
 		state := states[step]
 		for i := 0; i < len(state); i += stride {
@@ -526,9 +634,11 @@ func unpackSceneBundle(p []byte, width int) (map[int][]byte, error) {
 				state[i+4+lane] = value
 				history[id*components+lane] = value
 			}
+
 			record++
 		}
 	}
+
 	return states, nil
 }
 
@@ -536,26 +646,34 @@ type sceneRecord struct{ Key, Type, Value string }
 
 func parseSceneRecord(line []byte) (sceneRecord, error) {
 	var record sceneRecord
+
 	dec := json.NewDecoder(bytes.NewReader(line))
+
 	token, err := dec.Token()
 	if err != nil || token != json.Delim('{') {
-		return record, fmt.Errorf("invalid record object")
+		return record, errors.New("invalid record object")
 	}
+
 	seen := make(map[string]bool)
+
 	for dec.More() {
 		token, err := dec.Token()
 		if err != nil {
 			return record, err
 		}
+
 		key, ok := token.(string)
 		if !ok || seen[key] {
-			return record, fmt.Errorf("duplicate record key")
+			return record, errors.New("duplicate record key")
 		}
+
 		seen[key] = true
+
 		var value string
 		if err := dec.Decode(&value); err != nil {
 			return record, err
 		}
+
 		switch key {
 		case "k":
 			record.Key = value
@@ -564,27 +682,33 @@ func parseSceneRecord(line []byte) (sceneRecord, error) {
 		case "v":
 			record.Value = value
 		default:
-			return record, fmt.Errorf("unknown record key")
+			return record, errors.New("unknown record key")
 		}
 	}
+
 	if _, err := dec.Token(); err != nil {
 		return record, err
 	}
+
 	if len(seen) != 3 {
-		return record, fmt.Errorf("missing record key")
+		return record, errors.New("missing record key")
 	}
+
 	if _, err := dec.Token(); err != io.EOF {
-		return record, fmt.Errorf("trailing record data")
+		return record, errors.New("trailing record data")
 	}
+
 	if record.Key == "" {
-		return record, fmt.Errorf("empty record key")
+		return record, errors.New("empty record key")
 	}
+
 	return record, nil
 }
 
 func validateSceneValue(record sceneRecord, width int) error {
 	fields := strings.Split(record.Value, ",")
 	length, count := 8, 1
+
 	switch record.Type {
 	case "i32", "u32", "f32":
 	case "u64":
@@ -596,143 +720,178 @@ func validateSceneValue(record sceneRecord, width int) error {
 		length = 2 * width
 	case "bool":
 		if record.Value != "0" && record.Value != "1" {
-			return fmt.Errorf("invalid bool")
+			return errors.New("invalid bool")
 		}
+
 		return nil
 	case "bytes":
 		_, err := hex.DecodeString(record.Value)
 		return err
 	default:
-		return fmt.Errorf("unknown primitive type")
+		return errors.New("unknown primitive type")
 	}
+
 	if len(fields) != count {
-		return fmt.Errorf("invalid primitive components")
+		return errors.New("invalid primitive components")
 	}
+
 	for _, field := range fields {
 		if len(field) != length {
-			return fmt.Errorf("invalid primitive width")
+			return errors.New("invalid primitive width")
 		}
+
 		if _, err := strconv.ParseUint(field, 16, 4*length); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func readSceneRecords(t *testing.T, config, name string) ([]sceneRecord, []byte, map[int][]byte) {
 	t.Helper()
+
 	data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/" + name + ".jsonl")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var records []sceneRecord
-	var packed []byte
-	for _, line := range bytes.Split(data, []byte{'\n'}) {
+
+	var (
+		records []sceneRecord
+		packed  []byte
+	)
+
+	for line := range bytes.SplitSeq(data, []byte{'\n'}) {
 		if len(line) == 0 {
 			continue
 		}
+
 		record, err := parseSceneRecord(line)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		width := 4
 		if config == "double" {
 			width = 8
 		}
+
 		if err := validateSceneValue(record, width); err != nil {
 			t.Fatal(err)
 		}
+
 		records = append(records, record)
 		if record.Key == "full" {
 			if packed != nil || record.Type != "bytes" {
 				t.Fatal("duplicate or mistyped full packet")
 			}
+
 			packed, err = hex.DecodeString(record.Value)
 			if err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
+
 	if len(records) == 0 || records[len(records)-1].Key != "full" || packed == nil {
 		t.Fatal("missing final full packet")
 	}
+
 	width := 4
 	if config == "double" {
 		width = 8
 	}
+
 	full, err := unpackSceneBundle(packed, width)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return records, packed, full
 }
 
 func readSceneFull(t *testing.T, name string) map[int][]byte {
 	t.Helper()
+
 	config := "float"
 	if sceneWidth() == 8 {
 		config = "double"
 	}
+
 	_, _, full := readSceneRecords(t, config, name)
+
 	return full
 }
 
 func TestSceneCodec(t *testing.T) {
-
 	for _, width := range []int{4, 8} {
-		t.Run(fmt.Sprint(width), func(t *testing.T) {
-
+		t.Run(strconv.Itoa(width), func(t *testing.T) {
 			states := make(map[int][]byte)
 			stride := 2*width + 12
+
 			for k, step := range sceneSteps {
 				ids := []uint32{0, 2, 7}
 				if k == 1 {
 					ids = []uint32{2, 7, 9}
 				}
+
 				if k == 2 {
 					ids = nil
 				}
+
 				for _, id := range ids {
 					body := make([]byte, stride)
 					binary.LittleEndian.PutUint32(body, id)
+
 					for i := 4; i < stride; i++ {
 						body[i] = byte(int(id)*31 + i + k)
 					}
+
 					if id == 0 {
 						if width == 8 {
 							binary.LittleEndian.PutUint64(body[4:], 0x8000000000000000)
 						} else {
 							binary.LittleEndian.PutUint32(body[4:], 0x80000000)
 						}
+
 						binary.LittleEndian.PutUint32(body[stride-4:], 0x7fc01234)
 					}
+
 					states[step] = append(states[step], body...)
 				}
 			}
+
 			packet := packSceneBundle(states, width)
+
 			got, err := unpackSceneBundle(packet, width)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			for _, step := range sceneSteps {
 				if !bytes.Equal(got[step], states[step]) {
 					t.Fatalf("step %d bits changed", step)
 				}
 			}
+
 			if _, err := unpackSceneBundle(packet, 12-width); err == nil {
 				t.Fatal("accepted wrong precision")
 			}
+
 			raw, err := unpackSceneLZ(packet)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			for _, offset := range []int{0, 4, 5, 6, 10, 54} {
 				bad := bytes.Clone(raw)
+
 				bad[offset] ^= 255
 				if _, err := unpackSceneBundle(packSceneLZ(bad), width); err == nil {
 					t.Fatalf("accepted malformed field %d", offset)
 				}
 			}
+
 			for _, change := range []func([]byte){
 				func(p []byte) { binary.LittleEndian.PutUint32(p[10:], 100001) },
 				func(p []byte) { p[54] = 0 },
@@ -741,33 +900,46 @@ func TestSceneCodec(t *testing.T) {
 			} {
 				bad := bytes.Clone(raw)
 				change(bad)
+
 				if _, err := unpackSceneBundle(packSceneLZ(bad), width); err == nil {
 					t.Fatal("accepted invalid counts, IDs or cadence")
 				}
 			}
-			for end := 0; end < len(packet); end++ {
+
+			for end := range packet {
 				if _, err := unpackSceneBundle(packet[:end], width); err == nil {
 					t.Fatalf("accepted truncation %d", end)
 				}
 			}
 		})
 	}
+
 	for _, raw := range [][]byte{nil, []byte("abcdabcdabcdabcdabcd"), bytes.Repeat([]byte{0}, 70000), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 200000)} {
 		got, err := unpackSceneLZ(packSceneLZ(raw))
 		if err != nil || !bytes.Equal(got, raw) {
 			t.Fatalf("LZ round trip: %v", err)
 		}
 	}
+
 	malformed := [][]byte{
-		{1, 0, 0, 0, 0x80}, {1, 0, 0, 0, 0x80, 0}, {1, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0x10},
-		{4, 0, 0, 0, 1, 0}, {4, 0, 0, 0, 0xfe, 0xff, 0xff, 0xff, 0x0f}, {4, 0, 0, 0, 1, 1}, {1, 0, 0, 0, 2, 0, 0}, {0, 0, 0, 0, 0}, {0xff, 0xff, 0xff, 0xff},
-		{5, 0, 0, 0, 0, 'a', 1, 2}, {5, 0, 0, 0, 0, 'a', 1, 0x81, 0x80, 0x40},
+		{1, 0, 0, 0, 0x80},
+		{1, 0, 0, 0, 0x80, 0},
+		{1, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0x10},
+		{4, 0, 0, 0, 1, 0},
+		{4, 0, 0, 0, 0xfe, 0xff, 0xff, 0xff, 0x0f},
+		{4, 0, 0, 0, 1, 1},
+		{1, 0, 0, 0, 2, 0, 0},
+		{0, 0, 0, 0, 0},
+		{0xff, 0xff, 0xff, 0xff},
+		{5, 0, 0, 0, 0, 'a', 1, 2},
+		{5, 0, 0, 0, 0, 'a', 1, 0x81, 0x80, 0x40},
 	}
 	for i, p := range malformed {
 		if _, err := unpackSceneLZ(p); err == nil {
 			t.Fatalf("accepted malformed LZ %d", i)
 		}
 	}
+
 	for _, line := range []string{
 		`{}`, `{"k":"full","t":"bytes"}`, `{"k":"full","k":"full","t":"bytes","v":""}`,
 		`{"k":"full","t":"bytes","v":"","extra":""}`, `{"k":"full","t":"bytes","v":0}`, `{"k":"full","t":"bytes","v":""} {}`,
@@ -780,6 +952,7 @@ func TestSceneCodec(t *testing.T) {
 
 func sceneHash(state []byte, width int) uint64 {
 	hash := uint64(14695981039346656037)
+
 	stride := 2*width + 12
 	for offset := 0; offset < len(state); offset += stride {
 		for _, value := range state[offset+4 : offset+stride] {
@@ -787,20 +960,22 @@ func sceneHash(state []byte, width int) uint64 {
 			hash *= 1099511628211
 		}
 	}
+
 	return hash
 }
 
 func TestSceneFixtureInventory(t *testing.T) {
-
 	names := []string{"JointGrid", "LargePyramid", "ManyPyramids", "Rain", "Spinner", "Smash", "Tumbler", "Washer", "Junkyard", "Sleep", "Compounds", "Queries", "TreeCast", "TileWorld", "FallingHinges", "Human"}
+
 	for _, config := range []string{"float", "double"} {
 		t.Run(config, func(t *testing.T) {
-
 			width := 4
 			if config == "double" {
 				width = 8
 			}
+
 			benchmarks := int64(0)
+
 			for _, workers := range []int{1, 4} {
 				for index, name := range names {
 					fixture := fmt.Sprintf("%s_workers%d", name, workers)
@@ -809,222 +984,294 @@ func TestSceneFixtureInventory(t *testing.T) {
 						if !bytes.Equal(packSceneBundle(full, width), packed) {
 							t.Fatal("C/Go deterministic encoding mismatch")
 						}
+
 						next := 0
 						take := func(key, kind string) sceneRecord {
 							t.Helper()
+
 							if next >= len(records) {
 								t.Fatalf("missing %s", key)
 							}
+
 							r := records[next]
+
 							next++
 							if r.Key != key || r.Type != kind {
 								t.Fatalf("record %d: want %s/%s, got %s/%s", next, key, kind, r.Key, r.Type)
 							}
+
 							return r
 						}
 						count := func(key string) int {
 							t.Helper()
+
 							r := take(key, "i32")
+
 							value, err := strconv.ParseUint(r.Value, 16, 32)
 							if err != nil || len(r.Value) != 8 {
 								t.Fatalf("invalid count %s", key)
 							}
+
 							return int(int32(value))
 						}
 						observations := func(step int) {
 							t.Helper()
+
 							for _, lane := range []string{"dynamic", "contact", "joint", "move", "sensorBegin", "sensorEnd", "contactBegin", "contactEnd", "hit", "jointEvent"} {
 								if count(fmt.Sprintf("%d.%s.count", step, lane)) < 0 {
 									t.Fatal("negative observation count")
 								}
+
 								take(fmt.Sprintf("%d.%s.hash", step, lane), "u64")
 							}
 						}
 						trace := func(step int) {
 							t.Helper()
+
 							bodies := count(fmt.Sprintf("%d.b", step))
+
 							shapes := count(fmt.Sprintf("%d.s", step))
 							if bodies < 0 || shapes < 0 {
 								t.Fatal("negative body/shape count")
 							}
+
 							h := take(fmt.Sprintf("%d.h", step), "u64")
+
 							value, err := strconv.ParseUint(h.Value, 16, 64)
 							if err != nil || len(h.Value) != 16 {
 								t.Fatal("invalid hash")
 							}
+
 							if state, ok := full[step]; ok {
 								if len(state)/(2*width+12) != bodies {
 									t.Fatalf("step %d count differs from full packet", step)
 								}
+
 								if got := sceneHash(state, width); got != value {
 									t.Fatalf("step %d full packet FNV: %016x != %016x", step, got, value)
 								}
 							}
+
 							observations(step)
 						}
 						trace(-1)
+
 						if name == "ManyPyramids" {
 							for _, key := range []string{"staticShapeCount", "staticBodyCount", "dynamicShapeCount", "dynamicBodyCount", "contactCount"} {
 								count(key)
 							}
 						}
+
 						if name == "Queries" {
 							count("queryCount")
 							take("extent", "f32")
+
 							for _, i := range []int{0, 999} {
 								take(fmt.Sprintf("origin%d", i), "pos")
 								take(fmt.Sprintf("translation%d", i), "vec2")
 							}
 						}
+
 						stepped := name == "Rain" || name == "Spinner" || name == "Junkyard" || name == "Sleep" || name == "Queries" || name == "TreeCast" || name == "TileWorld"
 						stats := name == "Queries" || name == "TreeCast" || name == "TileWorld"
+
 						horizon := map[string]int{"JointGrid": 500, "LargePyramid": 500, "ManyPyramids": 300, "Rain": 1000, "Spinner": 500, "Smash": 300, "Tumbler": 750, "Washer": 500, "Junkyard": 800, "Sleep": 300, "Compounds": 500, "Queries": 300, "TreeCast": 300, "TileWorld": 300, "FallingHinges": 300, "Human": 300}[name]
 						for step := range horizon {
 							if stepped {
 								take(fmt.Sprintf("%d.v", step), "f32")
 							}
+
 							if name == "FallingHinges" {
 								take(fmt.Sprintf("%d.done", step), "bool")
 								take(fmt.Sprintf("%d.hash", step), "u32")
 								count(fmt.Sprintf("%d.sleep", step))
 								count(fmt.Sprintf("%d.step", step))
 							}
+
 							if name == "Human" && (step == 140 || step == 180) {
 								if count(fmt.Sprintf("%d.torsoShapes", step)) != 1 {
 									t.Fatal("missing torso shape")
 								}
+
 								sensor := take(fmt.Sprintf("%d.sensor", step), "bool")
+
 								expected := "0"
 								if step == 140 {
 									expected = "1"
 								}
+
 								if sensor.Value != expected {
 									t.Fatal("sensor toggle differs")
 								}
 							}
+
 							if name == "Human" && (step == 0 || (step >= 20 && step <= 180 && step%20 == 0)) {
 								observations(2000 + step)
 							}
+
 							trace(step)
+
 							if stats {
 								count(fmt.Sprintf("%d.n", step))
 								count(fmt.Sprintf("%d.l", step))
 							}
 						}
+
 						if name == "Human" {
 							trace(300)
 						}
+
 						take("full", "bytes")
+
 						if next != len(records) {
 							t.Fatal("extra fixture records")
 						}
+
 						info, err := os.Stat("testdata/oracle/" + config + "/scenes/" + fixture + ".jsonl")
 						if err != nil {
 							t.Fatal(err)
 						}
+
 						if index < 14 {
 							benchmarks += info.Size()
 						} else if info.Size() > 1048576 {
 							t.Fatal("area exceeds default budget")
 						}
+
 						t.Logf("%d bytes; %d ordered steps; six full checkpoints; workers %d; width %d", info.Size(), horizon, workers, width)
 					})
 				}
 			}
+
 			if benchmarks > 67108864 {
 				t.Fatalf("benchmark fixtures exceed named budget: %d", benchmarks)
 			}
+
 			entries, err := os.ReadDir("testdata/oracle/" + config + "/scenes")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if len(entries) != 43 {
 				t.Fatalf("want 43 area fixtures (32 worker traces, six query payloads, two extended helpers, Utils/Trig/Helpers), got %d", len(entries))
 			}
+
 			expectedNames := map[string]bool{"Utils.jsonl": true, "Trig.jsonl": true, "Helpers.jsonl": true}
+
 			for _, workers := range []int{1, 4} {
 				for _, name := range names {
 					expectedNames[fmt.Sprintf("%s_workers%d.jsonl", name, workers)] = true
 				}
+
 				for _, name := range []string{"QueriesPayload", "TreeCastPayload", "TileWorldPayload", "ExtendedHelpers"} {
 					expectedNames[fmt.Sprintf("%s_workers%d.jsonl", name, workers)] = true
 				}
 			}
+
 			for _, entry := range entries {
 				if !expectedNames[entry.Name()] || entry.IsDir() {
 					t.Fatalf("unexpected scene fixture %s", entry.Name())
 				}
+
 				delete(expectedNames, entry.Name())
 			}
+
 			if len(expectedNames) != 0 {
 				t.Fatalf("missing scene fixtures: %v", expectedNames)
 			}
+
 			data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/Utils.jsonl")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if len(data) > 1048576 {
 				t.Fatal("utils exceeds default budget")
 			}
+
 			lines := bytes.Split(bytes.TrimSpace(data), []byte{'\n'})
 			next := 0
-			for step := 0; step < 300; step++ {
+
+			for step := range 300 {
 				take := func(suffix, kind string) sceneRecord {
 					t.Helper()
+
 					if next >= len(lines) {
 						t.Fatal("short utilities fixture")
 					}
+
 					r, err := parseSceneRecord(lines[next])
 					next++
+
 					if err == nil {
 						err = validateSceneValue(r, width)
 					}
+
 					if err != nil || r.Key != fmt.Sprintf("%d.%s", step, suffix) || r.Type != kind {
 						t.Fatalf("invalid utility record %d: %v", next, err)
 					}
+
 					return r
 				}
 				for _, field := range []struct{ key, kind string }{{"int", "i32"}, {"range", "i32"}, {"float", "f32"}, {"floatRange", "f32"}, {"vec", "vec2"}, {"pos", "pos"}, {"rot", "rot"}} {
 					take(field.key, field.kind)
 				}
+
 				r := take("count", "i32")
+
 				n, err := strconv.ParseUint(r.Value, 16, 32)
 				if err != nil || n < 3 || n > 8 {
 					t.Fatal("invalid polygon count")
 				}
+
 				take("radius", "f32")
 				take("centroid", "vec2")
+
 				for range int(n) {
 					take("vertex", "vec2")
 					take("normal", "vec2")
 				}
 			}
+
 			boundary := []struct{ key, kind string }{
-				{"equal.int", "i32"}, {"equal.float", "f32"}, {"equal.vec", "vec2"}, {"equal.pos", "pos"}, {"equal.seed", "u32"},
-				{"fallback.count", "i32"}, {"fallback.radius", "f32"}, {"fallback.centroid", "vec2"},
+				{"equal.int", "i32"},
+				{"equal.float", "f32"},
+				{"equal.vec", "vec2"},
+				{"equal.pos", "pos"},
+				{"equal.seed", "u32"},
+				{"fallback.count", "i32"},
+				{"fallback.radius", "f32"},
+				{"fallback.centroid", "vec2"},
 			}
 			for range 4 {
 				boundary = append(boundary, struct{ key, kind string }{"fallback.vertex", "vec2"}, struct{ key, kind string }{"fallback.normal", "vec2"})
 			}
+
 			for _, field := range boundary {
 				if next >= len(lines) {
 					t.Fatalf("missing utility boundary %s", field.key)
 				}
+
 				record, err := parseSceneRecord(lines[next])
 				next++
+
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				if record.Key != field.key || record.Type != field.kind {
 					t.Fatalf("utility boundary: want %s/%s, got %s/%s", field.key, field.kind, record.Key, record.Type)
 				}
+
 				if err := validateSceneValue(record, width); err != nil {
 					t.Fatal(err)
 				}
+
 				if field.key == "fallback.count" && record.Value != "00000004" {
 					t.Fatal("C fallback is not a square")
 				}
 			}
+
 			if next != len(lines) {
 				t.Fatal("extra utility observations")
 			}
@@ -1033,87 +1280,108 @@ func TestSceneFixtureInventory(t *testing.T) {
 }
 
 func TestSceneHelperFixtureInventory(t *testing.T) {
-
 	for _, config := range []string{"float", "double"} {
 		t.Run(config, func(t *testing.T) {
-
 			data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/Helpers.jsonl")
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if len(data) > 1048576 {
 				t.Fatal("helpers exceed default budget")
 			}
+
 			lines := bytes.Split(bytes.TrimSpace(data), []byte{'\n'})
 			next := 0
 			take := func(key, kind string) string {
 				t.Helper()
+
 				if next >= len(lines) {
 					t.Fatalf("missing %s", key)
 				}
+
 				r, err := parseSceneRecord(lines[next])
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				next++
+
 				if r.Key != key || r.Type != kind {
 					t.Fatalf("want %s/%s, got %s/%s", key, kind, r.Key, r.Type)
 				}
+
 				width := 4
 				if config == "double" {
 					width = 8
 				}
+
 				if err := validateSceneValue(r, width); err != nil {
 					t.Fatal(err)
 				}
+
 				return r.Value
 			}
 			counts := make(map[string]string)
+
 			for step := -1; step <= 2; step++ {
 				for _, field := range []string{"b", "s", "j"} {
 					key := fmt.Sprintf("%d.%s", step, field)
+
 					counts[key] = take(key, "i32")
 					if step == 1 && counts[key] != counts["-1."+field] {
 						t.Fatal("DestroyGroup did not restore world counts")
 					}
+
 					if step == 2 && counts[key] != counts["0."+field] {
 						t.Fatal("recycling changed world counts")
 					}
 				}
+
 				if step == -1 {
 					continue
 				}
+
 				spawned, cleared := "1", "0"
 				if step == 1 {
 					spawned, cleared = "0", "1"
 				}
+
 				if take(fmt.Sprintf("%d.spawned", step), "bool") != spawned || take(fmt.Sprintf("%d.cleared", step), "bool") != cleared {
 					t.Fatal("group lifecycle flags")
 				}
+
 				if take(fmt.Sprintf("%d.column", step), "i32") != "00000000" {
 					t.Fatal("recycling index did not wrap")
 				}
+
 				if step > 0 {
 					if take(fmt.Sprintf("%d.oldBody", step), "bool") != "0" || take(fmt.Sprintf("%d.oldJoint", step), "bool") != "0" {
 						t.Fatal("destroyed handles remain valid")
 					}
 				}
+
 				if step == 1 && take("2.v", "f32") != "00000000" {
 					t.Fatal("StepRain return")
 				}
 			}
+
 			for i, velocity := range []string{"c0a00000,00000000", "40a00000,00000000", "40a00000,00000000", "c0a00000,00000000"} {
 				take(fmt.Sprintf("%d.q", i), "f32")
 				take(fmt.Sprintf("%d.position", i), "pos")
+
 				if take(fmt.Sprintf("%d.velocity", i), "vec2") != velocity {
 					t.Fatal("strict paddle boundary reversal")
 				}
+
 				take(fmt.Sprintf("%d.n", i), "i32")
 				take(fmt.Sprintf("%d.l", i), "i32")
 			}
+
 			if next != len(lines) {
 				t.Fatal("extra helper records")
 			}
+
 			t.Logf("%d bytes; group destruction/recycling and four strict paddle boundaries", len(data))
 		})
 	}

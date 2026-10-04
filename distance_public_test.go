@@ -2,6 +2,7 @@ package box2d_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/zigai/box2d"
@@ -15,6 +16,7 @@ func distancePublicBox(radius float32) box2d.ShapeProxy {
 func distancePublicProxy(r *oracle.Reader, key string, p box2d.ShapeProxy) {
 	r.I32(key+"/count", int32(p.Count))
 	r.F32(key+"/radius", p.Radius)
+
 	for i := range p.Count {
 		r.Vec2(fmt.Sprintf("%s/point/%d", key, i), p.Points[i].X, p.Points[i].Y)
 	}
@@ -28,17 +30,21 @@ func distancePublicOutput(r *oracle.Reader, key string, o box2d.DistanceOutput, 
 	if o.Distance > 0 {
 		r.Vec2(key+"/normal", o.Normal.X, o.Normal.Y)
 	}
+
 	r.I32(key+"/iterations", int32(o.Iterations))
 	r.I32(key+"/simplexCount", int32(o.SimplexCount))
 	r.U32(key+"/cache/count", uint32(cache.Count))
+
 	for i := range int(cache.Count) {
 		r.U32(fmt.Sprintf("%s/cache/%d/indexA", key, i), uint32(cache.IndexA[i]))
 		r.U32(fmt.Sprintf("%s/cache/%d/indexB", key, i), uint32(cache.IndexB[i]))
 	}
+
 	for i := range o.SimplexCount {
 		s := debug[i]
 		k := fmt.Sprintf("%s/simplex/%d", key, i)
 		r.I32(k+"/count", int32(s.Count))
+
 		vertices := [3]box2d.SimplexVertex{s.V1, s.V2, s.V3}
 		for j := range s.Count {
 			v := vertices[j]
@@ -101,16 +107,19 @@ func TestDistancePublic(t *testing.T) {
 
 	t.Run("ProxyCopies", func(t *testing.T) {
 		for _, count := range []int{1, 8, 9} {
-			t.Run(fmt.Sprint(count), func(t *testing.T) {
+			t.Run(strconv.Itoa(count), func(t *testing.T) {
 				r := oracle.Open(t, fmt.Sprintf("distance_public/proxy/%d", count))
 				points := []box2d.Vec2{{-2, -1}, {0, -2}, {2, -1}, {3, 0}, {2, 1}, {0, 2}, {-2, 1}, {-3, 0}, {9, 9}}
 				p := box2d.MakeProxy(points[:count], 0.375)
 				o := box2d.MakeOffsetProxy(points[:count], 0.625, box2d.Vec2{3, -4}, box2d.Rot{0.6, 0.8})
+
 				distancePublicProxy(r, "plain", p)
 				distancePublicProxy(r, "offset", o)
+
 				for i := range count {
 					points[i] = box2d.Vec2{100 + float32(i), -100 - float32(i)}
 				}
+
 				distancePublicProxy(r, "plain-after-source-mutation", p)
 				distancePublicProxy(r, "offset-after-source-mutation", o)
 			})
@@ -119,6 +128,7 @@ func TestDistancePublic(t *testing.T) {
 
 	t.Run("SweepTransforms", func(t *testing.T) {
 		r := oracle.Open(t, "distance_public/sweep-transforms")
+
 		sweeps := []box2d.Sweep{
 			{LocalCenter: box2d.Vec2{2, -3}, C1: box2d.Vec2{-5, 4}, C2: box2d.Vec2{7, -2}, Q1: box2d.RotIdentity, Q2: box2d.Rot{0, 1}},
 			{LocalCenter: box2d.Vec2{-0.5, 1.25}, C1: box2d.Vec2{3, 2}, C2: box2d.Vec2{3, 2}, Q1: box2d.Rot{0.6, -0.8}, Q2: box2d.Rot{0.6, 0.8}},
@@ -136,6 +146,7 @@ func TestDistancePublic(t *testing.T) {
 	t.Run("ShapeDistance", func(t *testing.T) {
 		segment := box2d.MakeProxy([]box2d.Vec2{{0, -1}, {0, 1}}, 0)
 		point := box2d.MakeProxy([]box2d.Vec2{{0, 0}}, 0.5)
+
 		cases := []struct {
 			name  string
 			a, b  box2d.ShapeProxy
@@ -156,12 +167,15 @@ func TestDistancePublic(t *testing.T) {
 			t.Run(c.name, func(t *testing.T) {
 				r := oracle.Open(t, "distance_public/distance/"+c.name)
 				input := box2d.DistanceInput{ProxyA: c.a, ProxyB: c.b, Transform: c.xf, UseRadii: c.radii}
+
 				for _, capacity := range []int{0, 1, 24} {
 					cache := box2d.SimplexCache{}
+
 					var debug []box2d.Simplex
 					if capacity != 0 {
 						debug = make([]box2d.Simplex, capacity)
 					}
+
 					o := box2d.ShapeDistance(&input, &cache, debug)
 					distancePublicOutput(r, fmt.Sprintf("capacity/%d", capacity), o, cache, debug)
 				}
@@ -183,17 +197,19 @@ func TestDistancePublic(t *testing.T) {
 			{P: box2d.Vec2{4, 0.25}, Q: box2d.RotIdentity},
 		}
 		cache := box2d.SimplexCache{}
+
 		for i, xf := range transforms {
 			input.Transform = xf
 			debug := make([]box2d.Simplex, 24)
 			o := box2d.ShapeDistance(&input, &cache, debug)
-			distancePublicOutput(r, fmt.Sprint(i), o, cache, debug)
+			distancePublicOutput(r, strconv.Itoa(i), o, cache, debug)
 		}
 	})
 
 	t.Run("ShapeCast", func(t *testing.T) {
 		point := box2d.MakeProxy([]box2d.Vec2{{0, 0}}, 0.5)
 		segment := box2d.MakeProxy([]box2d.Vec2{{0, -1}, {0, 1}}, 0)
+
 		cases := []struct {
 			name     string
 			a, b     box2d.ShapeProxy
@@ -281,7 +297,9 @@ func TestDistancePublic(t *testing.T) {
 		ends := []box2d.Vec2{{-3, -2}, {0, 0}, {3, 2}, {-0.125, 0.25}}
 		a := box2d.MakeProxy([]box2d.Vec2{{-2, -0.125}, {2, -0.125}, {2, 0.125}, {-2, 0.125}}, 0.025)
 		b := box2d.MakeProxy([]box2d.Vec2{{-0.125, -2}, {0.125, -2}, {0.125, 2}, {-0.125, 2}}, 0.025)
+
 		var states [5]int32
+
 		for i, q := range rotations {
 			for j, end := range ends {
 				for k, start := range []box2d.Vec2{{3, 0.125}, {0.125, 3}, {2.25, 2.25}, {-3, -0.125}} {
@@ -292,7 +310,8 @@ func TestDistancePublic(t *testing.T) {
 				}
 			}
 		}
-		for i := range len(states) {
+
+		for i := range states {
 			r.I32(fmt.Sprintf("state-count/%d", i), states[i])
 		}
 	})

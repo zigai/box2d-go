@@ -65,13 +65,16 @@ func recBufAppend(buf *recBuffer, data []byte, size int) {
 	if size <= 0 {
 		return
 	}
+
 	if buf.countOnly {
 		buf.size += size
 		return
 	}
+
 	if size > len(data) {
 		panic("box2d: short recording source")
 	}
+
 	if buf.size+size > buf.capacity {
 		newCap := max(buf.capacity*2, buf.size+size+64)
 		b := make([]byte, newCap)
@@ -79,6 +82,7 @@ func recBufAppend(buf *recBuffer, data []byte, size int) {
 		buf.data = b
 		buf.capacity = newCap
 	}
+
 	copy(buf.data[buf.size:buf.size+size], data[:size])
 	buf.size += size
 }
@@ -197,9 +201,11 @@ func recWPOLYGON(buf *recBuffer, v Polygon) {
 	for _, p := range v.Vertices {
 		recWVEC2(buf, p)
 	}
+
 	for _, n := range v.Normals {
 		recWVEC2(buf, n)
 	}
+
 	recWVEC2(buf, v.Centroid)
 	recWF32(buf, v.Radius)
 	recWI32(buf, int32(v.Count))
@@ -244,6 +250,7 @@ func recWSTR(buf *recBuffer, s string) {
 	if i := strings.IndexByte(s[:n], 0); i >= 0 {
 		n = i
 	}
+
 	recWU16(buf, uint16(n))
 	recBufAppend(buf, []byte(s[:n]), n)
 }
@@ -288,15 +295,19 @@ func recWSHAPEDEF(buf *recBuffer, v ShapeDef) {
 func recWCHAINDEF(buf *recBuffer, v ChainDef) {
 	recWU64(buf, 0)
 	recWI32(buf, int32(len(v.Points)))
+
 	for _, p := range v.Points {
 		recWVEC2(buf, p)
 	}
+
 	recWVEC2(buf, v.Ghost1)
 	recWVEC2(buf, v.Ghost2)
 	recWI32(buf, int32(len(v.Materials)))
+
 	for _, m := range v.Materials {
 		recWMATERIAL(buf, m)
 	}
+
 	recWFILTER(buf, v.Filter)
 	recWBOOL(buf, v.IsLoop)
 	recWBOOL(buf, v.EnableSensorEvents)
@@ -438,9 +449,11 @@ func recWQUERYFILTER(buf *recBuffer, v QueryFilter) {
 func recWSHAPEPROXY(buf *recBuffer, v ShapeProxy) {
 	count := min(max(v.Count, 0), MaxPolygonVertices)
 	recWI32(buf, int32(count))
-	for i := 0; i < count; i++ {
+
+	for i := range count {
 		recWVEC2(buf, v.Points[i])
 	}
+
 	recWF32(buf, v.Radius)
 }
 
@@ -477,6 +490,7 @@ func recWTREESTATS(buf *recBuffer, v TreeStats) {
 func recReserveU32(buf *recBuffer) int {
 	offset := buf.size
 	recWU32(buf, 0)
+
 	return offset
 }
 
@@ -489,6 +503,7 @@ func recCommitRecord(rec *Recording, opcode uint8, payload []byte, payloadSize i
 	assert(payloadSize >= 0 && payloadSize < 1<<24, "payloadSize >= 0 && payloadSize < ( 1 << 24 )")
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, opcode)
 	recBufAppend(&rec.buffer, payload, payloadSize)
 	recEndRecord(rec)
@@ -508,6 +523,7 @@ func recOverlapTrampoline(id Shape, ctx *recQueryWriter) bool {
 	recWSHAPEID(&ctx.buf, id)
 	recWBOOL(&ctx.buf, ret)
 	ctx.hitCount++
+
 	return ret
 }
 
@@ -519,6 +535,7 @@ func recCastTrampoline(id Shape, point Pos, normal Vec2, fraction float32, ctx *
 	recWF32(&ctx.buf, fraction)
 	recWF32(&ctx.buf, ret)
 	ctx.hitCount++
+
 	return ret
 }
 
@@ -528,6 +545,7 @@ func recPlaneTrampoline(id Shape, plane *PlaneResult, ctx *recQueryWriter) bool 
 	recWPLANERESULT(&ctx.buf, *plane)
 	recWBOOL(&ctx.buf, ret)
 	ctx.hitCount++
+
 	return ret
 }
 
@@ -540,6 +558,7 @@ func recBeginRecord(rec *Recording, opcode uint8) {
 func recEndRecord(rec *Recording) {
 	n := rec.buffer.size - rec.recordStart - 3
 	assert(n >= 0 && n < 1<<24, "payloadSize >= 0 && payloadSize < ( 1 << 24 )")
+
 	p := rec.buffer.data[rec.recordStart:]
 	p[0] = byte(n)
 	p[1] = byte(n >> 8)
@@ -552,6 +571,7 @@ func NewRecording(byteCapacity int) *Recording {
 	if byteCapacity <= 0 {
 		byteCapacity = 65536
 	}
+
 	return &Recording{buffer: recBuffer{data: make([]byte, byteCapacity), capacity: byteCapacity}, lock: new(sync.Mutex)}
 }
 
@@ -572,6 +592,7 @@ func recAccumulateBounds(rec *Recording, bounds AABB) {
 	} else {
 		rec.accumulatedBounds = bounds
 	}
+
 	rec.haveBounds = true
 }
 
@@ -594,11 +615,14 @@ func startRecordingIntoBuffer(world *World, recording *Recording) {
 	recWU64(&recording.buffer, uint64(blob.size))
 	recBufAppend(&recording.buffer, blob.data, blob.size)
 	recBufFree(&blob)
+
 	world.recording = recording
+
 	var seed AABB
 	if computeWorldBounds(world, &seed) {
 		recAccumulateBounds(recording, seed)
 	}
+
 	recWriteStateHash(recording, &recArgsStateHash{hash: hashWorldState(world)})
 }
 
@@ -606,12 +630,15 @@ func stopRecordingInternal(world *World) {
 	if world.recording == nil {
 		return
 	}
+
 	rec := world.recording
 	world.recording = nil
+
 	rb := recArgsRecordingBounds{}
 	if rec.haveBounds {
 		rb.bounds = rec.accumulatedBounds
 	}
+
 	recWriteRecordingBounds(rec, &rb)
 	recWriteDestroyWorld(rec, &recArgsDestroyWorld{})
 }
@@ -629,28 +656,35 @@ func ReadRecording(src io.Reader) (*Recording, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(data) < 32 {
 		return nil, fmt.Errorf("%w: recording too small", ErrCorrupt)
 	}
+
 	if binary.LittleEndian.Uint32(data) != recMagic {
 		return nil, fmt.Errorf("%w: recording magic 0x%08X", ErrBadMagic, binary.LittleEndian.Uint32(data))
 	}
+
 	r := NewRecording(len(data))
 	copy(r.buffer.data, data)
 	r.buffer.size = len(data)
+
 	return r, nil
 }
 
 func hashWorldState(world *World) uint64 {
 	hash := snapFNVInit
+
 	for i := range world.bodies {
 		b := &world.bodies[i]
 		if b.id != i {
 			continue
 		}
+
 		sim := getBodySim(world, b)
 		hash = fnvMixPosition(hash, sim.transform.P)
 		hash = fnvMixFloat(hash, sim.transform.Q.C)
+
 		hash = fnvMixFloat(hash, sim.transform.Q.S)
 		if state := getBodyState(world, b); state != nil {
 			hash = fnvMixFloat(hash, state.linearVelocity.X)
@@ -658,6 +692,7 @@ func hashWorldState(world *World) uint64 {
 			hash = fnvMixFloat(hash, state.angularVelocity)
 		}
 	}
+
 	return hash
 }
 
@@ -666,6 +701,8 @@ func fnvMixPosition(hash uint64, p Pos) uint64 {
 		hash = (hash ^ math.Float64bits(float64(p.X))) * snapFNVPrime
 		return (hash ^ math.Float64bits(float64(p.Y))) * snapFNVPrime
 	}
+
 	hash = fnvMixFloat(hash, float32(p.X))
+
 	return fnvMixFloat(hash, float32(p.Y))
 }

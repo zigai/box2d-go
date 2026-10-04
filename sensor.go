@@ -34,7 +34,7 @@ type SensorEndTouchEvent struct {
 
 // Sensor events are buffered in the world and are available
 // as begin/end overlap event arrays after the time step is complete.
-// Note: these may become invalid if bodies and/or shapes are destroyed
+// Note: these may become invalid if bodies and/or shapes are destroyed.
 type SensorEvents struct {
 	// Array of sensor begin touch events
 	BeginEvents []SensorBeginTouchEvent
@@ -78,14 +78,16 @@ type sensorQueryContext struct {
 func sensorQueryCallback(proxyID int, userData uint64, context *sensorQueryContext) bool {
 	shapeID := int(userData)
 	sensorShape := context.sensorShape
+
 	sensorShapeID := sensorShape.id
 	if shapeID == sensorShapeID {
 		return true
 	}
+
 	world := context.world
 	otherShape := &world.shapes[shapeID]
 	// Are sensor events enabled on the other shape?
-	if otherShape.enableSensorEvents == false {
+	if !otherShape.enableSensorEvents {
 		return true
 	}
 	// Skip shapes on the same body
@@ -93,7 +95,7 @@ func sensorQueryCallback(proxyID int, userData uint64, context *sensorQueryConte
 		return true
 	}
 	// Check filter
-	if shouldShapesCollide(sensorShape.filter, otherShape.filter) == false {
+	if !shouldShapesCollide(sensorShape.filter, otherShape.filter) {
 		return true
 	}
 	// Custom user filter
@@ -102,31 +104,40 @@ func sensorQueryCallback(proxyID int, userData uint64, context *sensorQueryConte
 		if customFilterFcn != nil {
 			idA := Shape{index1: int32(sensorShapeID + 1), world: world, generation: sensorShape.generation}
 			idB := Shape{index1: int32(shapeID + 1), world: world, generation: otherShape.generation}
+
 			shouldCollide := customFilterFcn(idA, idB)
-			if shouldCollide == false {
+			if !shouldCollide {
 				return true
 			}
 		}
 	}
 	// The relative pose is differenced in double so sensor overlap stays exact far from the origin
 	otherTransform := getBodyTransform(world, otherShape.bodyID)
+
 	var input DistanceInput
+
 	input.ProxyA = makeShapeDistanceProxy(sensorShape)
 	input.ProxyB = makeShapeDistanceProxy(otherShape)
 	input.Transform = context.transform.InvMul(otherTransform)
 	input.UseRadii = true
+
 	var cache SimplexCache
+
 	output := ShapeDistance(&input, &cache, nil)
+
 	overlaps := output.Distance < 10.0*float32(0x1p-23)
-	if overlaps == false {
+	if !overlaps {
 		return true
 	}
 	// Record the overlap
 	sensor := context.sensor
+
 	var shapeRef *visitor
+
 	sensor.overlaps2, shapeRef = arrayEmplace(sensor.overlaps2)
 	shapeRef.shapeID = shapeID
 	shapeRef.generation = otherShape.generation
+
 	return true
 }
 
@@ -134,16 +145,20 @@ func compareVisitors(a visitor, b visitor) int {
 	if a.shapeID < b.shapeID {
 		return -1
 	}
+
 	if a.shapeID == b.shapeID {
 		return 0
 	}
+
 	return 1
 }
 
 func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 	world := context
 	taskContext := &world.sensorTaskContexts[threadIndex]
+
 	assert(startIndex < endIndex, "startIndex < endIndex")
+
 	trees := &world.broadPhase.trees
 	for sensorIndex := startIndex; sensorIndex < endIndex; sensorIndex++ {
 		sensor := &world.sensors[sensorIndex]
@@ -155,19 +170,22 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 		sensor.overlaps2 = sensor.overlaps2[:0]
 		// Append sensor hits
 		hitCount := len(sensor.hits)
-		for i := 0; i < hitCount; i++ {
+		for i := range hitCount {
 			sensor.overlaps2 = arrayPush(sensor.overlaps2, sensor.hits[i])
 		}
 		// Clear the hits
 		sensor.hits = sensor.hits[:0]
+
 		body := &world.bodies[sensorShape.bodyID]
-		if body.setIndex == disabledSet || sensorShape.enableSensorEvents == false {
+		if body.setIndex == disabledSet || !sensorShape.enableSensorEvents {
 			if len(sensor.overlaps1) != 0 {
 				// This sensor is dropping all overlaps because it has been disabled.
 				setBit(&taskContext.eventBits, uint32(sensorIndex))
 			}
+
 			continue
 		}
+
 		transform := getBodyTransformQuick(world, body)
 		queryContext := sensorQueryContext{
 			world:       world,
@@ -190,22 +208,26 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 		// Remove duplicates from overlaps2 (sorted). Duplicates are possible due to the hit events appended earlier.
 		uniqueCount := 0
 		overlapCount := len(sensor.overlaps2)
+
 		overlapData := sensor.overlaps2
-		for i := 0; i < overlapCount; i++ {
+		for i := range overlapCount {
 			if uniqueCount == 0 || overlapData[i].shapeID != overlapData[uniqueCount-1].shapeID {
 				overlapData[uniqueCount] = overlapData[i]
 				uniqueCount++
 			}
 		}
+
 		sensor.overlaps2 = sensor.overlaps2[:uniqueCount]
 		count1 := len(sensor.overlaps1)
+
 		count2 := len(sensor.overlaps2)
 		if count1 != count2 {
 			// something changed
 			setBit(&taskContext.eventBits, uint32(sensorIndex))
 		} else {
-			for i := 0; i < count1; i++ {
+			for i := range count1 {
 				s1 := &sensor.overlaps1[i]
+
 				s2 := &sensor.overlaps2[i]
 				if s1.shapeID != s2.shapeID || s1.generation != s2.generation {
 					// something changed
@@ -222,8 +244,10 @@ func overlapSensors(world *World) {
 	if sensorCount == 0 {
 		return
 	}
+
 	assert(world.workerCount > 0, "world->workerCount > 0")
-	for i := 0; i < world.workerCount; i++ {
+
+	for i := range world.workerCount {
 		setBitCountAndClear(&world.sensorTaskContexts[i].eventBits, uint32(sensorCount))
 	}
 	// Parallel-for sensors overlaps
@@ -231,6 +255,7 @@ func overlapSensors(world *World) {
 	parallelFor(world, func(startIndex, endIndex, threadIndex int) {
 		sensorTask(startIndex, endIndex, threadIndex, world)
 	}, sensorCount, minRange)
+
 	bitSet := &world.sensorTaskContexts[0].eventBits
 	for i := 1; i < world.workerCount; i++ {
 		inPlaceUnion(bitSet, &world.sensorTaskContexts[i].eventBits)
@@ -238,8 +263,9 @@ func overlapSensors(world *World) {
 	// Iterate sensors bits and publish events
 	// Process sensor state changes. Iterate over set bits
 	bitData := bitSet.bits
+
 	blockCount := bitSet.blockCount
-	for k := uint32(0); k < blockCount; k++ {
+	for k := range blockCount {
 		word := bitData[k]
 		for word != 0 {
 			ctz := uint32(bits.TrailingZeros64(word))
@@ -256,6 +282,7 @@ func overlapSensors(world *World) {
 			index1, index2 := 0, 0
 			for index1 < count1 && index2 < count2 {
 				r1 := &refs1[index1]
+
 				r2 := &refs2[index2]
 				if r1.shapeID == r2.shapeID {
 					if r1.generation < r2.generation {
@@ -289,6 +316,7 @@ func overlapSensors(world *World) {
 					index2++
 				}
 			}
+
 			for index1 < count1 {
 				// end
 				r1 := &refs1[index1]
@@ -297,6 +325,7 @@ func overlapSensors(world *World) {
 				world.sensorEndEvents[world.endEventArrayIndex] = arrayPush(world.sensorEndEvents[world.endEventArrayIndex], event)
 				index1++
 			}
+
 			for index2 < count2 {
 				// begin
 				r2 := &refs2[index2]
@@ -313,7 +342,7 @@ func overlapSensors(world *World) {
 
 func destroySensor(world *World, sensorShape *shape) {
 	sensor := &world.sensors[sensorShape.sensorIndex]
-	for i := 0; i < len(sensor.overlaps2); i++ {
+	for i := range len(sensor.overlaps2) {
 		ref := &sensor.overlaps2[i]
 		event := SensorEndTouchEvent{
 			SensorShape:  Shape{index1: int32(sensorShape.id + 1), world: world, generation: sensorShape.generation},
@@ -325,7 +354,9 @@ func destroySensor(world *World, sensorShape *shape) {
 	sensor.hits = nil
 	sensor.overlaps1 = nil
 	sensor.overlaps2 = nil
+
 	var movedIndex int
+
 	world.sensors, movedIndex = arrayRemoveSwap(world.sensors, sensorShape.sensorIndex)
 	if movedIndex != nullIndex {
 		// Fixup moved sensor

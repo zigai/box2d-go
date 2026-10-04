@@ -14,10 +14,12 @@ func addSolverArenaBody(w *World, x Pos) (Body, Body) {
 	groundDef.Position = Pos{X: x.X, Y: -0.5}
 	ground := w.CreateBody(&groundDef)
 	groundBox := MakeBox(2, 0.5)
+
 	shapeDef := DefaultShapeDef()
 	for range GraphColorCount + 1 {
 		ground.CreatePolygonShape(&shapeDef, &groundBox)
 	}
+
 	bodyDef := DefaultBodyDef()
 	bodyDef.Type = DynamicBody
 	bodyDef.Position = Pos{X: x.X, Y: 0.5}
@@ -25,15 +27,18 @@ func addSolverArenaBody(w *World, x Pos) (Body, Body) {
 	box := MakeBox(0.5, 0.5)
 	body.CreatePolygonShape(&shapeDef, &box)
 	body.SetSleepEnabled(false)
+
 	return body, ground
 }
 
 func checkSolverArenaCapacity(t *testing.T, state *World) {
 	t.Helper()
+
 	wideCount := 0
-	for i := 0; i < overflowIndex; i++ {
+	for i := range overflowIndex {
 		wideCount += (len(state.constraintGraph.colors[i].contactSims) + simdWidth - 1) / simdWidth
 	}
+
 	overflowCount := len(state.constraintGraph.colors[overflowIndex].contactSims)
 	if cap(state.solverWideScratch) != wideCount || cap(state.solverOverflowScratch) != overflowCount {
 		t.Fatalf("scratch capacity differs from maximum need: wide=%d want=%d overflow=%d want=%d",
@@ -43,9 +48,11 @@ func checkSolverArenaCapacity(t *testing.T, state *World) {
 
 func stepSolverArenaZero(t *testing.T, w *World) {
 	t.Helper()
+
 	state := w
 	enqueue := state.enqueueTaskFcn
 	checked := false
+
 	state.enqueueTaskFcn = func(task func()) func() {
 		if !checked {
 			for i := range state.constraintGraph.colors {
@@ -54,6 +61,7 @@ func stepSolverArenaZero(t *testing.T, w *World) {
 					break
 				}
 			}
+
 			if checked {
 				for i := range state.constraintGraph.colors {
 					color := &state.constraintGraph.colors[i]
@@ -62,6 +70,7 @@ func stepSolverArenaZero(t *testing.T, w *World) {
 							t.Errorf("wide constraint %d/%d is not fresh-make zero before solver tasks", i, j)
 						}
 					}
+
 					for j, constraint := range color.overflowConstraints {
 						if constraint != (contactConstraint{}) {
 							t.Errorf("overflow constraint %d is not fresh-make zero before solver tasks", j)
@@ -70,13 +79,17 @@ func stepSolverArenaZero(t *testing.T, w *World) {
 				}
 			}
 		}
+
 		return enqueue(task)
 	}
 	defer func() { state.enqueueTaskFcn = enqueue }()
+
 	w.Step(1.0/60.0, 4)
+
 	if !checked {
 		t.Fatal("did not observe active scratch before solver task launch")
 	}
+
 	checkSolverScratchReleased(t, w)
 }
 
@@ -91,6 +104,7 @@ func poisonSolverArena(state *World) {
 			rollingImpulse:      floatW{51, 52, 53, 54},
 		}
 	}
+
 	for i := range state.solverOverflowScratch {
 		state.solverOverflowScratch[i] = contactConstraint{
 			indexA: 91, pointCount: 2, rollingImpulse: 51,
@@ -107,19 +121,25 @@ func TestSolverArena(t *testing.T) {
 				w.SetGravity(Vec2{})
 				body.SetSleepEnabled(false)
 				w.Step(1.0/60.0, 4)
+
 				if len(observed.wide) == 0 || len(observed.overflow) == 0 {
 					t.Fatal("contact world did not expose both constraint buffers")
 				}
+
 				wide, overflow := observed.wide, observed.overflow
 				for step := range 8 {
 					*observed = solverScratchObservation{}
+
 					w.Step(1.0/60.0, 4)
+
 					if len(observed.wide) != len(wide) || len(observed.overflow) != len(overflow) {
 						t.Fatalf("step %d changed stable constraint counts", step)
 					}
+
 					if &observed.wide[0] != &wide[0] || &observed.overflow[0] != &overflow[0] {
 						t.Fatalf("step %d did not reuse stable wide and overflow scratch", step)
 					}
+
 					checkSolverScratchReleased(t, w)
 				}
 			})
@@ -127,31 +147,41 @@ func TestSolverArena(t *testing.T) {
 				w, body, _ := newSolverScratchWorld(t, workers)
 				w.SetGravity(Vec2{})
 				body.SetSleepEnabled(false)
+
 				for i := 1; i < 5; i++ {
 					addSolverArenaBody(w, Pos{X: posScalar(10 * i)})
 				}
+
 				w.Step(1.0/60.0, 4)
 				state := w
 				checkSolverArenaCapacity(t, state)
+
 				fullSlot := false
-				for i := 0; i < overflowIndex; i++ {
+				for i := range overflowIndex {
 					fullSlot = fullSlot || len(state.constraintGraph.colors[i].contactSims) >= simdWidth
 				}
+
 				if !fullSlot {
 					t.Fatal("scene did not exercise a full wide slot in addition to tail lanes")
 				}
+
 				image := BTSnapshot(w)
+
 				clone, err := NewWorldFromSnapshot(image, workers)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				t.Cleanup(clone.Close)
 				poisonSolverArena(state)
+
 				if !bytes.Equal(image, BTSnapshot(w)) {
 					t.Fatal("transient scratch affected snapshot bytes")
 				}
+
 				stepSolverArenaZero(t, w)
 				clone.Step(1.0/60.0, 4)
+
 				if w.StateHash() != clone.StateHash() {
 					t.Fatal("poisoned scratch changed simulation state after reset")
 				}
@@ -164,29 +194,41 @@ func TestSolverArena(t *testing.T) {
 				state := w
 				checkSolverArenaCapacity(t, state)
 				wideCap, overflowCap := cap(state.solverWideScratch), cap(state.solverOverflowScratch)
+
 				var added []Body
+
 				for i := 1; i < 9; i++ {
 					body, ground := addSolverArenaBody(w, Pos{X: posScalar(10 * i)})
 					added = append(added, body, ground)
 				}
+
 				stepSolverArenaZero(t, w)
 				checkSolverArenaCapacity(t, state)
+
 				if cap(state.solverWideScratch) <= wideCap || cap(state.solverOverflowScratch) <= overflowCap {
 					t.Fatal("added contacts did not grow both scratch buffers")
 				}
+
 				wide, overflow := state.solverWideScratch, state.solverOverflowScratch
+
 				for _, b := range added {
 					b.Destroy()
 				}
+
 				stepSolverArenaZero(t, w)
+
 				if &state.solverWideScratch[0] != &wide[0] || &state.solverOverflowScratch[0] != &overflow[0] || cap(state.solverWideScratch) != cap(wide) || cap(state.solverOverflowScratch) != cap(overflow) {
 					t.Fatal("shrinking contacts replaced or shrank high-water scratch")
 				}
+
 				poisonSolverArena(state)
+
 				for i := 1; i < 9; i++ {
 					addSolverArenaBody(w, Pos{X: posScalar(10 * i)})
 				}
+
 				stepSolverArenaZero(t, w)
+
 				if &state.solverWideScratch[0] != &wide[0] || &state.solverOverflowScratch[0] != &overflow[0] {
 					t.Fatal("regrowth within high-water capacity reallocated scratch")
 				}
@@ -197,24 +239,31 @@ func TestSolverArena(t *testing.T) {
 				w.Step(1.0/60.0, 4)
 				state := w
 				wide, overflow := state.solverWideScratch, state.solverOverflowScratch
+
 				body.SetAwake(false)
+
 				if w.AwakeBodyCount() != 0 {
 					t.Fatal("world did not become inactive")
 				}
+
 				w.Step(1.0/60.0, 4)
 				checkSolverScratchReleased(t, w)
+
 				if cap(state.solverWideScratch) != cap(wide) || cap(state.solverOverflowScratch) != cap(overflow) {
 					t.Fatal("inactive world changed scratch capacity")
 				}
+
 				poisonSolverArena(state)
 				body.SetAwake(true)
 				stepSolverArenaZero(t, w)
+
 				if &state.solverWideScratch[0] != &wide[0] || &state.solverOverflowScratch[0] != &overflow[0] {
 					t.Fatal("waking world replaced scratch")
 				}
 			})
 			t.Run("RestoreDestroy", func(t *testing.T) {
 				var state *World
+
 				t.Cleanup(func() {
 					if state != nil && (state.solverWideScratch != nil || state.solverOverflowScratch != nil) {
 						t.Error("destroyed world retains owned scratch")
@@ -227,28 +276,37 @@ func TestSolverArena(t *testing.T) {
 				state = w
 				wide, overflow := state.solverWideScratch, state.solverOverflowScratch
 				image := BTSnapshot(w)
+
 				clone, err := NewWorldFromSnapshot(image, workers)
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				t.Cleanup(clone.Close)
+
 				other := clone
 				if other.solverWideScratch != nil || other.solverOverflowScratch != nil {
 					t.Fatal("snapshot created scratch ownership")
 				}
+
 				poisonSolverArena(state)
+
 				if err := w.UnmarshalBinary(image); err != nil {
 					t.Fatal(err)
 				}
+
 				checkSolverScratchReleased(t, w)
 				stepSolverArenaZero(t, w)
 				clone.Step(1.0/60.0, 4)
+
 				if w.StateHash() != clone.StateHash() {
 					t.Fatal("restored cache changed persistent state")
 				}
+
 				if &state.solverWideScratch[0] != &wide[0] || &state.solverOverflowScratch[0] != &overflow[0] {
 					t.Fatal("Restore replaced world scratch ownership")
 				}
+
 				if &other.solverWideScratch[0] == &wide[0] || &other.solverOverflowScratch[0] == &overflow[0] {
 					t.Fatal("snapshot worlds share scratch")
 				}

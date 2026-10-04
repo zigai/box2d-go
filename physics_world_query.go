@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
+	"strconv"
 )
 
-type OverlapResultFunc func(shape Shape) bool
-type CastResultFunc func(shape Shape, point Pos, normal Vec2, fraction float32) float32
-type PlaneResultFunc func(shape Shape, plane *PlaneResult) bool
+type (
+	OverlapResultFunc func(shape Shape) bool
+	CastResultFunc    func(shape Shape, point Pos, normal Vec2, fraction float32) float32
+	PlaneResultFunc   func(shape Shape, plane *PlaneResult) bool
+)
 
 type RayResult struct {
 	Shape      Shape
@@ -198,6 +201,7 @@ type Drawer interface {
 // DebugDraw selects what World.Draw draws and sends the commands to its Drawer.
 type DebugDraw struct {
 	Drawer
+
 	DrawingBounds       AABB
 	ForceScale          float32
 	JointScale          float32
@@ -302,6 +306,7 @@ func drawShape(draw *DebugDraw, s *shape, transform WorldTransform, color HexCol
 		p2 := transform.Apply(segment.Point2)
 		draw.DrawLine(p1, p2, color)
 		draw.DrawPoint(p2, 4, color)
+
 		if drawChainNormals {
 			c := p1.Lerp(p2, 0.5)
 			e := p2.Sub(p1).Normalize()
@@ -321,6 +326,7 @@ func drawQueryCallback(proxyID int, userData uint64, context *drawContext) bool 
 	body := &world.bodies[shape.bodyID]
 	bodySim := getBodySim(world, body)
 	setBit(&world.debugBodySet, uint32(shape.bodyID))
+
 	if draw.DrawShapes {
 		var color HexColor
 		if shape.material.CustomColor != 0 {
@@ -349,11 +355,14 @@ func drawQueryCallback(proxyID int, userData uint64, context *drawContext) bool 
 		} else {
 			color = ColorGray
 		}
+
 		drawShape(draw, shape, bodySim.transform, color, draw.DrawChainNormals)
 	}
+
 	if draw.DrawBounds {
 		draw.DrawAABB(world.fatAABBs[shapeID], ColorGold)
 	}
+
 	return true
 }
 
@@ -362,12 +371,16 @@ func drawQueryCallback(proxyID int, userData uint64, context *drawContext) bool 
 func (w *World) Draw(draw *DebugDraw) {
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return
 	}
+
 	checkInput(draw.Drawer != nil, "draw.Drawer != nil")
 	assert(draw.DrawingBounds.IsValid(), "b2IsValidAABB( draw->drawingBounds )")
+
 	const axisScale float32 = 0.3
+
 	speculativeColor := ColorGainsboro
 	addColor := ColorGreen
 	persistColor := ColorBlue
@@ -382,29 +395,36 @@ func (w *World) Draw(draw *DebugDraw) {
 	setBitCountAndClear(&world.debugContactSet, uint32(contactCapacity))
 	islandCapacity := getIDCapacity(&world.islandIDPool)
 	setBitCountAndClear(&world.debugIslandSet, uint32(islandCapacity))
+
 	drawContext := drawContext{world: world, draw: draw}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		world.broadPhase.trees[i].QueryAll(draw.DrawingBounds, func(proxyID int, userData uint64) bool { return drawQueryCallback(proxyID, userData, &drawContext) })
 	}
+
 	wordCount := world.debugBodySet.blockCount
+
 	bodyBits := world.debugBodySet.bits
-	for k := uint32(0); k < wordCount; k++ {
+	for k := range wordCount {
 		word := bodyBits[k]
 		for word != 0 {
 			ctz := uint32(bits.TrailingZeros64(word))
 			bodyID := 64*k + ctz
+
 			body := &world.bodies[int(bodyID)]
 			if draw.DrawBodyNames && body.name[0] != 0 {
 				offset := Vec2{X: 0.1, Y: 0.1}
 				bodySim := getBodySim(world, body)
 				transform := WorldTransform{P: bodySim.center, Q: bodySim.transform.Q}
 				p := transform.Apply(offset)
+
 				nameLength := 0
 				for nameLength < len(body.name) && body.name[nameLength] != 0 {
 					nameLength++
 				}
+
 				draw.DrawString(p, string(body.name[:nameLength]), ColorWhiteSmoke)
 			}
+
 			if draw.DrawMass && body.bodyType == DynamicBody {
 				offset := Vec2{X: 0.1, Y: 0.1}
 				bodySim := getBodySim(world, body)
@@ -412,12 +432,15 @@ func (w *World) Draw(draw *DebugDraw) {
 				draw.DrawLine(bodySim.center0, bodySim.center, ColorWhiteSmoke)
 				draw.DrawTransform(transform)
 				p := transform.Apply(offset)
+
 				buffer := fmt.Sprintf("  %.2f", body.mass)
 				if len(buffer) > 31 {
 					buffer = buffer[:31]
 				}
+
 				draw.DrawString(p, buffer, ColorWhite)
 			}
+
 			if draw.DrawJoints {
 				jointKey := body.headJointKey
 				for jointKey != nullIndex {
@@ -429,10 +452,13 @@ func (w *World) Draw(draw *DebugDraw) {
 						drawJoint(draw, world, joint)
 						setBit(&world.debugJointSet, uint32(jointID))
 					}
+
 					jointKey = joint.edges[edgeIndex].nextKey
 				}
 			}
+
 			linearSlop := LinearSlop()
+
 			if draw.DrawContacts && body.bodyType == DynamicBody {
 				contactKey := body.headContactKey
 				for contactKey != nullIndex {
@@ -448,22 +474,26 @@ func (w *World) Draw(draw *DebugDraw) {
 						bodyB := &world.bodies[contact.edges[1].bodyID]
 						bodySimB := getBodySim(world, bodyB)
 						pointCount := contactSim.manifold.PointCount
+
 						normal := contactSim.manifold.Normal
-						for j := 0; j < pointCount; j++ {
+						for j := range pointCount {
 							mp := &contactSim.manifold.Points[j]
+
 							var p Pos
 							if draw.DrawAnchorA {
 								p = bodySimA.center.Add(mp.AnchorA)
 							} else {
 								p = bodySimB.center.Add(mp.AnchorB)
 							}
+
 							if draw.DrawGraphColors && contact.colorIndex != nullIndex {
 								// graph color
 								pointSize := float32(5)
 								if contact.colorIndex == overflowIndex {
 									pointSize = 7.5
 								}
-								draw.DrawPoint(p, pointSize, colorForGraph(contact.colorIndex))
+
+								draw.DrawPoint(p, pointSize, GraphColor(contact.colorIndex))
 							} else if mp.Separation > linearSlop {
 								// Speculative
 								draw.DrawPoint(p, 5, speculativeColor)
@@ -474,14 +504,17 @@ func (w *World) Draw(draw *DebugDraw) {
 								// Persist
 								draw.DrawPoint(p, 5, persistColor)
 							}
+
 							if draw.DrawContactNormals {
 								p1 := p
 								p2 := p1.Add(normal.Scale(axisScale))
 								draw.DrawLine(p1, p2, normalColor)
+
 								buffer := fmt.Sprintf(" %.2f", mp.Separation)
 								if len(buffer) > 31 {
 									buffer = buffer[:31]
 								}
+
 								draw.DrawString(p1, buffer, ColorWhite)
 							} else if draw.DrawContactForces {
 								// todo validate
@@ -490,34 +523,43 @@ func (w *World) Draw(draw *DebugDraw) {
 								p1 := p
 								p2 := p1.Add(normal.Scale(draw.ForceScale * force))
 								draw.DrawLine(p1, p2, impulseColor)
+
 								buffer := fmt.Sprintf("%.1f", force)
 								if len(buffer) > 31 {
 									buffer = buffer[:31]
 								}
+
 								draw.DrawString(p1, buffer, ColorWhite)
 							}
+
 							if draw.DrawContactFeatures {
-								buffer := fmt.Sprintf("%d", mp.ID)
+								buffer := strconv.FormatUint(uint64(mp.ID), 10)
 								draw.DrawString(p, buffer, ColorOrange)
 							}
+
 							if draw.DrawFrictionForces {
 								force := float32(0.5) * mp.TangentImpulse * world.invH
 								tangent := normal.RightPerp()
 								p1 := p
 								p2 := p1.Add(tangent.Scale(draw.ForceScale * force))
 								draw.DrawLine(p1, p2, frictionColor)
+
 								buffer := fmt.Sprintf("%.1f", force)
 								if len(buffer) > 31 {
 									buffer = buffer[:31]
 								}
+
 								draw.DrawString(p1, buffer, ColorWhite)
 							}
 						}
+
 						setBit(&world.debugContactSet, uint32(contactID))
 					}
+
 					contactKey = contact.edges[edgeIndex].nextKey
 				}
 			}
+
 			if draw.DrawIslands {
 				islandID := body.islandID
 				if islandID != nullIndex && !getBit(&world.debugIslandSet, uint32(islandID)) {
@@ -525,11 +567,14 @@ func (w *World) Draw(draw *DebugDraw) {
 					if island.setIndex == nullIndex {
 						continue
 					}
+
 					shapeCount := 0
 					aabb := AABB{LowerBound: Vec2{X: math.MaxFloat32, Y: math.MaxFloat32}, UpperBound: Vec2{X: -math.MaxFloat32, Y: -math.MaxFloat32}}
-					for bodyIndex := 0; bodyIndex < len(island.bodies); bodyIndex++ {
+
+					for bodyIndex := range len(island.bodies) {
 						islandBodyID := island.bodies[bodyIndex]
 						islandBody := &world.bodies[islandBodyID]
+
 						shapeID := islandBody.headShapeID
 						for shapeID != nullIndex {
 							shape := &world.shapes[shapeID]
@@ -538,9 +583,11 @@ func (w *World) Draw(draw *DebugDraw) {
 							shapeID = shape.nextShapeID
 						}
 					}
+
 					if shapeCount > 0 {
 						draw.DrawAABB(aabb, ColorOrangeRed)
 					}
+
 					setBit(&world.debugIslandSet, uint32(islandID))
 				}
 			}
@@ -553,23 +600,30 @@ func (w *World) Draw(draw *DebugDraw) {
 func treeQueryCallback(proxyID int, userData uint64, context *worldQueryContext) bool {
 	shapeID := int(userData)
 	world := context.world
+
 	shape := &world.shapes[shapeID]
 	if !shouldQueryCollide(shape.filter, context.filter) {
 		return true
 	}
+
 	id := Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation}
+
 	return context.fcn(id)
 }
 
 func (w *World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn OverlapResultFunc) TreeStats {
 	var treeStats TreeStats
+
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return treeStats
 	}
+
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(aabb.IsValid(), "b2IsValidAABB( aabb )")
+
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
@@ -582,23 +636,27 @@ func (w *World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn Overl
 	}
 	// Lift to a world float box with outward rounding so the conservative tree test never misses
 	worldBox := offsetAABB(aabb, origin)
+
 	worldContext := worldQueryContext{world: world, fcn: fcn, filter: filter}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		treeResult := world.broadPhase.trees[i].Query(worldBox, filter.MaskBits, func(proxyID int, userData uint64) bool { return treeQueryCallback(proxyID, userData, &worldContext) })
 		treeStats.NodeVisits += treeResult.NodeVisits
 		treeStats.LeafVisits += treeResult.LeafVisits
 	}
+
 	if world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
 		recQueryCommit(world.recording, 0xE0, &recWriter)
 	}
+
 	return treeStats
 }
 
 func treeOverlapCallback(proxyID int, userData uint64, context *worldOverlapContext) bool {
 	shapeID := int(userData)
 	world := context.world
+
 	shape := &world.shapes[shapeID]
 	if !shouldQueryCollide(shape.filter, context.filter) {
 		return true
@@ -607,24 +665,33 @@ func treeOverlapCallback(proxyID int, userData uint64, context *worldOverlapCont
 	body := &world.bodies[shape.bodyID]
 	transform := getBodyTransformQuick(world, body).Relative(context.origin)
 	input := DistanceInput{ProxyA: *context.proxy, ProxyB: makeShapeDistanceProxy(shape), Transform: transform, UseRadii: true}
+
 	var cache SimplexCache
+
 	output := ShapeDistance(&input, &cache, nil)
+
 	tolerance := float32(0.1) * LinearSlop()
 	if output.Distance > tolerance {
 		return true
 	}
+
 	id := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
+
 	return context.fcn(id)
 }
 
 func (w *World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, fcn OverlapResultFunc) TreeStats {
 	var treeStats TreeStats
+
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return treeStats
 	}
+
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
@@ -637,32 +704,38 @@ func (w *World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, 
 	}
 	// Relative box lifted to world float with outward rounding, conservative for the tree
 	aabb := offsetAABB(MakeAABB(proxy.Points[:proxy.Count], proxy.Radius), origin)
+
 	worldContext := worldOverlapContext{world: world, fcn: fcn, filter: filter, proxy: proxy, origin: origin}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		treeResult := world.broadPhase.trees[i].Query(aabb, filter.MaskBits, func(proxyID int, userData uint64) bool { return treeOverlapCallback(proxyID, userData, &worldContext) })
 		treeStats.NodeVisits += treeResult.NodeVisits
 		treeStats.LeafVisits += treeResult.LeafVisits
 	}
+
 	if world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
 		recQueryCommit(world.recording, 0xE1, &recWriter)
 	}
+
 	return treeStats
 }
 
 func rayCastCallback(input *RayCastInput, proxyID int, userData uint64, context *worldRayCastContext) float32 {
 	shapeID := int(userData)
 	world := context.world
+
 	shape := &world.shapes[shapeID]
 	if !shouldQueryCollide(shape.filter, context.filter) {
 		return input.MaxFraction
 	}
+
 	body := &world.bodies[shape.bodyID]
 	bodyTransform := getBodyTransformQuick(world, body)
 	transform := bodyTransform.Relative(context.origin)
 	localInput := *input
 	localInput.Origin = Vec2Zero
+
 	output := rayCastShape(&localInput, shape, transform)
 	if output.Hit {
 		id := Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation}
@@ -672,20 +745,26 @@ func rayCastCallback(input *RayCastInput, proxyID int, userData uint64, context 
 		if 0 <= fraction && fraction <= 1 {
 			context.fraction = fraction
 		}
+
 		return fraction
 	}
+
 	return input.MaxFraction
 }
 
 func (w *World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn CastResultFunc) TreeStats {
 	var treeStats TreeStats
+
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return treeStats
 	}
+
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(translation.IsValid(), "b2IsValidVec2( translation )")
+
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
@@ -702,23 +781,28 @@ func (w *World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn Ca
 	// coordinate ULP, a graze sized miss tolerance at extreme range. Per-shape casts
 	// re-difference against the full precision origin carried on the context.
 	input := RayCastInput{Origin: origin.Vec2(), Translation: translation, MaxFraction: 1}
+
 	worldContext := worldRayCastContext{world: world, fcn: fcn, filter: filter, fraction: 1, origin: origin}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		treeResult := world.broadPhase.trees[i].CastRay(&input, filter.MaskBits, func(input *RayCastInput, proxyID int, userData uint64) float32 {
 			return rayCastCallback(input, proxyID, userData, &worldContext)
 		})
 		treeStats.NodeVisits += treeResult.NodeVisits
 		treeStats.LeafVisits += treeResult.LeafVisits
+
 		if worldContext.fraction == 0 {
 			break
 		}
+
 		input.MaxFraction = worldContext.fraction
 	}
+
 	if world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
 		recQueryCommit(world.recording, 0xE2, &recWriter)
 	}
+
 	return treeStats
 }
 
@@ -728,38 +812,47 @@ func rayCastClosestFcn(shapeID Shape, point Pos, normal Vec2, fraction float32, 
 	if fraction == 0 {
 		return -1
 	}
+
 	result.Shape = shapeID
 	result.Point = point
 	result.Normal = normal
 	result.Fraction = fraction
 	result.Hit = true
+
 	return fraction
 }
 
 func (w *World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter) RayResult {
 	var result RayResult
+
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return result
 	}
+
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 	input := RayCastInput{Origin: origin.Vec2(), Translation: translation, MaxFraction: 1}
+
 	worldContext := worldRayCastContext{world: world, fcn: func(id Shape, point Pos, normal Vec2, fraction float32) float32 {
 		return rayCastClosestFcn(id, point, normal, fraction, &result)
 	}, filter: filter, fraction: 1, origin: origin}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		treeResult := world.broadPhase.trees[i].CastRay(&input, filter.MaskBits, func(input *RayCastInput, proxyID int, userData uint64) float32 {
 			return rayCastCallback(input, proxyID, userData, &worldContext)
 		})
 		result.NodeVisits += treeResult.NodeVisits
 		result.LeafVisits += treeResult.LeafVisits
+
 		if worldContext.fraction == 0 {
 			break
 		}
+
 		input.MaxFraction = worldContext.fraction
 	}
+
 	if world.recording != nil {
 		var recBuf recBuffer
 		recWPOSITION(&recBuf, origin)
@@ -769,12 +862,14 @@ func (w *World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter)
 		recCommitRecord(world.recording, 0xE5, recBuf.data, recBuf.size)
 		recBufFree(&recBuf)
 	}
+
 	return result
 }
 
 func shapeCastCallback(input *BoxCastInput, proxyID int, userData uint64, context *worldShapeCastContext) float32 {
 	shapeID := int(userData)
 	world := context.world
+
 	shape := &world.shapes[shapeID]
 	if !shouldQueryCollide(shape.filter, context.filter) {
 		return input.MaxFraction
@@ -786,6 +881,7 @@ func shapeCastCallback(input *BoxCastInput, proxyID int, userData uint64, contex
 	body := &world.bodies[shape.bodyID]
 	transform := getBodyTransformQuick(world, body)
 	localTransform := transform.Relative(context.origin)
+
 	output := shapeCastShape(&localInput, shape, localTransform)
 	if output.Hit {
 		id := Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation}
@@ -795,20 +891,26 @@ func shapeCastCallback(input *BoxCastInput, proxyID int, userData uint64, contex
 		if 0 <= fraction && fraction <= 1 {
 			context.fraction = fraction
 		}
+
 		return fraction
 	}
+
 	return input.MaxFraction
 }
 
 func (w *World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filter QueryFilter, fcn CastResultFunc) TreeStats {
 	var treeStats TreeStats
+
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return treeStats
 	}
+
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(translation.IsValid(), "b2IsValidVec2( translation )")
+
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
@@ -822,33 +924,40 @@ func (w *World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filte
 			return recCastTrampoline(id, point, normal, fraction, &recWriter)
 		}
 	}
+
 	worldContext := worldShapeCastContext{world: world, fcn: fcn, filter: filter, fraction: 1, origin: origin, input: ShapeCastInput{Proxy: *proxy, Translation: translation, MaxFraction: 1}}
 	// Create a conservative world space box from the proxy and origin.
 	localBox := MakeAABB(proxy.Points[:proxy.Count], proxy.Radius)
 	box := offsetAABB(localBox, origin)
+
 	treeInput := BoxCastInput{Box: box, Translation: translation, MaxFraction: 1}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		treeResult := world.broadPhase.trees[i].CastBox(&treeInput, filter.MaskBits, func(input *BoxCastInput, proxyID int, userData uint64) float32 {
 			return shapeCastCallback(input, proxyID, userData, &worldContext)
 		})
 		treeStats.NodeVisits += treeResult.NodeVisits
 		treeStats.LeafVisits += treeResult.LeafVisits
+
 		if worldContext.fraction == 0 {
 			break
 		}
+
 		treeInput.MaxFraction = worldContext.fraction
 	}
+
 	if world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
 		recQueryCommit(world.recording, 0xE3, &recWriter)
 	}
+
 	return treeStats
 }
 
 func moverCastCallback(input *BoxCastInput, proxyID int, userData uint64, context *worldMoverCastContext) float32 {
 	shapeID := int(userData)
 	world := context.world
+
 	shape := &world.shapes[shapeID]
 	if !shouldQueryCollide(shape.filter, context.filter) {
 		return context.fraction
@@ -859,12 +968,15 @@ func moverCastCallback(input *BoxCastInput, proxyID int, userData uint64, contex
 	body := &world.bodies[shape.bodyID]
 	bodyTransform := getBodyTransformQuick(world, body)
 	transform := bodyTransform.Relative(context.origin)
+
 	output := shapeCastShape(&localInput, shape, transform)
 	if output.Fraction == 0 {
 		// Ignore overlapping shapes
 		return context.fraction
 	}
+
 	context.fraction = output.Fraction
+
 	return output.Fraction
 }
 
@@ -872,11 +984,14 @@ func (w *World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter Q
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 	assert(mover.Radius > float32(2)*LinearSlop(), "mover->radius > 2.0f * B2_LINEAR_SLOP")
+
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return 1
 	}
+
 	worldContext := worldMoverCastContext{world: world, filter: filter, fraction: 1, origin: origin}
 	worldContext.input.Proxy.Points[0] = mover.Center1
 	worldContext.input.Proxy.Points[1] = mover.Center2
@@ -888,16 +1003,20 @@ func (w *World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter Q
 	// Bound the capsule in origin relative space then lift to a conservative world float box
 	centers := [2]Vec2{mover.Center1, mover.Center2}
 	box := offsetAABB(MakeAABB(centers[:], mover.Radius), origin)
+
 	treeInput := BoxCastInput{Box: box, Translation: translation, MaxFraction: 1}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		world.broadPhase.trees[i].CastBox(&treeInput, filter.MaskBits, func(input *BoxCastInput, proxyID int, userData uint64) float32 {
 			return moverCastCallback(input, proxyID, userData, &worldContext)
 		})
+
 		if worldContext.fraction == 0 {
 			break
 		}
+
 		treeInput.MaxFraction = worldContext.fraction
 	}
+
 	if world.recording != nil {
 		var recBuf recBuffer
 		recWPOSITION(&recBuf, origin)
@@ -908,12 +1027,14 @@ func (w *World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter Q
 		recCommitRecord(world.recording, 0xE6, recBuf.data, recBuf.size)
 		recBufFree(&recBuf)
 	}
+
 	return worldContext.fraction
 }
 
 func treeCollideCallback(proxyID int, userData uint64, context *worldMoverContext) bool {
 	shapeID := int(userData)
 	world := context.world
+
 	shape := &world.shapes[shapeID]
 	if !shouldQueryCollide(shape.filter, context.filter) {
 		return true
@@ -927,6 +1048,7 @@ func treeCollideCallback(proxyID int, userData uint64, context *worldMoverContex
 		id := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
 		return context.fcn(id, &result)
 	}
+
 	return true
 }
 
@@ -935,10 +1057,13 @@ func treeCollideCallback(proxyID int, userData uint64, context *worldMoverContex
 func (w *World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn PlaneResultFunc) {
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return
 	}
+
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+
 	var recWriter recQueryWriter
 	if world.recording != nil {
 		recQueryBegin(&recWriter)
@@ -949,14 +1074,17 @@ func (w *World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn
 		recWriter.countOffset = recReserveU32(&recWriter.buf)
 		fcn = func(id Shape, plane *PlaneResult) bool { return recPlaneTrampoline(id, plane, &recWriter) }
 	}
+
 	r := Vec2{X: mover.Radius, Y: mover.Radius}
 	// Relative box lifted to world float with outward rounding, conservative for the tree
 	relBox := AABB{LowerBound: mover.Center1.Min(mover.Center2).Sub(r), UpperBound: mover.Center1.Max(mover.Center2).Add(r)}
 	aabb := offsetAABB(relBox, origin)
+
 	worldContext := worldMoverContext{world: world, fcn: fcn, filter: filter, mover: *mover, origin: origin}
-	for i := 0; i < int(BodyTypeCount); i++ {
+	for i := range int(BodyTypeCount) {
 		world.broadPhase.trees[i].Query(aabb, filter.MaskBits, func(proxyID int, userData uint64) bool { return treeCollideCallback(proxyID, userData, &worldContext) })
 	}
+
 	if world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		// CollideMover returns void; no TREESTATS tail
@@ -975,33 +1103,43 @@ func explosionCallback(proxyID int, userData uint64, context *explosionContext) 
 	// far from the origin. Everything below runs in that near-origin frame.
 	localPosition := xf.InvApply(context.position)
 	input := DistanceInput{ProxyA: makeShapeDistanceProxy(shape), ProxyB: MakeProxy([]Vec2{localPosition}, 0), Transform: TransformIdentity, UseRadii: true}
+
 	var cache SimplexCache
+
 	output := ShapeDistance(&input, &cache, nil)
 	radius := context.radius
+
 	falloff := context.falloff
 	if output.Distance > radius+falloff {
 		return true
 	}
+
 	wakeBody(world, body)
+
 	if body.setIndex != awakeSet {
 		return true
 	}
+
 	closestPoint := output.PointA
 	if output.Distance == 0 {
 		closestPoint = getShapeCentroid(shape)
 	}
+
 	direction := closestPoint.Sub(localPosition)
 	if direction.LengthSquared() > float32(100)*float32(0x1p-23)*float32(0x1p-23) {
 		direction = direction.Normalize()
 	} else {
 		direction = Vec2{X: 1}
 	}
+
 	localLine := direction.LeftPerp()
 	perimeter := getShapeProjectedPerimeter(shape, localLine)
+
 	scale := float32(1)
 	if output.Distance > radius && falloff > 0 {
 		scale = clampFloat((radius+falloff-output.Distance)/falloff, 0, 1)
 	}
+
 	magnitude := context.impulsePerLength * perimeter * scale
 	impulse := xf.Q.Rotate(direction).Scale(magnitude)
 	localIndex := body.localIndex
@@ -1012,6 +1150,7 @@ func explosionCallback(proxyID int, userData uint64, context *explosionContext) 
 	// Lever arm from the center of mass to the closest point, rotated to world
 	r := xf.Q.Rotate(closestPoint.Sub(bodySim.localCenter))
 	state.angularVelocity += float32(bodySim.invInertia * r.Cross(impulse))
+
 	return true
 }
 
@@ -1021,18 +1160,23 @@ func (w *World) Explode(def *ExplosionDef) {
 	radius := def.Radius
 	falloff := def.Falloff
 	impulsePerLength := def.ImpulsePerLength
+
 	checkInput(position.IsValid(), "b2IsValidPosition( position )")
 	checkInput(IsValidFloat(radius) && radius >= 0, "b2IsValidFloat( radius ) && radius >= 0.0f")
 	checkInput(IsValidFloat(falloff) && falloff >= 0, "b2IsValidFloat( falloff ) && falloff >= 0.0f")
 	checkInput(IsValidFloat(impulsePerLength), "b2IsValidFloat( impulsePerLength )")
+
 	world := w
 	assert(!world.locked, "world->locked == false")
+
 	if world.locked {
 		return
 	}
+
 	if world.recording != nil {
 		recWriteWorldExplode(world.recording, &recArgsWorldExplode{def: *def})
 	}
+
 	explosionContext := explosionContext{world: world, position: position, radius: radius, falloff: falloff, impulsePerLength: impulsePerLength}
 	// The broad-phase tree is float, so translate a local query box out to world with outward rounding
 	extent := radius + falloff
@@ -1051,7 +1195,7 @@ func validateConnectivity(world *World) {
 	bodies := world.bodies
 	bodyCapacity := len(world.bodies)
 
-	for bodyIndex := 0; bodyIndex < bodyCapacity; bodyIndex++ {
+	for bodyIndex := range bodyCapacity {
 		body := &bodies[bodyIndex]
 		if body.id == nullIndex {
 			validateFreeID(&world.bodyIDPool, bodyIndex)
@@ -1114,7 +1258,6 @@ func validateConnectivity(world *World) {
 			jointKey = joint.edges[edgeIndex].nextKey
 		}
 	}
-
 }
 
 func validateSolverSets(world *World) {
@@ -1136,31 +1279,34 @@ func validateSolverSets(world *World) {
 
 	// Validate all solver sets
 	setCount := len(world.solverSets)
-	for setIndex := 0; setIndex < setCount; setIndex++ {
+	for setIndex := range setCount {
 		set := &world.solverSets[setIndex]
 		if set.setIndex != nullIndex {
 			activeSetCount += 1
 
-			if setIndex == staticSet {
+			switch setIndex {
+			case staticSet:
 				assert(len(set.contactSims) == 0, "set->contactSims.count == 0")
 				assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
 				assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
-			} else if setIndex == disabledSet {
+			case disabledSet:
 				assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
 				assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
-			} else if setIndex == awakeSet {
+			case awakeSet:
 				assert(len(set.bodySims) == len(set.bodyStates), "set->bodySims.count == set->bodyStates.count")
 				assert(len(set.jointSims) == 0, "set->jointSims.count == 0")
-			} else {
+			default:
 				assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
 			}
 
 			// Validate bodies
 			{
 				bodies := world.bodies
+
 				assert(len(set.bodySims) >= 0, "set->bodySims.count >= 0")
+
 				totalBodyCount += len(set.bodySims)
-				for i := 0; i < len(set.bodySims); i++ {
+				for i := range len(set.bodySims) {
 					bodySim := &set.bodySims[i]
 
 					bodyID := bodySim.bodyID
@@ -1187,17 +1333,19 @@ func validateSolverSets(world *World) {
 
 					// Validate body shapes
 					prevShapeID := nullIndex
+
 					shapeID := body.headShapeID
 					for shapeID != nullIndex {
 						shape := &world.shapes[shapeID]
 						assert(shape.id == shapeID, "shape->id == shapeId")
 						assert(shape.prevShapeID == prevShapeID, "shape->prevShapeId == prevShapeId")
 
-						if setIndex == disabledSet {
+						switch setIndex {
+						case disabledSet:
 							assert(shape.proxyKey == nullIndex, "shape->proxyKey == B2_NULL_INDEX")
-						} else if setIndex == staticSet {
+						case staticSet:
 							assert(proxyType(shape.proxyKey) == StaticBody, "B2_PROXY_TYPE( shape->proxyKey ) == b2_staticBody")
-						} else {
+						default:
 							proxyType := proxyType(shape.proxyKey)
 							assert(proxyType == KinematicBody || proxyType == DynamicBody, "proxyType == b2_kinematicBody || proxyType == b2_dynamicBody")
 						}
@@ -1255,9 +1403,11 @@ func validateSolverSets(world *World) {
 			// Validate contacts
 			{
 				assert(len(set.contactSims) >= 0, "set->contactSims.count >= 0")
+
 				totalContactCount += len(set.contactSims)
-				for i := 0; i < len(set.contactSims); i++ {
+				for i := range len(set.contactSims) {
 					contactSim := &set.contactSims[i]
+
 					contact := &world.contacts[contactSim.contactID]
 					if setIndex == awakeSet {
 						// contact should be non-touching if awake
@@ -1265,12 +1415,14 @@ func validateSolverSets(world *World) {
 						assert(contactSim.manifold.PointCount == 0 ||
 							(contactSim.simFlags&simStartedTouching) != 0, "contactSim->manifold.pointCount == 0 || ( contactSim->simFlags & b2_simStartedTouching ) != 0")
 					}
+
 					assert(contact.setIndex == setIndex, "contact->setIndex == setIndex")
 					assert(contact.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
 					assert(contact.localIndex == i, "contact->localIndex == i")
 
 					edgeBodyA := &world.bodies[contact.edges[0].bodyID]
 					edgeBodyB := &world.bodies[contact.edges[1].bodyID]
+
 					assert(contactSim.encodedBodySimA == encodeBodySimIndex(edgeBodyA), "contactSim->encodedBodySimA == b2EncodeBodySimIndex( edgeBodyA )")
 					assert(contactSim.encodedBodySimB == encodeBodySimIndex(edgeBodyB), "contactSim->encodedBodySimB == b2EncodeBodySimIndex( edgeBodyB )")
 				}
@@ -1279,8 +1431,9 @@ func validateSolverSets(world *World) {
 			// Validate joints
 			{
 				assert(len(set.jointSims) >= 0, "set->jointSims.count >= 0")
+
 				totalJointCount += len(set.jointSims)
-				for i := 0; i < len(set.jointSims); i++ {
+				for i := range len(set.jointSims) {
 					jointSim := &set.jointSims[i]
 					joint := &world.joints[jointSim.jointId]
 					assert(joint.setIndex == setIndex, "joint->setIndex == setIndex")
@@ -1292,8 +1445,9 @@ func validateSolverSets(world *World) {
 			// Validate islands
 			{
 				assert(len(set.islandSims) >= 0, "set->islandSims.count >= 0")
+
 				totalIslandCount += len(set.islandSims)
-				for i := 0; i < len(set.islandSims); i++ {
+				for i := range len(set.islandSims) {
 					islandSim := &set.islandSims[i]
 					island := &world.islands[islandSim.islandID]
 					assert(island.setIndex == setIndex, "island->setIndex == setIndex")
@@ -1319,14 +1473,14 @@ func validateSolverSets(world *World) {
 	assert(totalIslandCount == islandIdCount, "totalIslandCount == islandIdCount")
 
 	// Validate constraint graph
-	for colorIndex := 0; colorIndex < GraphColorCount; colorIndex++ {
+	for colorIndex := range GraphColorCount {
 		color := &world.constraintGraph.colors[colorIndex]
 		bitCount := 0
 
 		assert(len(color.contactSims) >= 0, "color->contactSims.count >= 0")
 
 		totalContactCount += len(color.contactSims)
-		for i := 0; i < len(color.contactSims); i++ {
+		for i := range len(color.contactSims) {
 			contactSim := &color.contactSims[i]
 			contact := &world.contacts[contactSim.contactID]
 			// contact should be touching in the constraint graph or awaiting transfer to non-touching
@@ -1341,6 +1495,7 @@ func validateSolverSets(world *World) {
 
 			edgeBodyA := &world.bodies[bodyIDA]
 			edgeBodyB := &world.bodies[bodyIDB]
+
 			assert(contactSim.encodedBodySimA == encodeBodySimIndex(edgeBodyA), "contactSim->encodedBodySimA == b2EncodeBodySimIndex( edgeBodyA )")
 			assert(contactSim.encodedBodySimB == encodeBodySimIndex(edgeBodyB), "contactSim->encodedBodySimB == b2EncodeBodySimIndex( edgeBodyB )")
 
@@ -1351,6 +1506,7 @@ func validateSolverSets(world *World) {
 				if edgeBodyA.bodyType == DynamicBody {
 					bitCount++
 				}
+
 				if edgeBodyB.bodyType == DynamicBody {
 					bitCount++
 				}
@@ -1358,8 +1514,9 @@ func validateSolverSets(world *World) {
 		}
 
 		assert(len(color.jointSims) >= 0, "color->jointSims.count >= 0")
+
 		totalJointCount += len(color.jointSims)
-		for i := 0; i < len(color.jointSims); i++ {
+		for i := range len(color.jointSims) {
 			jointSim := &color.jointSims[i]
 			joint := &world.joints[jointSim.jointId]
 			assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
@@ -1372,12 +1529,14 @@ func validateSolverSets(world *World) {
 			if colorIndex < overflowIndex {
 				bodyA := &world.bodies[bodyIDA]
 				bodyB := &world.bodies[bodyIDB]
+
 				assert(getBit(&color.bodySet, uint32(bodyIDA)) == (bodyA.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdA ) == ( bodyA->type == b2_dynamicBody )")
 				assert(getBit(&color.bodySet, uint32(bodyIDB)) == (bodyB.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdB ) == ( bodyB->type == b2_dynamicBody )")
 
 				if bodyA.bodyType == DynamicBody {
 					bitCount++
 				}
+
 				if bodyB.bodyType == DynamicBody {
 					bitCount++
 				}
@@ -1394,7 +1553,6 @@ func validateSolverSets(world *World) {
 
 	jointIdCount := getIDCount(&world.jointIDPool)
 	assert(totalJointCount == jointIdCount, "totalJointCount == jointIdCount")
-
 }
 
 func validateContacts(world *World) {
@@ -1404,9 +1562,10 @@ func validateContacts(world *World) {
 
 	contactCount := len(world.contacts)
 	assert(contactCount == getIDCapacity(&world.contactIDPool), "contactCount == b2GetIdCapacity( &world->contactIdPool )")
+
 	allocatedContactCount := 0
 
-	for contactIndex := 0; contactIndex < contactCount; contactIndex++ {
+	for contactIndex := range contactCount {
 		contact := &world.contacts[contactIndex]
 		if contact.contactID == nullIndex {
 			continue
@@ -1428,10 +1587,10 @@ func validateContacts(world *World) {
 			}
 		} else if setID >= firstSleepingSet {
 			// Only touching contacts allowed in a sleeping set
-			assert(touching == true, "touching == true")
+			assert(touching, "touching == true")
 		} else {
 			// Sleeping and non-touching contacts belong in the disabled set
-			assert(touching == false && setID == disabledSet, "touching == false && setId == b2_disabledSet")
+			assert(!touching && setID == disabledSet, "touching == false && setId == b2_disabledSet")
 		}
 
 		contactSim := getContactSim(world, contact)
@@ -1447,5 +1606,4 @@ func validateContacts(world *World) {
 
 	contactIdCount := getIDCount(&world.contactIDPool)
 	assert(allocatedContactCount == contactIdCount, "allocatedContactCount == contactIdCount")
-
 }

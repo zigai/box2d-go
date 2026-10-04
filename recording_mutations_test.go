@@ -3,23 +3,27 @@ package box2d_test
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
-	"testing"
 )
 
 // Each mutation phase has two steps. The first is a dispatch fence: its replay
-// observations cannot be cancelled by the next phase's between-frame mutation.
+// observations cannot be canceled by the next phase's between-frame mutation.
 func TestRecordingMutationParity(t *testing.T) {
 	r := oracle.Open(t, "recording/MutationParity")
 	wd := box2d.DefaultWorldDef()
 	wd.Gravity = box2d.Vec2{}
 	w := box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, w)
+
 	rec := box2d.NewRecording(0)
 	ignored := box2d.NewRecording(0)
+
 	w.StartRecording(rec)
 	w.StartRecording(ignored)
+
 	bd := box2d.DefaultBodyDef()
 	bd.Name = "ground"
 	ground := w.CreateBody(&bd)
@@ -34,6 +38,7 @@ func TestRecordingMutationParity(t *testing.T) {
 	sensorDef.IsSensor = true
 	sensorCircle := box2d.Circle{Center: box2d.Vec2{X: 2, Y: 3}, Radius: 2}
 	ground.CreateCircleShape(&sensorDef, &sensorCircle)
+
 	md := box2d.DefaultMoverJointDef()
 	md.Base.BodyA = ground
 	md.Base.BodyB = body
@@ -51,6 +56,7 @@ func TestRecordingMutationParity(t *testing.T) {
 	wheelDef.Base.BodyB = body
 	wheel := w.CreateWheelJoint(&wheelDef)
 	wheel.SetSpringEnabled(false)
+
 	points := []box2d.Vec2{{X: -4}, {X: -2}, {}, {X: 2}, {X: 4}}
 	cd := box2d.DefaultChainDef()
 	cd.Points = points
@@ -58,6 +64,7 @@ func TestRecordingMutationParity(t *testing.T) {
 	cd.Ghost2 = box2d.Vec2{X: 6}
 	cd.Materials = []box2d.SurfaceMaterial{box2d.DefaultSurfaceMaterial()}
 	chain := ground.CreateChain(&cd)
+
 	for phase := range 18 {
 		switch phase {
 		case 0:
@@ -67,6 +74,7 @@ func TestRecordingMutationParity(t *testing.T) {
 			body.SetName("mutated name")
 			body.SetContactEventsEnabled(true)
 			body.SetHitEventsEnabled(true)
+
 			surface := box2d.DefaultSurfaceMaterial()
 			surface.Friction = 0.65
 			surface.Restitution = 0.35
@@ -98,6 +106,7 @@ func TestRecordingMutationParity(t *testing.T) {
 			w.SetRestitutionPropagationEnabled(false)
 		case 1:
 			body.UpdateMassFromShapes()
+
 			polygon := box2d.MakeBox(0.7, 0.2)
 			shape.SetPolygon(&polygon)
 			shape.SetUserMaterial(0xfedcba9876543210)
@@ -112,6 +121,7 @@ func TestRecordingMutationParity(t *testing.T) {
 			shape.SetSegment(&segment)
 		case 3:
 			body.SetType(box2d.DynamicBody)
+
 			chainSeg := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -2}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -1}, Point2: box2d.Vec2{X: 1}}, Ghost2: box2d.Vec2{X: 2}, ChainID: -1}
 			shape.SetChainSegment(&chainSeg)
 		case 4:
@@ -137,11 +147,13 @@ func TestRecordingMutationParity(t *testing.T) {
 			pogo.Destroy()
 			chain.Destroy()
 			shape.Destroy(true)
+
 			replacement := body.CreateCircleShape(&sd, &circle)
 			replacement.SetDensity(3, false)
 			body.UpdateMassFromShapes()
 		case 10:
 			body.Destroy()
+
 			bd.Name = "reused body"
 			bd.Position = box2d.Pos{X: 4, Y: 6}
 			body = w.CreateBody(&bd)
@@ -174,47 +186,58 @@ func TestRecordingMutationParity(t *testing.T) {
 			body.ApplyLinearImpulseToCenter(box2d.Vec2{X: 0.3, Y: 0.2}, true)
 			body.ApplyAngularImpulse(0.4, true)
 		}
+
 		for sub := range 2 {
 			w.Step(1.0/60.0, 4)
+
 			key := fmt.Sprintf("live/%d", phase*2+sub+1)
 			r.U64(key+"/state", w.StateHash())
 			recordingProperties(r, w, key)
 			recordingEvents(r, w, key)
 		}
 	}
+
 	w.StopRecording()
 	w.StopRecording()
 	r.Bool("repeatedStart/ignoredEmpty", ignored.Size() == 0)
 	body.SetName("after stop")
 	w.Close()
+
 	p, destroy := recordingParityPlayer(t, rec.Data(), 0)
 	p.SetKeyframePolicy(1<<26, 2)
+
 	for p.StepFrame() {
 		key := fmt.Sprintf("replay/%d", p.Frame())
 		r.U64(key+"/state", p.World().StateHash())
 		recordingProperties(r, p.World(), key)
 		recordingEvents(r, p.World(), key)
 	}
+
 	r.Bool("replay/diverged", p.HasDiverged())
+
 	for i, target := range []int{36, 1, 14, 10, 0, 18, 35, 99, -5} {
 		p.SeekFrame(target)
+
 		key := fmt.Sprintf("seek/%d", i)
 		recordingObserve(t, r, p, key)
 		recordingProperties(r, p.World(), key)
 		recordingEvents(r, p.World(), key)
 	}
+
 	destroy()
 	// Reusing a stopped buffer replaces the old session rather than appending it.
 	wd.Gravity = box2d.Vec2{Y: -2}
 	w = box2d.NewWorld(&wd)
 	box2d.BTWorldCleanup(t, w)
 	w.StartRecording(rec)
+
 	bd.Name = "new session"
 	body = w.CreateBody(&bd)
 	body.CreateCircleShape(&sd, &circle)
 	w.Step(1.0/20.0, 3)
 	w.StopRecording()
 	w.Close()
+
 	p, destroy = recordingParityPlayer(t, rec.Data(), 0)
 	recordingObserve(t, r, p, "reuse/open")
 	r.Bool("reuse/step", p.StepFrame())

@@ -10,7 +10,7 @@ import (
 
 const (
 	nullIndex int = -1
-	// Simple djb2 hash function for determinism testing
+	// Simple djb2 hash function for determinism testing.
 	HashInit uint32 = 5381
 	// Significant API and behavior changes.
 	VersionMajor int = 3
@@ -35,7 +35,7 @@ type AssertError struct {
 	Line      int
 }
 
-// Get the current version of Box2D
+// Get the current version of Box2D.
 func CurrentVersion() Version {
 	return Version{Major: VersionMajor, Minor: VersionMinor, Revision: VersionRevision}
 }
@@ -45,11 +45,12 @@ func IsDoublePrecision() bool {
 	return doublePrecision
 }
 
-// Simple djb2 hash function for determinism testing
+// Simple djb2 hash function for determinism testing.
 func Hash(hash uint32, data []byte) uint32 {
 	for _, b := range data {
 		hash = ((hash << 5) + hash) + uint32(b)
 	}
+
 	return hash
 }
 

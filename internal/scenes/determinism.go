@@ -34,6 +34,7 @@ func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
+
 	columnCount := 4
 	rowCount := 20
 	bodyCount := rowCount * columnCount
@@ -61,11 +62,13 @@ func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 	bodyIndex := 0
 	offset := float32(0.4) * h
 	dx := float32(10) * h
+
 	xBase := -float32(0.5) * dx * (float32(columnCount) - float32(1))
-	for j := 0; j < columnCount; j++ {
+	for j := range columnCount {
 		x := xBase + float32(float32(j)*dx)
 		prevBodyID := box2d.Body{}
-		for i := 0; i < rowCount; i++ {
+
+		for i := range rowCount {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
 			bodyDef.Position = box2d.Vec2{X: x + float32(offset*float32(i)), Y: h + float32(float32(2)*h*float32(i))}.Pos()
@@ -74,7 +77,9 @@ func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 			if i&1 == 0 {
 				angle = -float32(0.1)
 			}
+
 			bodyDef.Rotation = box2d.MakeRot(angle)
+
 			bodyID := worldID.CreateBody(&bodyDef)
 			if i&1 == 0 {
 				prevBodyID = bodyID
@@ -82,20 +87,27 @@ func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 				jointDef.Base.BodyA = prevBodyID
 				jointDef.Base.BodyB = bodyID
 				worldID.CreateRevoluteJoint(&jointDef)
+
 				prevBodyID = box2d.Body{}
 			}
+
 			bodyID.CreatePolygonShape(&shapeDef, &box)
-			if !(bodyIndex < bodyCount) {
+
+			if bodyIndex >= bodyCount {
 				panic(&box2d.AssertError{Condition: "bodyIndex < bodyCount"})
 			}
+
 			bodyIDs[bodyIndex] = bodyID
 			bodyIndex += 1
 		}
 	}
-	if !(bodyIndex == bodyCount) {
+
+	if bodyIndex != bodyCount {
 		panic(&box2d.AssertError{Condition: "bodyIndex == bodyCount"})
 	}
+
 	data := FallingHingeData{BodyIDs: bodyIDs, BodyCount: bodyCount, StepCount: 0, SleepStep: -1, Hash: 0}
+
 	return data
 }
 
@@ -105,13 +117,16 @@ func UpdateFallingHinges(worldID *box2d.World, data *FallingHingeData) bool {
 		for range worldID.BodyMoveEvents() {
 			moveCount++
 		}
+
 		if moveCount == 0 {
-			if !(worldID.AwakeBodyCount() == 0) {
+			if worldID.AwakeBodyCount() != 0 {
 				panic(&box2d.AssertError{Condition: "b2World_GetAwakeBodyCount( worldId ) == 0"})
 			}
+
 			data.Hash = box2d.HashInit
-			for i := 0; i < data.BodyCount; i++ {
+			for i := range data.BodyCount {
 				transform := data.BodyIDs[i].Transform()
+
 				var bytes [int(unsafe.Sizeof(box2d.WorldTransform{}))]byte
 				if fallingHingePrecision == 1 {
 					binary.LittleEndian.PutUint64(bytes[0:8], math.Float64bits(float64(transform.P.X)))
@@ -120,15 +135,19 @@ func UpdateFallingHinges(worldID *box2d.World, data *FallingHingeData) bool {
 					binary.LittleEndian.PutUint32(bytes[0:4], math.Float32bits(float32(transform.P.X)))
 					binary.LittleEndian.PutUint32(bytes[4:8], math.Float32bits(float32(transform.P.Y)))
 				}
+
 				offset := int(unsafe.Sizeof(box2d.Pos{}))
 				binary.LittleEndian.PutUint32(bytes[offset:offset+4], math.Float32bits(transform.Q.C))
 				binary.LittleEndian.PutUint32(bytes[offset+4:offset+8], math.Float32bits(transform.Q.S))
 				data.Hash = box2d.Hash(data.Hash, bytes[:])
 			}
+
 			data.SleepStep = data.StepCount
 		}
 	}
+
 	data.StepCount += 1
+
 	return data.Hash != 0
 }
 

@@ -10,43 +10,56 @@ func recurseHull(p1 Vec2, p2 Vec2, ps []Vec2, count int) Hull {
 	if count == 0 {
 		return hull
 	}
+
 	e := p2.Sub(p1).Normalize()
+
 	var rightPoints [MaxPolygonVertices]Vec2
+
 	rightCount := 0
 	bestIndex := 0
+
 	bestDistance := ps[bestIndex].Sub(p1).Cross(e)
 	if bestDistance > 0 {
 		rightPoints[rightCount] = ps[bestIndex]
 		rightCount++
 	}
+
 	for i := 1; i < count; i++ {
 		distance := ps[i].Sub(p1).Cross(e)
 		if distance > bestDistance {
 			bestIndex = i
 			bestDistance = distance
 		}
+
 		if distance > 0 {
 			rightPoints[rightCount] = ps[i]
 			rightCount++
 		}
 	}
+
 	if bestDistance < 2*LinearSlop() {
 		return hull
 	}
+
 	bestPoint := ps[bestIndex]
 	hull1 := recurseHull(p1, bestPoint, rightPoints[:], rightCount)
 	hull2 := recurseHull(bestPoint, p2, rightPoints[:], rightCount)
-	for i := 0; i < hull1.Count; i++ {
+
+	for i := range hull1.Count {
 		hull.Points[hull.Count] = hull1.Points[i]
 		hull.Count++
 	}
+
 	hull.Points[hull.Count] = bestPoint
+
 	hull.Count++
-	for i := 0; i < hull2.Count; i++ {
+	for i := range hull2.Count {
 		hull.Points[hull.Count] = hull2.Points[i]
 		hull.Count++
 	}
+
 	assert(hull.Count < MaxPolygonVertices, "hull.count < B2_MAX_POLYGON_VERTICES")
+
 	return hull
 }
 
@@ -57,42 +70,53 @@ func recurseHull(p1 Vec2, p2 Vec2, ps []Vec2, count int) Hull {
 // - less than 3 points
 // - more than MaxPolygonVertices points
 // This welds close points and removes collinear points.
-// @warning Do not modify a hull once it has been computed
+// @warning Do not modify a hull once it has been computed.
 func ComputeHull(points []Vec2) Hull {
 	count := len(points)
+
 	var hull Hull
 	if count < 3 || count > MaxPolygonVertices {
 		return hull
 	}
+
 	count = min(count, MaxPolygonVertices)
 	aabb := AABB{Vec2{math.MaxFloat32, math.MaxFloat32}, Vec2{-math.MaxFloat32, -math.MaxFloat32}}
+
 	var ps [MaxPolygonVertices]Vec2
+
 	n := 0
 	linearSlop := LinearSlop()
 	tolSqr := 16 * linearSlop * linearSlop
-	for i := 0; i < count; i++ {
+
+	for i := range count {
 		aabb.LowerBound = aabb.LowerBound.Min(points[i])
 		aabb.UpperBound = aabb.UpperBound.Max(points[i])
 		vi := points[i]
 		unique := true
-		for j := 0; j < i; j++ {
+
+		for j := range i {
 			vj := points[j]
+
 			distSqr := vi.DistanceSquared(vj)
 			if distSqr < tolSqr {
 				unique = false
 				break
 			}
 		}
+
 		if unique {
 			ps[n] = vi
 			n++
 		}
 	}
+
 	if n < 3 {
 		return hull
 	}
+
 	c := aabb.Center()
 	f1 := 0
+
 	dsq1 := c.DistanceSquared(ps[f1])
 	for i := 1; i < n; i++ {
 		dsq := c.DistanceSquared(ps[i])
@@ -101,10 +125,12 @@ func ComputeHull(points []Vec2) Hull {
 			dsq1 = dsq
 		}
 	}
+
 	p1 := ps[f1]
 	ps[f1] = ps[n-1]
 	n--
 	f2 := 0
+
 	dsq2 := p1.DistanceSquared(ps[f2])
 	for i := 1; i < n; i++ {
 		dsq := p1.DistanceSquared(ps[i])
@@ -113,15 +139,21 @@ func ComputeHull(points []Vec2) Hull {
 			dsq2 = dsq
 		}
 	}
+
 	p2 := ps[f2]
 	ps[f2] = ps[n-1]
 	n--
+
 	var rightPoints [MaxPolygonVertices - 2]Vec2
+
 	rightCount := 0
+
 	var leftPoints [MaxPolygonVertices - 2]Vec2
+
 	leftCount := 0
+
 	e := p2.Sub(p1).Normalize()
-	for i := 0; i < n; i++ {
+	for i := range n {
 		d := ps[i].Sub(p1).Cross(e)
 		if d >= 2*linearSlop {
 			rightPoints[rightCount] = ps[i]
@@ -131,27 +163,36 @@ func ComputeHull(points []Vec2) Hull {
 			leftCount++
 		}
 	}
+
 	hull1 := recurseHull(p1, p2, rightPoints[:], rightCount)
+
 	hull2 := recurseHull(p2, p1, leftPoints[:], leftCount)
 	if hull1.Count == 0 && hull2.Count == 0 {
 		return hull
 	}
+
 	hull.Points[hull.Count] = p1
+
 	hull.Count++
-	for i := 0; i < hull1.Count; i++ {
+	for i := range hull1.Count {
 		hull.Points[hull.Count] = hull1.Points[i]
 		hull.Count++
 	}
+
 	hull.Points[hull.Count] = p2
+
 	hull.Count++
-	for i := 0; i < hull2.Count; i++ {
+	for i := range hull2.Count {
 		hull.Points[hull.Count] = hull2.Points[i]
 		hull.Count++
 	}
+
 	assert(hull.Count <= MaxPolygonVertices, "hull.count <= B2_MAX_POLYGON_VERTICES")
+
 	searching := true
 	for searching && hull.Count > 2 {
 		searching = false
+
 		for i := 0; i < hull.Count; i++ {
 			i1 := i
 			i2 := (i + 1) % hull.Count
@@ -160,20 +201,25 @@ func ComputeHull(points []Vec2) Hull {
 			s2 := hull.Points[i2]
 			s3 := hull.Points[i3]
 			r := s3.Sub(s1).Normalize()
+
 			distance := s2.Sub(s1).Cross(r)
 			if distance <= 2*linearSlop {
 				for j := i2; j < hull.Count-1; j++ {
 					hull.Points[j] = hull.Points[j+1]
 				}
+
 				hull.Count--
 				searching = true
+
 				break
 			}
 		}
 	}
+
 	if hull.Count < 3 {
 		hull.Count = 0
 	}
+
 	return hull
 }
 
@@ -185,26 +231,33 @@ func ValidateHull(hull *Hull) bool {
 	if hull.Count < 3 || MaxPolygonVertices < hull.Count {
 		return false
 	}
-	for i := 0; i < hull.Count; i++ {
+
+	for i := range hull.Count {
 		i1 := i
+
 		i2 := 0
 		if i < hull.Count-1 {
 			i2 = i1 + 1
 		}
+
 		p := hull.Points[i1]
+
 		e := hull.Points[i2].Sub(p).Normalize()
-		for j := 0; j < hull.Count; j++ {
+		for j := range hull.Count {
 			if j == i1 || j == i2 {
 				continue
 			}
+
 			distance := hull.Points[j].Sub(p).Cross(e)
 			if distance >= 0 {
 				return false
 			}
 		}
 	}
+
 	linearSlop := LinearSlop()
-	for i := 0; i < hull.Count; i++ {
+
+	for i := range hull.Count {
 		i1 := i
 		i2 := (i + 1) % hull.Count
 		i3 := (i + 2) % hull.Count
@@ -212,10 +265,12 @@ func ValidateHull(hull *Hull) bool {
 		p2 := hull.Points[i2]
 		p3 := hull.Points[i3]
 		e := p3.Sub(p1).Normalize()
+
 		distance := p2.Sub(p1).Cross(e)
 		if distance <= linearSlop {
 			return false
 		}
 	}
+
 	return true
 }

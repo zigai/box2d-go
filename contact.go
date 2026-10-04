@@ -60,7 +60,7 @@ type ContactHitEvent struct {
 
 // Contact events are buffered in the Box2D world and are available
 // as event arrays after the time step is complete.
-// Note: these may become invalid if bodies and/or shapes are destroyed
+// Note: these may become invalid if bodies and/or shapes are destroyed.
 type ContactEvents struct {
 	// Array of begin touch events
 	BeginEvents []ContactBeginTouchEvent
@@ -78,7 +78,7 @@ type ContactEvents struct {
 
 // The contact data for two shapes. By convention the manifold normal points
 // from shape A to shape B.
-// See: Shape.ContactData() and Body.ContactData()
+// See: Shape.ContactData() and Body.ContactData().
 type ContactData struct {
 	// The contact id. You may hold onto this to track a contact across time steps.
 	// This id may become orphaned. Use Contact.IsValid before using it for other functions.
@@ -254,10 +254,11 @@ func getContactFullId(world *World, contactID Contact) *contact {
 	id := int(contactID.index1) - 1
 	contact := &world.contacts[id]
 	assert(contact.contactID == id && contact.generation == contactID.generation, "contact.contactID == id && contact.generation == contactID.generation")
+
 	return contact
 }
 
-// Get the world that owns this contact
+// Get the world that owns this contact.
 func (c Contact) World() *World {
 	return c.world
 }
@@ -269,6 +270,7 @@ func (c Contact) Data() ContactData {
 	contactSim := getContactSim(world, contact)
 	shapeA := &world.shapes[contact.shapeIDA]
 	shapeB := &world.shapes[contact.shapeIDB]
+
 	return ContactData{
 		Contact:  c,
 		ShapeA:   Shape{index1: int32(shapeA.id + 1), world: c.world, generation: shapeA.generation},
@@ -293,7 +295,7 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 		return
 	}
 
-	if contactRegistry[type1][type2].primary == false {
+	if !contactRegistry[type1][type2].primary {
 		// flip order
 		createContact(world, shapeB, shapeA)
 		return
@@ -356,11 +358,13 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 		contact.edges[0].nextKey = bodyA.headContactKey
 
 		keyA := (contactID << 1) | 0
+
 		headContactKey := bodyA.headContactKey
 		if headContactKey != nullIndex {
 			headContact := &world.contacts[headContactKey>>1]
 			headContact.edges[headContactKey&1].prevKey = keyA
 		}
+
 		bodyA.headContactKey = keyA
 		bodyA.contactCount += 1
 	}
@@ -372,11 +376,13 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 		contact.edges[1].nextKey = bodyB.headContactKey
 
 		keyB := (contactID << 1) | 1
+
 		headContactKey := bodyB.headContactKey
 		if bodyB.headContactKey != nullIndex {
 			headContact := &world.contacts[headContactKey>>1]
 			headContact.edges[headContactKey&1].prevKey = keyB
 		}
+
 		bodyB.headContactKey = keyB
 		bodyB.contactCount += 1
 	}
@@ -388,6 +394,7 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	// Contacts are created as non-touching. Later if they are found to be touching
 	// they will link islands and be moved into the constraint graph.
 	var contactSim *contactSim
+
 	set.contactSims, contactSim = arrayEmplace(set.contactSims)
 	contactSim.contactID = contactID
 
@@ -517,6 +524,7 @@ func destroyContact(world *World, contact *contact) {
 		set := &world.solverSets[contact.setIndex]
 
 		var movedIndex int
+
 		set.contactSims, movedIndex = arrayRemoveSwap(set.contactSims, contact.localIndex)
 		if movedIndex != nullIndex {
 			movedContactSim := &set.contactSims[contact.localIndex]
@@ -530,6 +538,7 @@ func destroyContact(world *World, contact *contact) {
 	contact.setIndex = nullIndex
 	contact.colorIndex = nullIndex
 	contact.localIndex = nullIndex
+
 	freeID(&world.contactIDPool, contactID)
 
 	if touching {
@@ -543,10 +552,12 @@ func getContactSim(world *World, contact *contact) *contactSim {
 		// contact lives in constraint graph
 		assert(0 <= contact.colorIndex && contact.colorIndex < GraphColorCount, "0 <= contact.colorIndex && contact.colorIndex < GraphColorCount")
 		color := &world.constraintGraph.colors[contact.colorIndex]
+
 		return &color.contactSims[contact.localIndex]
 	}
 
 	set := &world.solverSets[contact.setIndex]
+
 	return &set.contactSims[contact.localIndex]
 }
 
@@ -567,7 +578,8 @@ func updateContact(world *World, contactSim *contactSim, shapeA *shape, transfor
 	contactSim.manifold.PointCount = local.PointCount
 
 	originDelta := transformA.P.Sub(transformB.P)
-	for i := 0; i < local.PointCount; i++ {
+
+	for i := range local.PointCount {
 		mp := &contactSim.manifold.Points[i]
 		mp.AnchorA = transformA.Q.Rotate(local.Points[i].Point)
 		mp.AnchorB = mp.AnchorA.Add(originDelta)
@@ -629,7 +641,8 @@ func updateContact(world *World, contactSim *contactSim, shapeA *shape, transfor
 		// Match old contact ids to new contact ids and copy the
 		// stored impulses to warm start the solver.
 		unmatchedCount := 0
-		for i := 0; i < pointCount; i++ {
+
+		for i := range pointCount {
 			mp2 := &contactSim.manifold.Points[i]
 
 			// shift anchors to be center of mass relative
@@ -644,7 +657,7 @@ func updateContact(world *World, contactSim *contactSim, shapeA *shape, transfor
 
 			id2 := mp2.ID
 
-			for j := 0; j < oldManifold.PointCount; j++ {
+			for j := range oldManifold.PointCount {
 				mp1 := &oldManifold.Points[j]
 
 				if mp1.ID == id2 {

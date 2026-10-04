@@ -28,11 +28,14 @@ func qsort[T any](s []T, less func(a, b T) bool) {
 	if len(s) <= 1 {
 		return
 	}
+
 	l, r, sp := 0, len(s)-1, 0
+
 	var stack [48]struct{ l, r int }
 	for {
 		if r-l+1 >= qThresh {
 			m := l + ((r - l) >> 1)
+
 			a1, a2, a3 := l+1, m, r
 			if less(s[a2], s[a1]) {
 				if less(s[a3], s[a2]) {
@@ -49,29 +52,37 @@ func qsort[T any](s []T, less func(a, b T) bool) {
 					s[a1], s[a2] = s[a2], s[a1]
 				}
 			}
+
 			s[l], s[m] = s[m], s[l]
+
 			i, j := l+1, r
 			for {
 				i++
 				for less(s[i], s[l]) {
 					i++
 				}
+
 				j--
 				for less(s[l], s[j]) {
 					j--
 				}
+
 				if i >= j {
 					break
 				}
+
 				s[i], s[j] = s[j], s[i]
 			}
+
 			i = j + 1
 			s[l], s[j] = s[j], s[l]
 			j--
+
 			l1, r1, l2, r2 := l, j, i, r
 			if j-l < r-i {
 				l1, r1, l2, r2 = i, r, l, j
 			}
+
 			if l2 == r2 {
 				l, r = l1, r1
 			} else {
@@ -86,9 +97,11 @@ func qsort[T any](s []T, less func(a, b T) bool) {
 					s[j], s[j-1] = s[j-1], s[j]
 				}
 			}
+
 			if sp == 0 {
 				break
 			}
+
 			sp--
 			l, r = stack[sp].l, stack[sp].r
 		}

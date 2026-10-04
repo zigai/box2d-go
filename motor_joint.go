@@ -36,93 +36,103 @@ type MotorJointDef struct {
 	internalValue int32
 }
 
-// Set the desired relative linear velocity in meters per second
+// Set the desired relative linear velocity in meters per second.
 func (m MotorJoint) SetLinearVelocity(velocity Vec2) {
 	checkInput(velocity.IsValid(), "b2IsValidVec2( velocity )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetLinearVelocity(world.recording, &recArgsMotorJointSetLinearVelocity{joint: m.Joint, velocity: velocity})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.linearVelocity = velocity
 }
 
-// Get the desired relative linear velocity in meters per second
+// Get the desired relative linear velocity in meters per second.
 func (m MotorJoint) LinearVelocity() Vec2 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.linearVelocity
 }
 
-// Set the desired relative angular velocity in radians per second
+// Set the desired relative angular velocity in radians per second.
 func (m MotorJoint) SetAngularVelocity(velocity float32) {
 	checkInput(IsValidFloat(velocity), "b2IsValidFloat( velocity )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetAngularVelocity(world.recording, &recArgsMotorJointSetAngularVelocity{joint: m.Joint, velocity: velocity})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.angularVelocity = velocity
 }
 
-// Get the desired relative angular velocity in radians per second
+// Get the desired relative angular velocity in radians per second.
 func (m MotorJoint) AngularVelocity() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.angularVelocity
 }
 
-// Set the motor joint maximum torque, usually in newton-meters
+// Set the motor joint maximum torque, usually in newton-meters.
 func (m MotorJoint) SetMaxVelocityTorque(maxTorque float32) {
 	checkInput(IsValidFloat(maxTorque), "b2IsValidFloat( maxTorque )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetMaxVelocityTorque(world.recording, &recArgsMotorJointSetMaxVelocityTorque{joint: m.Joint, maxTorque: maxTorque})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.maxVelocityTorque = maxTorque
 }
 
-// Get the motor joint maximum torque, usually in newton-meters
+// Get the motor joint maximum torque, usually in newton-meters.
 func (m MotorJoint) MaxVelocityTorque() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.maxVelocityTorque
 }
 
-// Set the motor joint maximum force, usually in newtons
+// Set the motor joint maximum force, usually in newtons.
 func (m MotorJoint) SetMaxVelocityForce(maxForce float32) {
 	checkInput(IsValidFloat(maxForce), "b2IsValidFloat( maxForce )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetMaxVelocityForce(world.recording, &recArgsMotorJointSetMaxVelocityForce{joint: m.Joint, maxForce: maxForce})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.maxVelocityForce = maxForce
 }
 
-// Get the motor joint maximum force, usually in newtons
+// Get the motor joint maximum force, usually in newtons.
 func (m MotorJoint) MaxVelocityForce() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.maxVelocityForce
 }
 
-// Set the spring linear hertz stiffness
+// Set the spring linear hertz stiffness.
 func (m MotorJoint) SetLinearHertz(hertz float32) {
 	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetLinearHertz(world.recording, &recArgsMotorJointSetLinearHertz{joint: m.Joint, hertz: hertz})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.linearHertz = hertz
 }
 
-// Get the spring linear hertz stiffness
+// Get the spring linear hertz stiffness.
 func (m MotorJoint) LinearHertz() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.linearHertz
 }
 
@@ -130,35 +140,39 @@ func (m MotorJoint) LinearHertz() float32 {
 func (m MotorJoint) SetLinearDampingRatio(damping float32) {
 	checkInput(IsValidFloat(damping), "b2IsValidFloat( damping )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetLinearDampingRatio(world.recording, &recArgsMotorJointSetLinearDampingRatio{joint: m.Joint, damping: damping})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.linearDampingRatio = damping
 }
 
 // Get the spring linear damping ratio.
 func (m MotorJoint) LinearDampingRatio() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.linearDampingRatio
 }
 
-// Set the spring angular hertz stiffness
+// Set the spring angular hertz stiffness.
 func (m MotorJoint) SetAngularHertz(hertz float32) {
 	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetAngularHertz(world.recording, &recArgsMotorJointSetAngularHertz{joint: m.Joint, hertz: hertz})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.angularHertz = hertz
 }
 
-// Get the spring angular hertz stiffness
+// Get the spring angular hertz stiffness.
 func (m MotorJoint) AngularHertz() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.angularHertz
 }
 
@@ -166,17 +180,19 @@ func (m MotorJoint) AngularHertz() float32 {
 func (m MotorJoint) SetAngularDampingRatio(damping float32) {
 	checkInput(IsValidFloat(damping), "b2IsValidFloat( damping )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetAngularDampingRatio(world.recording, &recArgsMotorJointSetAngularDampingRatio{joint: m.Joint, damping: damping})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.angularDampingRatio = damping
 }
 
 // Get the spring angular damping ratio.
 func (m MotorJoint) AngularDampingRatio() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.angularDampingRatio
 }
 
@@ -184,40 +200,44 @@ func (m MotorJoint) AngularDampingRatio() float32 {
 func (m MotorJoint) SetMaxSpringForce(maxForce float32) {
 	checkInput(IsValidFloat(maxForce), "b2IsValidFloat( maxForce )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetMaxSpringForce(world.recording, &recArgsMotorJointSetMaxSpringForce{joint: m.Joint, maxForce: maxForce})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.maxSpringForce = maxFloat(0.0, maxForce)
 }
 
 // Get the maximum spring force in newtons.
 func (m MotorJoint) MaxSpringForce() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.maxSpringForce
 }
 
-// Set the maximum spring torque in newtons * meters
+// Set the maximum spring torque in newtons * meters.
 func (m MotorJoint) SetMaxSpringTorque(maxTorque float32) {
 	checkInput(IsValidFloat(maxTorque), "b2IsValidFloat( maxTorque )")
 
-	var world *World = m.Joint.world
+	world := m.Joint.world
 	if world.recording != nil {
 		recWriteMotorJointSetMaxSpringTorque(world.recording, &recArgsMotorJointSetMaxSpringTorque{joint: m.Joint, maxTorque: maxTorque})
 	}
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
+
 	jnt.motorJoint.maxSpringTorque = maxFloat(0.0, maxTorque)
 }
 
-// Get the maximum spring torque in newtons * meters
+// Get the maximum spring torque in newtons * meters.
 func (m MotorJoint) MaxSpringTorque() float32 {
-	var jnt *jointSim = getJointSimCheckType(m.Joint, MotorJointType)
+	jnt := getJointSimCheckType(m.Joint, MotorJointType)
 	return jnt.motorJoint.maxSpringTorque
 }
 
 func getMotorJointForce(world *World, base *jointSim) Vec2 {
-	var force Vec2 = base.motorJoint.linearVelocityImpulse.Add(base.motorJoint.linearSpringImpulse).Scale(world.invH)
+	force := base.motorJoint.linearVelocityImpulse.Add(base.motorJoint.linearSpringImpulse).Scale(world.invH)
 	return force
 }
 
@@ -229,41 +249,54 @@ func prepareMotorJoint(base *jointSim, context *stepContext) {
 	assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
 
 	// chase body id to the solver set where the body lives
-	var idA int = base.bodyIdA
-	var idB int = base.bodyIdB
+	var (
+		idA = base.bodyIdA
+		idB = base.bodyIdB
+	)
 
-	var world *World = context.world
+	world := context.world
 
-	var bodyA *body = &world.bodies[idA]
-	var bodyB *body = &world.bodies[idB]
+	var (
+		bodyA = &world.bodies[idA]
+		bodyB = &world.bodies[idB]
+	)
 
 	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 
-	var setA *solverSet = &world.solverSets[bodyA.setIndex]
-	var setB *solverSet = &world.solverSets[bodyB.setIndex]
+	var (
+		setA = &world.solverSets[bodyA.setIndex]
+		setB = &world.solverSets[bodyB.setIndex]
+	)
 
-	var localIndexA int = bodyA.localIndex
-	var localIndexB int = bodyB.localIndex
+	var (
+		localIndexA = bodyA.localIndex
+		localIndexB = bodyB.localIndex
+	)
 
-	var bodySimA *bodySim = &setA.bodySims[localIndexA]
-	var bodySimB *bodySim = &setB.bodySims[localIndexB]
+	var (
+		bodySimA = &setA.bodySims[localIndexA]
+		bodySimB = &setB.bodySims[localIndexB]
+	)
 
-	var mA float32 = bodySimA.invMass
-	var iA float32 = bodySimA.invInertia
-	var mB float32 = bodySimB.invMass
-	var iB float32 = bodySimB.invInertia
+	var (
+		mA = bodySimA.invMass
+		iA = bodySimA.invInertia
+		mB = bodySimB.invMass
+		iB = bodySimB.invInertia
+	)
 
 	base.invMassA = mA
 	base.invMassB = mB
 	base.invIA = iA
 	base.invIB = iB
 
-	var jnt *motorJoint = &base.motorJoint
+	jnt := &base.motorJoint
 	if bodyA.setIndex == awakeSet {
 		jnt.indexA = localIndexA
 	} else {
 		jnt.indexA = nullIndex
 	}
+
 	if bodyB.setIndex == awakeSet {
 		jnt.indexB = localIndexB
 	} else {
@@ -279,27 +312,30 @@ func prepareMotorJoint(base *jointSim, context *stepContext) {
 	// Compute the initial center delta. Incremental position updates are relative to this.
 	jnt.deltaCenter = bodySimB.center.Sub(bodySimA.center)
 
-	var rA Vec2 = jnt.frameA.P
-	var rB Vec2 = jnt.frameB.P
+	var (
+		rA = jnt.frameA.P
+		rB = jnt.frameB.P
+	)
 
 	jnt.linearSpring = makeSoft(jnt.linearHertz, jnt.linearDampingRatio, context.h)
 	jnt.angularSpring = makeSoft(jnt.angularHertz, jnt.angularDampingRatio, context.h)
 
 	var kl Mat22
+
 	kl.Cx.X = mA + mB + float32(float32(rA.Y*rA.Y)*iA) + float32(float32(rB.Y*rB.Y)*iB)
 	kl.Cx.Y = float32(float32(-rA.Y*rA.X)*iA) - float32(float32(rB.Y*rB.X)*iB)
 	kl.Cy.X = kl.Cx.Y
 	kl.Cy.Y = mA + mB + float32(float32(rA.X*rA.X)*iA) + float32(float32(rB.X*rB.X)*iB)
 	jnt.linearMass = kl.Inverse()
 
-	var ka float32 = iA + iB
+	ka := iA + iB
 	if ka > 0.0 {
 		jnt.angularMass = 1.0 / ka
 	} else {
 		jnt.angularMass = 0.0
 	}
 
-	if context.enableWarmStarting == false {
+	if !context.enableWarmStarting {
 		jnt.linearVelocityImpulse = Vec2Zero
 		jnt.angularVelocityImpulse = 0.0
 		jnt.linearSpringImpulse = Vec2Zero
@@ -310,15 +346,17 @@ func prepareMotorJoint(base *jointSim, context *stepContext) {
 func warmStartMotorJoint(base *jointSim, context *stepContext) {
 	assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
 
-	var mA float32 = base.invMassA
-	var mB float32 = base.invMassB
-	var iA float32 = base.invIA
-	var iB float32 = base.invIB
+	var (
+		mA = base.invMassA
+		mB = base.invMassB
+		iA = base.invIA
+		iB = base.invIB
+	)
 
-	var jnt *motorJoint = &base.motorJoint
+	jnt := &base.motorJoint
 
 	// dummy state for static bodies
-	var dummyState bodyState = identityBodyState
+	dummyState := identityBodyState
 
 	var stateA *bodyState
 	if jnt.indexA == nullIndex {
@@ -326,6 +364,7 @@ func warmStartMotorJoint(base *jointSim, context *stepContext) {
 	} else {
 		stateA = &context.states[jnt.indexA]
 	}
+
 	var stateB *bodyState
 	if jnt.indexB == nullIndex {
 		stateB = &dummyState
@@ -333,11 +372,15 @@ func warmStartMotorJoint(base *jointSim, context *stepContext) {
 		stateB = &context.states[jnt.indexB]
 	}
 
-	var rA Vec2 = stateA.deltaRotation.Rotate(jnt.frameA.P)
-	var rB Vec2 = stateB.deltaRotation.Rotate(jnt.frameB.P)
+	var (
+		rA = stateA.deltaRotation.Rotate(jnt.frameA.P)
+		rB = stateB.deltaRotation.Rotate(jnt.frameB.P)
+	)
 
-	var linearImpulse Vec2 = jnt.linearVelocityImpulse.Add(jnt.linearSpringImpulse)
-	var angularImpulse float32 = jnt.angularVelocityImpulse + jnt.angularSpringImpulse
+	var (
+		linearImpulse  = jnt.linearVelocityImpulse.Add(jnt.linearSpringImpulse)
+		angularImpulse = jnt.angularVelocityImpulse + jnt.angularSpringImpulse
+	)
 
 	if stateA.flags&dynamicFlag != 0 {
 		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, linearImpulse)
@@ -353,21 +396,26 @@ func warmStartMotorJoint(base *jointSim, context *stepContext) {
 func solveMotorJoint(base *jointSim, context *stepContext) {
 	assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
 
-	var mA float32 = base.invMassA
-	var mB float32 = base.invMassB
-	var iA float32 = base.invIA
-	var iB float32 = base.invIB
+	var (
+		mA = base.invMassA
+		mB = base.invMassB
+		iA = base.invIA
+		iB = base.invIB
+	)
 
 	// dummy state for static bodies
-	var dummyState bodyState = identityBodyState
+	dummyState := identityBodyState
 
-	var jnt *motorJoint = &base.motorJoint
-	var stateA *bodyState
+	var (
+		jnt    = &base.motorJoint
+		stateA *bodyState
+	)
 	if jnt.indexA == nullIndex {
 		stateA = &dummyState
 	} else {
 		stateA = &context.states[jnt.indexA]
 	}
+
 	var stateB *bodyState
 	if jnt.indexB == nullIndex {
 		stateB = &dummyState
@@ -375,27 +423,36 @@ func solveMotorJoint(base *jointSim, context *stepContext) {
 		stateB = &context.states[jnt.indexB]
 	}
 
-	var vA Vec2 = stateA.linearVelocity
-	var wA float32 = stateA.angularVelocity
-	var vB Vec2 = stateB.linearVelocity
-	var wB float32 = stateB.angularVelocity
+	var (
+		vA = stateA.linearVelocity
+		wA = stateA.angularVelocity
+		vB = stateB.linearVelocity
+		wB = stateB.angularVelocity
+	)
 
 	// angular spring
 	if jnt.maxSpringTorque > 0.0 && jnt.angularHertz > 0.0 {
-		var qA Rot = stateA.deltaRotation.Mul(jnt.frameA.Q)
-		var qB Rot = stateB.deltaRotation.Mul(jnt.frameB.Q)
-		var relQ Rot = qA.InvMul(qB)
+		var (
+			qA   = stateA.deltaRotation.Mul(jnt.frameA.Q)
+			qB   = stateB.deltaRotation.Mul(jnt.frameB.Q)
+			relQ = qA.InvMul(qB)
+		)
 
-		var c float32 = relQ.Angle()
-		var bias float32 = float32(jnt.angularSpring.biasRate * c)
-		var massScale float32 = jnt.angularSpring.massScale
-		var impulseScale float32 = jnt.angularSpring.impulseScale
+		var (
+			c            = relQ.Angle()
+			bias         = float32(jnt.angularSpring.biasRate * c)
+			massScale    = jnt.angularSpring.massScale
+			impulseScale = jnt.angularSpring.impulseScale
+		)
 
-		var cdot float32 = wB - wA
+		cdot := wB - wA
 
-		var maxImpulse float32 = float32(context.h * jnt.maxSpringTorque)
-		var oldImpulse float32 = jnt.angularSpringImpulse
-		var impulse float32 = float32(float32(-massScale*jnt.angularMass)*(cdot+bias)) - float32(impulseScale*oldImpulse)
+		var (
+			maxImpulse = float32(context.h * jnt.maxSpringTorque)
+			oldImpulse = jnt.angularSpringImpulse
+			impulse    = float32(float32(-massScale*jnt.angularMass)*(cdot+bias)) - float32(impulseScale*oldImpulse)
+		)
+
 		jnt.angularSpringImpulse = clampFloat(oldImpulse+impulse, -maxImpulse, maxImpulse)
 		impulse = jnt.angularSpringImpulse - oldImpulse
 
@@ -405,11 +462,16 @@ func solveMotorJoint(base *jointSim, context *stepContext) {
 
 	// angular velocity
 	if jnt.maxVelocityTorque > 0.0 {
-		var cdot float32 = wB - wA - jnt.angularVelocity
-		var impulse float32 = float32(-jnt.angularMass * cdot)
+		var (
+			cdot    = wB - wA - jnt.angularVelocity
+			impulse = float32(-jnt.angularMass * cdot)
+		)
 
-		var maxImpulse float32 = float32(context.h * jnt.maxVelocityTorque)
-		var oldImpulse float32 = jnt.angularVelocityImpulse
+		var (
+			maxImpulse = float32(context.h * jnt.maxVelocityTorque)
+			oldImpulse = jnt.angularVelocityImpulse
+		)
+
 		jnt.angularVelocityImpulse = clampFloat(oldImpulse+impulse, -maxImpulse, maxImpulse)
 		impulse = jnt.angularVelocityImpulse - oldImpulse
 
@@ -417,39 +479,50 @@ func solveMotorJoint(base *jointSim, context *stepContext) {
 		wB += float32(iB * impulse)
 	}
 
-	var rA Vec2 = stateA.deltaRotation.Rotate(jnt.frameA.P)
-	var rB Vec2 = stateB.deltaRotation.Rotate(jnt.frameB.P)
+	var (
+		rA = stateA.deltaRotation.Rotate(jnt.frameA.P)
+		rB = stateB.deltaRotation.Rotate(jnt.frameB.P)
+	)
 
 	// linear spring
 	if jnt.maxSpringForce > 0.0 && jnt.linearHertz > 0.0 {
-		var dcA Vec2 = stateA.deltaPosition
-		var dcB Vec2 = stateB.deltaPosition
-		var c Vec2 = dcB.Sub(dcA).Add(rB.Sub(rA)).Add(jnt.deltaCenter)
+		var (
+			dcA = stateA.deltaPosition
+			dcB = stateB.deltaPosition
+			c   = dcB.Sub(dcA).Add(rB.Sub(rA)).Add(jnt.deltaCenter)
+		)
 
-		var bias Vec2 = c.Scale(jnt.linearSpring.biasRate)
-		var massScale float32 = jnt.linearSpring.massScale
-		var impulseScale float32 = jnt.linearSpring.impulseScale
+		var (
+			bias         = c.Scale(jnt.linearSpring.biasRate)
+			massScale    = jnt.linearSpring.massScale
+			impulseScale = jnt.linearSpring.impulseScale
+		)
 
-		var cdot Vec2 = vB.Add(rB.ScalarCross(wB)).Sub(vA.Add(rA.ScalarCross(wA)))
+		cdot := vB.Add(rB.ScalarCross(wB)).Sub(vA.Add(rA.ScalarCross(wA)))
+
 		cdot = cdot.Add(bias)
 
 		// Updating the effective mass here may be overkill
 		var kl Mat22
+
 		kl.Cx.X = mA + mB + float32(float32(rA.Y*rA.Y)*iA) + float32(float32(rB.Y*rB.Y)*iB)
 		kl.Cx.Y = float32(float32(-rA.Y*rA.X)*iA) - float32(float32(rB.Y*rB.X)*iB)
 		kl.Cy.X = kl.Cx.Y
 		kl.Cy.Y = mA + mB + float32(float32(rA.X*rA.X)*iA) + float32(float32(rB.X*rB.X)*iB)
 		jnt.linearMass = kl.Inverse()
 
-		var b Vec2 = jnt.linearMass.MulVec(cdot)
+		b := jnt.linearMass.MulVec(cdot)
 
-		var oldImpulse Vec2 = jnt.linearSpringImpulse
-		var impulse Vec2 = Vec2{
-			float32(-massScale*b.X) - float32(impulseScale*oldImpulse.X),
-			float32(-massScale*b.Y) - float32(impulseScale*oldImpulse.Y),
-		}
+		var (
+			oldImpulse = jnt.linearSpringImpulse
+			impulse    = Vec2{
+				float32(-massScale*b.X) - float32(impulseScale*oldImpulse.X),
+				float32(-massScale*b.Y) - float32(impulseScale*oldImpulse.Y),
+			}
+		)
 
-		var maxImpulse float32 = float32(context.h * jnt.maxSpringForce)
+		maxImpulse := float32(context.h * jnt.maxSpringForce)
+
 		jnt.linearSpringImpulse = jnt.linearSpringImpulse.Add(impulse)
 
 		if jnt.linearSpringImpulse.LengthSquared() > float32(maxImpulse*maxImpulse) {
@@ -468,13 +541,20 @@ func solveMotorJoint(base *jointSim, context *stepContext) {
 
 	// linear velocity
 	if jnt.maxVelocityForce > 0.0 {
-		var cdot Vec2 = vB.Add(rB.ScalarCross(wB)).Sub(vA.Add(rA.ScalarCross(wA)))
-		cdot = cdot.Sub(jnt.linearVelocity)
-		var b Vec2 = jnt.linearMass.MulVec(cdot)
-		var impulse Vec2 = Vec2{-b.X, -b.Y}
+		cdot := vB.Add(rB.ScalarCross(wB)).Sub(vA.Add(rA.ScalarCross(wA)))
 
-		var oldImpulse Vec2 = jnt.linearVelocityImpulse
-		var maxImpulse float32 = float32(context.h * jnt.maxVelocityForce)
+		cdot = cdot.Sub(jnt.linearVelocity)
+
+		var (
+			b       = jnt.linearMass.MulVec(cdot)
+			impulse = Vec2{-b.X, -b.Y}
+		)
+
+		var (
+			oldImpulse = jnt.linearVelocityImpulse
+			maxImpulse = float32(context.h * jnt.maxVelocityForce)
+		)
+
 		jnt.linearVelocityImpulse = jnt.linearVelocityImpulse.Add(impulse)
 
 		if jnt.linearVelocityImpulse.LengthSquared() > float32(maxImpulse*maxImpulse) {

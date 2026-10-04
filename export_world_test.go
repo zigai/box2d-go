@@ -19,27 +19,33 @@ func BTWorldCleanup(t testing.TB, id *World) {
 
 func BTReplayCleanup(t testing.TB, player *Replay) func() {
 	t.Helper()
+
 	destroy := sync.OnceFunc(func() {
 		if player != nil {
 			player.Close()
 		}
 	})
 	t.Cleanup(destroy)
+
 	return destroy
 }
 
-const WorldStaticSet = staticSet
-const WorldAwakeSet = awakeSet
+const (
+	WorldStaticSet = staticSet
+	WorldAwakeSet  = awakeSet
+)
 
 func WorldDynamicTree(id *World) *DynamicTree   { return &id.broadPhase.trees[DynamicBody] }
 func WorldJointSetIndex(w *World, id Joint) int { return getJointFullId(w, id).setIndex }
 func WorldCountEnlargedNodes(tree *DynamicTree) int {
 	count := 0
-	for i := int32(0); i < tree.nodeEnd; i++ {
+
+	for i := range int32(tree.nodeEnd) {
 		if isNodeMoved(&tree.nodes[i]) {
 			count++
 		}
 	}
+
 	return count
 }
 
@@ -52,14 +58,18 @@ type WorldBodyTransform struct {
 
 func WorldBodyTransforms(id *World) []WorldBodyTransform {
 	w := id
+
 	var transforms []WorldBodyTransform
+
 	for i := range w.bodies {
 		body := &w.bodies[i]
 		if body.id != i {
 			continue
 		}
+
 		transforms = append(transforms, WorldBodyTransform{int32(i), getBodySim(w, body).transform})
 	}
+
 	return transforms
 }
 
@@ -68,6 +78,7 @@ func BTSnapshot(w *World) []byte {
 	if err != nil {
 		panic(err)
 	}
+
 	return image
 }
 

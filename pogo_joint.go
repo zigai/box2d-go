@@ -7,7 +7,7 @@ type PogoJoint struct {
 	Joint
 }
 
-// Pogo joint definition
+// Pogo joint definition.
 type PogoJointDef struct {
 	// Base joint definition
 	Base JointDef
@@ -35,7 +35,7 @@ type PogoJointDef struct {
 
 var pogoAxis = Vec2{X: 0.0, Y: 1.0}
 
-// Set the rest length of a pogo joint
+// Set the rest length of a pogo joint.
 func (p PogoJoint) SetRestLength(length float32) {
 	checkInput(IsValidFloat(length), "b2IsValidFloat( length )")
 
@@ -48,19 +48,19 @@ func (p PogoJoint) SetRestLength(length float32) {
 	joint.pogoJoint.restLength = length
 }
 
-// Get the rest length of a pogo joint
+// Get the rest length of a pogo joint.
 func (p PogoJoint) RestLength() float32 {
 	joint := getJointSimCheckType(p.Joint, PogoJointType)
 	return joint.pogoJoint.restLength
 }
 
-// Get the spring Hertz
+// Get the spring Hertz.
 func (p PogoJoint) SpringHertz() float32 {
 	joint := getJointSimCheckType(p.Joint, PogoJointType)
 	return joint.pogoJoint.hertz
 }
 
-// Set the spring stiffness in Hertz
+// Set the spring stiffness in Hertz.
 func (p PogoJoint) SetSpringHertz(hertz float32) {
 	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
@@ -73,7 +73,7 @@ func (p PogoJoint) SetSpringHertz(hertz float32) {
 	joint.pogoJoint.hertz = hertz
 }
 
-// Set the spring damping ratio, non-dimensional
+// Set the spring damping ratio, non-dimensional.
 func (p PogoJoint) SetSpringDampingRatio(dampingRatio float32) {
 	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
 
@@ -86,7 +86,7 @@ func (p PogoJoint) SetSpringDampingRatio(dampingRatio float32) {
 	joint.pogoJoint.dampingRatio = dampingRatio
 }
 
-// Get the spring damping ratio
+// Get the spring damping ratio.
 func (p PogoJoint) SpringDampingRatio() float32 {
 	joint := getJointSimCheckType(p.Joint, PogoJointType)
 	return joint.pogoJoint.dampingRatio
@@ -108,6 +108,7 @@ func (p PogoJoint) Length() float32 {
 	pB := transformB.Apply(jointSim.localFrameB.P)
 	d := pB.Sub(pA)
 	length := d.Dot(axis)
+
 	return length
 }
 
@@ -124,7 +125,7 @@ func (p PogoJoint) Velocity() float32 {
 }
 
 func getPogoJointForce(world *World, base *jointSim) Vec2 {
-	force := Vec2{X: float32((float32(world.invH * base.pogoJoint.impulse)) * base.pogoJoint.normal.X), Y: float32((float32(world.invH * base.pogoJoint.impulse)) * base.pogoJoint.normal.Y)}
+	force := Vec2{X: float32(float32(world.invH*base.pogoJoint.impulse) * base.pogoJoint.normal.X), Y: float32(float32(world.invH*base.pogoJoint.impulse) * base.pogoJoint.normal.Y)}
 	return force
 }
 
@@ -167,6 +168,7 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 	} else {
 		joint.indexA = nullIndex
 	}
+
 	if bodyB.setIndex == awakeSet {
 		joint.indexB = localIndexB
 	} else {
@@ -188,6 +190,7 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 	// compute effective mass
 	crA := rA.Cross(joint.normal)
 	crB := rB.Cross(joint.normal)
+
 	k := mA + mB + float32(float32(iA*crA)*crA) + float32(float32(iB*crB)*crB)
 	if k > float32(0.0) {
 		joint.linearMass = float32(1.0) / k
@@ -195,7 +198,7 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 		joint.linearMass = float32(0.0)
 	}
 
-	if context.enableWarmStarting == false {
+	if !context.enableWarmStarting {
 		joint.impulse = float32(0.0)
 	}
 }
@@ -224,16 +227,18 @@ func warmStartPogoJoint(base *jointSim, context *stepContext) {
 	} else {
 		stateA = &context.states[joint.indexA]
 	}
+
 	var stateB *bodyState
 	if joint.indexB == nullIndex {
 		stateB = &dummyState
 	} else {
 		stateB = &context.states[joint.indexB]
 	}
+
 	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
 	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
-	linearImpulse := Vec2{X: float32((joint.impulse) * joint.normal.X), Y: float32((joint.impulse) * joint.normal.Y)}
+	linearImpulse := Vec2{X: float32(joint.impulse * joint.normal.X), Y: float32(joint.impulse * joint.normal.Y)}
 
 	if stateA.flags&dynamicFlag != 0 {
 		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, linearImpulse)
@@ -269,6 +274,7 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 	} else {
 		stateA = &context.states[joint.indexA]
 	}
+
 	var stateB *bodyState
 	if joint.indexB == nullIndex {
 		stateB = &dummyState
@@ -285,11 +291,12 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
 	bias := float32(0.0)
+
 	if useBias {
 		// This is a custom pogo position correction designed to avoid feeding velocity into
 		// the mover body. Otherwise the mover can make huge jumps going up stairs. This still
 		// works with continuous collision.
-		// However, this position delta is not observer contact forces and can lead to tunnelling.
+		// However, this position delta is not observer contact forces and can lead to tunneling.
 		dcA := stateA.deltaPosition
 		dcB := stateB.deltaPosition
 		d := dcB.Sub(dcA).Add(rB.Sub(rA)).Add(joint.deltaCenter)
@@ -304,7 +311,7 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 		bias = -joint.velocity
 	}
 
-	vr := vB.Add(Vec2{X: float32(-(wB) * rB.Y), Y: float32((wB) * rB.X)}).Sub(vA.Add(Vec2{X: float32(-(wA) * rA.Y), Y: float32((wA) * rA.X)}))
+	vr := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 	cdot := joint.normal.Dot(vr)
 
 	maxTensionImpulse := float32(context.h * joint.maxTensionForce)
@@ -314,7 +321,7 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 	joint.impulse = clampFloat(joint.impulse+impulse, -maxTensionImpulse, maxCompressionImpulse)
 	impulse = joint.impulse - oldImpulse
 
-	P := Vec2{X: float32((impulse) * joint.normal.X), Y: float32((impulse) * joint.normal.Y)}
+	P := Vec2{X: float32(impulse * joint.normal.X), Y: float32(impulse * joint.normal.Y)}
 	vA = vA.MulSub(mA, P)
 	wA -= float32(iA * rA.Cross(P))
 	vB = vB.MulAdd(mB, P)

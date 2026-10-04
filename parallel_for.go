@@ -28,17 +28,18 @@ func parallelForTrampoline(task *parallelForTask) {
 	callback := shared.callback
 	blockCount := shared.blockCount
 	blockSize := shared.blockSize
+
 	itemCount := shared.itemCount
 	for {
 		blockIndex := int(shared.nextBlock.Add(1) - 1)
 		if blockIndex >= blockCount {
 			break
 		}
+
 		start := blockIndex * blockSize
-		end := start + blockSize
-		if end > itemCount {
-			end = itemCount
-		}
+
+		end := min(start+blockSize, itemCount)
+
 		callback(start, end, workerIndex)
 	}
 }
@@ -47,7 +48,9 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 	if itemCount <= 0 {
 		return
 	}
+
 	assert(minRange > 0, "minRange > 0")
+
 	workerCount := w.workerCount
 	assert(0 < workerCount && workerCount <= MaxWorkers, "0 < workerCount && workerCount <= B2_MAX_WORKERS")
 	// Target multiple blocks per worker to reduce thread stalls.
@@ -55,6 +58,7 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 	// so the block count stays bounded and per-block sync overhead stays low.
 	blocksPerWorker := 8
 	maxBlockCount := blocksPerWorker * workerCount
+
 	var blockSize, blockCount int
 	if itemCount <= minRange*maxBlockCount {
 		blockSize = minRange
@@ -63,16 +67,22 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 		blockSize = (itemCount + maxBlockCount - 1) / maxBlockCount
 		blockCount = (itemCount + blockSize - 1) / blockSize
 	}
+
 	assert(blockCount >= 1, "blockCount >= 1")
 	assert(blockSize*blockCount >= itemCount, "blockSize * blockCount >= itemCount")
 	// No point enqueueing more tasks than blocks.
 	taskCount := min(workerCount, blockCount)
 	shared := parallelForShared{blockCount: blockCount, blockSize: blockSize, itemCount: itemCount, callback: callback}
 	shared.nextBlock.Store(0)
-	var tasks [MaxWorkers]parallelForTask
-	var handles [MaxWorkers]func()
-	for i := 0; i < taskCount; i++ {
+
+	var (
+		tasks   [MaxWorkers]parallelForTask
+		handles [MaxWorkers]func()
+	)
+
+	for i := range taskCount {
 		tasks[i].shared = &shared
+
 		tasks[i].workerIndex = i
 		if w.taskCount < MaxTasks {
 			handles[i] = w.enqueueTaskFcn(func() { parallelForTrampoline(&tasks[i]) })
@@ -81,7 +91,8 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 			parallelForTrampoline(&tasks[i])
 		}
 	}
-	for i := 0; i < taskCount; i++ {
+
+	for i := range taskCount {
 		if handles[i] != nil {
 			handles[i]()
 		}

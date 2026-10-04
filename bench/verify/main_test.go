@@ -17,6 +17,7 @@ func TestMeasurementRowsAreCompleteMatchedAndFinite(t *testing.T) {
 				t.Run(fmt.Sprintf("%s/cpus=%d/go=%t", precision, cpus, goOutput), func(t *testing.T) {
 					var b strings.Builder
 					fmt.Fprintf(&b, "box2d-bench: precision=%s scene-config=release steps=300 timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, cpus)
+
 					for _, name := range families {
 						for _, workers := range []int{1, 4} {
 							for range 2 {
@@ -24,16 +25,21 @@ func TestMeasurementRowsAreCompleteMatchedAndFinite(t *testing.T) {
 								if cpus != 1 {
 									label += fmt.Sprintf("-%d", cpus)
 								}
+
 								fmt.Fprintf(&b, "%s 1 12345 ns/op", label)
+
 								if goOutput {
 									b.WriteString(" 0 B/op 0 allocs/op")
 								}
+
 								b.WriteByte('\n')
 							}
 						}
 					}
+
 					good := b.String()
 					lines := strings.SplitAfter(good, "\n")
+
 					cases := []struct {
 						name, text string
 						valid      bool
@@ -69,12 +75,14 @@ func TestMeasurementRowsAreCompleteMatchedAndFinite(t *testing.T) {
 								valid      bool
 							}{"missing-allocations", strings.Replace(good, " 0 B/op 0 allocs/op", "", 1), false})
 					}
+
 					for _, tc := range cases {
 						t.Run(tc.name, func(t *testing.T) {
 							path := filepath.Join(t.TempDir(), "measurements.txt")
-							if err := os.WriteFile(path, []byte(tc.text), 0600); err != nil {
+							if err := os.WriteFile(path, []byte(tc.text), 0o600); err != nil {
 								t.Fatal(err)
 							}
+
 							err := validate(path, precision, 2, cpus, goOutput)
 							if (err == nil) != tc.valid {
 								t.Fatalf("valid=%t, error=%v", tc.valid, err)

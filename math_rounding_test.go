@@ -12,7 +12,6 @@ import (
 )
 
 func TestVectorProductRounding(t *testing.T) {
-
 	cases := []struct {
 		name string
 		a, b [2]uint32
@@ -24,15 +23,16 @@ func TestVectorProductRounding(t *testing.T) {
 	}
 	checks := oracle.Open(t, "vector_rounding")
 	checks.I32("count", int32(len(cases)))
+
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			a := Vec2{math.Float32frombits(tc.a[0]), math.Float32frombits(tc.a[1])}
 			b := Vec2{math.Float32frombits(tc.b[0]), math.Float32frombits(tc.b[1])}
 			s := math.Float32frombits(tc.s)
 			checks.Vec2(tc.name+"/a", a.X, a.Y)
 			checks.Vec2(tc.name+"/b", b.X, b.Y)
 			checks.F32(tc.name+"/s", s)
+
 			var product, got Vec2
 			if tc.name == "MulSV" {
 				product = b.Scale(s)
@@ -41,8 +41,10 @@ func TestVectorProductRounding(t *testing.T) {
 				product = b.ScalarCross(s)
 				got = a.Add(b.ScalarCross(s))
 			}
+
 			checks.Vec2(tc.name+"/product", product.X, product.Y)
 			checks.Vec2(tc.name+"/result", got.X, got.Y)
+
 			bits := [2]uint32{math.Float32bits(got.X), math.Float32bits(got.Y)}
 			if bits != tc.want {
 				t.Fatalf("got %08x, want %08x", bits, tc.want)
@@ -55,6 +57,7 @@ func TestMathPublicScalars(t *testing.T) {
 	r := oracle.Open(t, "math/PublicScalars")
 	integers := []int{0, 1, -1, 17, -17, math.MaxInt32, math.MinInt32 + 1}
 	r.I32("integers/count", int32(len(integers)))
+
 	for i, a := range integers {
 		b := integers[len(integers)-1-i]
 		r.I32(fmt.Sprintf("integers/%d/min", i), int32(min(a, b)))
@@ -62,14 +65,18 @@ func TestMathPublicScalars(t *testing.T) {
 		r.I32(fmt.Sprintf("integers/%d/abs", i), int32(absInt(a)))
 		r.I32(fmt.Sprintf("integers/%d/clamp", i), int32(min(max(a, -1), 1)))
 	}
+
 	divisions := [][2]int{{0, 3}, {1, 3}, {3, 3}, {4, 3}, {17, 5}, {math.MaxInt32 - 2, 2}}
 	r.I32("ceiling/count", int32(len(divisions)))
+
 	for i, pair := range divisions {
 		r.I32(fmt.Sprintf("ceiling/%d", i), int32(ceilingInt(pair[0], pair[1])))
 	}
+
 	negativeZero := math.Float32frombits(0x80000000)
 	floats := []float32{0, negativeZero, -3.25, 3.25, -2, 2, 0x1p-126, 0x1p-149, math.MaxFloat32}
 	r.I32("floats/count", int32(len(floats)))
+
 	for i, a := range floats {
 		b := floats[len(floats)-1-i]
 		r.F32(fmt.Sprintf("floats/%d/min", i), minFloat(a, b))
@@ -77,6 +84,7 @@ func TestMathPublicScalars(t *testing.T) {
 		r.F32(fmt.Sprintf("floats/%d/abs", i), absFloat(a))
 		r.F32(fmt.Sprintf("floats/%d/clamp", i), clampFloat(a, -2, 2))
 	}
+
 	r.F32("zero/min-negative-first", minFloat(negativeZero, 0))
 	r.F32("zero/min-positive-first", minFloat(0, negativeZero))
 	r.F32("zero/max-negative-first", maxFloat(negativeZero, 0))

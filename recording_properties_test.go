@@ -3,10 +3,11 @@ package box2d_test
 
 import (
 	"fmt"
-	"github.com/zigai/box2d"
-	"github.com/zigai/box2d/internal/oracle"
 	"math"
 	"strings"
+
+	"github.com/zigai/box2d"
+	"github.com/zigai/box2d/internal/oracle"
 )
 
 // Keep small recordings directly readable; large scenes use named field
@@ -16,6 +17,7 @@ func recordingProperties(r *oracle.Reader, world *box2d.World, prefix string) {
 		recordingObserveProperties(r, world, prefix)
 		return
 	}
+
 	fields := &recordingPropertyFields{prefix: prefix, byName: make(map[string]int)}
 	recordingObserveProperties(fields, world, prefix)
 	fields.compare(r)
@@ -33,10 +35,12 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 	r.F32(prefix+"/MaximumLinearSpeed", world.MaximumLinearSpeed())
 	vGravity := world.Gravity()
 	r.Vec2(prefix+"/Gravity", vGravity.X, vGravity.Y)
+
 	h, d, s := box2d.RecordingContactTuning(world)
 	r.F32(prefix+"/contactHertz", h)
 	r.F32(prefix+"/contactDamping", d)
 	r.F32(prefix+"/contactSpeed", s)
+
 	for _, id := range box2d.RecordingBodies(world) {
 		key := fmt.Sprintf("%s/body%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -46,6 +50,7 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 		r.F32(key+"/RotationalInertia", id.RotationalInertia())
 		vLocalCenter := id.LocalCenter()
 		r.Vec2(key+"/LocalCenter", vLocalCenter.X, vLocalCenter.Y)
+
 		vLinearVelocity := id.LinearVelocity()
 		r.Vec2(key+"/LinearVelocity", vLinearVelocity.X, vLinearVelocity.Y)
 		r.F32(key+"/AngularVelocity", id.AngularVelocity())
@@ -65,6 +70,7 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 		r.Bool(key+"/lockY", locks.LinearY)
 		r.Bool(key+"/lockZ", locks.AngularZ)
 	}
+
 	for _, id := range box2d.RecordingShapes(world) {
 		key := fmt.Sprintf("%s/shape%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -84,10 +90,12 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 		r.F32(key+"/material/TangentSpeed", m.TangentSpeed)
 		r.U64(key+"/material/UserMaterialID", m.UserMaterialID)
 		r.U32(key+"/material/CustomColor", m.CustomColor)
+
 		f := id.Filter()
 		r.U64(key+"/filter/category", f.CategoryBits)
 		r.U64(key+"/filter/mask", f.MaskBits)
 		r.I32(key+"/filter/group", int32(f.GroupIndex))
+
 		switch id.Type() {
 		case box2d.CircleShape:
 			v := id.Circle()
@@ -113,12 +121,14 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 			r.I32(key+"/geometry/count", int32(v.Count))
 			r.F32(key+"/geometry/radius", v.Radius)
 			r.Vec2(key+"/geometry/centroid", v.Centroid.X, v.Centroid.Y)
+
 			for j := range v.Count {
 				r.Vec2(fmt.Sprintf("%s/geometry/v%d", key, j), v.Vertices[j].X, v.Vertices[j].Y)
 				r.Vec2(fmt.Sprintf("%s/geometry/n%d", key, j), v.Normals[j].X, v.Normals[j].Y)
 			}
 		}
 	}
+
 	for _, id := range box2d.RecordingJoints(world) {
 		key := fmt.Sprintf("%s/joint%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -132,9 +142,11 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 		r.Rot(key+"/frameA/q", a.Q.C, a.Q.S)
 		r.Vec2(key+"/frameB/p", b.P.X, b.P.Y)
 		r.Rot(key+"/frameB/q", b.Q.C, b.Q.S)
+
 		hertz, damping := id.ConstraintTuning()
 		r.F32(key+"/hertz", hertz)
 		r.F32(key+"/damping", damping)
+
 		switch id.Type() {
 		case box2d.DistanceJointType:
 			v := box2d.DistanceJoint{Joint: id}
@@ -168,6 +180,7 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 			v := box2d.MoverJoint{Joint: id}
 			vLinearVelocity := v.LinearVelocity()
 			r.Vec2(key+"/LinearVelocity", vLinearVelocity.X, vLinearVelocity.Y)
+
 			vMaxVelocityForce := v.MaxVelocityForce()
 			r.Vec2(key+"/MaxVelocityForce", vMaxVelocityForce.X, vMaxVelocityForce.Y)
 		case box2d.PogoJointType:
@@ -244,6 +257,7 @@ type recordingPropertyFields struct {
 
 func (f *recordingPropertyFields) field(key, kind string) *uint64 {
 	relative := strings.TrimPrefix(key, f.prefix+"/")
+
 	family := relative
 	if before, after, ok := strings.Cut(relative, "/"); ok {
 		for _, stem := range []string{"body", "shape", "joint"} {
@@ -253,25 +267,30 @@ func (f *recordingPropertyFields) field(key, kind string) *uint64 {
 			}
 		}
 	}
+
 	i, found := f.byName[family]
 	if !found {
 		i = len(f.fields)
 		f.byName[family] = i
 		f.fields = append(f.fields, recordingPropertyField{name: family, hash: oracle.HashInit})
 	}
+
 	hash := &f.fields[i].hash
 	*hash = oracle.HashU32(*hash, uint32(len(relative)))
 	*hash = oracle.HashBytes(*hash, []byte(relative))
 	*hash = oracle.HashBytes(*hash, []byte(kind+"\x00"))
+
 	return hash
 }
 
 func (f *recordingPropertyFields) Bool(key string, value bool) {
 	hash := f.field(key, "bool")
+
 	bits := uint32(0)
 	if value {
 		bits = 1
 	}
+
 	*hash = oracle.HashU32(*hash, bits)
 }
 
@@ -312,6 +331,7 @@ func (f *recordingPropertyFields) Bytes(key string, value []byte) {
 
 func (f *recordingPropertyFields) compare(r *oracle.Reader) {
 	r.I32(f.prefix+"/digest/fieldCount", int32(len(f.fields)))
+
 	for _, field := range f.fields {
 		r.U64(f.prefix+"/digest/"+field.name, field.hash)
 	}

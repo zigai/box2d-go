@@ -13,6 +13,7 @@ func HashBytes(h uint64, p []byte) uint64 {
 		h ^= uint64(b)
 		h *= hashPrime
 	}
+
 	return h
 }
 
@@ -34,7 +35,9 @@ func HashPos(h uint64, x, y Real) uint64 {
 		h = HashU64(h, realBits(x))
 		return HashU64(h, realBits(y))
 	}
+
 	h = HashU32(h, uint32(realBits(x)))
+
 	return HashU32(h, uint32(realBits(y)))
 }
 

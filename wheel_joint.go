@@ -35,12 +35,13 @@ type WheelJointDef struct {
 	internalValue int32
 }
 
-// Enable/disable the wheel joint spring
+// Enable/disable the wheel joint spring.
 func (w WheelJoint) SetSpringEnabled(enableSpring bool) {
 	world := w.Joint.world
 	if world.recording != nil {
 		recWriteWheelJointEnableSpring(world.recording, &recArgsWheelJointEnableSpring{joint: w.Joint, enableSpring: enableSpring})
 	}
+
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 
 	if enableSpring != joint.wheelJoint.enableSpring {
@@ -55,7 +56,7 @@ func (w WheelJoint) SpringEnabled() bool {
 	return joint.wheelJoint.enableSpring
 }
 
-// Set the wheel joint stiffness in Hertz
+// Set the wheel joint stiffness in Hertz.
 func (w WheelJoint) SetSpringHertz(hertz float32) {
 	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
@@ -63,17 +64,18 @@ func (w WheelJoint) SetSpringHertz(hertz float32) {
 	if world.recording != nil {
 		recWriteWheelJointSetSpringHertz(world.recording, &recArgsWheelJointSetSpringHertz{joint: w.Joint, hertz: hertz})
 	}
+
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	joint.wheelJoint.hertz = hertz
 }
 
-// Get the wheel joint stiffness in Hertz
+// Get the wheel joint stiffness in Hertz.
 func (w WheelJoint) SpringHertz() float32 {
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	return joint.wheelJoint.hertz
 }
 
-// Set the wheel joint damping ratio, non-dimensional
+// Set the wheel joint damping ratio, non-dimensional.
 func (w WheelJoint) SetSpringDampingRatio(dampingRatio float32) {
 	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
 
@@ -81,22 +83,24 @@ func (w WheelJoint) SetSpringDampingRatio(dampingRatio float32) {
 	if world.recording != nil {
 		recWriteWheelJointSetSpringDampingRatio(world.recording, &recArgsWheelJointSetSpringDampingRatio{joint: w.Joint, dampingRatio: dampingRatio})
 	}
+
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	joint.wheelJoint.dampingRatio = dampingRatio
 }
 
-// Get the wheel joint damping ratio, non-dimensional
+// Get the wheel joint damping ratio, non-dimensional.
 func (w WheelJoint) SpringDampingRatio() float32 {
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	return joint.wheelJoint.dampingRatio
 }
 
-// Enable/disable the wheel joint limit
+// Enable/disable the wheel joint limit.
 func (w WheelJoint) SetLimitEnabled(enableLimit bool) {
 	world := w.Joint.world
 	if world.recording != nil {
 		recWriteWheelJointEnableLimit(world.recording, &recArgsWheelJointEnableLimit{joint: w.Joint, enableLimit: enableLimit})
 	}
+
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	if joint.wheelJoint.enableLimit != enableLimit {
 		joint.wheelJoint.lowerImpulse = float32(0.0)
@@ -111,19 +115,19 @@ func (w WheelJoint) LimitEnabled() bool {
 	return joint.wheelJoint.enableLimit
 }
 
-// Get the wheel joint lower limit
+// Get the wheel joint lower limit.
 func (w WheelJoint) LowerLimit() float32 {
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	return joint.wheelJoint.lowerTranslation
 }
 
-// Get the wheel joint upper limit
+// Get the wheel joint upper limit.
 func (w WheelJoint) UpperLimit() float32 {
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	return joint.wheelJoint.upperTranslation
 }
 
-// Set the wheel joint limits
+// Set the wheel joint limits.
 func (w WheelJoint) SetLimits(lower float32, upper float32) {
 	checkInput(IsValidFloat(lower), "b2IsValidFloat( lower )")
 	checkInput(IsValidFloat(upper), "b2IsValidFloat( upper )")
@@ -132,6 +136,7 @@ func (w WheelJoint) SetLimits(lower float32, upper float32) {
 	if world.recording != nil {
 		recWriteWheelJointSetLimits(world.recording, &recArgsWheelJointSetLimits{joint: w.Joint, lower: lower, upper: upper})
 	}
+
 	assert(lower <= upper, "lower <= upper")
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -139,12 +144,13 @@ func (w WheelJoint) SetLimits(lower float32, upper float32) {
 	joint.wheelJoint.upperTranslation = maxFloat(lower, upper)
 }
 
-// Enable/disable the wheel joint motor
+// Enable/disable the wheel joint motor.
 func (w WheelJoint) SetMotorEnabled(enableMotor bool) {
 	world := w.Joint.world
 	if world.recording != nil {
 		recWriteWheelJointEnableMotor(world.recording, &recArgsWheelJointEnableMotor{joint: w.Joint, enableMotor: enableMotor})
 	}
+
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	if joint.wheelJoint.enableMotor != enableMotor {
 		joint.wheelJoint.motorImpulse = float32(0.0)
@@ -158,7 +164,7 @@ func (w WheelJoint) MotorEnabled() bool {
 	return joint.wheelJoint.enableMotor
 }
 
-// Set the wheel joint motor speed in radians per second
+// Set the wheel joint motor speed in radians per second.
 func (w WheelJoint) SetMotorSpeed(motorSpeed float32) {
 	checkInput(IsValidFloat(motorSpeed), "b2IsValidFloat( motorSpeed )")
 
@@ -166,24 +172,26 @@ func (w WheelJoint) SetMotorSpeed(motorSpeed float32) {
 	if world.recording != nil {
 		recWriteWheelJointSetMotorSpeed(world.recording, &recArgsWheelJointSetMotorSpeed{joint: w.Joint, motorSpeed: motorSpeed})
 	}
+
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	joint.wheelJoint.motorSpeed = motorSpeed
 }
 
-// Get the wheel joint motor speed in radians per second
+// Get the wheel joint motor speed in radians per second.
 func (w WheelJoint) MotorSpeed() float32 {
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	return joint.wheelJoint.motorSpeed
 }
 
-// Get the wheel joint current motor torque, usually in newton-meters
+// Get the wheel joint current motor torque, usually in newton-meters.
 func (w WheelJoint) MotorTorque() float32 {
 	world := w.Joint.world
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
+
 	return float32(world.invH * joint.wheelJoint.motorImpulse)
 }
 
-// Set the wheel joint maximum motor torque, usually in newton-meters
+// Set the wheel joint maximum motor torque, usually in newton-meters.
 func (w WheelJoint) SetMaxMotorTorque(torque float32) {
 	checkInput(IsValidFloat(torque), "b2IsValidFloat( torque )")
 
@@ -191,11 +199,12 @@ func (w WheelJoint) SetMaxMotorTorque(torque float32) {
 	if world.recording != nil {
 		recWriteWheelJointSetMaxMotorTorque(world.recording, &recArgsWheelJointSetMaxMotorTorque{joint: w.Joint, torque: torque})
 	}
+
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	joint.wheelJoint.maxMotorTorque = torque
 }
 
-// Get the wheel joint maximum motor torque, usually in newton-meters
+// Get the wheel joint maximum motor torque, usually in newton-meters.
 func (w WheelJoint) MaxMotorTorque() float32 {
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	return joint.wheelJoint.maxMotorTorque
@@ -213,7 +222,8 @@ func getWheelJointForce(world *World, base *jointSim) Vec2 {
 	perpForce := float32(world.invH * joint.perpImpulse)
 	axialForce := float32(world.invH * (joint.springImpulse + joint.lowerImpulse - joint.upperImpulse))
 
-	force := Vec2{X: float32((perpForce) * perpA.X), Y: float32((perpForce) * perpA.Y)}.Add(Vec2{X: float32((axialForce) * axisA.X), Y: float32((axialForce) * axisA.Y)})
+	force := Vec2{X: float32(perpForce * perpA.X), Y: float32(perpForce * perpA.Y)}.Add(Vec2{X: float32(axialForce * axisA.X), Y: float32(axialForce * axisA.Y)})
+
 	return force
 }
 
@@ -235,7 +245,6 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 	// Motor rotational constraint
 	// Cdot = wB - wA
 	// J = [0 0 -1 0 0 1]
-
 	assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
 
 	// chase body id to the solver set where the body lives
@@ -274,6 +283,7 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 	} else {
 		joint.indexA = nullIndex
 	}
+
 	if bodyB.setIndex == awakeSet {
 		joint.indexB = localIndexB
 	} else {
@@ -327,7 +337,7 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 		joint.motorMass = float32(0.0)
 	}
 
-	if context.enableWarmStarting == false {
+	if !context.enableWarmStarting {
 		joint.perpImpulse = float32(0.0)
 		joint.springImpulse = float32(0.0)
 		joint.motorImpulse = float32(0.0)
@@ -355,6 +365,7 @@ func warmStartWheelJoint(base *jointSim, context *stepContext) {
 	} else {
 		stateA = &context.states[joint.indexA]
 	}
+
 	var stateB *bodyState
 	if joint.indexB == nullIndex {
 		stateB = &dummyState
@@ -377,7 +388,7 @@ func warmStartWheelJoint(base *jointSim, context *stepContext) {
 
 	axialImpulse := joint.springImpulse + joint.lowerImpulse - joint.upperImpulse
 
-	P := Vec2{X: float32((axialImpulse) * axisA.X), Y: float32((axialImpulse) * axisA.Y)}.Add(Vec2{X: float32((joint.perpImpulse) * perpA.X), Y: float32((joint.perpImpulse) * perpA.Y)})
+	P := Vec2{X: float32(axialImpulse * axisA.X), Y: float32(axialImpulse * axisA.Y)}.Add(Vec2{X: float32(joint.perpImpulse * perpA.X), Y: float32(joint.perpImpulse * perpA.Y)})
 	LA := float32(axialImpulse*a1) + float32(joint.perpImpulse*s1) + joint.motorImpulse
 	LB := float32(axialImpulse*a2) + float32(joint.perpImpulse*s2) + joint.motorImpulse
 
@@ -411,6 +422,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 	} else {
 		stateA = &context.states[joint.indexA]
 	}
+
 	var stateB *bodyState
 	if joint.indexB == nullIndex {
 		stateB = &dummyState
@@ -438,7 +450,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 	a2 := rB.Cross(axisA)
 
 	// motor constraint
-	if joint.enableMotor && fixedRotation == false {
+	if joint.enableMotor && !fixedRotation {
 		Cdot := wB - wA - joint.motorSpeed
 		impulse := float32(-joint.motorMass * Cdot)
 		oldImpulse := joint.motorImpulse
@@ -462,7 +474,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*joint.springImpulse)
 		joint.springImpulse += impulse
 
-		P := Vec2{X: float32((impulse) * axisA.X), Y: float32((impulse) * axisA.Y)}
+		P := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
 		LA := float32(impulse * a1)
 		LB := float32(impulse * a2)
 
@@ -495,7 +507,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 			joint.lowerImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.lowerImpulse - oldImpulse
 
-			P := Vec2{X: float32((impulse) * axisA.X), Y: float32((impulse) * axisA.Y)}
+			P := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
 			LA := float32(impulse * a1)
 			LB := float32(impulse * a2)
 
@@ -531,7 +543,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 			joint.upperImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.upperImpulse - oldImpulse
 
-			P := Vec2{X: float32((impulse) * axisA.X), Y: float32((impulse) * axisA.Y)}
+			P := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
 			LA := float32(impulse * a1)
 			LB := float32(impulse * a2)
 
@@ -550,6 +562,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		bias := float32(0.0)
 		massScale := float32(1.0)
 		impulseScale := float32(0.0)
+
 		if useBias {
 			C := perpA.Dot(d)
 			bias = float32(base.constraintSoftness.biasRate * C)
@@ -564,7 +577,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulse := float32(float32(-massScale*joint.perpMass)*(Cdot+bias)) - float32(impulseScale*joint.perpImpulse)
 		joint.perpImpulse += impulse
 
-		P := Vec2{X: float32((impulse) * perpA.X), Y: float32((impulse) * perpA.Y)}
+		P := Vec2{X: float32(impulse * perpA.X), Y: float32(impulse * perpA.Y)}
 		LA := float32(impulse * s1)
 		LB := float32(impulse * s2)
 
@@ -603,14 +616,15 @@ func drawWheelJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, 
 	draw.DrawLine(frameA.P, frameB.P, c5)
 
 	if joint.enableLimit {
-		lower := frameA.P.Add(Vec2{X: float32((joint.lowerTranslation) * axisA.X), Y: float32((joint.lowerTranslation) * axisA.Y)})
-		upper := frameA.P.Add(Vec2{X: float32((joint.upperTranslation) * axisA.X), Y: float32((joint.upperTranslation) * axisA.Y)})
+		lower := frameA.P.Add(Vec2{X: float32(joint.lowerTranslation * axisA.X), Y: float32(joint.lowerTranslation * axisA.Y)})
+		upper := frameA.P.Add(Vec2{X: float32(joint.upperTranslation * axisA.X), Y: float32(joint.upperTranslation * axisA.Y)})
 		perp := axisA.LeftPerp()
+
 		draw.DrawLine(lower, upper, c1)
-		draw.DrawLine(lower.Add(Vec2{X: float32((float32(-float32(0.1) * drawScale)) * perp.X), Y: float32((float32(-float32(0.1) * drawScale)) * perp.Y)}),
-			lower.Add(Vec2{X: float32((float32(float32(0.1) * drawScale)) * perp.X), Y: float32((float32(float32(0.1) * drawScale)) * perp.Y)}), c2)
-		draw.DrawLine(upper.Add(Vec2{X: float32((float32(-float32(0.1) * drawScale)) * perp.X), Y: float32((float32(-float32(0.1) * drawScale)) * perp.Y)}),
-			upper.Add(Vec2{X: float32((float32(float32(0.1) * drawScale)) * perp.X), Y: float32((float32(float32(0.1) * drawScale)) * perp.Y)}), c3)
+		draw.DrawLine(lower.Add(Vec2{X: float32(float32(-float32(0.1)*drawScale) * perp.X), Y: float32(float32(-float32(0.1)*drawScale) * perp.Y)}),
+			lower.Add(Vec2{X: float32(float32(float32(0.1)*drawScale) * perp.X), Y: float32(float32(float32(0.1)*drawScale) * perp.Y)}), c2)
+		draw.DrawLine(upper.Add(Vec2{X: float32(float32(-float32(0.1)*drawScale) * perp.X), Y: float32(float32(-float32(0.1)*drawScale) * perp.Y)}),
+			upper.Add(Vec2{X: float32(float32(float32(0.1)*drawScale) * perp.X), Y: float32(float32(float32(0.1)*drawScale) * perp.Y)}), c3)
 	} else {
 		draw.DrawLine(frameA.P.Add(axisA.Neg()), frameA.P.Add(axisA), c1)
 	}

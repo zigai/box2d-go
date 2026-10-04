@@ -36,6 +36,7 @@ func unlockMutex(m *sync.Mutex) {
 func createSemaphore(initCount int) *semaphore {
 	s := &semaphore{count: initCount}
 	s.condition = sync.NewCond(&s.mutex)
+
 	return s
 }
 
@@ -46,6 +47,7 @@ func waitSemaphore(s *semaphore) {
 	for s.count == 0 {
 		s.condition.Wait()
 	}
+
 	s.count--
 	s.mutex.Unlock()
 }
@@ -61,12 +63,14 @@ func setCurrentThreadName(name string) {}
 
 func threadStart(t *thread) {
 	defer close(t.done)
+
 	t.function()
 }
 
 func createThread(function threadFunction, name string) *thread {
 	t := &thread{done: make(chan struct{}), function: function, name: name}
 	go threadStart(t)
+
 	return t
 }
 

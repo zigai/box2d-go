@@ -162,8 +162,7 @@ const (
 	recOpRecordingBounds                     uint8 = 0xF2
 )
 
-type recArgsDestroyWorld struct {
-}
+type recArgsDestroyWorld struct{}
 
 type recArgsStep struct {
 	dt           float32
@@ -212,8 +211,7 @@ type recArgsWorldEnableWarmStarting struct {
 	flag bool
 }
 
-type recArgsWorldRebuildStaticTree struct {
-}
+type recArgsWorldRebuildStaticTree struct{}
 
 type recArgsWorldSetRestitutionIterations struct {
 	iterations int32
@@ -950,6 +948,7 @@ func recWriteArgsDestroyWorld(rec *Recording, a *recArgsDestroyWorld) {
 func recWriteDestroyWorld(rec *Recording, a *recArgsDestroyWorld) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x01)
 	recWriteArgsDestroyWorld(rec, a)
 	recEndRecord(rec)
@@ -963,6 +962,7 @@ func recWriteArgsStep(rec *Recording, a *recArgsStep) {
 func recWriteStep(rec *Recording, a *recArgsStep) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x80)
 	recWriteArgsStep(rec, a)
 	recEndRecord(rec)
@@ -975,6 +975,7 @@ func recWriteArgsWorldEnableSleeping(rec *Recording, a *recArgsWorldEnableSleepi
 func recWriteWorldEnableSleeping(rec *Recording, a *recArgsWorldEnableSleeping) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x02)
 	recWriteArgsWorldEnableSleeping(rec, a)
 	recEndRecord(rec)
@@ -987,6 +988,7 @@ func recWriteArgsWorldEnableContinuous(rec *Recording, a *recArgsWorldEnableCont
 func recWriteWorldEnableContinuous(rec *Recording, a *recArgsWorldEnableContinuous) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x03)
 	recWriteArgsWorldEnableContinuous(rec, a)
 	recEndRecord(rec)
@@ -999,6 +1001,7 @@ func recWriteArgsWorldSetRestitutionThreshold(rec *Recording, a *recArgsWorldSet
 func recWriteWorldSetRestitutionThreshold(rec *Recording, a *recArgsWorldSetRestitutionThreshold) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x04)
 	recWriteArgsWorldSetRestitutionThreshold(rec, a)
 	recEndRecord(rec)
@@ -1011,6 +1014,7 @@ func recWriteArgsWorldSetHitEventThreshold(rec *Recording, a *recArgsWorldSetHit
 func recWriteWorldSetHitEventThreshold(rec *Recording, a *recArgsWorldSetHitEventThreshold) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x05)
 	recWriteArgsWorldSetHitEventThreshold(rec, a)
 	recEndRecord(rec)
@@ -1023,6 +1027,7 @@ func recWriteArgsWorldSetGravity(rec *Recording, a *recArgsWorldSetGravity) {
 func recWriteWorldSetGravity(rec *Recording, a *recArgsWorldSetGravity) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x06)
 	recWriteArgsWorldSetGravity(rec, a)
 	recEndRecord(rec)
@@ -1035,6 +1040,7 @@ func recWriteArgsWorldExplode(rec *Recording, a *recArgsWorldExplode) {
 func recWriteWorldExplode(rec *Recording, a *recArgsWorldExplode) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x07)
 	recWriteArgsWorldExplode(rec, a)
 	recEndRecord(rec)
@@ -1049,6 +1055,7 @@ func recWriteArgsWorldSetContactTuning(rec *Recording, a *recArgsWorldSetContact
 func recWriteWorldSetContactTuning(rec *Recording, a *recArgsWorldSetContactTuning) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x08)
 	recWriteArgsWorldSetContactTuning(rec, a)
 	recEndRecord(rec)
@@ -1061,6 +1068,7 @@ func recWriteArgsWorldSetContactRecycleDistance(rec *Recording, a *recArgsWorldS
 func recWriteWorldSetContactRecycleDistance(rec *Recording, a *recArgsWorldSetContactRecycleDistance) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x09)
 	recWriteArgsWorldSetContactRecycleDistance(rec, a)
 	recEndRecord(rec)
@@ -1073,6 +1081,7 @@ func recWriteArgsWorldSetMaximumLinearSpeed(rec *Recording, a *recArgsWorldSetMa
 func recWriteWorldSetMaximumLinearSpeed(rec *Recording, a *recArgsWorldSetMaximumLinearSpeed) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x0A)
 	recWriteArgsWorldSetMaximumLinearSpeed(rec, a)
 	recEndRecord(rec)
@@ -1085,6 +1094,7 @@ func recWriteArgsWorldEnableWarmStarting(rec *Recording, a *recArgsWorldEnableWa
 func recWriteWorldEnableWarmStarting(rec *Recording, a *recArgsWorldEnableWarmStarting) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x0B)
 	recWriteArgsWorldEnableWarmStarting(rec, a)
 	recEndRecord(rec)
@@ -1096,6 +1106,7 @@ func recWriteArgsWorldRebuildStaticTree(rec *Recording, a *recArgsWorldRebuildSt
 func recWriteWorldRebuildStaticTree(rec *Recording, a *recArgsWorldRebuildStaticTree) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x0C)
 	recWriteArgsWorldRebuildStaticTree(rec, a)
 	recEndRecord(rec)
@@ -1108,6 +1119,7 @@ func recWriteArgsWorldSetRestitutionIterations(rec *Recording, a *recArgsWorldSe
 func recWriteWorldSetRestitutionIterations(rec *Recording, a *recArgsWorldSetRestitutionIterations) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x0D)
 	recWriteArgsWorldSetRestitutionIterations(rec, a)
 	recEndRecord(rec)
@@ -1120,6 +1132,7 @@ func recWriteArgsWorldEnableRestitutionPropagation(rec *Recording, a *recArgsWor
 func recWriteWorldEnableRestitutionPropagation(rec *Recording, a *recArgsWorldEnableRestitutionPropagation) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x0E)
 	recWriteArgsWorldEnableRestitutionPropagation(rec, a)
 	recEndRecord(rec)
@@ -1132,6 +1145,7 @@ func recWriteArgsCreateBody(rec *Recording, a *recArgsCreateBody) {
 func recWriteCreateBody(rec *Recording, a *recArgsCreateBody) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x10)
 	recWriteArgsCreateBody(rec, a)
 	recEndRecord(rec)
@@ -1140,6 +1154,7 @@ func recWriteCreateBody(rec *Recording, a *recArgsCreateBody) {
 func recWriteRetCreateBody(rec *Recording, a *recArgsCreateBody, id Body) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x10)
 	recWriteArgsCreateBody(rec, a)
 	recWBODYID(&rec.buffer, id)
@@ -1153,6 +1168,7 @@ func recWriteArgsDestroyBody(rec *Recording, a *recArgsDestroyBody) {
 func recWriteDestroyBody(rec *Recording, a *recArgsDestroyBody) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x11)
 	recWriteArgsDestroyBody(rec, a)
 	recEndRecord(rec)
@@ -1167,6 +1183,7 @@ func recWriteArgsBodySetTransform(rec *Recording, a *recArgsBodySetTransform) {
 func recWriteBodySetTransform(rec *Recording, a *recArgsBodySetTransform) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x20)
 	recWriteArgsBodySetTransform(rec, a)
 	recEndRecord(rec)
@@ -1180,6 +1197,7 @@ func recWriteArgsBodySetLinearVelocity(rec *Recording, a *recArgsBodySetLinearVe
 func recWriteBodySetLinearVelocity(rec *Recording, a *recArgsBodySetLinearVelocity) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x21)
 	recWriteArgsBodySetLinearVelocity(rec, a)
 	recEndRecord(rec)
@@ -1193,6 +1211,7 @@ func recWriteArgsBodySetType(rec *Recording, a *recArgsBodySetType) {
 func recWriteBodySetType(rec *Recording, a *recArgsBodySetType) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x22)
 	recWriteArgsBodySetType(rec, a)
 	recEndRecord(rec)
@@ -1206,6 +1225,7 @@ func recWriteArgsBodySetName(rec *Recording, a *recArgsBodySetName) {
 func recWriteBodySetName(rec *Recording, a *recArgsBodySetName) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x23)
 	recWriteArgsBodySetName(rec, a)
 	recEndRecord(rec)
@@ -1219,6 +1239,7 @@ func recWriteArgsBodySetAngularVelocity(rec *Recording, a *recArgsBodySetAngular
 func recWriteBodySetAngularVelocity(rec *Recording, a *recArgsBodySetAngularVelocity) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x24)
 	recWriteArgsBodySetAngularVelocity(rec, a)
 	recEndRecord(rec)
@@ -1234,6 +1255,7 @@ func recWriteArgsBodySetTargetTransform(rec *Recording, a *recArgsBodySetTargetT
 func recWriteBodySetTargetTransform(rec *Recording, a *recArgsBodySetTargetTransform) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x25)
 	recWriteArgsBodySetTargetTransform(rec, a)
 	recEndRecord(rec)
@@ -1249,6 +1271,7 @@ func recWriteArgsBodyApplyForce(rec *Recording, a *recArgsBodyApplyForce) {
 func recWriteBodyApplyForce(rec *Recording, a *recArgsBodyApplyForce) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x26)
 	recWriteArgsBodyApplyForce(rec, a)
 	recEndRecord(rec)
@@ -1263,6 +1286,7 @@ func recWriteArgsBodyApplyForceToCenter(rec *Recording, a *recArgsBodyApplyForce
 func recWriteBodyApplyForceToCenter(rec *Recording, a *recArgsBodyApplyForceToCenter) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x27)
 	recWriteArgsBodyApplyForceToCenter(rec, a)
 	recEndRecord(rec)
@@ -1277,6 +1301,7 @@ func recWriteArgsBodyApplyTorque(rec *Recording, a *recArgsBodyApplyTorque) {
 func recWriteBodyApplyTorque(rec *Recording, a *recArgsBodyApplyTorque) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x28)
 	recWriteArgsBodyApplyTorque(rec, a)
 	recEndRecord(rec)
@@ -1289,6 +1314,7 @@ func recWriteArgsBodyClearForces(rec *Recording, a *recArgsBodyClearForces) {
 func recWriteBodyClearForces(rec *Recording, a *recArgsBodyClearForces) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x29)
 	recWriteArgsBodyClearForces(rec, a)
 	recEndRecord(rec)
@@ -1304,6 +1330,7 @@ func recWriteArgsBodyApplyLinearImpulse(rec *Recording, a *recArgsBodyApplyLinea
 func recWriteBodyApplyLinearImpulse(rec *Recording, a *recArgsBodyApplyLinearImpulse) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x2A)
 	recWriteArgsBodyApplyLinearImpulse(rec, a)
 	recEndRecord(rec)
@@ -1318,6 +1345,7 @@ func recWriteArgsBodyApplyLinearImpulseToCenter(rec *Recording, a *recArgsBodyAp
 func recWriteBodyApplyLinearImpulseToCenter(rec *Recording, a *recArgsBodyApplyLinearImpulseToCenter) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x2B)
 	recWriteArgsBodyApplyLinearImpulseToCenter(rec, a)
 	recEndRecord(rec)
@@ -1332,6 +1360,7 @@ func recWriteArgsBodyApplyAngularImpulse(rec *Recording, a *recArgsBodyApplyAngu
 func recWriteBodyApplyAngularImpulse(rec *Recording, a *recArgsBodyApplyAngularImpulse) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x2C)
 	recWriteArgsBodyApplyAngularImpulse(rec, a)
 	recEndRecord(rec)
@@ -1345,6 +1374,7 @@ func recWriteArgsBodySetMassData(rec *Recording, a *recArgsBodySetMassData) {
 func recWriteBodySetMassData(rec *Recording, a *recArgsBodySetMassData) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x2D)
 	recWriteArgsBodySetMassData(rec, a)
 	recEndRecord(rec)
@@ -1357,6 +1387,7 @@ func recWriteArgsBodyUpdateMassFromShapes(rec *Recording, a *recArgsBodyUpdateMa
 func recWriteBodyUpdateMassFromShapes(rec *Recording, a *recArgsBodyUpdateMassFromShapes) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x2E)
 	recWriteArgsBodyUpdateMassFromShapes(rec, a)
 	recEndRecord(rec)
@@ -1370,6 +1401,7 @@ func recWriteArgsBodySetLinearDamping(rec *Recording, a *recArgsBodySetLinearDam
 func recWriteBodySetLinearDamping(rec *Recording, a *recArgsBodySetLinearDamping) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x2F)
 	recWriteArgsBodySetLinearDamping(rec, a)
 	recEndRecord(rec)
@@ -1383,6 +1415,7 @@ func recWriteArgsBodySetAngularDamping(rec *Recording, a *recArgsBodySetAngularD
 func recWriteBodySetAngularDamping(rec *Recording, a *recArgsBodySetAngularDamping) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x30)
 	recWriteArgsBodySetAngularDamping(rec, a)
 	recEndRecord(rec)
@@ -1396,6 +1429,7 @@ func recWriteArgsBodySetGravityScale(rec *Recording, a *recArgsBodySetGravitySca
 func recWriteBodySetGravityScale(rec *Recording, a *recArgsBodySetGravityScale) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x31)
 	recWriteArgsBodySetGravityScale(rec, a)
 	recEndRecord(rec)
@@ -1409,6 +1443,7 @@ func recWriteArgsBodySetAwake(rec *Recording, a *recArgsBodySetAwake) {
 func recWriteBodySetAwake(rec *Recording, a *recArgsBodySetAwake) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x32)
 	recWriteArgsBodySetAwake(rec, a)
 	recEndRecord(rec)
@@ -1421,6 +1456,7 @@ func recWriteArgsBodyWakeTouching(rec *Recording, a *recArgsBodyWakeTouching) {
 func recWriteBodyWakeTouching(rec *Recording, a *recArgsBodyWakeTouching) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x33)
 	recWriteArgsBodyWakeTouching(rec, a)
 	recEndRecord(rec)
@@ -1434,6 +1470,7 @@ func recWriteArgsBodyEnableSleep(rec *Recording, a *recArgsBodyEnableSleep) {
 func recWriteBodyEnableSleep(rec *Recording, a *recArgsBodyEnableSleep) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x34)
 	recWriteArgsBodyEnableSleep(rec, a)
 	recEndRecord(rec)
@@ -1447,6 +1484,7 @@ func recWriteArgsBodySetSleepThreshold(rec *Recording, a *recArgsBodySetSleepThr
 func recWriteBodySetSleepThreshold(rec *Recording, a *recArgsBodySetSleepThreshold) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x35)
 	recWriteArgsBodySetSleepThreshold(rec, a)
 	recEndRecord(rec)
@@ -1459,6 +1497,7 @@ func recWriteArgsBodyDisable(rec *Recording, a *recArgsBodyDisable) {
 func recWriteBodyDisable(rec *Recording, a *recArgsBodyDisable) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x36)
 	recWriteArgsBodyDisable(rec, a)
 	recEndRecord(rec)
@@ -1471,6 +1510,7 @@ func recWriteArgsBodyEnable(rec *Recording, a *recArgsBodyEnable) {
 func recWriteBodyEnable(rec *Recording, a *recArgsBodyEnable) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x37)
 	recWriteArgsBodyEnable(rec, a)
 	recEndRecord(rec)
@@ -1484,6 +1524,7 @@ func recWriteArgsBodySetMotionLocks(rec *Recording, a *recArgsBodySetMotionLocks
 func recWriteBodySetMotionLocks(rec *Recording, a *recArgsBodySetMotionLocks) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x38)
 	recWriteArgsBodySetMotionLocks(rec, a)
 	recEndRecord(rec)
@@ -1497,6 +1538,7 @@ func recWriteArgsBodySetBullet(rec *Recording, a *recArgsBodySetBullet) {
 func recWriteBodySetBullet(rec *Recording, a *recArgsBodySetBullet) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x39)
 	recWriteArgsBodySetBullet(rec, a)
 	recEndRecord(rec)
@@ -1510,6 +1552,7 @@ func recWriteArgsBodyEnableContactRecycling(rec *Recording, a *recArgsBodyEnable
 func recWriteBodyEnableContactRecycling(rec *Recording, a *recArgsBodyEnableContactRecycling) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x3A)
 	recWriteArgsBodyEnableContactRecycling(rec, a)
 	recEndRecord(rec)
@@ -1523,6 +1566,7 @@ func recWriteArgsBodyEnableContactEvents(rec *Recording, a *recArgsBodyEnableCon
 func recWriteBodyEnableContactEvents(rec *Recording, a *recArgsBodyEnableContactEvents) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x3B)
 	recWriteArgsBodyEnableContactEvents(rec, a)
 	recEndRecord(rec)
@@ -1536,6 +1580,7 @@ func recWriteArgsBodyEnableHitEvents(rec *Recording, a *recArgsBodyEnableHitEven
 func recWriteBodyEnableHitEvents(rec *Recording, a *recArgsBodyEnableHitEvents) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x3C)
 	recWriteArgsBodyEnableHitEvents(rec, a)
 	recEndRecord(rec)
@@ -1549,6 +1594,7 @@ func recWriteArgsBodySetSafetyFactor(rec *Recording, a *recArgsBodySetSafetyFact
 func recWriteBodySetSafetyFactor(rec *Recording, a *recArgsBodySetSafetyFactor) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x3D)
 	recWriteArgsBodySetSafetyFactor(rec, a)
 	recEndRecord(rec)
@@ -1563,6 +1609,7 @@ func recWriteArgsCreateCircleShape(rec *Recording, a *recArgsCreateCircleShape) 
 func recWriteCreateCircleShape(rec *Recording, a *recArgsCreateCircleShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x40)
 	recWriteArgsCreateCircleShape(rec, a)
 	recEndRecord(rec)
@@ -1571,6 +1618,7 @@ func recWriteCreateCircleShape(rec *Recording, a *recArgsCreateCircleShape) {
 func recWriteRetCreateCircleShape(rec *Recording, a *recArgsCreateCircleShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x40)
 	recWriteArgsCreateCircleShape(rec, a)
 	recWSHAPEID(&rec.buffer, id)
@@ -1586,6 +1634,7 @@ func recWriteArgsCreateCapsuleShape(rec *Recording, a *recArgsCreateCapsuleShape
 func recWriteCreateCapsuleShape(rec *Recording, a *recArgsCreateCapsuleShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x41)
 	recWriteArgsCreateCapsuleShape(rec, a)
 	recEndRecord(rec)
@@ -1594,6 +1643,7 @@ func recWriteCreateCapsuleShape(rec *Recording, a *recArgsCreateCapsuleShape) {
 func recWriteRetCreateCapsuleShape(rec *Recording, a *recArgsCreateCapsuleShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x41)
 	recWriteArgsCreateCapsuleShape(rec, a)
 	recWSHAPEID(&rec.buffer, id)
@@ -1609,6 +1659,7 @@ func recWriteArgsCreateSegmentShape(rec *Recording, a *recArgsCreateSegmentShape
 func recWriteCreateSegmentShape(rec *Recording, a *recArgsCreateSegmentShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x42)
 	recWriteArgsCreateSegmentShape(rec, a)
 	recEndRecord(rec)
@@ -1617,6 +1668,7 @@ func recWriteCreateSegmentShape(rec *Recording, a *recArgsCreateSegmentShape) {
 func recWriteRetCreateSegmentShape(rec *Recording, a *recArgsCreateSegmentShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x42)
 	recWriteArgsCreateSegmentShape(rec, a)
 	recWSHAPEID(&rec.buffer, id)
@@ -1632,6 +1684,7 @@ func recWriteArgsCreatePolygonShape(rec *Recording, a *recArgsCreatePolygonShape
 func recWriteCreatePolygonShape(rec *Recording, a *recArgsCreatePolygonShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x43)
 	recWriteArgsCreatePolygonShape(rec, a)
 	recEndRecord(rec)
@@ -1640,6 +1693,7 @@ func recWriteCreatePolygonShape(rec *Recording, a *recArgsCreatePolygonShape) {
 func recWriteRetCreatePolygonShape(rec *Recording, a *recArgsCreatePolygonShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x43)
 	recWriteArgsCreatePolygonShape(rec, a)
 	recWSHAPEID(&rec.buffer, id)
@@ -1655,6 +1709,7 @@ func recWriteArgsCreateChainSegmentShape(rec *Recording, a *recArgsCreateChainSe
 func recWriteCreateChainSegmentShape(rec *Recording, a *recArgsCreateChainSegmentShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x44)
 	recWriteArgsCreateChainSegmentShape(rec, a)
 	recEndRecord(rec)
@@ -1663,6 +1718,7 @@ func recWriteCreateChainSegmentShape(rec *Recording, a *recArgsCreateChainSegmen
 func recWriteRetCreateChainSegmentShape(rec *Recording, a *recArgsCreateChainSegmentShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x44)
 	recWriteArgsCreateChainSegmentShape(rec, a)
 	recWSHAPEID(&rec.buffer, id)
@@ -1677,6 +1733,7 @@ func recWriteArgsDestroyShape(rec *Recording, a *recArgsDestroyShape) {
 func recWriteDestroyShape(rec *Recording, a *recArgsDestroyShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x45)
 	recWriteArgsDestroyShape(rec, a)
 	recEndRecord(rec)
@@ -1691,6 +1748,7 @@ func recWriteArgsShapeSetDensity(rec *Recording, a *recArgsShapeSetDensity) {
 func recWriteShapeSetDensity(rec *Recording, a *recArgsShapeSetDensity) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x50)
 	recWriteArgsShapeSetDensity(rec, a)
 	recEndRecord(rec)
@@ -1704,6 +1762,7 @@ func recWriteArgsShapeSetFriction(rec *Recording, a *recArgsShapeSetFriction) {
 func recWriteShapeSetFriction(rec *Recording, a *recArgsShapeSetFriction) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x51)
 	recWriteArgsShapeSetFriction(rec, a)
 	recEndRecord(rec)
@@ -1717,6 +1776,7 @@ func recWriteArgsShapeSetRestitution(rec *Recording, a *recArgsShapeSetRestituti
 func recWriteShapeSetRestitution(rec *Recording, a *recArgsShapeSetRestitution) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x52)
 	recWriteArgsShapeSetRestitution(rec, a)
 	recEndRecord(rec)
@@ -1730,6 +1790,7 @@ func recWriteArgsShapeSetUserMaterial(rec *Recording, a *recArgsShapeSetUserMate
 func recWriteShapeSetUserMaterial(rec *Recording, a *recArgsShapeSetUserMaterial) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x53)
 	recWriteArgsShapeSetUserMaterial(rec, a)
 	recEndRecord(rec)
@@ -1743,6 +1804,7 @@ func recWriteArgsShapeSetSurfaceMaterial(rec *Recording, a *recArgsShapeSetSurfa
 func recWriteShapeSetSurfaceMaterial(rec *Recording, a *recArgsShapeSetSurfaceMaterial) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x54)
 	recWriteArgsShapeSetSurfaceMaterial(rec, a)
 	recEndRecord(rec)
@@ -1756,6 +1818,7 @@ func recWriteArgsShapeSetFilter(rec *Recording, a *recArgsShapeSetFilter) {
 func recWriteShapeSetFilter(rec *Recording, a *recArgsShapeSetFilter) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x55)
 	recWriteArgsShapeSetFilter(rec, a)
 	recEndRecord(rec)
@@ -1769,6 +1832,7 @@ func recWriteArgsShapeEnableSensorEvents(rec *Recording, a *recArgsShapeEnableSe
 func recWriteShapeEnableSensorEvents(rec *Recording, a *recArgsShapeEnableSensorEvents) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x56)
 	recWriteArgsShapeEnableSensorEvents(rec, a)
 	recEndRecord(rec)
@@ -1782,6 +1846,7 @@ func recWriteArgsShapeEnableContactEvents(rec *Recording, a *recArgsShapeEnableC
 func recWriteShapeEnableContactEvents(rec *Recording, a *recArgsShapeEnableContactEvents) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x57)
 	recWriteArgsShapeEnableContactEvents(rec, a)
 	recEndRecord(rec)
@@ -1795,6 +1860,7 @@ func recWriteArgsShapeEnablePreSolveEvents(rec *Recording, a *recArgsShapeEnable
 func recWriteShapeEnablePreSolveEvents(rec *Recording, a *recArgsShapeEnablePreSolveEvents) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x58)
 	recWriteArgsShapeEnablePreSolveEvents(rec, a)
 	recEndRecord(rec)
@@ -1808,6 +1874,7 @@ func recWriteArgsShapeEnableHitEvents(rec *Recording, a *recArgsShapeEnableHitEv
 func recWriteShapeEnableHitEvents(rec *Recording, a *recArgsShapeEnableHitEvents) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x59)
 	recWriteArgsShapeEnableHitEvents(rec, a)
 	recEndRecord(rec)
@@ -1821,6 +1888,7 @@ func recWriteArgsShapeSetCircle(rec *Recording, a *recArgsShapeSetCircle) {
 func recWriteShapeSetCircle(rec *Recording, a *recArgsShapeSetCircle) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x5A)
 	recWriteArgsShapeSetCircle(rec, a)
 	recEndRecord(rec)
@@ -1834,6 +1902,7 @@ func recWriteArgsShapeSetCapsule(rec *Recording, a *recArgsShapeSetCapsule) {
 func recWriteShapeSetCapsule(rec *Recording, a *recArgsShapeSetCapsule) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x5B)
 	recWriteArgsShapeSetCapsule(rec, a)
 	recEndRecord(rec)
@@ -1847,6 +1916,7 @@ func recWriteArgsShapeSetSegment(rec *Recording, a *recArgsShapeSetSegment) {
 func recWriteShapeSetSegment(rec *Recording, a *recArgsShapeSetSegment) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x5C)
 	recWriteArgsShapeSetSegment(rec, a)
 	recEndRecord(rec)
@@ -1860,6 +1930,7 @@ func recWriteArgsShapeSetPolygon(rec *Recording, a *recArgsShapeSetPolygon) {
 func recWriteShapeSetPolygon(rec *Recording, a *recArgsShapeSetPolygon) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x5D)
 	recWriteArgsShapeSetPolygon(rec, a)
 	recEndRecord(rec)
@@ -1873,6 +1944,7 @@ func recWriteArgsShapeSetChainSegment(rec *Recording, a *recArgsShapeSetChainSeg
 func recWriteShapeSetChainSegment(rec *Recording, a *recArgsShapeSetChainSegment) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x5E)
 	recWriteArgsShapeSetChainSegment(rec, a)
 	recEndRecord(rec)
@@ -1889,6 +1961,7 @@ func recWriteArgsShapeApplyWind(rec *Recording, a *recArgsShapeApplyWind) {
 func recWriteShapeApplyWind(rec *Recording, a *recArgsShapeApplyWind) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x5F)
 	recWriteArgsShapeApplyWind(rec, a)
 	recEndRecord(rec)
@@ -1902,6 +1975,7 @@ func recWriteArgsCreateChain(rec *Recording, a *recArgsCreateChain) {
 func recWriteCreateChain(rec *Recording, a *recArgsCreateChain) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x70)
 	recWriteArgsCreateChain(rec, a)
 	recEndRecord(rec)
@@ -1910,6 +1984,7 @@ func recWriteCreateChain(rec *Recording, a *recArgsCreateChain) {
 func recWriteRetCreateChain(rec *Recording, a *recArgsCreateChain, id Chain) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x70)
 	recWriteArgsCreateChain(rec, a)
 	recWCHAINID(&rec.buffer, id)
@@ -1923,6 +1998,7 @@ func recWriteArgsDestroyChain(rec *Recording, a *recArgsDestroyChain) {
 func recWriteDestroyChain(rec *Recording, a *recArgsDestroyChain) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x71)
 	recWriteArgsDestroyChain(rec, a)
 	recEndRecord(rec)
@@ -1937,6 +2013,7 @@ func recWriteArgsChainSetSurfaceMaterial(rec *Recording, a *recArgsChainSetSurfa
 func recWriteChainSetSurfaceMaterial(rec *Recording, a *recArgsChainSetSurfaceMaterial) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x72)
 	recWriteArgsChainSetSurfaceMaterial(rec, a)
 	recEndRecord(rec)
@@ -1950,6 +2027,7 @@ func recWriteArgsChainSetAllSurfaceMaterials(rec *Recording, a *recArgsChainSetA
 func recWriteChainSetAllSurfaceMaterials(rec *Recording, a *recArgsChainSetAllSurfaceMaterials) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x73)
 	recWriteArgsChainSetAllSurfaceMaterials(rec, a)
 	recEndRecord(rec)
@@ -1962,6 +2040,7 @@ func recWriteArgsDestroyJoint(rec *Recording, a *recArgsDestroyJoint) {
 func recWriteDestroyJoint(rec *Recording, a *recArgsDestroyJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x90)
 	recWriteArgsDestroyJoint(rec, a)
 	recEndRecord(rec)
@@ -1975,6 +2054,7 @@ func recWriteArgsJointSetLocalFrameA(rec *Recording, a *recArgsJointSetLocalFram
 func recWriteJointSetLocalFrameA(rec *Recording, a *recArgsJointSetLocalFrameA) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x91)
 	recWriteArgsJointSetLocalFrameA(rec, a)
 	recEndRecord(rec)
@@ -1988,6 +2068,7 @@ func recWriteArgsJointSetLocalFrameB(rec *Recording, a *recArgsJointSetLocalFram
 func recWriteJointSetLocalFrameB(rec *Recording, a *recArgsJointSetLocalFrameB) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x92)
 	recWriteArgsJointSetLocalFrameB(rec, a)
 	recEndRecord(rec)
@@ -2001,6 +2082,7 @@ func recWriteArgsJointSetCollideConnected(rec *Recording, a *recArgsJointSetColl
 func recWriteJointSetCollideConnected(rec *Recording, a *recArgsJointSetCollideConnected) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x93)
 	recWriteArgsJointSetCollideConnected(rec, a)
 	recEndRecord(rec)
@@ -2013,6 +2095,7 @@ func recWriteArgsJointWakeBodies(rec *Recording, a *recArgsJointWakeBodies) {
 func recWriteJointWakeBodies(rec *Recording, a *recArgsJointWakeBodies) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x94)
 	recWriteArgsJointWakeBodies(rec, a)
 	recEndRecord(rec)
@@ -2027,6 +2110,7 @@ func recWriteArgsJointSetConstraintTuning(rec *Recording, a *recArgsJointSetCons
 func recWriteJointSetConstraintTuning(rec *Recording, a *recArgsJointSetConstraintTuning) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x95)
 	recWriteArgsJointSetConstraintTuning(rec, a)
 	recEndRecord(rec)
@@ -2040,6 +2124,7 @@ func recWriteArgsJointSetForceThreshold(rec *Recording, a *recArgsJointSetForceT
 func recWriteJointSetForceThreshold(rec *Recording, a *recArgsJointSetForceThreshold) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x96)
 	recWriteArgsJointSetForceThreshold(rec, a)
 	recEndRecord(rec)
@@ -2053,6 +2138,7 @@ func recWriteArgsJointSetTorqueThreshold(rec *Recording, a *recArgsJointSetTorqu
 func recWriteJointSetTorqueThreshold(rec *Recording, a *recArgsJointSetTorqueThreshold) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x97)
 	recWriteArgsJointSetTorqueThreshold(rec, a)
 	recEndRecord(rec)
@@ -2065,6 +2151,7 @@ func recWriteArgsCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoi
 func recWriteCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x98)
 	recWriteArgsCreateDistanceJoint(rec, a)
 	recEndRecord(rec)
@@ -2073,6 +2160,7 @@ func recWriteCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoint) 
 func recWriteRetCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x98)
 	recWriteArgsCreateDistanceJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2087,6 +2175,7 @@ func recWriteArgsDistanceJointSetLength(rec *Recording, a *recArgsDistanceJointS
 func recWriteDistanceJointSetLength(rec *Recording, a *recArgsDistanceJointSetLength) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x99)
 	recWriteArgsDistanceJointSetLength(rec, a)
 	recEndRecord(rec)
@@ -2100,6 +2189,7 @@ func recWriteArgsDistanceJointEnableSpring(rec *Recording, a *recArgsDistanceJoi
 func recWriteDistanceJointEnableSpring(rec *Recording, a *recArgsDistanceJointEnableSpring) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x9A)
 	recWriteArgsDistanceJointEnableSpring(rec, a)
 	recEndRecord(rec)
@@ -2114,6 +2204,7 @@ func recWriteArgsDistanceJointSetSpringForceRange(rec *Recording, a *recArgsDist
 func recWriteDistanceJointSetSpringForceRange(rec *Recording, a *recArgsDistanceJointSetSpringForceRange) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x9B)
 	recWriteArgsDistanceJointSetSpringForceRange(rec, a)
 	recEndRecord(rec)
@@ -2127,6 +2218,7 @@ func recWriteArgsDistanceJointSetSpringHertz(rec *Recording, a *recArgsDistanceJ
 func recWriteDistanceJointSetSpringHertz(rec *Recording, a *recArgsDistanceJointSetSpringHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x9C)
 	recWriteArgsDistanceJointSetSpringHertz(rec, a)
 	recEndRecord(rec)
@@ -2140,6 +2232,7 @@ func recWriteArgsDistanceJointSetSpringDampingRatio(rec *Recording, a *recArgsDi
 func recWriteDistanceJointSetSpringDampingRatio(rec *Recording, a *recArgsDistanceJointSetSpringDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x9D)
 	recWriteArgsDistanceJointSetSpringDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2153,6 +2246,7 @@ func recWriteArgsDistanceJointEnableLimit(rec *Recording, a *recArgsDistanceJoin
 func recWriteDistanceJointEnableLimit(rec *Recording, a *recArgsDistanceJointEnableLimit) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x9E)
 	recWriteArgsDistanceJointEnableLimit(rec, a)
 	recEndRecord(rec)
@@ -2167,6 +2261,7 @@ func recWriteArgsDistanceJointSetLengthRange(rec *Recording, a *recArgsDistanceJ
 func recWriteDistanceJointSetLengthRange(rec *Recording, a *recArgsDistanceJointSetLengthRange) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0x9F)
 	recWriteArgsDistanceJointSetLengthRange(rec, a)
 	recEndRecord(rec)
@@ -2180,6 +2275,7 @@ func recWriteArgsDistanceJointEnableMotor(rec *Recording, a *recArgsDistanceJoin
 func recWriteDistanceJointEnableMotor(rec *Recording, a *recArgsDistanceJointEnableMotor) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA0)
 	recWriteArgsDistanceJointEnableMotor(rec, a)
 	recEndRecord(rec)
@@ -2193,6 +2289,7 @@ func recWriteArgsDistanceJointSetMotorSpeed(rec *Recording, a *recArgsDistanceJo
 func recWriteDistanceJointSetMotorSpeed(rec *Recording, a *recArgsDistanceJointSetMotorSpeed) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA1)
 	recWriteArgsDistanceJointSetMotorSpeed(rec, a)
 	recEndRecord(rec)
@@ -2206,6 +2303,7 @@ func recWriteArgsDistanceJointSetMaxMotorForce(rec *Recording, a *recArgsDistanc
 func recWriteDistanceJointSetMaxMotorForce(rec *Recording, a *recArgsDistanceJointSetMaxMotorForce) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA2)
 	recWriteArgsDistanceJointSetMaxMotorForce(rec, a)
 	recEndRecord(rec)
@@ -2218,6 +2316,7 @@ func recWriteArgsCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint) 
 func recWriteCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA3)
 	recWriteArgsCreateFilterJoint(rec, a)
 	recEndRecord(rec)
@@ -2226,6 +2325,7 @@ func recWriteCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint) {
 func recWriteRetCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA3)
 	recWriteArgsCreateFilterJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2239,6 +2339,7 @@ func recWriteArgsCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint) {
 func recWriteCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA4)
 	recWriteArgsCreateMotorJoint(rec, a)
 	recEndRecord(rec)
@@ -2247,6 +2348,7 @@ func recWriteCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint) {
 func recWriteRetCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA4)
 	recWriteArgsCreateMotorJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2261,6 +2363,7 @@ func recWriteArgsMotorJointSetLinearVelocity(rec *Recording, a *recArgsMotorJoin
 func recWriteMotorJointSetLinearVelocity(rec *Recording, a *recArgsMotorJointSetLinearVelocity) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA5)
 	recWriteArgsMotorJointSetLinearVelocity(rec, a)
 	recEndRecord(rec)
@@ -2274,6 +2377,7 @@ func recWriteArgsMotorJointSetAngularVelocity(rec *Recording, a *recArgsMotorJoi
 func recWriteMotorJointSetAngularVelocity(rec *Recording, a *recArgsMotorJointSetAngularVelocity) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA6)
 	recWriteArgsMotorJointSetAngularVelocity(rec, a)
 	recEndRecord(rec)
@@ -2287,6 +2391,7 @@ func recWriteArgsMotorJointSetMaxVelocityForce(rec *Recording, a *recArgsMotorJo
 func recWriteMotorJointSetMaxVelocityForce(rec *Recording, a *recArgsMotorJointSetMaxVelocityForce) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA7)
 	recWriteArgsMotorJointSetMaxVelocityForce(rec, a)
 	recEndRecord(rec)
@@ -2300,6 +2405,7 @@ func recWriteArgsMotorJointSetMaxVelocityTorque(rec *Recording, a *recArgsMotorJ
 func recWriteMotorJointSetMaxVelocityTorque(rec *Recording, a *recArgsMotorJointSetMaxVelocityTorque) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA8)
 	recWriteArgsMotorJointSetMaxVelocityTorque(rec, a)
 	recEndRecord(rec)
@@ -2313,6 +2419,7 @@ func recWriteArgsMotorJointSetLinearHertz(rec *Recording, a *recArgsMotorJointSe
 func recWriteMotorJointSetLinearHertz(rec *Recording, a *recArgsMotorJointSetLinearHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xA9)
 	recWriteArgsMotorJointSetLinearHertz(rec, a)
 	recEndRecord(rec)
@@ -2326,6 +2433,7 @@ func recWriteArgsMotorJointSetLinearDampingRatio(rec *Recording, a *recArgsMotor
 func recWriteMotorJointSetLinearDampingRatio(rec *Recording, a *recArgsMotorJointSetLinearDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xAA)
 	recWriteArgsMotorJointSetLinearDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2339,6 +2447,7 @@ func recWriteArgsMotorJointSetAngularHertz(rec *Recording, a *recArgsMotorJointS
 func recWriteMotorJointSetAngularHertz(rec *Recording, a *recArgsMotorJointSetAngularHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xAB)
 	recWriteArgsMotorJointSetAngularHertz(rec, a)
 	recEndRecord(rec)
@@ -2352,6 +2461,7 @@ func recWriteArgsMotorJointSetAngularDampingRatio(rec *Recording, a *recArgsMoto
 func recWriteMotorJointSetAngularDampingRatio(rec *Recording, a *recArgsMotorJointSetAngularDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xAC)
 	recWriteArgsMotorJointSetAngularDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2365,6 +2475,7 @@ func recWriteArgsMotorJointSetMaxSpringForce(rec *Recording, a *recArgsMotorJoin
 func recWriteMotorJointSetMaxSpringForce(rec *Recording, a *recArgsMotorJointSetMaxSpringForce) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xAD)
 	recWriteArgsMotorJointSetMaxSpringForce(rec, a)
 	recEndRecord(rec)
@@ -2378,6 +2489,7 @@ func recWriteArgsMotorJointSetMaxSpringTorque(rec *Recording, a *recArgsMotorJoi
 func recWriteMotorJointSetMaxSpringTorque(rec *Recording, a *recArgsMotorJointSetMaxSpringTorque) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xAE)
 	recWriteArgsMotorJointSetMaxSpringTorque(rec, a)
 	recEndRecord(rec)
@@ -2390,6 +2502,7 @@ func recWriteArgsCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint) {
 func recWriteCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xAF)
 	recWriteArgsCreateMoverJoint(rec, a)
 	recEndRecord(rec)
@@ -2398,6 +2511,7 @@ func recWriteCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint) {
 func recWriteRetCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xAF)
 	recWriteArgsCreateMoverJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2412,6 +2526,7 @@ func recWriteArgsMoverJointSetLinearVelocity(rec *Recording, a *recArgsMoverJoin
 func recWriteMoverJointSetLinearVelocity(rec *Recording, a *recArgsMoverJointSetLinearVelocity) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB0)
 	recWriteArgsMoverJointSetLinearVelocity(rec, a)
 	recEndRecord(rec)
@@ -2425,6 +2540,7 @@ func recWriteArgsMoverJointSetMaxVelocityForce(rec *Recording, a *recArgsMoverJo
 func recWriteMoverJointSetMaxVelocityForce(rec *Recording, a *recArgsMoverJointSetMaxVelocityForce) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB1)
 	recWriteArgsMoverJointSetMaxVelocityForce(rec, a)
 	recEndRecord(rec)
@@ -2437,6 +2553,7 @@ func recWriteArgsCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint) {
 func recWriteCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB2)
 	recWriteArgsCreatePogoJoint(rec, a)
 	recEndRecord(rec)
@@ -2445,6 +2562,7 @@ func recWriteCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint) {
 func recWriteRetCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB2)
 	recWriteArgsCreatePogoJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2459,6 +2577,7 @@ func recWriteArgsPogoJointSetRestLength(rec *Recording, a *recArgsPogoJointSetRe
 func recWritePogoJointSetRestLength(rec *Recording, a *recArgsPogoJointSetRestLength) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB3)
 	recWriteArgsPogoJointSetRestLength(rec, a)
 	recEndRecord(rec)
@@ -2472,6 +2591,7 @@ func recWriteArgsPogoJointSetSpringHertz(rec *Recording, a *recArgsPogoJointSetS
 func recWritePogoJointSetSpringHertz(rec *Recording, a *recArgsPogoJointSetSpringHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB4)
 	recWriteArgsPogoJointSetSpringHertz(rec, a)
 	recEndRecord(rec)
@@ -2485,6 +2605,7 @@ func recWriteArgsPogoJointSetSpringDampingRatio(rec *Recording, a *recArgsPogoJo
 func recWritePogoJointSetSpringDampingRatio(rec *Recording, a *recArgsPogoJointSetSpringDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB5)
 	recWriteArgsPogoJointSetSpringDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2497,6 +2618,7 @@ func recWriteArgsCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJ
 func recWriteCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB6)
 	recWriteArgsCreatePrismaticJoint(rec, a)
 	recEndRecord(rec)
@@ -2505,6 +2627,7 @@ func recWriteCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJoint
 func recWriteRetCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB6)
 	recWriteArgsCreatePrismaticJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2519,6 +2642,7 @@ func recWriteArgsPrismaticJointEnableSpring(rec *Recording, a *recArgsPrismaticJ
 func recWritePrismaticJointEnableSpring(rec *Recording, a *recArgsPrismaticJointEnableSpring) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB7)
 	recWriteArgsPrismaticJointEnableSpring(rec, a)
 	recEndRecord(rec)
@@ -2532,6 +2656,7 @@ func recWriteArgsPrismaticJointSetSpringHertz(rec *Recording, a *recArgsPrismati
 func recWritePrismaticJointSetSpringHertz(rec *Recording, a *recArgsPrismaticJointSetSpringHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB8)
 	recWriteArgsPrismaticJointSetSpringHertz(rec, a)
 	recEndRecord(rec)
@@ -2545,6 +2670,7 @@ func recWriteArgsPrismaticJointSetSpringDampingRatio(rec *Recording, a *recArgsP
 func recWritePrismaticJointSetSpringDampingRatio(rec *Recording, a *recArgsPrismaticJointSetSpringDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xB9)
 	recWriteArgsPrismaticJointSetSpringDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2558,6 +2684,7 @@ func recWriteArgsPrismaticJointSetTargetTranslation(rec *Recording, a *recArgsPr
 func recWritePrismaticJointSetTargetTranslation(rec *Recording, a *recArgsPrismaticJointSetTargetTranslation) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xBA)
 	recWriteArgsPrismaticJointSetTargetTranslation(rec, a)
 	recEndRecord(rec)
@@ -2571,6 +2698,7 @@ func recWriteArgsPrismaticJointEnableLimit(rec *Recording, a *recArgsPrismaticJo
 func recWritePrismaticJointEnableLimit(rec *Recording, a *recArgsPrismaticJointEnableLimit) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xBB)
 	recWriteArgsPrismaticJointEnableLimit(rec, a)
 	recEndRecord(rec)
@@ -2585,6 +2713,7 @@ func recWriteArgsPrismaticJointSetLimits(rec *Recording, a *recArgsPrismaticJoin
 func recWritePrismaticJointSetLimits(rec *Recording, a *recArgsPrismaticJointSetLimits) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xBC)
 	recWriteArgsPrismaticJointSetLimits(rec, a)
 	recEndRecord(rec)
@@ -2598,6 +2727,7 @@ func recWriteArgsPrismaticJointEnableMotor(rec *Recording, a *recArgsPrismaticJo
 func recWritePrismaticJointEnableMotor(rec *Recording, a *recArgsPrismaticJointEnableMotor) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xBD)
 	recWriteArgsPrismaticJointEnableMotor(rec, a)
 	recEndRecord(rec)
@@ -2611,6 +2741,7 @@ func recWriteArgsPrismaticJointSetMotorSpeed(rec *Recording, a *recArgsPrismatic
 func recWritePrismaticJointSetMotorSpeed(rec *Recording, a *recArgsPrismaticJointSetMotorSpeed) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xBE)
 	recWriteArgsPrismaticJointSetMotorSpeed(rec, a)
 	recEndRecord(rec)
@@ -2624,6 +2755,7 @@ func recWriteArgsPrismaticJointSetMaxMotorForce(rec *Recording, a *recArgsPrisma
 func recWritePrismaticJointSetMaxMotorForce(rec *Recording, a *recArgsPrismaticJointSetMaxMotorForce) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xBF)
 	recWriteArgsPrismaticJointSetMaxMotorForce(rec, a)
 	recEndRecord(rec)
@@ -2636,6 +2768,7 @@ func recWriteArgsCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoi
 func recWriteCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC0)
 	recWriteArgsCreateRevoluteJoint(rec, a)
 	recEndRecord(rec)
@@ -2644,6 +2777,7 @@ func recWriteCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoint) 
 func recWriteRetCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC0)
 	recWriteArgsCreateRevoluteJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2658,6 +2792,7 @@ func recWriteArgsRevoluteJointEnableSpring(rec *Recording, a *recArgsRevoluteJoi
 func recWriteRevoluteJointEnableSpring(rec *Recording, a *recArgsRevoluteJointEnableSpring) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC1)
 	recWriteArgsRevoluteJointEnableSpring(rec, a)
 	recEndRecord(rec)
@@ -2671,6 +2806,7 @@ func recWriteArgsRevoluteJointSetSpringHertz(rec *Recording, a *recArgsRevoluteJ
 func recWriteRevoluteJointSetSpringHertz(rec *Recording, a *recArgsRevoluteJointSetSpringHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC2)
 	recWriteArgsRevoluteJointSetSpringHertz(rec, a)
 	recEndRecord(rec)
@@ -2684,6 +2820,7 @@ func recWriteArgsRevoluteJointSetSpringDampingRatio(rec *Recording, a *recArgsRe
 func recWriteRevoluteJointSetSpringDampingRatio(rec *Recording, a *recArgsRevoluteJointSetSpringDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC3)
 	recWriteArgsRevoluteJointSetSpringDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2697,6 +2834,7 @@ func recWriteArgsRevoluteJointSetTargetAngle(rec *Recording, a *recArgsRevoluteJ
 func recWriteRevoluteJointSetTargetAngle(rec *Recording, a *recArgsRevoluteJointSetTargetAngle) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC4)
 	recWriteArgsRevoluteJointSetTargetAngle(rec, a)
 	recEndRecord(rec)
@@ -2710,6 +2848,7 @@ func recWriteArgsRevoluteJointEnableLimit(rec *Recording, a *recArgsRevoluteJoin
 func recWriteRevoluteJointEnableLimit(rec *Recording, a *recArgsRevoluteJointEnableLimit) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC5)
 	recWriteArgsRevoluteJointEnableLimit(rec, a)
 	recEndRecord(rec)
@@ -2724,6 +2863,7 @@ func recWriteArgsRevoluteJointSetLimits(rec *Recording, a *recArgsRevoluteJointS
 func recWriteRevoluteJointSetLimits(rec *Recording, a *recArgsRevoluteJointSetLimits) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC6)
 	recWriteArgsRevoluteJointSetLimits(rec, a)
 	recEndRecord(rec)
@@ -2737,6 +2877,7 @@ func recWriteArgsRevoluteJointEnableMotor(rec *Recording, a *recArgsRevoluteJoin
 func recWriteRevoluteJointEnableMotor(rec *Recording, a *recArgsRevoluteJointEnableMotor) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC7)
 	recWriteArgsRevoluteJointEnableMotor(rec, a)
 	recEndRecord(rec)
@@ -2750,6 +2891,7 @@ func recWriteArgsRevoluteJointSetMotorSpeed(rec *Recording, a *recArgsRevoluteJo
 func recWriteRevoluteJointSetMotorSpeed(rec *Recording, a *recArgsRevoluteJointSetMotorSpeed) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC8)
 	recWriteArgsRevoluteJointSetMotorSpeed(rec, a)
 	recEndRecord(rec)
@@ -2763,6 +2905,7 @@ func recWriteArgsRevoluteJointSetMaxMotorTorque(rec *Recording, a *recArgsRevolu
 func recWriteRevoluteJointSetMaxMotorTorque(rec *Recording, a *recArgsRevoluteJointSetMaxMotorTorque) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xC9)
 	recWriteArgsRevoluteJointSetMaxMotorTorque(rec, a)
 	recEndRecord(rec)
@@ -2775,6 +2918,7 @@ func recWriteArgsCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint) {
 func recWriteCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCA)
 	recWriteArgsCreateWeldJoint(rec, a)
 	recEndRecord(rec)
@@ -2783,6 +2927,7 @@ func recWriteCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint) {
 func recWriteRetCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCA)
 	recWriteArgsCreateWeldJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2797,6 +2942,7 @@ func recWriteArgsWeldJointSetLinearHertz(rec *Recording, a *recArgsWeldJointSetL
 func recWriteWeldJointSetLinearHertz(rec *Recording, a *recArgsWeldJointSetLinearHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCB)
 	recWriteArgsWeldJointSetLinearHertz(rec, a)
 	recEndRecord(rec)
@@ -2810,6 +2956,7 @@ func recWriteArgsWeldJointSetLinearDampingRatio(rec *Recording, a *recArgsWeldJo
 func recWriteWeldJointSetLinearDampingRatio(rec *Recording, a *recArgsWeldJointSetLinearDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCC)
 	recWriteArgsWeldJointSetLinearDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2823,6 +2970,7 @@ func recWriteArgsWeldJointSetAngularHertz(rec *Recording, a *recArgsWeldJointSet
 func recWriteWeldJointSetAngularHertz(rec *Recording, a *recArgsWeldJointSetAngularHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCD)
 	recWriteArgsWeldJointSetAngularHertz(rec, a)
 	recEndRecord(rec)
@@ -2836,6 +2984,7 @@ func recWriteArgsWeldJointSetAngularDampingRatio(rec *Recording, a *recArgsWeldJ
 func recWriteWeldJointSetAngularDampingRatio(rec *Recording, a *recArgsWeldJointSetAngularDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCE)
 	recWriteArgsWeldJointSetAngularDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2848,6 +2997,7 @@ func recWriteArgsCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint) {
 func recWriteCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCF)
 	recWriteArgsCreateWheelJoint(rec, a)
 	recEndRecord(rec)
@@ -2856,6 +3006,7 @@ func recWriteCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint) {
 func recWriteRetCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xCF)
 	recWriteArgsCreateWheelJoint(rec, a)
 	recWJOINTID(&rec.buffer, id)
@@ -2870,6 +3021,7 @@ func recWriteArgsWheelJointEnableSpring(rec *Recording, a *recArgsWheelJointEnab
 func recWriteWheelJointEnableSpring(rec *Recording, a *recArgsWheelJointEnableSpring) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD0)
 	recWriteArgsWheelJointEnableSpring(rec, a)
 	recEndRecord(rec)
@@ -2883,6 +3035,7 @@ func recWriteArgsWheelJointSetSpringHertz(rec *Recording, a *recArgsWheelJointSe
 func recWriteWheelJointSetSpringHertz(rec *Recording, a *recArgsWheelJointSetSpringHertz) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD1)
 	recWriteArgsWheelJointSetSpringHertz(rec, a)
 	recEndRecord(rec)
@@ -2896,6 +3049,7 @@ func recWriteArgsWheelJointSetSpringDampingRatio(rec *Recording, a *recArgsWheel
 func recWriteWheelJointSetSpringDampingRatio(rec *Recording, a *recArgsWheelJointSetSpringDampingRatio) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD2)
 	recWriteArgsWheelJointSetSpringDampingRatio(rec, a)
 	recEndRecord(rec)
@@ -2909,6 +3063,7 @@ func recWriteArgsWheelJointEnableLimit(rec *Recording, a *recArgsWheelJointEnabl
 func recWriteWheelJointEnableLimit(rec *Recording, a *recArgsWheelJointEnableLimit) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD3)
 	recWriteArgsWheelJointEnableLimit(rec, a)
 	recEndRecord(rec)
@@ -2923,6 +3078,7 @@ func recWriteArgsWheelJointSetLimits(rec *Recording, a *recArgsWheelJointSetLimi
 func recWriteWheelJointSetLimits(rec *Recording, a *recArgsWheelJointSetLimits) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD4)
 	recWriteArgsWheelJointSetLimits(rec, a)
 	recEndRecord(rec)
@@ -2936,6 +3092,7 @@ func recWriteArgsWheelJointEnableMotor(rec *Recording, a *recArgsWheelJointEnabl
 func recWriteWheelJointEnableMotor(rec *Recording, a *recArgsWheelJointEnableMotor) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD5)
 	recWriteArgsWheelJointEnableMotor(rec, a)
 	recEndRecord(rec)
@@ -2949,6 +3106,7 @@ func recWriteArgsWheelJointSetMotorSpeed(rec *Recording, a *recArgsWheelJointSet
 func recWriteWheelJointSetMotorSpeed(rec *Recording, a *recArgsWheelJointSetMotorSpeed) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD6)
 	recWriteArgsWheelJointSetMotorSpeed(rec, a)
 	recEndRecord(rec)
@@ -2962,6 +3120,7 @@ func recWriteArgsWheelJointSetMaxMotorTorque(rec *Recording, a *recArgsWheelJoin
 func recWriteWheelJointSetMaxMotorTorque(rec *Recording, a *recArgsWheelJointSetMaxMotorTorque) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xD7)
 	recWriteArgsWheelJointSetMaxMotorTorque(rec, a)
 	recEndRecord(rec)
@@ -2976,6 +3135,7 @@ func recWriteArgsQueryOverlapAABB(rec *Recording, a *recArgsQueryOverlapAABB) {
 func recWriteQueryOverlapAABB(rec *Recording, a *recArgsQueryOverlapAABB) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE0)
 	recWriteArgsQueryOverlapAABB(rec, a)
 	recEndRecord(rec)
@@ -2990,6 +3150,7 @@ func recWriteArgsQueryOverlapShape(rec *Recording, a *recArgsQueryOverlapShape) 
 func recWriteQueryOverlapShape(rec *Recording, a *recArgsQueryOverlapShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE1)
 	recWriteArgsQueryOverlapShape(rec, a)
 	recEndRecord(rec)
@@ -3004,6 +3165,7 @@ func recWriteArgsQueryCastRay(rec *Recording, a *recArgsQueryCastRay) {
 func recWriteQueryCastRay(rec *Recording, a *recArgsQueryCastRay) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE2)
 	recWriteArgsQueryCastRay(rec, a)
 	recEndRecord(rec)
@@ -3019,6 +3181,7 @@ func recWriteArgsQueryCastShape(rec *Recording, a *recArgsQueryCastShape) {
 func recWriteQueryCastShape(rec *Recording, a *recArgsQueryCastShape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE3)
 	recWriteArgsQueryCastShape(rec, a)
 	recEndRecord(rec)
@@ -3033,6 +3196,7 @@ func recWriteArgsQueryCollideMover(rec *Recording, a *recArgsQueryCollideMover) 
 func recWriteQueryCollideMover(rec *Recording, a *recArgsQueryCollideMover) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE4)
 	recWriteArgsQueryCollideMover(rec, a)
 	recEndRecord(rec)
@@ -3047,6 +3211,7 @@ func recWriteArgsQueryCastRayClosest(rec *Recording, a *recArgsQueryCastRayClose
 func recWriteQueryCastRayClosest(rec *Recording, a *recArgsQueryCastRayClosest) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE5)
 	recWriteArgsQueryCastRayClosest(rec, a)
 	recEndRecord(rec)
@@ -3062,6 +3227,7 @@ func recWriteArgsQueryCastMover(rec *Recording, a *recArgsQueryCastMover) {
 func recWriteQueryCastMover(rec *Recording, a *recArgsQueryCastMover) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE6)
 	recWriteArgsQueryCastMover(rec, a)
 	recEndRecord(rec)
@@ -3075,6 +3241,7 @@ func recWriteArgsShapeTestPoint(rec *Recording, a *recArgsShapeTestPoint) {
 func recWriteShapeTestPoint(rec *Recording, a *recArgsShapeTestPoint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE7)
 	recWriteArgsShapeTestPoint(rec, a)
 	recEndRecord(rec)
@@ -3089,6 +3256,7 @@ func recWriteArgsShapeRayCast(rec *Recording, a *recArgsShapeRayCast) {
 func recWriteShapeRayCast(rec *Recording, a *recArgsShapeRayCast) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xE8)
 	recWriteArgsShapeRayCast(rec, a)
 	recEndRecord(rec)
@@ -3101,6 +3269,7 @@ func recWriteArgsStateHash(rec *Recording, a *recArgsStateHash) {
 func recWriteStateHash(rec *Recording, a *recArgsStateHash) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xF1)
 	recWriteArgsStateHash(rec, a)
 	recEndRecord(rec)
@@ -3113,6 +3282,7 @@ func recWriteArgsRecordingBounds(rec *Recording, a *recArgsRecordingBounds) {
 func recWriteRecordingBounds(rec *Recording, a *recArgsRecordingBounds) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
+
 	recBeginRecord(rec, 0xF2)
 	recWriteArgsRecordingBounds(rec, a)
 	recEndRecord(rec)

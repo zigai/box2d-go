@@ -37,16 +37,19 @@ type PlaneSolverResult struct {
 
 // Solves the position of a mover that satisfies the given collision planes.
 // @param targetDelta the desired translation from the position used to generate the collision planes
-// @param planes the collision planes
+// @param planes the collision planes.
 func SolvePlanes(targetDelta Vec2, planes []CollisionPlane) PlaneSolverResult {
 	for i := range planes {
 		planes[i].Push = 0
 	}
+
 	delta := targetDelta
 	tolerance := LinearSlop()
+
 	iteration := 0
 	for ; iteration < 20; iteration++ {
 		var totalPush float32
+
 		for planeIndex := range planes {
 			plane := &planes[planeIndex]
 			separation := plane.Plane.Separation(delta) + LinearSlop()
@@ -57,10 +60,12 @@ func SolvePlanes(targetDelta Vec2, planes []CollisionPlane) PlaneSolverResult {
 			delta = delta.MulAdd(push, plane.Plane.Normal)
 			totalPush += absFloat(push)
 		}
+
 		if totalPush < tolerance {
 			break
 		}
 	}
+
 	return PlaneSolverResult{Delta: delta, IterationCount: iteration}
 }
 
@@ -68,12 +73,15 @@ func SolvePlanes(targetDelta Vec2, planes []CollisionPlane) PlaneSolverResult {
 // set to false are skipped.
 func ClipVector(vector Vec2, planes []CollisionPlane) Vec2 {
 	v := vector
+
 	for planeIndex := range planes {
 		plane := &planes[planeIndex]
 		if plane.Push == 0 || !plane.ClipVelocity {
 			continue
 		}
+
 		v = v.MulSub(minFloat(0, v.Dot(plane.Plane.Normal)), plane.Plane.Normal)
 	}
+
 	return v
 }

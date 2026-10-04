@@ -28,7 +28,9 @@ func destroySolverSet(world *World, setIndex int) {
 	set.contactSims = nil
 	set.jointSims = nil
 	set.islandSims = nil
+
 	freeID(&world.solverSetIDPool, setIndex)
+
 	*set = solverSet{}
 	set.setIndex = nullIndex
 }
@@ -42,7 +44,7 @@ func wakeSolverSet(world *World, setIndex int) {
 	bodies := world.bodies
 
 	bodyCount := len(set.bodySims)
-	for i := 0; i < bodyCount; i++ {
+	for i := range bodyCount {
 		simSrc := &set.bodySims[i]
 
 		body := &bodies[simSrc.bodyID]
@@ -64,6 +66,7 @@ func wakeSolverSet(world *World, setIndex int) {
 
 		// Move non-touching contacts from disabled set to awake set.
 		encodedBodySimIndex := body.localIndex
+
 		contactKey := body.headContactKey
 		for contactKey != nullIndex {
 			edgeIndex := contactKey & 1
@@ -79,6 +82,7 @@ func wakeSolverSet(world *World, setIndex int) {
 				// If this contact is awake but not touching I need to fixup the body sim index here.
 				if contact.setIndex == awakeSet {
 					assert(contact.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
+
 					awakeContactSim := &awake.contactSims[contact.localIndex]
 					if edgeIndex == 0 {
 						awakeContactSim.encodedBodySimA = encodedBodySimIndex
@@ -108,6 +112,7 @@ func wakeSolverSet(world *World, setIndex int) {
 			}
 
 			var movedLocalIndex int
+
 			disabled.contactSims, movedLocalIndex = arrayRemoveSwap(disabled.contactSims, localIndex)
 			if movedLocalIndex != nullIndex {
 				// fix moved element
@@ -122,7 +127,7 @@ func wakeSolverSet(world *World, setIndex int) {
 	// transfer touching contacts from sleeping set to contact graph
 	{
 		contactCount := len(set.contactSims)
-		for i := 0; i < contactCount; i++ {
+		for i := range contactCount {
 			contactSim := &set.contactSims[i]
 			contact := &world.contacts[contactSim.contactID]
 			assert((contact.flags&contactTouchingFlag) != 0, "contact->flags & b2_contactTouchingFlag")
@@ -137,7 +142,7 @@ func wakeSolverSet(world *World, setIndex int) {
 	// transfer joints from sleeping set to awake set
 	{
 		jointCount := len(set.jointSims)
-		for i := 0; i < jointCount; i++ {
+		for i := range jointCount {
 			jointSim := &set.jointSims[i]
 			joint := &world.joints[jointSim.jointId]
 			assert(joint.setIndex == setIndex, "joint->setIndex == setIndex")
@@ -152,7 +157,7 @@ func wakeSolverSet(world *World, setIndex int) {
 	// are moved to the same sleeping set.
 	{
 		islandCount := len(set.islandSims)
-		for i := 0; i < islandCount; i++ {
+		for i := range islandCount {
 			islandSrc := &set.islandSims[i]
 			island := &world.islands[islandSrc.islandID]
 			island.setIndex = awakeSet
@@ -205,7 +210,8 @@ func trySleepIsland(world *World, islandID int) {
 	// this shuffles around bodies in the awake set
 	{
 		disabled := &world.solverSets[disabledSet]
-		for i := 0; i < len(island.bodies); i++ {
+
+		for i := range len(island.bodies) {
 			bodyId := island.bodies[i]
 			body := &world.bodies[bodyId]
 			assert(body.setIndex == awakeSet, "body->setIndex == b2_awakeSet")
@@ -278,6 +284,7 @@ func trySleepIsland(world *World, islandID int) {
 				// for moving this contact to the disabled set.
 				otherEdgeIndex := edgeIndex ^ 1
 				otherBodyId := contact.edges[otherEdgeIndex].bodyID
+
 				otherBody := &world.bodies[otherBodyId]
 				if otherBody.setIndex == awakeSet {
 					continue
@@ -294,6 +301,7 @@ func trySleepIsland(world *World, islandID int) {
 				*disabledContactSim = *contactSim
 
 				var movedLocalIndex int
+
 				awake.contactSims, movedLocalIndex = arrayRemoveSwap(awake.contactSims, localIndex)
 				if movedLocalIndex != nullIndex {
 					// fix moved element
@@ -309,7 +317,7 @@ func trySleepIsland(world *World, islandID int) {
 	// move touching contacts
 	// this shuffles contacts in the awake set
 	{
-		for i := 0; i < len(island.contacts); i++ {
+		for i := range len(island.contacts) {
 			link := &island.contacts[i]
 			contact := &world.contacts[link.contactID]
 			assert(contact.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
@@ -338,6 +346,7 @@ func trySleepIsland(world *World, islandID int) {
 			sleepContactSim.encodedBodySimB = sleepBodySimIndex(sleepContactSim.encodedBodySimB)
 
 			var movedLocalIndex int
+
 			color.contactSims, movedLocalIndex = arrayRemoveSwap(color.contactSims, localIndex)
 			if movedLocalIndex != nullIndex {
 				// fix moved element
@@ -356,7 +365,7 @@ func trySleepIsland(world *World, islandID int) {
 	// move joints
 	// this shuffles joints in the awake set
 	{
-		for i := 0; i < len(island.joints); i++ {
+		for i := range len(island.joints) {
 			link := &island.joints[i]
 			joint := &world.joints[link.jointID]
 			assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
@@ -382,6 +391,7 @@ func trySleepIsland(world *World, islandID int) {
 			*sleepJointSim = *awakeJointSim
 
 			var movedIndex int
+
 			color.jointSims, movedIndex = arrayRemoveSwap(color.jointSims, localIndex)
 			if movedIndex != nullIndex {
 				// fix moved element
@@ -408,6 +418,7 @@ func trySleepIsland(world *World, islandID int) {
 		sleepIsland.islandID = islandID
 
 		var movedIslandIndex int
+
 		awake.islandSims, movedIslandIndex = arrayRemoveSwap(awake.islandSims, islandIndex)
 		if movedIslandIndex != nullIndex {
 			// fix index on moved element
@@ -432,6 +443,7 @@ func trySleepIsland(world *World, islandID int) {
 func mergeSolverSets(world *World, setId1 int, setId2 int) {
 	assert(setId1 >= firstSleepingSet, "setId1 >= b2_firstSleepingSet")
 	assert(setId2 >= firstSleepingSet, "setId2 >= b2_firstSleepingSet")
+
 	set1 := &world.solverSets[setId1]
 	set2 := &world.solverSets[setId2]
 
@@ -449,8 +461,9 @@ func mergeSolverSets(world *World, setId1 int, setId2 int) {
 	// transfer bodies
 	{
 		bodies := world.bodies
+
 		bodyCount := len(set2.bodySims)
-		for i := 0; i < bodyCount; i++ {
+		for i := range bodyCount {
 			simSrc := &set2.bodySims[i]
 
 			body := &bodies[simSrc.bodyID]
@@ -467,7 +480,7 @@ func mergeSolverSets(world *World, setId1 int, setId2 int) {
 	// transfer contacts
 	{
 		contactCount := len(set2.contactSims)
-		for i := 0; i < contactCount; i++ {
+		for i := range contactCount {
 			contactSrc := &set2.contactSims[i]
 
 			contact := &world.contacts[contactSrc.contactID]
@@ -484,7 +497,7 @@ func mergeSolverSets(world *World, setId1 int, setId2 int) {
 	// transfer joints
 	{
 		jointCount := len(set2.jointSims)
-		for i := 0; i < jointCount; i++ {
+		for i := range jointCount {
 			jointSrc := &set2.jointSims[i]
 
 			joint := &world.joints[jointSrc.jointId]
@@ -501,7 +514,7 @@ func mergeSolverSets(world *World, setId1 int, setId2 int) {
 	// transfer islands
 	{
 		islandCount := len(set2.islandSims)
-		for i := 0; i < islandCount; i++ {
+		for i := range islandCount {
 			islandSrc := &set2.islandSims[i]
 			islandID := islandSrc.islandID
 
@@ -593,6 +606,7 @@ func transferJoint(world *World, targetSet *solverSet, sourceSet *solverSet, joi
 
 	// Retrieve source.
 	var sourceSim *jointSim
+
 	if sourceSet.setIndex == awakeSet {
 		assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
 		color := &world.constraintGraph.colors[colorIndex]
@@ -600,6 +614,7 @@ func transferJoint(world *World, targetSet *solverSet, sourceSet *solverSet, joi
 		sourceSim = &color.jointSims[localIndex]
 	} else {
 		assert(colorIndex == nullIndex, "colorIndex == B2_NULL_INDEX")
+
 		sourceSim = &sourceSet.jointSims[localIndex]
 	}
 
@@ -622,6 +637,7 @@ func transferJoint(world *World, targetSet *solverSet, sourceSet *solverSet, joi
 		removeJointFromGraph(world, joint.edges[0].bodyId, joint.edges[1].bodyId, colorIndex, localIndex)
 	} else {
 		var movedIndex int
+
 		sourceSet.jointSims, movedIndex = arrayRemoveSwap(sourceSet.jointSims, localIndex)
 		if movedIndex != nullIndex {
 			// fix swapped element

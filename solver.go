@@ -214,9 +214,11 @@ func integratePositionsTask(block solverBlock, context *stepContext) {
 		if state.flags&lockLinearX != 0 {
 			v.X = 0
 		}
+
 		if state.flags&lockLinearY != 0 {
 			v.Y = 0
 		}
+
 		if state.flags&lockAngularZ != 0 {
 			w = 0
 		}
@@ -265,13 +267,13 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 
 	// Skip sensors unless the shapes want sensor events
 	isSensor := shape.sensorIndex != nullIndex
-	if isSensor && (shape.enableSensorEvents == false || fastShape.enableSensorEvents == false) {
+	if isSensor && (!shape.enableSensorEvents || !fastShape.enableSensorEvents) {
 		return true
 	}
 
 	// Skip filtered shapes
 	canCollide := shouldShapesCollide(fastShape.filter, shape.filter)
-	if canCollide == false {
+	if !canCollide {
 		return true
 	}
 
@@ -289,8 +291,9 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 
 	// Skip filtered bodies
 	fastBody := &world.bodies[fastBodySim.bodyID]
+
 	canCollide = shouldBodiesCollide(world, fastBody, body)
-	if canCollide == false {
+	if !canCollide {
 		return true
 	}
 
@@ -300,8 +303,9 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 		if customFilterFcn != nil {
 			idA := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
 			idB := Shape{index1: int32(fastShape.id + 1), world: world, generation: fastShape.generation}
+
 			canCollide = customFilterFcn(idA, idB)
-			if canCollide == false {
+			if !canCollide {
 				return true
 			}
 		}
@@ -313,6 +317,7 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 		p1 := transform.Apply(shape.chainSegment.Segment.Point1)
 		p2 := transform.Apply(shape.chainSegment.Segment.Point2)
 		e := p2.Sub(p1)
+
 		length, e := e.LengthAndNormalize()
 		if length > LinearSlop() {
 			c1 := continuousContext.centroid1
@@ -332,6 +337,7 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 	// todo_erin testing early out for segments
 
 	var input TOIInput
+
 	input.ProxyA = makeShapeDistanceProxy(shape)
 	input.ProxyB = makeShapeDistanceProxy(fastShape)
 	input.SweepA = makeRelativeSweep(bodySim, continuousContext.base)
@@ -361,12 +367,13 @@ func continuousQueryCallback(proxyID int, userData uint64, context *continuousCo
 		if 0.0 < output.Fraction && output.Fraction < continuousContext.fraction {
 			hitFraction = output.Fraction
 			didHit = true
-		} else if 0.0 == output.Fraction {
+		} else if output.Fraction == 0.0 {
 			// fallback to TOI of a small circle around the fast shape centroid
 			centroid := getShapeCentroid(fastShape)
 			extent := computeShapeExtent(fastShape, centroid)
 			radius := coreFraction * extent.minExtent
 			input.ProxyB = MakeProxy([]Vec2{centroid}, radius)
+
 			output = TimeOfImpact(&input)
 			if 0.0 < output.Fraction && output.Fraction < continuousContext.fraction {
 				hitFraction = output.Fraction
@@ -402,10 +409,12 @@ func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, d
 	sweep := makeRelativeSweep(fastBodySim, base)
 
 	var xf1 Transform
+
 	xf1.Q = sweep.Q1
 	xf1.P = sweep.C1.Sub(sweep.Q1.Rotate(sweep.LocalCenter))
 
 	var xf2 Transform
+
 	xf2.Q = sweep.Q2
 	xf2.P = sweep.C2.Sub(sweep.Q2.Rotate(sweep.LocalCenter))
 
@@ -477,13 +486,16 @@ func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, d
 		fastBodyState := &awakeSet.bodyStates[bodySimIndex]
 		v := fastBodyState.linearVelocity
 		timeLoss := (1.0 - context.fraction) * dt
+
 		dv := world.gravity.Scale(-timeLoss * fastBodySim.gravityScale)
 		if fastBodyState.flags&lockLinearX != 0 {
 			dv.X = 0
 		}
+
 		if fastBodyState.flags&lockLinearY != 0 {
 			dv.Y = 0
 		}
+
 		fastBodyState.linearVelocity = v.Add(dv)
 
 		// Update body move event
@@ -502,9 +514,11 @@ func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, d
 			shape.aabb = aabb
 
 			shapeFatAABB := &world.fatAABBs[shapeId]
-			if (*shapeFatAABB).Contains(aabb) == false {
+			if !(*shapeFatAABB).Contains(aabb) {
 				margin := shape.aabbMargin
+
 				var fatAABB AABB
+
 				fatAABB.LowerBound.X = aabb.LowerBound.X - margin
 				fatAABB.LowerBound.Y = aabb.LowerBound.Y - margin
 				fatAABB.UpperBound.X = aabb.UpperBound.X + margin
@@ -513,7 +527,7 @@ func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, d
 
 				// Regular bodies mark the hierarchy as enlarged using atomic operations.
 				// Bullets are handled separately at a later stage.
-				if isBullet == false {
+				if !isBullet {
 					world.broadPhase.markProxyMoved(shape.proxyKey, fatAABB)
 				} else {
 					fastBodySim.flags |= enlargeBulletBounds
@@ -537,19 +551,20 @@ func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, d
 			// shape.aabb is still valid from above
 
 			shapeFatAABB := &world.fatAABBs[shapeId]
-			if (*shapeFatAABB).Contains(shape.aabb) == false {
+			if !(*shapeFatAABB).Contains(shape.aabb) {
 				margin := shape.aabbMargin
 
 				// Note: far from the origin the margin can be snapped to the nearest ULP.
 				// This relevant for DP mode. So we lose the broad-phase hysteresis.
 				var fatAABB AABB
+
 				fatAABB.LowerBound.X = shape.aabb.LowerBound.X - margin
 				fatAABB.LowerBound.Y = shape.aabb.LowerBound.Y - margin
 				fatAABB.UpperBound.X = shape.aabb.UpperBound.X + margin
 				fatAABB.UpperBound.Y = shape.aabb.UpperBound.Y + margin
 				*shapeFatAABB = fatAABB
 
-				if isBullet == false {
+				if !isBullet {
 					world.broadPhase.markProxyMoved(shape.proxyKey, fatAABB)
 				} else {
 					fastBodySim.flags |= enlargeBulletBounds
@@ -560,8 +575,8 @@ func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, d
 		}
 	}
 
-	// Push sensor hits on the the task context for serial processing.
-	for i := 0; i < context.sensorCount; i++ {
+	// Push sensor hits on the task context for serial processing.
+	for i := range context.sensorCount {
 		// Skip any sensor hits that occurred after a solid hit
 		if context.sensorFractions[i] < context.fraction {
 			taskContext.sensorHits = arrayPush(taskContext.sensorHits, context.sensorHits[i])
@@ -599,7 +614,7 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 		v := state.linearVelocity
 		w := state.angularVelocity
 
-		if v.IsValid() == false || IsValidFloat(w) == false {
+		if !v.IsValid() || !IsValidFloat(w) {
 			debugBody := &bodies[sim.bodyID]
 			world.logger.Warn("box2d: unstable body", "name", string(bytes.TrimRight(debugBody.name[:], "\x00")))
 		}
@@ -650,11 +665,12 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 		body.flags |= (state.flags & isSpeedCapped)
 		state.flags &= ^bodyTransientFlags
 
-		if sleepEnabled == false || (body.flags&enableSleep) == 0 || sleepVelocity > body.sleepThreshold {
+		if !sleepEnabled || (body.flags&enableSleep) == 0 || sleepVelocity > body.sleepThreshold {
 			// Body is not sleepy
 			body.sleepTime = 0.0
 
 			safetyFactor := body.safetyFactor
+
 			maxMotion := maxFloat(maxDeltaPosition, maxVelocity*timeStep)
 			if body.bodyType == DynamicBody && enableContinuous && maxMotion > safetyFactor*sim.minExtent {
 				// This flag is used for debug draw and contact recycling.
@@ -700,6 +716,7 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 		// Update shapes AABBs
 		transform := sim.transform
 		isFast := (sim.flags & isFast) != 0
+
 		shapeId := body.headShapeID
 		for shapeId != nullIndex {
 			shape := &world.shapes[shapeId]
@@ -713,14 +730,15 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 				setBit(enlargedSimBitSet, uint32(simIndex))
 			} else {
 				// Update bounds for slow bodies, including slow bullets.
-
 				aabb := computeFatShapeAABB(shape, transform, speculativeDistance)
 				shape.aabb = aabb
 
 				shapeFatAABB := &world.fatAABBs[shapeId]
-				if (*shapeFatAABB).Contains(aabb) == false {
+				if !(*shapeFatAABB).Contains(aabb) {
 					margin := shape.aabbMargin
+
 					var fatAABB AABB
+
 					fatAABB.LowerBound.X = aabb.LowerBound.X - margin
 					fatAABB.LowerBound.Y = aabb.LowerBound.Y - margin
 					fatAABB.UpperBound.X = aabb.UpperBound.X + margin
@@ -773,7 +791,7 @@ func initBlocks(blocks []syncBlock, dim blockDim, itemCount int, blockType uint8
 	// Simulation too big
 	assert(blockSize <= 65535, "blockSize <= UINT16_MAX")
 
-	for i := 0; i < dim.count; i++ {
+	for i := range dim.count {
 		blocks[i].block.startIndex = i * blockSize
 		blocks[i].block.count = uint16(blockSize)
 		blocks[i].block.blockType = blockType
@@ -794,15 +812,17 @@ func initStage(stage []solverStage, stageType solverStageType, blocks []syncBloc
 	stage[0].blockCount = blockCount
 	stage[0].colorIndex = colorIndex
 	stage[0].completionCount.Store(0)
+
 	return stage[1:]
 }
 
 func initColorStages(stage []solverStage, stageType solverStageType, iterations int, activeColorCount int, colorBlocks [][]syncBlock, colorBlockCounts []int, activeColorIndices []int) []solverStage {
-	for j := 0; j < iterations; j++ {
-		for i := 0; i < activeColorCount; i++ {
+	for range iterations {
+		for i := range activeColorCount {
 			stage = initStage(stage, stageType, colorBlocks[i], colorBlockCounts[i], uint8(activeColorIndices[i]))
 		}
 	}
+
 	return stage
 }
 
@@ -824,20 +844,24 @@ func executeBlock(stage *solverStage, context *stepContext, block solverBlock, w
 		break
 
 	case stageWarmStart:
-		if blockType == graphContactBlock {
+		switch blockType {
+		case graphContactBlock:
 			warmStartContactsWide(block, context)
-		} else if blockType == graphJointBlock {
+		case graphJointBlock:
 			warmStartJointsTask(block, context)
 		}
+
 		break
 
 	case stageSolve:
-		if blockType == graphContactBlock {
+		switch blockType {
+		case graphContactBlock:
 			pushContactsWide(block, context)
-		} else if blockType == graphJointBlock {
+		case graphJointBlock:
 			useBias := true
 			solveJointsTask(block, context, useBias, workerIndex)
 		}
+
 		break
 
 	case stageIntegratePositions:
@@ -845,18 +869,21 @@ func executeBlock(stage *solverStage, context *stepContext, block solverBlock, w
 		break
 
 	case stageRelax:
-		if blockType == graphContactBlock {
+		switch blockType {
+		case graphContactBlock:
 			solveContactsWide(block, context)
-		} else if blockType == graphJointBlock {
+		case graphJointBlock:
 			useBias := false
 			solveJointsTask(block, context, useBias, workerIndex)
 		}
+
 		break
 
 	case stageRestitution:
 		if blockType == graphContactBlock {
 			applyRestitutionWide(block, context)
 		}
+
 		break
 
 	case stageStoreImpulses:
@@ -870,10 +897,13 @@ func getWorkerStartIndex(workerIndex int, blockCount int, workerCount int) int {
 		if workerIndex < blockCount {
 			return workerIndex
 		}
+
 		return nullIndex
 	}
+
 	blocksPerWorker := blockCount / workerCount
 	remainder := blockCount - blocksPerWorker*workerCount
+
 	return blocksPerWorker*workerIndex + min(remainder, workerIndex)
 }
 
@@ -890,7 +920,7 @@ func executeStage(stage *solverStage, context *stepContext, previousSyncIndex in
 	assert(0 <= startIndex && startIndex < blockCount, "0 <= startIndex && startIndex < blockCount")
 
 	blockIndex := startIndex
-	for i := 0; i < blockCount; i++ {
+	for range blockCount {
 		if blocks[blockIndex].syncIndex.CompareAndSwap(int32(previousSyncIndex), int32(syncIndex)) {
 			assert(stage.stageType != stagePrepareContacts || syncIndex < 2, "stage->type != b2_stagePrepareContacts || syncIndex < 2")
 			assert(completedCount < blockCount, "completedCount < blockCount")
@@ -898,6 +928,7 @@ func executeStage(stage *solverStage, context *stepContext, previousSyncIndex in
 			// Pass the descriptor by value -- the wrapping syncBlock holds the atomic
 			// syncIndex but we only copy .block, so the struct copy never aliases the CAS target.
 			executeBlock(stage, context, blocks[blockIndex].block, workerIndex)
+
 			completedCount += 1
 		}
 
@@ -952,7 +983,7 @@ func solverTask(taskContext *workerContext) {
 		// out of order, has fewer threads than workerCount, or runs the task synchronously
 		// inside enqueueTaskFcn. Whoever wins the CAS becomes the orchestrator; the loser
 		// returns and lets the spinner-only path handle workers >0.
-		if context.mainClaimed.CompareAndSwap(int32(0), int32(1)) == false {
+		if !context.mainClaimed.CompareAndSwap(int32(0), int32(1)) {
 			return
 		}
 
@@ -1008,8 +1039,9 @@ func solverTask(taskContext *workerContext) {
 		profile.PrepareConstraints += millisecondsAndReset(&ticks)
 
 		graphSyncIndex := 1
+
 		subStepCount := context.subStepCount
-		for subStepIndex := 0; subStepIndex < subStepCount; subStepIndex++ {
+		for range subStepCount {
 			// stage index restarted each iteration
 			// syncBits still increases monotonically because the upper bits increase each iteration
 			iterationStageIndex := stageIndex
@@ -1027,29 +1059,31 @@ func solverTask(taskContext *workerContext) {
 			warmStartJointsOverflow(context)
 			warmStartContactsOverflow(context)
 
-			for colorIndex := 0; colorIndex < activeColorCount; colorIndex++ {
+			for range activeColorCount {
 				syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
 				assert(stages[iterationStageIndex].stageType == stageWarmStart, "stages[iterationStageIndex].type == b2_stageWarmStart")
 				executeMainStage(&stages[iterationStageIndex], context, syncBits)
 				iterationStageIndex += 1
 			}
+
 			graphSyncIndex += 1
 
 			profile.WarmStart += millisecondsAndReset(&ticks)
 
 			// Solve constraints
 			useBias := true
-			for j := 0; j < iterations; j++ {
+			for range iterations {
 				// Overflow constraints have lower priority. Typically these are dynamic-vs-dynamic.
 				solveJointsOverflow(context, useBias)
 				pushContactsOverflow(context)
 
-				for colorIndex := 0; colorIndex < activeColorCount; colorIndex++ {
+				for range activeColorCount {
 					syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
 					assert(stages[iterationStageIndex].stageType == stageSolve, "stages[iterationStageIndex].type == b2_stageSolve")
 					executeMainStage(&stages[iterationStageIndex], context, syncBits)
 					iterationStageIndex += 1
 				}
+
 				graphSyncIndex += 1
 			}
 
@@ -1066,15 +1100,17 @@ func solverTask(taskContext *workerContext) {
 
 			// Relax constraints
 			useBias = false
-			for j := 0; j < relaxIterations; j++ {
+			for range relaxIterations {
 				solveJointsOverflow(context, useBias)
 				solveContactsOverflow(context)
-				for colorIndex := 0; colorIndex < activeColorCount; colorIndex++ {
+
+				for range activeColorCount {
 					syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
 					assert(stages[iterationStageIndex].stageType == stageRelax, "stages[iterationStageIndex].type == b2_stageRelax")
 					executeMainStage(&stages[iterationStageIndex], context, syncBits)
 					iterationStageIndex += 1
 				}
+
 				graphSyncIndex += 1
 			}
 
@@ -1087,16 +1123,17 @@ func solverTask(taskContext *workerContext) {
 
 		restitutionIterations := context.world.restitutionIterations
 		if restitutionIterations > 0 && int(context.anyRestitution.Load()) != 0 {
-			for j := 0; j < restitutionIterations; j++ {
+			for range restitutionIterations {
 				applyRestitutionOverflow(context)
 
 				iterationStageIndex := stageIndex
-				for colorIndex := 0; colorIndex < activeColorCount; colorIndex++ {
+				for range activeColorCount {
 					syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
 					assert(stages[iterationStageIndex].stageType == stageRestitution, "stages[iterationStageIndex].type == b2_stageRestitution")
 					executeMainStage(&stages[iterationStageIndex], context, syncBits)
 					iterationStageIndex += 1
 				}
+
 				graphSyncIndex += 1
 			}
 
@@ -1118,6 +1155,7 @@ func solverTask(taskContext *workerContext) {
 		context.atomicSyncBits.Store(^uint32(0))
 
 		assert(stageIndex+1 == context.stageCount, "stageIndex + 1 == context->stageCount")
+
 		return
 	}
 
@@ -1129,14 +1167,18 @@ func solverTask(taskContext *workerContext) {
 		// parallel simulation with graph coloring.
 		// todo improve this spinner
 		var syncBits uint32
+
 		spinCount := 0
+
 		for {
 			syncBits = context.atomicSyncBits.Load()
 			if syncBits != lastSyncBits {
 				break
 			}
+
 			if spinCount > 5 {
 				yieldThread()
+
 				spinCount = 0
 			} else {
 				// Using the cycle counter helps to account for variation in mm_pause timing across different
@@ -1148,9 +1190,9 @@ func solverTask(taskContext *workerContext) {
 				//}
 				// while ((__rdtsc() - prev) < maxSpinTime)
 				// maxSpinTime += 10
+				pause()
+				pause()
 
-				pause()
-				pause()
 				spinCount += 1
 			}
 		}
@@ -1202,6 +1244,7 @@ func solve(world *World, stepContext *stepContext) {
 
 	// Are there any awake bodies? This scenario should not be important for profiling.
 	awake := &world.solverSets[awakeSet]
+
 	awakeBodyCount := len(awake.bodySims)
 	if awakeBodyCount == 0 {
 		clearSolverScratch(&world.constraintGraph)
@@ -1210,7 +1253,6 @@ func solve(world *World, stepContext *stepContext) {
 
 	// Solve constraints using graph coloring
 	{
-
 		setupTicks := currentTicks()
 
 		// Prepare buffers for bullets
@@ -1225,9 +1267,11 @@ func solve(world *World, stepContext *stepContext) {
 
 		// count contacts, joints, and colors
 		activeColorCount := 0
-		for i := 0; i < GraphColorCount-1; i++ {
+
+		for i := range GraphColorCount - 1 {
 			perColorContactCount := len(colors[i].contactSims)
 			perColorJointCount := len(colors[i].jointSims)
+
 			occupancyCount := perColorContactCount + perColorJointCount
 			if occupancyCount > 0 {
 				activeColorCount += 1
@@ -1252,18 +1296,22 @@ func solve(world *World, stepContext *stepContext) {
 
 		// Configure blocks for tasks parallel-for each active graph color
 		// The blocks are a mix of wide contact blocks and joint blocks
-		var activeColorIndices [GraphColorCount]int
-		var colorContactCounts [GraphColorCount]int
-		var colorJointCounts [GraphColorCount]int
-		var graphContactDims [GraphColorCount]blockDim
-		var graphJointDims [GraphColorCount]blockDim
+		var (
+			activeColorIndices [GraphColorCount]int
+			colorContactCounts [GraphColorCount]int
+			colorJointCounts   [GraphColorCount]int
+			graphContactDims   [GraphColorCount]blockDim
+			graphJointDims     [GraphColorCount]blockDim
+		)
+
 		graphBlockCount := 0
 
 		// c is the active color index
 		wideContactCount := 0
 		jointCount := 0
 		c := 0
-		for i := 0; i < GraphColorCount-1; i++ {
+
+		for i := range GraphColorCount - 1 {
 			colorContactCount := len(colors[i].contactSims)
 			colorJointCount := len(colors[i].jointSims)
 
@@ -1278,6 +1326,7 @@ func solve(world *World, stepContext *stepContext) {
 			if colorContactCount > 0 {
 				colorContactCountW = ((colorContactCount - 1) >> simdShift) + 1
 			}
+
 			wideContactCount += colorContactCountW
 			colorContactCounts[c] = colorContactCountW
 
@@ -1291,6 +1340,7 @@ func solve(world *World, stepContext *stepContext) {
 
 			c += 1
 		}
+
 		activeColorCount = c
 
 		// Prepare and store run as one flat parallel-for over the entire wide constraint range,
@@ -1304,29 +1354,35 @@ func solve(world *World, stepContext *stepContext) {
 		} else {
 			clear(world.solverWideScratch[:wideContactCount])
 		}
+
 		wideContactConstraints := world.solverWideScratch[:wideContactCount]
 
 		overflow := &colors[overflowIndex]
+
 		overflowCount := len(overflow.contactSims)
 		if overflowCount > cap(world.solverOverflowScratch) {
 			world.solverOverflowScratch = make([]contactConstraint, overflowCount)
 		} else {
 			clear(world.solverOverflowScratch[:overflowCount])
 		}
+
 		overflowContacts := world.solverOverflowScratch[:overflowCount]
 		overflow.overflowConstraints = overflowContacts
 
 		// Build the span table for the flat prepare/store parallel-for while I slice the
 		// wide constraint buffer across colors. One entry per active color plus a sentinel
 		// at wideContactCount.
-		var contactPrepareSpans [GraphColorCount + 1]contactPrepareSpan
-		var jointPrepareSpans [GraphColorCount + 1]jointPrepareSpan
+		var (
+			contactPrepareSpans [GraphColorCount + 1]contactPrepareSpan
+			jointPrepareSpans   [GraphColorCount + 1]jointPrepareSpan
+		)
 
 		// Distribute transient constraints to each graph color and prepare spans
 		{
 			wideBase := 0
 			jointBase := 0
-			for i := 0; i < activeColorCount; i++ {
+
+			for i := range activeColorCount {
 				j := activeColorIndices[i]
 				color := &colors[j]
 
@@ -1364,11 +1420,13 @@ func solve(world *World, stepContext *stepContext) {
 			contactPrepareSpans[activeColorCount].start = wideContactCount
 			contactPrepareSpans[activeColorCount].count = 0
 			contactPrepareSpans[activeColorCount].contacts = nil
+
 			assert(wideBase == wideContactCount, "wideBase == wideContactCount")
 
 			jointPrepareSpans[activeColorCount].start = jointCount
 			jointPrepareSpans[activeColorCount].count = 0
 			jointPrepareSpans[activeColorCount].joints = nil
+
 			assert(jointBase == jointCount, "jointBase == jointCount")
 		}
 
@@ -1406,9 +1464,11 @@ func solve(world *World, stepContext *stepContext) {
 		// I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
 		// Note: cannot split islands in parallel with FinalizeBodies
 		var splitTask func()
+
 		if world.splitIslandID != nullIndex {
 			if world.taskCount < MaxTasks {
 				splitTask = world.enqueueTaskFcn(func() { splitIslandTask(world) })
+
 				world.taskCount += 1
 				if splitTask != nil {
 					world.activeTaskCount += 1
@@ -1428,9 +1488,12 @@ func solve(world *World, stepContext *stepContext) {
 
 		// Prepare graph work blocks. Each color gets joint blocks followed by contact blocks.
 		var graphColorBlocks [GraphColorCount][]syncBlock
+
 		baseGraphBlock := graphBlocks
+
 		var graphBlockCounts [GraphColorCount]int
-		for i := 0; i < activeColorCount; i++ {
+
+		for i := range activeColorCount {
 			graphColorBlocks[i] = baseGraphBlock
 
 			colorIndex := uint8(activeColorIndices[i])
@@ -1463,6 +1526,7 @@ func solve(world *World, stepContext *stepContext) {
 		assert(len(stages)-len(stage) == stageCount, "(int)( stage - stages ) == stageCount")
 
 		assert(workerCount <= MaxWorkers, "workerCount <= B2_MAX_WORKERS")
+
 		var workerContexts [MaxWorkers]workerContext
 
 		stepContext.graph = graph
@@ -1482,8 +1546,9 @@ func solve(world *World, stepContext *stepContext) {
 		constraintTicks := currentTicks()
 
 		jointIdCapacity := getIDCapacity(&world.jointIDPool)
+
 		contactIdCapacity := getIDCapacity(&world.contactIDPool)
-		for i := 0; i < workerCount; i++ {
+		for i := range workerCount {
 			taskContext := &world.taskContexts[i]
 			setBitCountAndClear(&taskContext.jointStateBitSet, uint32(jointIdCapacity))
 			setBitCountAndClear(&taskContext.hitEventBitSet, uint32(contactIdCapacity))
@@ -1494,6 +1559,7 @@ func solve(world *World, stepContext *stepContext) {
 
 			if world.taskCount < MaxTasks {
 				workerContexts[i].userTask = world.enqueueTaskFcn(func() { solverTask(&workerContexts[i]) })
+
 				world.taskCount += 1
 				if workerContexts[i].userTask != nil {
 					world.activeTaskCount += 1
@@ -1514,9 +1580,10 @@ func solve(world *World, stepContext *stepContext) {
 		solverTask(&callerContext)
 
 		// Finish constraint solve
-		for i := 0; i < workerCount; i++ {
+		for i := range workerCount {
 			if workerContexts[i].userTask != nil {
 				workerContexts[i].userTask()
+
 				world.activeTaskCount -= 1
 			}
 		}
@@ -1524,8 +1591,10 @@ func solve(world *World, stepContext *stepContext) {
 		// Finish island split
 		if splitTask != nil {
 			splitTask()
+
 			world.activeTaskCount -= 1
 		}
+
 		world.splitIslandID = nullIndex
 
 		world.profile.Constraints = millisecondsAndReset(&constraintTicks)
@@ -1534,7 +1603,8 @@ func solve(world *World, stepContext *stepContext) {
 
 		// Prepare contact, enlarged body, and island bit sets used in body finalization.
 		awakeIslandCount := len(awake.islandSims)
-		for i := 0; i < world.workerCount; i++ {
+
+		for i := range world.workerCount {
 			taskContext := &world.taskContexts[i]
 			taskContext.sensorHits = taskContext.sensorHits[:0]
 			setBitCountAndClear(&taskContext.enlargedSimBitSet, uint32(awakeBodyCount))
@@ -1557,12 +1627,10 @@ func solve(world *World, stepContext *stepContext) {
 		parallelFor(world, func(start, end, worker int) { finalizeBodiesTask(start, end, worker, stepContext) }, awakeBodyCount, 64)
 
 		world.profile.Transforms = milliseconds(transformTicks)
-
 	}
 
 	// Report joint events
 	{
-
 		jointEventTicks := currentTicks()
 
 		// Gather bits for all joints that have force/torque events
@@ -1576,7 +1644,7 @@ func solve(world *World, stepContext *stepContext) {
 
 			jointArray := world.joints
 
-			for k := uint32(0); k < wordCount; k++ {
+			for k := range wordCount {
 				word := words[k]
 				for word != 0 {
 					ctz := bits.TrailingZeros64(word)
@@ -1599,19 +1667,18 @@ func solve(world *World, stepContext *stepContext) {
 		}
 
 		world.profile.JointEvents = milliseconds(jointEventTicks)
-
 	}
 
 	// Report hit events
 	{
-
 		hitTicks := currentTicks()
 
 		assert(len(world.contactHitEvents) == 0, "world->contactHitEvents.count == 0")
 
 		// Fast path: skip if no worker flagged any hit-event candidates during impulse storing.
 		anyHitEvents := false
-		for i := 0; i < world.workerCount; i++ {
+
+		for i := range world.workerCount {
 			if world.taskContexts[i].hasHitEvents {
 				anyHitEvents = true
 				break
@@ -1633,8 +1700,9 @@ func solve(world *World, stepContext *stepContext) {
 			shapeArray := world.shapes
 
 			wordCount := hitEventBitSet.blockCount
+
 			words := hitEventBitSet.bits
-			for k := uint32(0); k < wordCount; k++ {
+			for k := range wordCount {
 				word := words[k]
 				for word != 0 {
 					ctz := bits.TrailingZeros64(word)
@@ -1650,8 +1718,9 @@ func solve(world *World, stepContext *stepContext) {
 					event.ApproachSpeed = threshold
 
 					var bestPoint *ManifoldPoint
+
 					pointCount := contactSim.manifold.PointCount
-					for p := 0; p < pointCount; p++ {
+					for p := range pointCount {
 						mp := &contactSim.manifold.Points[p]
 						approachSpeed := -mp.NormalVelocity
 
@@ -1675,6 +1744,7 @@ func solve(world *World, stepContext *stepContext) {
 						// drags the point with it. A static body has not moved, prefer one so the common
 						// case of a fast body striking the world stays exact.
 						bodyA := &world.bodies[shapeA.bodyID]
+
 						bodyB := &world.bodies[shapeB.bodyID]
 						if bodyA.bodyType != StaticBody && bodyB.bodyType == StaticBody {
 							bodySimB := getBodySim(world, bodyB)
@@ -1703,10 +1773,8 @@ func solve(world *World, stepContext *stepContext) {
 		}
 
 		world.profile.HitEvents = milliseconds(hitTicks)
-
 	}
 	{
-
 		refitTicks := currentTicks()
 
 		bp := &world.broadPhase
@@ -1716,14 +1784,12 @@ func solve(world *World, stepContext *stepContext) {
 		validateBroadphase(&world.broadPhase)
 
 		world.profile.Refit = milliseconds(refitTicks)
-
 	}
 
 	// Bullets are processed after the broad-phase refit so they can query the
 	// final non-bullet world.
 	bulletBodyCount := int(stepContext.bulletBodyCount.Load())
 	if bulletBodyCount > 0 {
-
 		bulletTicks := currentTicks()
 
 		// Fast bullet bodies
@@ -1742,7 +1808,7 @@ func solve(world *World, stepContext *stepContext) {
 
 		// Serially enlarge broad-phase proxies for bullet shapes.
 		// This loop has non-deterministic order but it shouldn't affect the result.
-		for i := 0; i < bulletBodyCount; i++ {
+		for i := range bulletBodyCount {
 			bulletBodySim := &bodySimArray[bulletBodySimIndices[i]]
 
 			// It is worth tracking this flag because bullets may be moving slowly.
@@ -1769,7 +1835,7 @@ func solve(world *World, stepContext *stepContext) {
 
 				// Double check containment because a bullet can have multiple
 				// shapes and maybe just one needs an update.
-				if (treeAABB).Contains(shapeFatAABB) == false {
+				if !treeAABB.Contains(shapeFatAABB) {
 					dynamicTree.enlargeProxy(proxyId, shapeFatAABB)
 				}
 
@@ -1778,7 +1844,6 @@ func solve(world *World, stepContext *stepContext) {
 		}
 
 		world.profile.Bullets = milliseconds(bulletTicks)
-
 	}
 
 	// Need to free this even if no bullets got processed.
@@ -1788,18 +1853,17 @@ func solve(world *World, stepContext *stepContext) {
 
 	// Report sensor hits. This may include bullets sensor hits.
 	{
-
 		sensorHitTicks := currentTicks()
 
 		workerCount := world.workerCount
 		assert(workerCount == len(world.taskContexts), "workerCount == world->taskContexts.count")
 
-		for i := 0; i < workerCount; i++ {
+		for i := range workerCount {
 			taskContext := &world.taskContexts[i]
 			hitCount := len(taskContext.sensorHits)
 			hits := taskContext.sensorHits
 
-			for j := 0; j < hitCount; j++ {
+			for j := range hitCount {
 				hit := hits[j]
 				sensorShape := &world.shapes[hit.sensorID]
 				visitingShape := &world.shapes[hit.visitorID]
@@ -1811,20 +1875,20 @@ func solve(world *World, stepContext *stepContext) {
 		}
 
 		world.profile.SensorHits = milliseconds(sensorHitTicks)
-
 	}
 
 	// Island sleeping
 	// This must be done last because putting islands to sleep invalidates the enlarged body bits.
 	// todo_erin figure out how to do this in parallel with tree refit
-	if world.enableSleep == true {
-
+	if world.enableSleep {
 		sleepTicks := currentTicks()
 
 		// Collect split island candidate for the next time step. No need to split if sleeping is disabled.
 		assert(world.splitIslandID == nullIndex, "world->splitIslandId == B2_NULL_INDEX")
+
 		splitSleepTimer := float32(0)
-		for i := 0; i < world.workerCount; i++ {
+
+		for i := range world.workerCount {
 			taskContext := &world.taskContexts[i]
 			if taskContext.splitIslandID != nullIndex && taskContext.splitSleepTime >= splitSleepTimer {
 				assert(taskContext.splitSleepTime > 0.0, "taskContext->splitSleepTime > 0.0f")
@@ -1846,9 +1910,10 @@ func solve(world *World, stepContext *stepContext) {
 
 		// Need to process in reverse because this moves islands to sleeping solver sets.
 		islands := awake.islandSims
+
 		count := len(awake.islandSims)
 		for islandIndex := count - 1; islandIndex >= 0; islandIndex -= 1 {
-			if getBit(awakeIslandBitSet, uint32(islandIndex)) == true {
+			if getBit(awakeIslandBitSet, uint32(islandIndex)) {
 				// this island is still awake
 				continue
 			}
@@ -1862,8 +1927,8 @@ func solve(world *World, stepContext *stepContext) {
 		validateSolverSets(world)
 
 		world.profile.SleepIslands = milliseconds(sleepTicks)
-
 	}
+
 	clearSolverScratch(&world.constraintGraph)
 }
 
@@ -1871,9 +1936,11 @@ func makeSoft(hertz float32, zeta float32, h float32) softness {
 	if hertz == 0 {
 		return softness{}
 	}
+
 	omega := float32(2) * Pi * hertz
 	a1 := float32(float32(2)*zeta) + float32(h*omega)
 	a2 := float32(h * omega * a1)
 	a3 := float32(1) / (float32(1) + a2)
+
 	return softness{biasRate: omega / a1, massScale: a2 * a3, impulseScale: a3}
 }

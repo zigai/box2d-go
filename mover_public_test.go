@@ -14,7 +14,8 @@ func geometryMoverObserve(r *oracle.Reader, result box2d.PlaneSolverResult, plan
 	r.Vec2("full/delta", result.Delta.X, result.Delta.Y)
 	r.I32("full/iterations", int32(result.IterationCount))
 	r.I32("full/plane-count", int32(len(planes)))
-	for i := range len(planes) {
+
+	for i := range planes {
 		r.F32(fmt.Sprintf("full/plane%d/push", i), planes[i].Push)
 	}
 }
@@ -25,6 +26,7 @@ func geometryMoverClipObserve(r *oracle.Reader, v box2d.Vec2) {
 
 func TestMoverOffsetsLimitsAndClipPolicies(t *testing.T) {
 	r := oracle.Open(t, "mover/OffsetsLimitsAndClipPolicies")
+
 	cases := []struct {
 		name   string
 		target box2d.Vec2
@@ -49,6 +51,7 @@ func TestMoverOffsetsLimitsAndClipPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := box2d.SolvePlanes(tc.target, tc.planes)
 			geometryMoverObserve(r, result, tc.planes)
+
 			for _, velocity := range []box2d.Vec2{{-2, -3}, {2, 3}, {1, -1}, {-1, 1}, {0, 0}} {
 				geometryMoverClipObserve(r, box2d.ClipVector(velocity, tc.planes))
 			}
@@ -63,6 +66,7 @@ func TestMoverOffsetsLimitsAndClipPolicies(t *testing.T) {
 	}
 	for policy := range 4 {
 		geometryMoverClipObserve(r, box2d.ClipVector(box2d.Vec2{-2, -3}, planes))
+
 		switch policy {
 		case 0:
 			planes[1].Push = 0.25

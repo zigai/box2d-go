@@ -17,12 +17,14 @@ type RecordingBodyTransform struct {
 
 func RecordingBodyTransforms(id *World) []RecordingBodyTransform {
 	w := id
+
 	transforms := make([]RecordingBodyTransform, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id == i {
 			transforms = append(transforms, RecordingBodyTransform{Index: i, Transform: getBodyTransform(w, i)})
 		}
 	}
+
 	return transforms
 }
 
@@ -45,55 +47,71 @@ func RecordingMismatch(source []byte, kind string) []byte {
 	data := append([]byte(nil), source...)
 	cursor := 32 + int(binary.LittleEndian.Uint64(data[24:]))
 	frame, changed := 0, 0
+
 	for cursor <= len(data)-4 {
 		op := data[cursor]
 		size := int(data[cursor+1]) | int(data[cursor+2])<<8 | int(data[cursor+3])<<16
+
 		start := cursor + 4
 		if size > len(data)-start {
 			panic("invalid test recording framing")
 		}
+
 		if op == 0x80 {
 			frame++
 		}
+
 		if frame == 7 || frame == 12 {
 			rdr := recReader{data: data, size: start + size, cursor: start, ok: true}
 			if kind == "state" && op == 0xf1 {
 				at := rdr.cursor
+
 				hash := recRU64(&rdr)
 				if !rdr.ok {
 					panic("invalid test hash")
 				}
+
 				binary.LittleEndian.PutUint64(data[at:], hash^1)
+
 				changed++
 			}
+
 			if kind == "query" && op == 0xe0 {
 				_ = recRPOSITION(&rdr)
 				_ = recRAABB(&rdr)
 				_ = recRQUERYFILTER(&rdr)
+
 				n := recRU32(&rdr)
 				if n > 0 {
 					at := rdr.cursor
+
 					id := recRSHAPEID(&rdr)
 					if !rdr.ok {
 						panic("invalid test hit")
 					}
+
 					id.generation ^= 1
 					binary.LittleEndian.PutUint64(data[at:], id.ID())
+
 					changed++
 				}
 			}
 		}
+
 		cursor = start + size
 	}
+
 	if changed != 2 {
 		panic("mismatch probe did not alter exactly two relevant records")
 	}
+
 	return data
 }
 
 func RecordingMalformed(source []byte, name string) []byte {
 	data := append([]byte(nil), source...)
 	end := 32 + int(binary.LittleEndian.Uint64(data[24:]))
+
 	switch name {
 	case "empty":
 		return nil
@@ -122,39 +140,49 @@ func RecordingMalformed(source []byte, name string) []byte {
 	default:
 		panic("unknown malformed test case")
 	}
+
 	return data
 }
 
 func RecordingBodies(id *World) []Body {
 	w := id
+
 	var ids []Body
+
 	for i := range w.bodies {
 		if w.bodies[i].id == i {
 			ids = append(ids, makeBodyId(w, i))
 		}
 	}
+
 	return ids
 }
 
 func RecordingShapes(id *World) []Shape {
 	w := id
+
 	var ids []Shape
+
 	for i := range w.shapes {
 		if w.shapes[i].id == i {
 			ids = append(ids, Shape{index1: int32(i + 1), world: id, generation: w.shapes[i].generation})
 		}
 	}
+
 	return ids
 }
 
 func RecordingJoints(id *World) []Joint {
 	w := id
+
 	var ids []Joint
+
 	for i := range w.joints {
 		if w.joints[i].jointId == i {
 			ids = append(ids, Joint{index1: int32(i + 1), world: id, generation: w.joints[i].generation})
 		}
 	}
+
 	return ids
 }
 
@@ -168,10 +196,12 @@ func RecordingSaveFile(rec *Recording, path string) error {
 	if err != nil {
 		return err
 	}
+
 	if _, err := rec.WriteTo(f); err != nil {
 		f.Close()
 		return err
 	}
+
 	return f.Close()
 }
 
@@ -181,5 +211,6 @@ func RecordingLoadFile(path string) (*Recording, error) {
 		return nil, err
 	}
 	defer f.Close()
+
 	return ReadRecording(f)
 }

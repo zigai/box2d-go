@@ -1,0 +1,226 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+formatters:
+  enable:
+    - goimports
+    - gofumpt
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/zigai/box2d
+
+linters:
+  enable:
+    - arangolint
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - cyclop
+    - decorder
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - embeddedstructfieldcheck
+    - err113
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forcetypeassert
+    - funcorder
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gochecknoinits
+    - gochecksumtype
+    - gocognit
+    - goconst
+    - gocritic
+    - godoclint
+    - godot
+    - gomoddirectives
+    - gomodguard_v2
+    - goprintffuncname
+    - gosec
+    - gosmopolitan
+    - govet
+    - grouper
+    - iface
+    - importas
+    - inamedparam
+    - ineffassign
+    - interfacebloat
+    - intrange
+    - iotamixing
+    - loggercheck
+    - maintidx
+    - makezero
+    - mirror
+    - misspell
+    - modernize
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - perfsprint
+    - prealloc
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - recvcheck
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - tagalign
+    - tagliatelle
+    - testableexamples
+    - testifylint
+    - thelper
+    - unparam
+    - unqueryvet
+    - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
+    - wrapcheck
+    - wsl_v5
+    - zerologlint
+
+  settings:
+    embeddedstructfieldcheck:
+      forbid-mutex: true
+    errcheck:
+      check-type-assertions: true
+    exhaustive:
+      check:
+        - switch
+        - map
+    gochecksumtype:
+      default-signifies-exhaustive: false
+    cyclop:
+      max-complexity: 12
+    decorder:
+      disable-dec-order-check: false
+      dec-order:
+        - const
+        - var
+        - type
+        - func
+    funcorder:
+      function: true
+    gocognit:
+      min-complexity: 20
+    goconst:
+      min-occurrences: 16
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
+    godoclint:
+      disable:
+        - start-with-name
+      enable:
+        - no-unused-link
+        - require-stdlib-doclink
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        - shadow
+    misspell:
+      locale: US
+    nakedret:
+      max-func-lines: 5
+    revive:
+      rules:
+        - name: error-naming
+        - name: if-return
+        - name: var-naming
+          arguments: [[], ["GRPC", "IOS"]]
+        - name: context-as-argument
+          arguments:
+            - allow-types-before: "*testing.T,testing.TB,*testing.B,*testing.F"
+        - name: import-shadowing
+        - name: package-naming
+          arguments:
+            - check-extra-bad-name: true
+              user-defined-bad-names: [handlers]
+        - name: package-directory-mismatch
+        - name: filename-format
+          arguments: ["^[a-z0-9][a-z0-9_]*\\.go$"]
+        - name: exported
+          arguments:
+            - disable-checks-on-constants
+            - disable-checks-on-functions
+            - disable-checks-on-methods
+            - disable-checks-on-types
+            - disable-checks-on-variables
+        - name: redundant-import-alias
+        - name: import-alias-naming
+        - name: dot-imports
+        - name: blank-imports
+        - name: error-strings
+        - name: receiver-naming
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: modifies-parameter
+        - name: unreachable-code
+          disabled: true
+        - name: redefines-builtin-id
+          disabled: true
+    rowserrcheck:
+      packages:
+        - github.com/jmoiron/sqlx
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1016
+        - -QF1008
+        - -QF1011
+        - -ST1020
+        - -ST1021
+        - -ST1022
+    nolintlint:
+      allow-no-explanation: [funlen, gocognit, golines]
+      require-explanation: true
+      require-specific: true
+    gosec:
+      excludes:
+        - G204 # exec.Command from $EDITOR is user-controlled by design
+        - G301 # directory perms
+        - G302 # file perms
+        - G304 # file path from variable
+        - G115 # integer conversions; ids and counts are fixed-width like upstream
+        - G602 # slice index; bounds are checked at runtime
+
+  exclusions:
+    warn-unused: false
+    presets: []
+    rules:
+      - path: ".*_test\\.go"
+        linters: [decorder, funcorder]

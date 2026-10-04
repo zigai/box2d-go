@@ -15,6 +15,7 @@ func shapePublicPolygon(o *oracle.Reader, key string, p box2d.Polygon) {
 	o.I32(key+"/count", int32(p.Count))
 	o.Vec2(key+"/centroid", p.Centroid.X, p.Centroid.Y)
 	o.F32(key+"/radius", p.Radius)
+
 	for i := range p.Count {
 		o.Vec2(fmt.Sprintf("%s/vertex/%d", key, i), p.Vertices[i].X, p.Vertices[i].Y)
 		o.Vec2(fmt.Sprintf("%s/normal/%d", key, i), p.Normals[i].X, p.Normals[i].Y)
@@ -63,20 +64,24 @@ func TestShapePublicHullAndConstructors(t *testing.T) {
 	q := box2d.Rot{C: 0.6, S: 0.8}
 	offset := box2d.Vec2{2.5, -3}
 	xf := box2d.Transform{P: box2d.Vec2{-4, 1.5}, Q: box2d.Rot{C: 0, S: 1}}
+
 	o := oracle.Open(t, "shape_public/HullAndConstructors")
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			h := box2d.ComputeHull(tc.points[:tc.count])
 			o.I32(tc.name+"/count", int32(h.Count))
+
 			for i := range h.Count {
 				o.Vec2(fmt.Sprintf("%s/point/%d", tc.name, i), h.Points[i].X, h.Points[i].Y)
 			}
+
 			valid := box2d.ValidateHull(&h)
 			o.Bool(tc.name+"/valid", valid)
 			// Invalid hulls are not legal inputs to any MakePolygon constructor.
 			if valid {
 				plain := box2d.MakePolygon(&h, 0)
 				rounded := box2d.MakePolygon(&h, 0.25)
+
 				shapePublicPolygon(o, tc.name+"/plain", plain)
 				shapePublicPolygon(o, tc.name+"/rounded", rounded)
 				shapePublicPolygon(o, tc.name+"/offset", box2d.MakeOffsetPolygon(&h, offset, q))
@@ -85,8 +90,10 @@ func TestShapePublicHullAndConstructors(t *testing.T) {
 			}
 		})
 	}
+
 	shapePublicPolygon(o, "square", box2d.MakeSquare(1.25))
 	shapePublicPolygon(o, "box", box2d.MakeBox(1.5, 0.75))
+
 	roundedBox := box2d.MakeRoundedBox(1.5, 0.75, 0.2)
 	shapePublicPolygon(o, "rounded_box", roundedBox)
 	shapePublicPolygon(o, "offset_box", box2d.MakeOffsetBox(1.5, 0.75, offset, q))
@@ -101,10 +108,12 @@ func TestShapePublicMass(t *testing.T) {
 		{Center1: box2d.Vec2{2, -3}, Center2: box2d.Vec2{5, 1}, Radius: 0.75},
 		{Center1: box2d.Vec2{1, 2}, Center2: box2d.Vec2{1, 2}, Radius: 0.5},
 	}
+
 	h := box2d.ComputeHull([]box2d.Vec2{{0, 2}, {-2, -1}, {2, -1}})
 	if !box2d.ValidateHull(&h) {
 		t.Fatal("mass input triangle hull is invalid")
 	}
+
 	polygons := []box2d.Polygon{
 		box2d.MakeBox(1.5, 0.75), box2d.MakeRoundedBox(1.5, 0.75, 0.25),
 		box2d.MakeOffsetRoundedBox(1.5, 0.75, box2d.Vec2{2, -3}, box2d.Rot{C: 0.6, S: 0.8}, 0.25),
@@ -112,11 +121,13 @@ func TestShapePublicMass(t *testing.T) {
 	}
 	densities := []float32{0, 0.75, 2.5}
 	o := oracle.Open(t, "shape_public/Mass")
+
 	for d, density := range densities {
 		for i := range 3 {
 			shapePublicMass(o, fmt.Sprintf("density/%d/circle/%d", d, i), box2d.ComputeCircleMass(&circles[i], density))
 			shapePublicMass(o, fmt.Sprintf("density/%d/capsule/%d", d, i), box2d.ComputeCapsuleMass(&capsules[i], density))
 		}
+
 		for i := range 4 {
 			shapePublicMass(o, fmt.Sprintf("density/%d/polygon/%d", d, i), box2d.ComputePolygonMass(&polygons[i], density))
 		}
@@ -137,6 +148,7 @@ func TestShapePublicAABB(t *testing.T) {
 		{"rotated", box2d.WorldTransform{P: box2d.Pos{7.25, -4.5}, Q: box2d.Rot{C: 0.6, S: 0.8}}},
 		{"distant", box2d.WorldTransform{P: box2d.Pos{10000000, -10000000}, Q: box2d.Rot{C: 0.6, S: 0.8}}},
 	}
+
 	o := oracle.Open(t, "shape_public/AABB")
 	for _, frame := range frames {
 		shapePublicAABB(o, frame.name+"/circle", box2d.ComputeCircleAABB(&circle, frame.xf))
@@ -156,6 +168,7 @@ func TestShapePublicContainment(t *testing.T) {
 	circlePoints := []box2d.Vec2{{2, -1}, {4, -1}, {3, -1}, {2, 0}, {2.999, -1}, {3.001, -1}}
 	capsulePoints := []box2d.Vec2{{0, 0}, {0, 2}, {0, 0.5}, {-1.5, 0}, {1.5, 0}, {1.501, 0}}
 	polygonPoints := []box2d.Vec2{{0, 0}, {3, 0}, {1, 0}, {1, 1}, {1.5, 0}, {1.501, 0}, {1.5, 1.5}}
+
 	o := oracle.Open(t, "shape_public/Containment")
 	for i := range 6 {
 		o.Bool(fmt.Sprintf("circle/%d", i), box2d.PointInCircle(&circle, circlePoints[i]))
@@ -163,6 +176,7 @@ func TestShapePublicContainment(t *testing.T) {
 		o.Bool(fmt.Sprintf("degenerate_capsule/%d", i), box2d.PointInCapsule(&degenerate, circlePoints[i]))
 		o.Bool(fmt.Sprintf("offset_polygon/%d", i), box2d.PointInPolygon(&offset, circlePoints[i]))
 	}
+
 	for i := range 7 {
 		o.Bool(fmt.Sprintf("polygon/%d", i), box2d.PointInPolygon(&box, polygonPoints[i]))
 		o.Bool(fmt.Sprintf("rounded_polygon/%d", i), box2d.PointInPolygon(&rounded, polygonPoints[i]))
@@ -193,6 +207,7 @@ func TestShapePublicRayCasts(t *testing.T) {
 		{"zero_translation", box2d.RayCastInput{Origin: box2d.Vec2{-4, 0}, Translation: box2d.Vec2{0, 0}, MaxFraction: 1}},
 		{"capsule_cap", box2d.RayCastInput{Origin: box2d.Vec2{1, 4}, Translation: box2d.Vec2{0, -8}, MaxFraction: 1}},
 	}
+
 	o := oracle.Open(t, "shape_public/RayCasts")
 	for _, tc := range cases {
 		shapePublicCast(o, tc.name+"/circle", box2d.RayCastCircle(&circle, &tc.input))
@@ -231,6 +246,7 @@ func TestShapePublicShapeCasts(t *testing.T) {
 		{"zero_radius", box2d.Vec2{-4, 0}, box2d.Vec2{8, 0}, 0, 1, false},
 	}
 	o := oracle.Open(t, "shape_public/ShapeCasts")
+
 	for _, tc := range cases {
 		in := box2d.ShapeCastInput{
 			Proxy:       box2d.MakeProxy([]box2d.Vec2{tc.origin}, tc.radius),
@@ -244,6 +260,7 @@ func TestShapePublicShapeCasts(t *testing.T) {
 	}
 	// Shape-specific touching origins keep every target initially on its radius boundary.
 	touching := []box2d.Vec2{{-1.25, 0}, {-2.25, 0}, {-0.25, 0}, {-1.25, 0}, {-1.5, 0}}
+
 	for e := range 2 {
 		in := box2d.ShapeCastInput{Translation: box2d.Vec2{2, 0}, MaxFraction: 1, CanEncroach: e != 0}
 		in.Proxy = box2d.MakeProxy(touching[0:1], 0.25)
@@ -257,8 +274,10 @@ func TestShapePublicShapeCasts(t *testing.T) {
 		in.Proxy = box2d.MakeProxy(touching[4:5], 0.25)
 		shapePublicCast(o, fmt.Sprintf("touch/%d/rounded_polygon", e), box2d.ShapeCastPolygon(&rounded, &in))
 	}
+
 	capsulePoints := []box2d.Vec2{{-4, -0.5}, {-4, 0.5}}
 	boxPoints := []box2d.Vec2{{-4.5, -0.5}, {-3.5, -0.5}, {-3.5, 0.5}, {-4.5, 0.5}}
+
 	proxies := []box2d.ShapeProxy{box2d.MakeProxy(capsulePoints, 0.25), box2d.MakeProxy(boxPoints, 0)}
 	for i, proxy := range proxies {
 		in := box2d.ShapeCastInput{Proxy: proxy, Translation: box2d.Vec2{8, 0}, MaxFraction: 1}

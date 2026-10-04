@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -41,6 +42,7 @@ func Open(t testing.TB, name string) *Reader {
 	}
 
 	file := filepath.Join(root, "testdata", "oracle", config, filepath.FromSlash(name)+".jsonl")
+
 	data, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatalf("oracle: cannot read fixture %q: %v\nrun `just oracle` to generate fixtures", name, err)
@@ -50,15 +52,19 @@ func Open(t testing.TB, name string) *Reader {
 	if err != nil {
 		t.Fatalf("oracle: %v\nrun `just oracle` to explicitly regenerate and review C expectations", err)
 	}
+
 	records, err := verifyCapture(reference, name, data)
 	if err != nil {
 		t.Fatalf("oracle: %v", err)
 	}
+
 	r := Read(t, "testdata/oracle/"+config+"/"+name+".jsonl", data)
 	if r.Len() != records {
 		t.Fatalf("oracle: fixture %q has %d records; completed C capture requires %d", name, r.Len(), records)
 	}
+
 	t.Logf("C reference fixture: %s (%d observations)", name, records)
+
 	return r
 }
 
@@ -75,8 +81,9 @@ func repoRoot() (string, error) {
 
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("no go.mod found above the working directory")
+			return "", errors.New("no go.mod found above the working directory")
 		}
+
 		dir = parent
 	}
 }
@@ -118,22 +125,29 @@ func Read(t testing.TB, displayPath string, data []byte) *Reader {
 
 func decodeRecord(line []byte) (record, error) {
 	var rec record
+
 	dec := json.NewDecoder(bytes.NewReader(line))
+
 	open, err := dec.Token()
 	if err != nil || open != json.Delim('{') {
-		return rec, fmt.Errorf("expected a record object")
+		return rec, errors.New("expected a record object")
 	}
+
 	var fields uint8
+
 	for dec.More() {
 		token, err := dec.Token()
 		if err != nil {
 			return rec, err
 		}
+
 		key, ok := token.(string)
 		if !ok {
-			return rec, fmt.Errorf("expected a string member")
+			return rec, errors.New("expected a string member")
 		}
+
 		var bit uint8
+
 		switch key {
 		case "k":
 			bit = 1
@@ -144,18 +158,23 @@ func decodeRecord(line []byte) (record, error) {
 		default:
 			return rec, fmt.Errorf("unknown member %q", key)
 		}
+
 		if fields&bit != 0 {
 			return rec, fmt.Errorf("duplicate member %q", key)
 		}
+
 		fields |= bit
+
 		token, err = dec.Token()
 		if err != nil {
 			return rec, err
 		}
+
 		value, ok := token.(string)
 		if !ok {
 			return rec, fmt.Errorf("member %q must be a string", key)
 		}
+
 		switch key {
 		case "k":
 			rec.Key = value
@@ -165,18 +184,22 @@ func decodeRecord(line []byte) (record, error) {
 			rec.Val = value
 		}
 	}
+
 	close, err := dec.Token()
 	if err != nil || close != json.Delim('}') || fields != 7 {
-		return rec, fmt.Errorf("record requires exactly k, t and v")
+		return rec, errors.New("record requires exactly k, t and v")
 	}
+
 	if _, err := dec.Token(); err != io.EOF {
-		return rec, fmt.Errorf("trailing content after record")
+		return rec, errors.New("trailing content after record")
 	}
+
 	switch rec.Type {
 	case "f32", "vec2", "rot", "pos", "i32", "u32", "u64", "bool", "bytes":
 	default:
 		return rec, fmt.Errorf("unknown record type %q", rec.Type)
 	}
+
 	return rec, nil
 }
 
@@ -199,6 +222,7 @@ func (r *Reader) take(key, typ string) record {
 	}
 
 	r.next++
+
 	return rec
 }
 
@@ -214,6 +238,7 @@ func (r *Reader) bitsOf(rec record, field string, width int) uint64 {
 	if err != nil {
 		r.t.Fatalf("oracle: %s: record %d, key %q: bad hex %q: %v", r.path, r.next, rec.Key, field, err)
 	}
+
 	return v
 }
 
@@ -225,6 +250,7 @@ func (r *Reader) fields(rec record, n int) []string {
 		r.t.Fatalf("oracle: %s: record %d, key %q: %s value %q has %d components, want %d",
 			r.path, r.next, rec.Key, rec.Type, rec.Val, len(parts), n)
 	}
+
 	return parts
 }
 
@@ -235,9 +261,11 @@ func (r *Reader) mismatch(key, typ, component, expected, got, extra string) {
 	fmt.Fprintf(&b, "oracle: first divergence in %s, record %d\n", r.path, r.next)
 	fmt.Fprintf(&b, "  key:      %q\n", key)
 	fmt.Fprintf(&b, "  type:     %s\n", typ)
+
 	if component != "" {
 		fmt.Fprintf(&b, "  field:    %s\n", component)
 	}
+
 	fmt.Fprintf(&b, "  expected: %s   (C oracle)\n", expected)
 	fmt.Fprintf(&b, "  got:      %s   (Go)\n", got)
 	b.WriteString(extra)
@@ -295,6 +323,7 @@ func (r *Reader) I32(key string, v int32) {
 	r.t.Helper()
 
 	rec := r.take(key, "i32")
+
 	want := int32(uint32(r.bitsOf(rec, rec.Val, 32)))
 	if want != v {
 		r.mismatch(key, rec.Type, "",
@@ -307,6 +336,7 @@ func (r *Reader) U32(key string, v uint32) {
 	r.t.Helper()
 
 	rec := r.take(key, "u32")
+
 	want := uint32(r.bitsOf(rec, rec.Val, 32))
 	if want != v {
 		r.mismatch(key, rec.Type, "",
@@ -318,6 +348,7 @@ func (r *Reader) U64(key string, v uint64) {
 	r.t.Helper()
 
 	rec := r.take(key, "u64")
+
 	want := r.bitsOf(rec, rec.Val, 64)
 	if want != v {
 		r.mismatch(key, rec.Type, "",
@@ -343,6 +374,7 @@ func (r *Reader) Bytes(key string, v []byte) {
 	r.t.Helper()
 
 	rec := r.take(key, "bytes")
+
 	want, err := hex.DecodeString(rec.Val)
 	if err != nil {
 		r.t.Fatalf("oracle: %s: record %d, key %q: bad bytes %q: %v", r.path, r.next, key, rec.Val, err)
@@ -366,6 +398,7 @@ func formatBytes(p []byte) string {
 	if len(p) <= limit {
 		return fmt.Sprintf("%d bytes 0x%x", len(p), p)
 	}
+
 	return fmt.Sprintf("%d bytes 0x%x...", len(p), p[:limit])
 }
 
@@ -373,6 +406,7 @@ func formatFloat(bits uint64, width int) string {
 	if width == 32 {
 		return fmt.Sprintf("%s (0x%08x)", strconv.FormatFloat(float64(math.Float32frombits(uint32(bits))), 'g', -1, 32), uint32(bits))
 	}
+
 	return fmt.Sprintf("%s (0x%016x)", strconv.FormatFloat(math.Float64frombits(bits), 'g', -1, 64), bits)
 }
 
@@ -394,6 +428,7 @@ func orderedFloat(bits uint64, width int) int64 {
 	if bits&sign != 0 {
 		return -int64(bits&^sign) - 1
 	}
+
 	return int64(bits)
 }
 
@@ -401,5 +436,6 @@ func isNaNBits(bits uint64, width int) bool {
 	if width == 32 {
 		return math.IsNaN(float64(math.Float32frombits(uint32(bits))))
 	}
+
 	return math.IsNaN(math.Float64frombits(bits))
 }

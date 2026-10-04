@@ -1,7 +1,7 @@
 package box2d_test
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/zigai/box2d"
@@ -25,11 +25,12 @@ func TestDistanceDebugPublic(t *testing.T) {
 			{P: box2d.Vec2{4, 0.25}, Q: box2d.RotIdentity},
 		}
 		cache := box2d.SimplexCache{}
+
 		for i, xf := range transforms {
 			input.Transform = xf
 			debug := make([]box2d.Simplex, 24)
 			o := box2d.ShapeDistance(&input, &cache, debug)
-			distancePublicOutput(r, fmt.Sprint(i), o, cache, debug)
+			distancePublicOutput(r, strconv.Itoa(i), o, cache, debug)
 		}
 	})
 

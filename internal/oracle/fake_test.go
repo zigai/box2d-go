@@ -1,6 +1,9 @@
 package oracle
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 type fatalStop struct{}
 
@@ -19,6 +22,7 @@ func (f *fakeTB) Helper() {}
 func (f *fakeTB) Fatalf(format string, args ...any) {
 	f.fatal = sprintf(format, args...)
 	f.failed = true
+
 	panic(fatalStop{})
 }
 
@@ -41,10 +45,11 @@ func (f *fakeTB) run(body func()) {
 				}
 			}
 		}()
+
 		body()
 	}()
 
-	for i := len(f.cleanups) - 1; i >= 0; i-- {
-		f.cleanups[i]()
+	for _, v := range slices.Backward(f.cleanups) {
+		v()
 	}
 }

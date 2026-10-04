@@ -3,7 +3,7 @@
 
 package box2d
 
-// Result of computing the distance between two line segments
+// Result of computing the distance between two line segments.
 type SegmentDistanceResult struct {
 	// The closest point on the first segment
 	Closest1 Vec2
@@ -30,7 +30,7 @@ type SimplexCache struct {
 	IndexB [3]uint8
 }
 
-// Input for ShapeDistance
+// Input for ShapeDistance.
 type DistanceInput struct {
 	// The proxy for shape A
 	ProxyA ShapeProxy
@@ -43,7 +43,7 @@ type DistanceInput struct {
 	UseRadii bool
 }
 
-// Output for ShapeDistance
+// Output for ShapeDistance.
 type DistanceOutput struct {
 	// Closest point on shape A, in shape A's frame
 	PointA Vec2
@@ -59,7 +59,7 @@ type DistanceOutput struct {
 	SimplexCount int
 }
 
-// Simplex vertex for debugging the GJK algorithm
+// Simplex vertex for debugging the GJK algorithm.
 type SimplexVertex struct {
 	// support point in ProxyA
 	WA Vec2
@@ -75,7 +75,7 @@ type SimplexVertex struct {
 	IndexB int
 }
 
-// Simplex from the GJK algorithm
+// Simplex from the GJK algorithm.
 type Simplex struct {
 	// vertices
 	V1 SimplexVertex
@@ -87,7 +87,7 @@ type Simplex struct {
 	Count int
 }
 
-// Input parameters for ShapeCast
+// Input parameters for ShapeCast.
 type ShapeCastPairInput struct {
 	// The proxy for shape A
 	ProxyA ShapeProxy
@@ -119,7 +119,7 @@ type Sweep struct {
 	Q2 Rot
 }
 
-// Time of impact input
+// Time of impact input.
 type TOIInput struct {
 	// The proxy for shape A
 	ProxyA ShapeProxy
@@ -133,7 +133,7 @@ type TOIInput struct {
 	MaxFraction float32
 }
 
-// Describes the TOI output
+// Describes the TOI output.
 type TOIState int32
 
 const (
@@ -144,7 +144,7 @@ const (
 	TOIStateSeparated
 )
 
-// Time of impact output
+// Time of impact output.
 type TOIOutput struct {
 	// The type of result
 	State TOIState
@@ -192,6 +192,7 @@ type separationFunction struct {
 func (sweep *Sweep) Transform(time float32) Transform {
 	// https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
 	var xf Transform
+
 	xf.P = sweep.C1.Lerp(sweep.C2, time)
 	q := Rot{
 		float32((1.0-time)*sweep.Q1.C) + float32(time*sweep.Q2.C),
@@ -201,21 +202,26 @@ func (sweep *Sweep) Transform(time float32) Transform {
 	xf.Q = q.Normalize()
 	// Shift to origin
 	xf.P = xf.P.Sub(xf.Q.Rotate(sweep.LocalCenter))
+
 	return xf
 }
 
 // Compute the distance between two line segments, clamping at the end points if needed.
 func SegmentDistance(p1, q1, p2, q2 Vec2) SegmentDistanceResult {
 	var result SegmentDistanceResult
+
 	d1 := q1.Sub(p1)
 	d2 := q2.Sub(p2)
 	r := p1.Sub(p2)
-	var dd1 float32 = d1.Dot(d1)
-	var dd2 float32 = d2.Dot(d2)
-	var rd1 float32 = r.Dot(d1)
-	var rd2 float32 = r.Dot(d2)
 
-	var epsSqr float32 = float32(0x1p-23) * float32(0x1p-23)
+	var (
+		dd1 = d1.Dot(d1)
+		dd2 = d2.Dot(d2)
+		rd1 = r.Dot(d1)
+		rd2 = r.Dot(d2)
+	)
+
+	epsSqr := float32(0x1p-23) * float32(0x1p-23)
 
 	if dd1 < epsSqr || dd2 < epsSqr {
 		// Handle all degeneracies
@@ -233,9 +239,9 @@ func SegmentDistance(p1, q1, p2, q2 Vec2) SegmentDistanceResult {
 		}
 	} else {
 		// Non-degenerate segments
-		var d12 float32 = d1.Dot(d2)
+		d12 := d1.Dot(d2)
 
-		var denominator float32 = float32(dd1*dd2) - float32(d12*d12)
+		denominator := float32(dd1*dd2) - float32(d12*d12)
 
 		// Fraction on segment 1
 		var f1 float32 = 0.0
@@ -245,7 +251,7 @@ func SegmentDistance(p1, q1, p2, q2 Vec2) SegmentDistanceResult {
 		}
 
 		// Compute point on segment 2 closest to p1 + f1 * d1
-		var f2 float32 = (float32(d12*f1) + rd2) / dd2
+		f2 := (float32(d12*f1) + rd2) / dd2
 
 		// Clamping of segment 2 requires a do over on segment 1
 		if f2 < 0.0 {
@@ -263,18 +269,22 @@ func SegmentDistance(p1, q1, p2, q2 Vec2) SegmentDistanceResult {
 	result.Closest1 = p1.MulAdd(result.Fraction1, d1)
 	result.Closest2 = p2.MulAdd(result.Fraction2, d2)
 	result.DistanceSquared = result.Closest1.DistanceSquared(result.Closest2)
+
 	return result
 }
 
 // Make a proxy for use in overlap, shape cast, and related functions. This is a deep copy of the points.
 func MakeProxy(points []Vec2, radius float32) ShapeProxy {
 	count := min(len(points), MaxPolygonVertices)
+
 	var proxy ShapeProxy
-	for i := 0; i < count; i++ {
+	for i := range count {
 		proxy.Points[i] = points[i]
 	}
+
 	proxy.Count = count
 	proxy.Radius = radius
+
 	return proxy
 }
 
@@ -285,12 +295,15 @@ func MakeOffsetProxy(points []Vec2, radius float32, position Vec2, rotation Rot)
 		P: position,
 		Q: rotation,
 	}
+
 	var proxy ShapeProxy
-	for i := 0; i < count; i++ {
+	for i := range count {
 		proxy.Points[i] = transform.Apply(points[i])
 	}
+
 	proxy.Count = count
 	proxy.Radius = radius
+
 	return proxy
 }
 
@@ -307,9 +320,10 @@ func findSupport(proxy *ShapeProxy, direction Vec2) int {
 	count := proxy.Count
 
 	bestIndex := 0
-	var bestValue float32 = points[0].Dot(direction)
+
+	bestValue := points[0].Dot(direction)
 	for i := 1; i < count; i++ {
-		var value float32 = points[i].Dot(direction)
+		value := points[i].Dot(direction)
 		if value > bestValue {
 			bestIndex = i
 			bestValue = value
@@ -321,12 +335,14 @@ func findSupport(proxy *ShapeProxy, direction Vec2) int {
 
 func makeSimplexFromCache(cache SimplexCache, proxyA, proxyB *ShapeProxy) Simplex {
 	assert(cache.Count <= 3, "cache.count <= 3")
+
 	var s Simplex
 
 	// Copy data from cache.
 	s.Count = int(cache.Count)
+
 	vertices := [3]*SimplexVertex{&s.V1, &s.V2, &s.V3}
-	for i := 0; i < s.Count; i++ {
+	for i := range s.Count {
 		v := vertices[i]
 		v.IndexA = int(cache.IndexA[i])
 		v.IndexB = int(cache.IndexB[i])
@@ -354,9 +370,11 @@ func makeSimplexFromCache(cache SimplexCache, proxyA, proxyB *ShapeProxy) Simple
 
 func makeSimplexCache(simplex *Simplex) SimplexCache {
 	var cache SimplexCache
+
 	cache.Count = uint16(simplex.Count)
+
 	vertices := [3]*SimplexVertex{&simplex.V1, &simplex.V2, &simplex.V3}
-	for i := 0; i < simplex.Count; i++ {
+	for i := range simplex.Count {
 		cache.IndexA[i] = uint8(vertices[i].IndexA)
 		cache.IndexB[i] = uint8(vertices[i].IndexB)
 	}
@@ -377,14 +395,14 @@ func computeWitnessPoints(s *Simplex, a, b *Vec2) {
 	case 3:
 		*a = weight3(s.V1.A, s.V1.WA, s.V2.A, s.V2.WA, s.V3.A, s.V3.WA)
 		// todo why are these not equal?
-		//*b = weight3(s.V1.A, s.V1.WB, s.V2.A, s.V2.WB, s.V3.A, s.V3.WB)
+		// *b = weight3(s.V1.A, s.V1.WB, s.V2.A, s.V2.WB, s.V3.A, s.V3.WB)
 		*b = *a
 
 	default:
 		*a = Vec2Zero
 		*b = Vec2Zero
-		assert(false, "false")
 
+		assert(false, "false")
 	}
 }
 
@@ -394,29 +412,33 @@ func solveSimplex2(s *Simplex) Vec2 {
 	e12 := w2.Sub(w1)
 
 	// w1 region
-	var d12_2 float32 = -w1.Dot(e12)
+	d12_2 := -w1.Dot(e12)
 	if d12_2 <= 0.0 {
 		// a2 <= 0, so we clamp it to 0
 		s.V1.A = 1.0
 		s.Count = 1
+
 		return w1.Neg()
 	}
 
 	// w2 region
-	var d12_1 float32 = w2.Dot(e12)
+	d12_1 := w2.Dot(e12)
 	if d12_1 <= 0.0 {
 		// a1 <= 0, so we clamp it to 0
 		s.V2.A = 1.0
 		s.Count = 1
 		s.V1 = s.V2
+
 		return w2.Neg()
 	}
 
 	// Must be in e12 region.
-	var inv_d12 float32 = 1.0 / (d12_1 + d12_2)
+	inv_d12 := 1.0 / (d12_1 + d12_2)
+
 	s.V1.A = d12_1 * inv_d12
 	s.V2.A = d12_2 * inv_d12
 	s.Count = 2
+
 	return e12.ScalarCross(w1.Add(w2).Cross(e12))
 }
 
@@ -430,61 +452,77 @@ func solveSimplex3(s *Simplex) Vec2 {
 	// [w1.e12 w2.e12][a2] = [0]
 	// a3 = 0
 	e12 := w2.Sub(w1)
-	var w1e12 float32 = w1.Dot(e12)
-	var w2e12 float32 = w2.Dot(e12)
-	var d12_1 float32 = w2e12
-	var d12_2 float32 = -w1e12
+
+	var (
+		w1e12 = w1.Dot(e12)
+		w2e12 = w2.Dot(e12)
+		d12_1 = w2e12
+		d12_2 = -w1e12
+	)
 
 	// Edge13
 	// [1      1     ][a1] = [1]
 	// [w1.e13 w3.e13][a3] = [0]
 	// a2 = 0
 	e13 := w3.Sub(w1)
-	var w1e13 float32 = w1.Dot(e13)
-	var w3e13 float32 = w3.Dot(e13)
-	var d13_1 float32 = w3e13
-	var d13_2 float32 = -w1e13
+
+	var (
+		w1e13 = w1.Dot(e13)
+		w3e13 = w3.Dot(e13)
+		d13_1 = w3e13
+		d13_2 = -w1e13
+	)
 
 	// Edge23
 	// [1      1     ][a2] = [1]
 	// [w2.e23 w3.e23][a3] = [0]
 	// a1 = 0
 	e23 := w3.Sub(w2)
-	var w2e23 float32 = w2.Dot(e23)
-	var w3e23 float32 = w3.Dot(e23)
-	var d23_1 float32 = w3e23
-	var d23_2 float32 = -w2e23
+
+	var (
+		w2e23 = w2.Dot(e23)
+		w3e23 = w3.Dot(e23)
+		d23_1 = w3e23
+		d23_2 = -w2e23
+	)
 
 	// Triangle123
-	var n123 float32 = e12.Cross(e13)
+	n123 := e12.Cross(e13)
 
-	var d123_1 float32 = float32(n123 * w2.Cross(w3))
-	var d123_2 float32 = float32(n123 * w3.Cross(w1))
-	var d123_3 float32 = float32(n123 * w1.Cross(w2))
+	var (
+		d123_1 = float32(n123 * w2.Cross(w3))
+		d123_2 = float32(n123 * w3.Cross(w1))
+		d123_3 = float32(n123 * w1.Cross(w2))
+	)
 
 	// w1 region
 	if d12_2 <= 0.0 && d13_2 <= 0.0 {
 		s.V1.A = 1.0
 		s.Count = 1
+
 		return w1.Neg()
 	}
 
 	// e12
 	if d12_1 > 0.0 && d12_2 > 0.0 && d123_3 <= 0.0 {
-		var inv_d12 float32 = 1.0 / (d12_1 + d12_2)
+		inv_d12 := 1.0 / (d12_1 + d12_2)
+
 		s.V1.A = d12_1 * inv_d12
 		s.V2.A = d12_2 * inv_d12
 		s.Count = 2
+
 		return e12.ScalarCross(w1.Add(w2).Cross(e12))
 	}
 
 	// e13
 	if d13_1 > 0.0 && d13_2 > 0.0 && d123_2 <= 0.0 {
-		var inv_d13 float32 = 1.0 / (d13_1 + d13_2)
+		inv_d13 := 1.0 / (d13_1 + d13_2)
+
 		s.V1.A = d13_1 * inv_d13
 		s.V3.A = d13_2 * inv_d13
 		s.Count = 2
 		s.V2 = s.V3
+
 		return e13.ScalarCross(w1.Add(w3).Cross(e13))
 	}
 
@@ -493,6 +531,7 @@ func solveSimplex3(s *Simplex) Vec2 {
 		s.V2.A = 1.0
 		s.Count = 1
 		s.V1 = s.V2
+
 		return w2.Neg()
 	}
 
@@ -501,21 +540,25 @@ func solveSimplex3(s *Simplex) Vec2 {
 		s.V3.A = 1.0
 		s.Count = 1
 		s.V1 = s.V3
+
 		return w3.Neg()
 	}
 
 	// e23
 	if d23_1 > 0.0 && d23_2 > 0.0 && d123_1 <= 0.0 {
-		var inv_d23 float32 = 1.0 / (d23_1 + d23_2)
+		inv_d23 := 1.0 / (d23_1 + d23_2)
+
 		s.V2.A = d23_1 * inv_d23
 		s.V3.A = d23_2 * inv_d23
 		s.Count = 2
 		s.V1 = s.V3
+
 		return e23.ScalarCross(w2.Add(w3).Cross(e23))
 	}
 
 	// Must be in triangle123
-	var inv_d123 float32 = 1.0 / (d123_1 + d123_2 + d123_3)
+	inv_d123 := 1.0 / (d123_1 + d123_2 + d123_3)
+
 	s.V1.A = d123_1 * inv_d123
 	s.V2.A = d123_2 * inv_d123
 	s.V3.A = d123_3 * inv_d123
@@ -529,10 +572,10 @@ func solveSimplex3(s *Simplex) Vec2 {
 // Passing a simplex buffer records the initial, reduced iteration, and final simplexes
 // up to its length. Pass nil to skip the debug history.
 func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simplex) DistanceOutput {
-
 	assert(input.ProxyA.Count > 0 && input.ProxyB.Count > 0, "input->proxyA.count > 0 && input->proxyB.count > 0")
 	assert(input.ProxyA.Radius >= 0.0, "input->proxyA.radius >= 0.0f")
 	assert(input.ProxyB.Radius >= 0.0, "input->proxyB.radius >= 0.0f")
+
 	var output DistanceOutput
 
 	proxyA := &input.ProxyA
@@ -542,8 +585,9 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 	var localProxyB ShapeProxy
 	{
 		localProxyB.Count = input.ProxyB.Count
+
 		localProxyB.Radius = input.ProxyB.Radius
-		for i := 0; i < localProxyB.Count; i++ {
+		for i := range localProxyB.Count {
 			localProxyB.Points[i] = input.Transform.Apply(input.ProxyB.Points[i])
 		}
 	}
@@ -566,16 +610,18 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 	var saveA, saveB [3]int
 	// Main iteration loop. All computations are done in frame A.
 	maxIterations := 20
+
 	iteration := 0
 	for iteration < maxIterations {
 		// Copy simplex so we can identify duplicates.
 		saveCount := simplex.Count
-		for i := 0; i < saveCount; i++ {
+		for i := range saveCount {
 			saveA[i] = vertices[i].IndexA
 			saveB[i] = vertices[i].IndexB
 		}
 
 		var d Vec2
+
 		switch simplex.Count {
 		case 1:
 			d = simplex.V1.W.Neg()
@@ -594,11 +640,14 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 		if simplex.Count == 3 {
 			// Overlap
 			*cache = makeSimplexCache(&simplex)
+
 			var localPointA, localPointB Vec2
 			computeWitnessPoints(&simplex, &localPointA, &localPointB)
+
 			output.Distance = 0.0
 			output.PointA = localPointA
 			output.PointB = localPointB
+
 			return output
 		}
 
@@ -614,14 +663,15 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 
 			// The origin is probably contained by a line segment
 			// or triangle. Thus the shapes are overlapped.
-
 			*cache = makeSimplexCache(&simplex)
 			// Must return overlap due to invalid normal.
 			var localPointA, localPointB Vec2
 			computeWitnessPoints(&simplex, &localPointA, &localPointB)
+
 			output.Distance = 0.0
 			output.PointA = localPointA
 			output.PointB = localPointB
+
 			return output
 		}
 
@@ -640,7 +690,8 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 
 		// Check for duplicate support points. This is the main termination criteria.
 		duplicate := false
-		for i := 0; i < saveCount; i++ {
+
+		for i := range saveCount {
 			if vertex.IndexA == saveA[i] && vertex.IndexB == saveB[i] {
 				duplicate = true
 				break
@@ -664,8 +715,10 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 	// Prepare output in frame A
 	normal := nonUnitNormal.Normalize()
 	assert(normal.IsNormalized(), "b2IsNormalized( normal )")
+
 	var localPointA, localPointB Vec2
 	computeWitnessPoints(&simplex, &localPointA, &localPointB)
+
 	output.Normal = normal
 	output.Distance = localPointA.Distance(localPointB)
 	output.PointA = localPointA
@@ -676,8 +729,11 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 	*cache = makeSimplexCache(&simplex)
 	// Apply radii if requested
 	if input.UseRadii {
-		var radiusA float32 = input.ProxyA.Radius
-		var radiusB float32 = input.ProxyB.Radius
+		var (
+			radiusA = input.ProxyA.Radius
+			radiusB = input.ProxyB.Radius
+		)
+
 		output.Distance = maxFloat(0.0, output.Distance-radiusA-radiusB)
 		// Keep closest points on perimeter even if overlapped, this way the points move smoothly.
 		output.PointA = output.PointA.MulAdd(radiusA, normal)
@@ -691,10 +747,12 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 // The query runs in frame A, so the hit point and normal are returned in frame A. Initially touching shapes are a miss.
 func ShapeCast(input *ShapeCastPairInput) CastOutput {
 	// Compute tolerance
-	var linearSlop float32 = LinearSlop()
-	var totalRadius float32 = input.ProxyA.Radius + input.ProxyB.Radius
-	var target float32 = maxFloat(linearSlop, totalRadius-linearSlop)
-	var tolerance float32 = float32(0.25 * linearSlop)
+	var (
+		linearSlop  = LinearSlop()
+		totalRadius = input.ProxyA.Radius + input.ProxyB.Radius
+		target      = maxFloat(linearSlop, totalRadius-linearSlop)
+		tolerance   = float32(0.25 * linearSlop)
+	)
 
 	assert(target > tolerance, "target > tolerance")
 	// Prepare input for distance query
@@ -703,6 +761,7 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 	var fraction float32 = 0.0
 
 	var distanceInput DistanceInput
+
 	distanceInput.ProxyA = input.ProxyA
 	distanceInput.ProxyB = input.ProxyB
 	distanceInput.UseRadii = false
@@ -710,6 +769,7 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 	// which keeps the math near the local origin and avoids re-relativizing world poses.
 	distanceInput.Transform = input.Transform
 	delta2 := input.TranslationB
+
 	var output CastOutput
 
 	iteration := 0
@@ -730,15 +790,18 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 					c1 := distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
 					c2 := distanceOutput.PointB.MulAdd(-input.ProxyB.Radius, distanceOutput.Normal)
 					output.Point = c1.Lerp(c2, 0.5)
+
 					return output
 				}
 			} else {
 				// Regular hit
 				assert(distanceOutput.Distance > 0.0 && distanceOutput.Normal.IsNormalized(), "distanceOutput.distance > 0.0f && b2IsNormalized( distanceOutput.normal )")
+
 				output.Fraction = fraction
 				output.Point = distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
 				output.Normal = distanceOutput.Normal
 				output.Hit = true
+
 				return output
 			}
 		}
@@ -746,7 +809,7 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 		assert(distanceOutput.Distance > 0.0, "distanceOutput.distance > 0.0f")
 		assert(distanceOutput.Normal.IsNormalized(), "b2IsNormalized( distanceOutput.normal )")
 		// Check if shapes are approaching each other
-		var denominator float32 = delta2.Dot(distanceOutput.Normal)
+		denominator := delta2.Dot(distanceOutput.Normal)
 		if denominator >= 0.0 {
 			// Miss
 			return output
@@ -773,6 +836,7 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 	f.proxyB = proxyB
 	count := int(cache.Count)
 	assert(0 < count && count < 3, "0 < count && count < 3")
+
 	f.sweepA = *sweepA
 	f.sweepB = *sweepB
 	xfA := sweepA.Transform(t1)
@@ -786,6 +850,7 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 		pointB := xfB.Apply(localPointB)
 		f.axis = pointB.Sub(pointA).Normalize()
 		f.localPoint = Vec2Zero
+
 		return f
 	}
 
@@ -805,10 +870,11 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 		localPointA := proxyA.Points[cache.IndexA[0]]
 		pointA := xfA.Apply(localPointA)
 
-		var s float32 = pointA.Sub(pointB).Dot(normal)
+		s := pointA.Sub(pointB).Dot(normal)
 		if s < 0.0 {
 			f.axis = f.axis.Neg()
 		}
+
 		return f
 	}
 
@@ -827,10 +893,11 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 	localPointB := proxyB.Points[cache.IndexB[0]]
 	pointB := xfB.Apply(localPointB)
 
-	var s float32 = pointB.Sub(pointA).Dot(normal)
+	s := pointB.Sub(pointA).Dot(normal)
 	if s < 0.0 {
 		f.axis = f.axis.Neg()
 	}
+
 	return f
 }
 
@@ -852,7 +919,8 @@ func findMinSeparation(f *separationFunction, indexA, indexB *int, t float32) fl
 			pointA := xfA.Apply(localPointA)
 			pointB := xfB.Apply(localPointB)
 
-			var separation float32 = pointB.Sub(pointA).Dot(f.axis)
+			separation := pointB.Sub(pointA).Dot(f.axis)
+
 			return separation
 		}
 
@@ -868,7 +936,8 @@ func findMinSeparation(f *separationFunction, indexA, indexB *int, t float32) fl
 			localPointB := f.proxyB.Points[*indexB]
 			pointB := xfB.Apply(localPointB)
 
-			var separation float32 = pointB.Sub(pointA).Dot(normal)
+			separation := pointB.Sub(pointA).Dot(normal)
+
 			return separation
 		}
 
@@ -884,14 +953,17 @@ func findMinSeparation(f *separationFunction, indexA, indexB *int, t float32) fl
 			localPointA := f.proxyA.Points[*indexA]
 			pointA := xfA.Apply(localPointA)
 
-			var separation float32 = pointA.Sub(pointB).Dot(normal)
+			separation := pointA.Sub(pointB).Dot(normal)
+
 			return separation
 		}
 
 	default:
 		assert(false, "false")
+
 		*indexA = -1
 		*indexB = -1
+
 		return 0.0
 	}
 }
@@ -909,7 +981,8 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 			pointA := xfA.Apply(localPointA)
 			pointB := xfB.Apply(localPointB)
 
-			var separation float32 = pointB.Sub(pointA).Dot(f.axis)
+			separation := pointB.Sub(pointA).Dot(f.axis)
+
 			return separation
 		}
 
@@ -921,7 +994,8 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 			localPointB := f.proxyB.Points[indexB]
 			pointB := xfB.Apply(localPointB)
 
-			var separation float32 = pointB.Sub(pointA).Dot(normal)
+			separation := pointB.Sub(pointA).Dot(normal)
+
 			return separation
 		}
 
@@ -933,7 +1007,8 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 			localPointA := f.proxyA.Points[indexA]
 			pointA := xfA.Apply(localPointA)
 
-			var separation float32 = pointA.Sub(pointB).Dot(normal)
+			separation := pointA.Sub(pointB).Dot(normal)
+
 			return separation
 		}
 
@@ -949,10 +1024,12 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 // again.
 func TimeOfImpact(input *TOIInput) TOIOutput {
 	var output TOIOutput
+
 	output.State = TOIStateUnknown
 	output.Fraction = input.MaxFraction
 	sweepA := input.SweepA
 	sweepB := input.SweepB
+
 	assert(sweepA.Q1.IsNormalized() && sweepA.Q2.IsNormalized(), "b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 )")
 	assert(sweepB.Q1.IsNormalized() && sweepB.Q2.IsNormalized(), "b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 )")
 	// todo_erin
@@ -961,20 +1038,27 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 	proxyA := &input.ProxyA
 	proxyB := &input.ProxyB
 
-	var tMax float32 = input.MaxFraction
+	tMax := input.MaxFraction
 
 	// Setup target distance and tolerance
-	var totalRadius float32 = proxyA.Radius + proxyB.Radius
-	var target float32 = maxFloat(LinearSlop(), totalRadius-LinearSlop())
-	var tolerance float32 = float32(0.25 * LinearSlop())
+	var (
+		totalRadius = proxyA.Radius + proxyB.Radius
+		target      = maxFloat(LinearSlop(), totalRadius-LinearSlop())
+		tolerance   = float32(0.25 * LinearSlop())
+	)
 	assert(target > tolerance, "target > tolerance")
+
 	var t1 float32 = 0.0
+
 	k_maxIterations := 20
 	distanceIterations := 0
 
 	// Prepare input for distance query.
-	var cache SimplexCache
-	var distanceInput DistanceInput
+	var (
+		cache         SimplexCache
+		distanceInput DistanceInput
+	)
+
 	distanceInput.ProxyA = input.ProxyA
 	distanceInput.ProxyB = input.ProxyB
 	distanceInput.UseRadii = false
@@ -1013,6 +1097,7 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 			// Failure!
 			output.State = TOIStateOverlapped
 			output.Fraction = 0.0
+
 			break
 		}
 
@@ -1025,6 +1110,7 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 			output.Point = pA.Lerp(pB, 0.5)
 			output.Normal = worldNormal
 			output.Fraction = t1
+
 			break
 		}
 
@@ -1034,12 +1120,17 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 		// Compute the TOI on the separating axis. We do this by successively
 		// resolving the deepest point. This loop is bounded by the number of vertices.
 		done := false
-		var t2 float32 = tMax
+
+		t2 := tMax
+
 		pushBackIterations := 0
+
 		for {
 			// Find the deepest point at t2. Store the witness point indices.
-			var indexA, indexB int
-			var s2 float32 = findMinSeparation(&fcn, &indexA, &indexB, t2)
+			var (
+				indexA, indexB int
+				s2             = findMinSeparation(&fcn, &indexA, &indexB, t2)
+			)
 
 			// Is the final configuration separated?
 			if s2 > target+tolerance {
@@ -1047,6 +1138,7 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 				output.State = TOIStateSeparated
 				output.Fraction = tMax
 				done = true
+
 				break
 			}
 
@@ -1058,13 +1150,14 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 			}
 
 			// Compute the initial separation of the witness points.
-			var s1 float32 = evaluateSeparation(&fcn, indexA, indexB, t1)
+			s1 := evaluateSeparation(&fcn, indexA, indexB, t1)
 
 			// Check for initial overlap. This might happen if the root finder runs out of iterations.
 			if s1 < target-tolerance {
 				output.State = TOIStateFailed
 				output.Fraction = t1
 				done = true
+
 				break
 			}
 
@@ -1079,12 +1172,14 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 				output.Normal = worldNormal
 				output.Fraction = t1
 				done = true
+
 				break
 			}
 
 			// Compute 1D root of: f(x) - target = 0
 			rootIterationCount := 0
 			a1, a2 := t1, t2
+
 			for {
 				// Use a mix of false position and bisection.
 				var t float32
@@ -1097,7 +1192,8 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 				}
 
 				rootIterationCount += 1
-				var s float32 = evaluateSeparation(&fcn, indexA, indexB, t)
+
+				s := evaluateSeparation(&fcn, indexA, indexB, t)
 
 				// Has the separation reached tolerance?
 				if absFloat(s-target) < tolerance {
@@ -1139,6 +1235,7 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 			output.Point = pA.Lerp(pB, 0.5)
 			output.Normal = worldNormal
 			output.Fraction = t1
+
 			break
 		}
 	}

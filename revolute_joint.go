@@ -39,7 +39,7 @@ type RevoluteJointDef struct {
 	internalValue int32
 }
 
-// Enable/disable the revolute joint spring
+// Enable/disable the revolute joint spring.
 func (r RevoluteJoint) SetSpringEnabled(enableSpring bool) {
 	// Point-to-point constraint
 	// C = pB - pA
@@ -52,11 +52,11 @@ func (r RevoluteJoint) SetSpringEnabled(enableSpring bool) {
 	// Cdot = wB - wA
 	// J = [0 0 -1 0 0 1]
 	// K = invIA + invIB
-
 	world := r.Joint.world
 	if world.recording != nil {
 		recWriteRevoluteJointEnableSpring(world.recording, &recArgsRevoluteJointEnableSpring{joint: r.Joint, enableSpring: enableSpring})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	if enableSpring != joint.revoluteJoint.enableSpring {
 		joint.revoluteJoint.enableSpring = enableSpring
@@ -70,7 +70,7 @@ func (r RevoluteJoint) SpringEnabled() bool {
 	return joint.revoluteJoint.enableSpring
 }
 
-// Set the revolute joint spring stiffness in Hertz
+// Set the revolute joint spring stiffness in Hertz.
 func (r RevoluteJoint) SetSpringHertz(hertz float32) {
 	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 
@@ -78,17 +78,18 @@ func (r RevoluteJoint) SetSpringHertz(hertz float32) {
 	if world.recording != nil {
 		recWriteRevoluteJointSetSpringHertz(world.recording, &recArgsRevoluteJointSetSpringHertz{joint: r.Joint, hertz: hertz})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	joint.revoluteJoint.hertz = hertz
 }
 
-// Get the revolute joint spring stiffness in Hertz
+// Get the revolute joint spring stiffness in Hertz.
 func (r RevoluteJoint) SpringHertz() float32 {
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	return joint.revoluteJoint.hertz
 }
 
-// Set the revolute joint spring damping ratio, non-dimensional
+// Set the revolute joint spring damping ratio, non-dimensional.
 func (r RevoluteJoint) SetSpringDampingRatio(dampingRatio float32) {
 	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
 
@@ -96,17 +97,18 @@ func (r RevoluteJoint) SetSpringDampingRatio(dampingRatio float32) {
 	if world.recording != nil {
 		recWriteRevoluteJointSetSpringDampingRatio(world.recording, &recArgsRevoluteJointSetSpringDampingRatio{joint: r.Joint, dampingRatio: dampingRatio})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	joint.revoluteJoint.dampingRatio = dampingRatio
 }
 
-// Get the revolute joint spring damping ratio, non-dimensional
+// Get the revolute joint spring damping ratio, non-dimensional.
 func (r RevoluteJoint) SpringDampingRatio() float32 {
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	return joint.revoluteJoint.dampingRatio
 }
 
-// Set the revolute joint spring target angle, radians
+// Set the revolute joint spring target angle, radians.
 func (r RevoluteJoint) SetTargetAngle(angle float32) {
 	checkInput(IsValidFloat(angle), "b2IsValidFloat( angle )")
 
@@ -114,17 +116,18 @@ func (r RevoluteJoint) SetTargetAngle(angle float32) {
 	if world.recording != nil {
 		recWriteRevoluteJointSetTargetAngle(world.recording, &recArgsRevoluteJointSetTargetAngle{joint: r.Joint, angle: angle})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	joint.revoluteJoint.targetAngle = angle
 }
 
-// Get the revolute joint spring target angle, radians
+// Get the revolute joint spring target angle, radians.
 func (r RevoluteJoint) TargetAngle() float32 {
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	return joint.revoluteJoint.targetAngle
 }
 
-// Get the revolute joint current angle in radians relative to the reference angle
+// Get the revolute joint current angle in radians relative to the reference angle.
 func (r RevoluteJoint) Angle() float32 {
 	world := r.Joint.world
 	jointSim := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -132,15 +135,17 @@ func (r RevoluteJoint) Angle() float32 {
 	qB := getBodyTransform(world, jointSim.bodyIdB).Q.Mul(jointSim.localFrameB.Q)
 
 	angle := qA.RelativeAngle(qB)
+
 	return angle
 }
 
-// Enable/disable the revolute joint limit
+// Enable/disable the revolute joint limit.
 func (r RevoluteJoint) SetLimitEnabled(enableLimit bool) {
 	world := r.Joint.world
 	if world.recording != nil {
 		recWriteRevoluteJointEnableLimit(world.recording, &recArgsRevoluteJointEnableLimit{joint: r.Joint, enableLimit: enableLimit})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	if enableLimit != joint.revoluteJoint.enableLimit {
 		joint.revoluteJoint.enableLimit = enableLimit
@@ -155,13 +160,13 @@ func (r RevoluteJoint) LimitEnabled() bool {
 	return joint.revoluteJoint.enableLimit
 }
 
-// Get the revolute joint lower limit in radians
+// Get the revolute joint lower limit in radians.
 func (r RevoluteJoint) LowerLimit() float32 {
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	return joint.revoluteJoint.lowerAngle
 }
 
-// Get the revolute joint upper limit in radians
+// Get the revolute joint upper limit in radians.
 func (r RevoluteJoint) UpperLimit() float32 {
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	return joint.revoluteJoint.upperAngle
@@ -187,12 +192,13 @@ func (r RevoluteJoint) SetLimits(lower float32, upper float32) {
 	joint.revoluteJoint.upperAngle = clampFloat(upperAngle, float32(-float32(0.99)*Pi), float32(float32(0.99)*Pi))
 }
 
-// Enable/disable a revolute joint motor
+// Enable/disable a revolute joint motor.
 func (r RevoluteJoint) SetMotorEnabled(enableMotor bool) {
 	world := r.Joint.world
 	if world.recording != nil {
 		recWriteRevoluteJointEnableMotor(world.recording, &recArgsRevoluteJointEnableMotor{joint: r.Joint, enableMotor: enableMotor})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	if enableMotor != joint.revoluteJoint.enableMotor {
 		joint.revoluteJoint.enableMotor = enableMotor
@@ -206,7 +212,7 @@ func (r RevoluteJoint) MotorEnabled() bool {
 	return joint.revoluteJoint.enableMotor
 }
 
-// Set the revolute joint motor speed in radians per second
+// Set the revolute joint motor speed in radians per second.
 func (r RevoluteJoint) SetMotorSpeed(motorSpeed float32) {
 	checkInput(IsValidFloat(motorSpeed), "b2IsValidFloat( motorSpeed )")
 
@@ -214,24 +220,26 @@ func (r RevoluteJoint) SetMotorSpeed(motorSpeed float32) {
 	if world.recording != nil {
 		recWriteRevoluteJointSetMotorSpeed(world.recording, &recArgsRevoluteJointSetMotorSpeed{joint: r.Joint, motorSpeed: motorSpeed})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	joint.revoluteJoint.motorSpeed = motorSpeed
 }
 
-// Get the revolute joint motor speed in radians per second
+// Get the revolute joint motor speed in radians per second.
 func (r RevoluteJoint) MotorSpeed() float32 {
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	return joint.revoluteJoint.motorSpeed
 }
 
-// Get the revolute joint current motor torque, usually in newton-meters
+// Get the revolute joint current motor torque, usually in newton-meters.
 func (r RevoluteJoint) MotorTorque() float32 {
 	world := r.Joint.world
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
+
 	return float32(world.invH * joint.revoluteJoint.motorImpulse)
 }
 
-// Set the revolute joint maximum motor torque, usually in newton-meters
+// Set the revolute joint maximum motor torque, usually in newton-meters.
 func (r RevoluteJoint) SetMaxMotorTorque(torque float32) {
 	checkInput(IsValidFloat(torque), "b2IsValidFloat( torque )")
 
@@ -239,24 +247,26 @@ func (r RevoluteJoint) SetMaxMotorTorque(torque float32) {
 	if world.recording != nil {
 		recWriteRevoluteJointSetMaxMotorTorque(world.recording, &recArgsRevoluteJointSetMaxMotorTorque{joint: r.Joint, torque: torque})
 	}
+
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	joint.revoluteJoint.maxMotorTorque = torque
 }
 
-// Get the revolute joint maximum motor torque, usually in newton-meters
+// Get the revolute joint maximum motor torque, usually in newton-meters.
 func (r RevoluteJoint) MaxMotorTorque() float32 {
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	return joint.revoluteJoint.maxMotorTorque
 }
 
 func getRevoluteJointForce(world *World, base *jointSim) Vec2 {
-	force := Vec2{X: float32((world.invH) * base.revoluteJoint.linearImpulse.X), Y: float32((world.invH) * base.revoluteJoint.linearImpulse.Y)}
+	force := Vec2{X: float32(world.invH * base.revoluteJoint.linearImpulse.X), Y: float32(world.invH * base.revoluteJoint.linearImpulse.Y)}
 	return force
 }
 
 func getRevoluteJointTorque(world *World, base *jointSim) float32 {
 	revolute := &base.revoluteJoint
 	torque := float32(world.invH * (revolute.motorImpulse + revolute.lowerImpulse - revolute.upperImpulse))
+
 	return torque
 }
 
@@ -299,6 +309,7 @@ func prepareRevoluteJoint(base *jointSim, context *stepContext) {
 	} else {
 		joint.indexA = nullIndex
 	}
+
 	if bodyB.setIndex == awakeSet {
 		joint.indexB = localIndexB
 	} else {
@@ -327,7 +338,7 @@ func prepareRevoluteJoint(base *jointSim, context *stepContext) {
 
 	joint.springSoftness = makeSoft(joint.hertz, joint.dampingRatio, context.h)
 
-	if context.enableWarmStarting == false {
+	if !context.enableWarmStarting {
 		joint.linearImpulse = Vec2{}
 		joint.springImpulse = float32(0.0)
 		joint.motorImpulse = float32(0.0)
@@ -348,12 +359,14 @@ func warmStartRevoluteJoint(base *jointSim, context *stepContext) {
 	dummyState := identityBodyState
 
 	joint := &base.revoluteJoint
+
 	var stateA *bodyState
 	if joint.indexA == nullIndex {
 		stateA = &dummyState
 	} else {
 		stateA = &context.states[joint.indexA]
 	}
+
 	var stateB *bodyState
 	if joint.indexB == nullIndex {
 		stateB = &dummyState
@@ -396,6 +409,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 	} else {
 		stateA = &context.states[joint.indexA]
 	}
+
 	var stateB *bodyState
 	if joint.indexB == nullIndex {
 		stateB = &dummyState
@@ -415,7 +429,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 	fixedRotation := (iA+iB == float32(0.0))
 
 	// Solve spring.
-	if joint.enableSpring && fixedRotation == false {
+	if joint.enableSpring && !fixedRotation {
 		jointAngle := relQ.Angle()
 		jointAngleDelta := UnwindAngle(jointAngle - joint.targetAngle)
 
@@ -433,7 +447,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 	}
 
 	// Solve motor constraint.
-	if joint.enableMotor && fixedRotation == false {
+	if joint.enableMotor && !fixedRotation {
 		Cdot := wB - wA - joint.motorSpeed
 		impulse := float32(-joint.axialMass * Cdot)
 		oldImpulse := joint.motorImpulse
@@ -445,7 +459,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		wB += float32(iB * impulse)
 	}
 
-	if joint.enableLimit && fixedRotation == false {
+	if joint.enableLimit && !fixedRotation {
 		jointAngle := relQ.Angle()
 
 		// Lower limit
@@ -454,6 +468,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 			bias := float32(0.0)
 			massScale := float32(1.0)
 			impulseScale := float32(0.0)
+
 			if C > float32(0.0) {
 				// speculation
 				bias = float32(C * context.invH)
@@ -481,6 +496,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 			bias := float32(0.0)
 			massScale := float32(1.0)
 			impulseScale := float32(0.0)
+
 			if C > float32(0.0) {
 				// speculation
 				bias = float32(C * context.invH)
@@ -514,22 +530,24 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		rA := stateA.deltaRotation.Rotate(joint.frameA.P)
 		rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
-		Cdot := vB.Add(Vec2{X: float32(-(wB) * rB.Y), Y: float32((wB) * rB.X)}).Sub(vA.Add(Vec2{X: float32(-(wA) * rA.Y), Y: float32((wA) * rA.X)}))
+		Cdot := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 
 		bias := Vec2{}
 		massScale := float32(1.0)
 		impulseScale := float32(0.0)
+
 		if useBias {
 			dcA := stateA.deltaPosition
 			dcB := stateB.deltaPosition
 
 			separation := dcB.Sub(dcA).Add(rB.Sub(rA)).Add(joint.deltaCenter)
-			bias = Vec2{X: float32((base.constraintSoftness.biasRate) * separation.X), Y: float32((base.constraintSoftness.biasRate) * separation.Y)}
+			bias = Vec2{X: float32(base.constraintSoftness.biasRate * separation.X), Y: float32(base.constraintSoftness.biasRate * separation.Y)}
 			massScale = base.constraintSoftness.massScale
 			impulseScale = base.constraintSoftness.impulseScale
 		}
 
 		var K Mat22
+
 		K.Cx.X = mA + mB + float32(float32(rA.Y*rA.Y)*iA) + float32(float32(rB.Y*rB.Y)*iB)
 		K.Cy.X = float32(float32(-rA.Y*rA.X)*iA) - float32(float32(rB.Y*rB.X)*iB)
 		K.Cx.Y = K.Cy.X
@@ -539,6 +557,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		b.Y = float32(b.Y)
 
 		var impulse Vec2
+
 		impulse.X = float32(-massScale*b.X) - float32(impulseScale*joint.linearImpulse.X)
 		impulse.Y = float32(-massScale*b.Y) - float32(impulseScale*joint.linearImpulse.Y)
 		joint.linearImpulse.X += impulse.X

@@ -2,8 +2,9 @@
 package box2d
 
 import (
-	"github.com/zigai/box2d/internal/oracle"
 	"testing"
+
+	"github.com/zigai/box2d/internal/oracle"
 )
 
 func TestWorldDrawTypedParity(t *testing.T) {
@@ -17,6 +18,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 			base Pos
 		}{"Far", Pos{10000000, -10000000}})
 	}
+
 	for _, frame := range frames {
 		t.Run(frame.name, func(t *testing.T) {
 			r := oracle.Open(t, "draw/"+frame.name)
@@ -25,41 +27,53 @@ func TestWorldDrawTypedParity(t *testing.T) {
 			wd.WorkerCount = 1
 			w := NewWorld(&wd)
 			BTWorldCleanup(t, w)
+
 			inspect := func() { spatialInspect(r, w); r.I32("awakeBodies", int32(w.AwakeBodyCount())) }
 			inspect()
+
 			var bodies [6]Body
+
 			for i := range 6 {
 				bd := DefaultBodyDef()
+
 				offset := Vec2{2 * float32(i), 2}
 				if i == 0 {
 					offset = Vec2{0, -.5}
 				}
+
 				if i == 1 {
 					offset = Vec2{0, .45}
 				}
+
 				bd.Position = base.Add(offset)
 				if i == 1 || i == 2 {
 					bd.Type = DynamicBody
 				}
+
 				if i == 3 {
 					bd.Type = KinematicBody
 				}
+
 				bd.Name = "fixture"
 				if i == 1 {
 					bd.Name = "contact box"
 				}
+
 				if i == 2 {
 					bd.Name = "capsule"
 					bd.Rotation = MakeRot(.25)
 				}
+
 				bodies[i] = w.CreateBody(&bd)
 				sd := DefaultShapeDef()
+
 				switch i {
 				case 0, 1:
 					halfWidth := float32(.5)
 					if i == 0 {
 						halfWidth = 3
 					}
+
 					p := MakeBox(halfWidth, .5)
 					bodies[i].CreatePolygonShape(&sd, &p)
 				case 2:
@@ -79,8 +93,10 @@ func TestWorldDrawTypedParity(t *testing.T) {
 					cd.IsLoop = true
 					bodies[i].CreateChain(&cd)
 				}
+
 				inspect()
 			}
+
 			jd := DefaultDistanceJointDef()
 			jd.Base.BodyA = bodies[1]
 			jd.Base.BodyB = bodies[2]
@@ -92,10 +108,12 @@ func TestWorldDrawTypedParity(t *testing.T) {
 			jd.MaxLength = 5
 			w.CreateDistanceJoint(&jd)
 			inspect()
+
 			for range 3 {
 				w.Step(float32(1)/60, 4)
 				inspect()
 			}
+
 			for option := range 17 {
 				d := DefaultDebugDraw()
 				dFuncs := &BTFuncDrawer{}
@@ -103,6 +121,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 				commands := 0
 				command := func(kind int, color HexColor) {
 					commands++
+
 					r.I32("command", int32(kind))
 					r.U32("color", uint32(color))
 				}
@@ -110,6 +129,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 				point := func(p Pos) { r.Pos("point", p.X, p.Y) }
 				vertices := func(v []Vec2) {
 					r.I32("vertices", int32(len(v)))
+
 					for _, p := range v {
 						r.Vec2("vertex", p.X, p.Y)
 					}
@@ -154,21 +174,26 @@ func TestWorldDrawTypedParity(t *testing.T) {
 				d.DrawContactNormals = option == 10
 				d.DrawContactForces = option == 11 || option == 15
 				d.DrawFrictionForces = option == 12 || option == 15
+
 				d.DrawIslands = option == 14 || option == 15
 				if option == 16 {
 					center := base.Vec2()
 					d.DrawingBounds = AABB{Vec2{center.X - 1, center.Y - 1}, Vec2{center.X + 1, center.Y + 1}}
 				}
+
 				before := w.StateHash()
 				r.U64("before", before)
 				w.Draw(&d)
 				r.I32("commands", int32(commands))
+
 				after := w.StateHash()
 				r.U64("after", after)
+
 				if before != after {
 					t.Fatalf("draw option %d changed canonical state: %x -> %x", option, before, after)
 				}
 			}
+
 			for n := range 6 {
 				bodies[5-n].Destroy()
 				inspect()

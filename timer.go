@@ -27,6 +27,7 @@ func millisecondsAndReset(ticks *uint64) float32 {
 	ticks2 := currentTicks()
 	milliseconds := float32(float64(ticks2-*ticks) / 1000000)
 	*ticks = ticks2
+
 	return milliseconds
 }
 

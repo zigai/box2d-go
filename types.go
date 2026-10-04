@@ -11,7 +11,7 @@ import (
 var defaultMaterial = SurfaceMaterial{Friction: 0.6}
 
 // Use this to initialize your world definition
-// @ingroup world
+// @ingroup world.
 func DefaultWorldDef() WorldDef {
 	return WorldDef{
 		Gravity:               Vec2{Y: -10},
@@ -30,7 +30,7 @@ func DefaultWorldDef() WorldDef {
 }
 
 // Use this to initialize your body definition
-// @ingroup body
+// @ingroup body.
 func DefaultBodyDef() BodyDef {
 	return BodyDef{
 		Type:                   StaticBody,
@@ -47,19 +47,19 @@ func DefaultBodyDef() BodyDef {
 }
 
 // Use this to initialize your filter
-// @ingroup shape
+// @ingroup shape.
 func DefaultFilter() Filter {
 	return Filter{CategoryBits: DefaultCategoryBits, MaskBits: DefaultMaskBits}
 }
 
 // Use this to initialize your query filter
-// @ingroup shape
+// @ingroup shape.
 func DefaultQueryFilter() QueryFilter {
 	return QueryFilter{CategoryBits: DefaultCategoryBits, MaskBits: DefaultMaskBits}
 }
 
 // Use this to initialize your shape definition
-// @ingroup shape
+// @ingroup shape.
 func DefaultShapeDef() ShapeDef {
 	return ShapeDef{
 		Material:              SurfaceMaterial{Friction: 0.6},
@@ -72,15 +72,16 @@ func DefaultShapeDef() ShapeDef {
 }
 
 // Use this to initialize your surface material
-// @ingroup shape
+// @ingroup shape.
 func DefaultSurfaceMaterial() SurfaceMaterial {
 	return SurfaceMaterial{Friction: 0.6}
 }
 
 // Use this to initialize your chain definition
-// @ingroup shape
+// @ingroup shape.
 func DefaultChainDef() ChainDef {
 	infinity := float32(math.Inf(1))
+
 	return ChainDef{
 		Materials:     []SurfaceMaterial{defaultMaterial},
 		Ghost1:        Vec2{X: infinity, Y: infinity},

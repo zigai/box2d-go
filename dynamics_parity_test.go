@@ -5,17 +5,20 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/zigai/box2d/internal/oracle"
 	"io"
 	"math"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/zigai/box2d/internal/oracle"
 )
 
 type dynamicsOracle struct {
 	*oracle.Reader
+
 	t           *testing.T
 	expected    [][36]uint64
 	observation int
@@ -23,54 +26,69 @@ type dynamicsOracle struct {
 
 func dynamicsOpen(t *testing.T, name string) *dynamicsOracle {
 	r := &dynamicsOracle{Reader: oracle.Open(t, name), t: t}
+
 	precision := "float"
 	if oracle.DoublePrecision {
 		precision = "double"
 	}
+
 	data, err := os.ReadFile("testdata/oracle/" + precision + "/" + name + ".jsonl")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	decoder := json.NewDecoder(bytes.NewReader(data))
+
 	for {
 		var record restitutionRecord
+
 		err := decoder.Decode(&record)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !strings.HasSuffix(record.Key, "/digests") {
 			continue
 		}
+
 		raw, err := hex.DecodeString(record.Value)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if len(raw) != 36*8 {
 			t.Fatal("invalid dynamics short row width")
 		}
+
 		var row [36]uint64
 		for i := range row {
 			row[i] = binary.LittleEndian.Uint64(raw[8*i:])
 		}
+
 		r.expected = append(r.expected, row)
 	}
+
 	r.Bytes("dynamics/schema", []byte(BTDynamicsSchema))
 	t.Cleanup(func() {
 		if !t.Failed() && r.observation != len(r.expected) {
 			t.Errorf("dynamics observations C=%d Go=%d", len(r.expected), r.observation)
 		}
 	})
+
 	return r
 }
 
 func dynamicsWorld(t *testing.T, def WorldDef) *World {
 	w := NewWorld(&def)
 	BTWorldCleanup(t, w)
+
 	return w
 }
+
 func dynamicsBox(w *World, typ BodyType, x, y float32, hx, hy float32, material SurfaceMaterial) (Body, Shape) {
 	bd := DefaultBodyDef()
 	bd.Type = typ
@@ -81,24 +99,30 @@ func dynamicsBox(w *World, typ BodyType, x, y float32, hx, hy float32, material 
 	sd.EnableContactEvents = true
 	sd.EnableHitEvents = true
 	box := MakeBox(hx, hy)
+
 	return b, b.CreatePolygonShape(&sd, &box)
 }
+
 func dynamicsSteps(r *dynamicsOracle, w *World, n int, prefix string) {
 	for i := range n {
 		w.Step(1.0/60.0, 4)
 		btDynamicsShort(r, w, fmt.Sprintf("%sstep/%d/", prefix, i+1), true)
 	}
 }
+
 func dynamicsRestitution(a float32, ia uint64, b float32, ib uint64) float32 {
 	if ia == 7 || ib == 7 {
 		return .35
 	}
+
 	return .65
 }
+
 func dynamicsFriction(a float32, ia uint64, b float32, ib uint64) float32 {
 	if ia == 7 || ib == 7 {
 		return .1
 	}
+
 	return .8
 }
 
@@ -116,6 +140,7 @@ func TestDynamicsIntegration(t *testing.T) {
 			b, _ := dynamicsBox(w, DynamicBody, 3, 4, .6, .4, m)
 			b.SetLinearVelocity(Vec2{3, 2})
 			b.SetAngularVelocity(2)
+
 			switch partition {
 			case 0:
 				b.SetGravityScale(0)
@@ -141,12 +166,15 @@ func TestDynamicsIntegration(t *testing.T) {
 				if partition == 9 {
 					speed = math.Nextafter32(speed, float32(math.Inf(-1)))
 				}
+
 				if partition == 11 {
 					speed = math.Nextafter32(speed, float32(math.Inf(1)))
 				}
+
 				b.SetGravityScale(0)
 				b.SetLinearVelocity(Vec2{speed, 0})
 			}
+
 			btDynamicsShort(r, w, "initial/", true)
 			dynamicsSteps(r, w, 30, "")
 			w.SetGravity(Vec2{-3, 4})
@@ -172,6 +200,7 @@ func TestDynamicsContactTuning(t *testing.T) {
 			dynamicsBox(w, DynamicBody, 0, 1.53, .5, .5, m)
 			b.SetLinearVelocity(Vec2{5, 0})
 			b.SetAngularVelocity(1)
+
 			switch partition {
 			case 0:
 				w.SetWarmStartingEnabled(false)
@@ -201,8 +230,10 @@ func TestDynamicsContactTuning(t *testing.T) {
 			case 11:
 				w.SetGravity(Vec2{2, -5})
 			}
+
 			dynamicsSteps(r, w, 30, "")
 			ground.SetFriction(.1)
+
 			m = shape.SurfaceMaterial()
 			m.Friction = .9
 			m.RollingResistance = .2
@@ -225,22 +256,27 @@ func TestDynamicsRestitutionBoundary(t *testing.T) {
 				wd := DefaultWorldDef()
 				wd.Gravity = Vec2{}
 				wd.EnableSleep = false
+
 				wd.RestitutionIterations = 4
 				if thresholdCase == 1 {
 					wd.RestitutionThreshold = 2.5
 				}
+
 				speed := wd.RestitutionThreshold
 				if neighbor == 0 {
 					speed = math.Nextafter32(speed, float32(math.Inf(-1)))
 				}
+
 				if neighbor == 2 {
 					speed = math.Nextafter32(speed, float32(math.Inf(1)))
 				}
+
 				w := dynamicsWorld(t, wd)
 				m := DefaultSurfaceMaterial()
 				m.Friction = 0
 				m.Restitution = .8
 				dynamicsBox(w, StaticBody, 0, -1, 20, 1, m)
+
 				bd := DefaultBodyDef()
 				bd.Type = DynamicBody
 				bd.Position = Pos{0, .5}
@@ -257,6 +293,7 @@ func TestDynamicsRestitutionBoundary(t *testing.T) {
 			})
 		}
 	}
+
 	for mode := range 3 {
 		for swapped := range 2 {
 			name := fmt.Sprintf("mixing%d_swapped%d", mode, swapped)
@@ -266,17 +303,21 @@ func TestDynamicsRestitutionBoundary(t *testing.T) {
 				wd.Gravity = Vec2{}
 				wd.EnableSleep = false
 				wd.RestitutionIterations = 4
+
 				w := dynamicsWorld(t, wd)
 				if mode != 0 {
 					w.SetRestitutionCallback(dynamicsRestitution)
 				}
+
 				if mode == 2 {
 					w.SetRestitutionCallback(nil)
 				}
+
 				a, b := float32(.2), float32(.8)
 				if swapped == 1 {
 					a, b = b, a
 				}
+
 				m := DefaultSurfaceMaterial()
 				m.Friction = 0
 				m.Restitution = a
@@ -290,6 +331,7 @@ func TestDynamicsRestitutionBoundary(t *testing.T) {
 			})
 		}
 	}
+
 	for propagation := range 2 {
 		for iterationCase := range 3 {
 			for supportsCase := range 2 {
@@ -306,10 +348,12 @@ func TestDynamicsRestitutionBoundary(t *testing.T) {
 					m.Friction = 0
 					m.Restitution = .8
 					dynamicsBox(w, StaticBody, 0, -1, 20, 1, m)
+
 					supports := 1 + 2*supportsCase
 					for i := range supports {
 						dynamicsBox(w, DynamicBody, 0, .5+float32(i), .5, .5, m)
 					}
+
 					ball, _ := dynamicsBox(w, DynamicBody, 0, float32(supports)+.6, .5, .5, m)
 					ball.SetLinearVelocity(Vec2{0, -5})
 					dynamicsSteps(r, w, 60, "")
@@ -334,27 +378,33 @@ func TestDynamicsContinuous(t *testing.T) {
 						w := dynamicsWorld(t, wd)
 						m := DefaultSurfaceMaterial()
 						m.Friction = .2
+
 						targetBody, _ := dynamicsBox(w, BodyType(target), 0, 0, .05, 3, m)
 						if target != 0 {
 							targetBody.SetLinearVelocity(Vec2{-1, 0})
 						}
+
 						x := float32(-2)
 						if geometry == 1 {
 							x = -.1
 						}
+
 						bd := DefaultBodyDef()
 						bd.Type = DynamicBody
 						bd.Position = Pos{oracle.Real(x), 0}
 						bd.LinearVelocity = Vec2{80, 0}
+
 						bd.IsBullet = bullet != 0
 						if geometry == 0 {
 							bd.SafetyFactor = .01
 						} else {
 							bd.SafetyFactor = .5
 						}
+
 						if geometry == 2 {
 							bd.AngularVelocity = 10
 						}
+
 						b := w.CreateBody(&bd)
 						sd := DefaultShapeDef()
 						sd.Material = m
@@ -388,18 +438,24 @@ func TestDynamicsSleepWake(t *testing.T) {
 				lower, _ := dynamicsBox(w, DynamicBody, 0, .51, .5, .5, m)
 				upper, _ := dynamicsBox(w, DynamicBody, 0, 1.53, .5, .5, m)
 				asleep := false
+
 				for i := range 900 {
 					w.Step(1.0/60.0, 4)
 					btDynamicsShort(r, w, fmt.Sprintf("settle/%d/", i+1), i == 0 || (i+1)%60 == 0)
+
 					if !lower.Awake() && !upper.Awake() {
 						asleep = true
+
 						r.I32("sleepStep", int32(i+1))
+
 						break
 					}
 				}
+
 				if !asleep {
 					t.Fatal("loaded island did not sleep within source locator bound 900")
 				}
+
 				switch operation {
 				case 0:
 					lower.ApplyForceToCenter(Vec2{20, 5}, wake != 0)
@@ -427,6 +483,7 @@ func TestDynamicsSleepWake(t *testing.T) {
 				case 11:
 					lower.SetTransform(Pos{1, .5}, Rot{C: 1})
 				}
+
 				btDynamicsShort(r, w, "operation/", true)
 				dynamicsSteps(r, w, 12, "after/")
 				lower.Enable()

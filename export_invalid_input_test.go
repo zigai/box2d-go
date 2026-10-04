@@ -5,25 +5,30 @@ package box2d
 
 func InputBodyTransforms(worldID *World) []WorldTransform {
 	w := worldID
+
 	transforms := make([]WorldTransform, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id == nullIndex {
 			continue
 		}
+
 		transforms = append(transforms, makeBodyId(w, i).Transform())
 	}
+
 	return transforms
 }
 
 // InputBodies preserves creation-slot order for the original upstream scene traces.
 func InputBodies(worldID *World) []Body {
 	w := worldID
+
 	bodies := make([]Body, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id != nullIndex {
 			bodies = append(bodies, makeBodyId(w, i))
 		}
 	}
+
 	return bodies
 }
 

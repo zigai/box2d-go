@@ -3,6 +3,8 @@
 
 package box2d
 
+import "slices"
+
 type idPool struct {
 	freeArray []int
 	nextIndex int
@@ -19,11 +21,15 @@ func destroyIDPool(pool *idPool) {
 func allocID(pool *idPool) int {
 	if len(pool.freeArray) > 0 {
 		var id int
+
 		pool.freeArray, id = arrayPop(pool.freeArray)
+
 		return id
 	}
+
 	id := pool.nextIndex
 	pool.nextIndex++
+
 	return id
 }
 
@@ -37,11 +43,11 @@ func validateFreeID(pool *idPool, id int) {
 	if !validationEnabled {
 		return
 	}
-	for _, freeID := range pool.freeArray {
-		if freeID == id {
-			return
-		}
+
+	if slices.Contains(pool.freeArray, id) {
+		return
 	}
+
 	assert(false, "0")
 }
 
@@ -49,6 +55,7 @@ func validateUsedID(pool *idPool, id int) {
 	if !validationEnabled {
 		return
 	}
+
 	for _, freeID := range pool.freeArray {
 		if freeID == id {
 			assert(false, "0")

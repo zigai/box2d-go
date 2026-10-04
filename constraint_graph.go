@@ -37,7 +37,7 @@ func createGraph(graph *constraintGraph, capacity *Capacity) {
 
 	// Initialize graph color bit set.
 	// No bitset for overflow color.
-	for i := 0; i < overflowIndex; i++ {
+	for i := range overflowIndex {
 		color := &graph.colors[i]
 		color.bodySet = createBitSet(uint32(bodyCapacity))
 		setBitCountAndClear(&color.bodySet, uint32(bodyCapacity))
@@ -46,7 +46,7 @@ func createGraph(graph *constraintGraph, capacity *Capacity) {
 }
 
 func destroyGraph(graph *constraintGraph) {
-	for i := 0; i < GraphColorCount; i++ {
+	for i := range GraphColorCount {
 		color := &graph.colors[i]
 
 		// The bit set should never be used on the overflow color
@@ -77,7 +77,7 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 
 	if typeA == DynamicBody && typeB == DynamicBody {
 		// Dynamic constraint colors cannot encroach on colors reserved for static constraints
-		for i := 0; i < dynamicColorCount; i++ {
+		for i := range dynamicColorCount {
 			color := &graph.colors[i]
 			if getBit(&color.bodySet, uint32(bodyIDA)) || getBit(&color.bodySet, uint32(bodyIDB)) {
 				continue
@@ -85,7 +85,9 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 
 			setBitGrow(&color.bodySet, uint32(bodyIDA))
 			setBitGrow(&color.bodySet, uint32(bodyIDB))
+
 			colorIndex = i
+
 			break
 		}
 	} else if typeA == DynamicBody {
@@ -97,7 +99,9 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 			}
 
 			setBitGrow(&color.bodySet, uint32(bodyIDA))
+
 			colorIndex = i
+
 			break
 		}
 	} else if typeB == DynamicBody {
@@ -109,7 +113,9 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 			}
 
 			setBitGrow(&color.bodySet, uint32(bodyIDB))
+
 			colorIndex = i
+
 			break
 		}
 	}
@@ -170,6 +176,7 @@ func removeContactFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex i
 	}
 
 	var movedIndex int
+
 	color.contactSims, movedIndex = arrayRemoveSwap(color.contactSims, localIndex)
 	if movedIndex != nullIndex {
 		// Fix index on swapped contact
@@ -190,7 +197,7 @@ func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA Bo
 
 	if typeA == DynamicBody && typeB == DynamicBody {
 		// Dynamic constraint colors cannot encroach on colors reserved for static constraints
-		for i := 0; i < dynamicColorCount; i++ {
+		for i := range dynamicColorCount {
 			color := &graph.colors[i]
 			if getBit(&color.bodySet, uint32(bodyIDA)) || getBit(&color.bodySet, uint32(bodyIDB)) {
 				continue
@@ -198,6 +205,7 @@ func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA Bo
 
 			setBitGrow(&color.bodySet, uint32(bodyIDA))
 			setBitGrow(&color.bodySet, uint32(bodyIDB))
+
 			return i
 		}
 	} else if typeA == DynamicBody {
@@ -209,6 +217,7 @@ func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA Bo
 			}
 
 			setBitGrow(&color.bodySet, uint32(bodyIDA))
+
 			return i
 		}
 	} else if typeB == DynamicBody {
@@ -220,6 +229,7 @@ func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA Bo
 			}
 
 			setBitGrow(&color.bodySet, uint32(bodyIDB))
+
 			return i
 		}
 	}
@@ -242,6 +252,7 @@ func createJointInGraph(world *World, joint *joint) *jointSim {
 
 	joint.colorIndex = colorIndex
 	joint.localIndex = len(graph.colors[colorIndex].jointSims) - 1
+
 	return jointSim
 }
 
@@ -263,6 +274,7 @@ func removeJointFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex int
 	}
 
 	var movedIndex int
+
 	color.jointSims, movedIndex = arrayRemoveSwap(color.jointSims, localIndex)
 	if movedIndex != nullIndex {
 		// Fix moved joint
@@ -276,9 +288,9 @@ func removeJointFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex int
 	}
 }
 
-// Get the visualization color assigned to a constraint graph color slot. The last index
+// GraphColor returns the visualization color assigned to a constraint graph color slot. The last index
 // (GraphColorCount - 1) is the overflow color.
-func colorForGraph(index int) HexColor {
+func GraphColor(index int) HexColor {
 	assert(0 <= index && index < GraphColorCount, "0 <= index && index < B2_GRAPH_COLOR_COUNT")
 	return graphColors[index]
 }

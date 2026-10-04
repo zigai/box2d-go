@@ -125,9 +125,10 @@ func prepareContactsOverflow(context *stepContext) {
 	if world.enableWarmStarting {
 		warmStartScale = 1.0
 	}
+
 	anyRestitution := false
 
-	for i := 0; i < contactCount; i++ {
+	for i := range contactCount {
 		contactSim := &contacts[i]
 
 		manifold := &contactSim.manifold
@@ -210,7 +211,7 @@ func prepareContactsOverflow(context *stepContext) {
 		normal := constraint.normal
 		tangent := constraint.normal.RightPerp()
 
-		for j := 0; j < pointCount; j++ {
+		for j := range pointCount {
 			mp := &manifold.Points[j]
 			cp := &constraint.points[j]
 
@@ -228,6 +229,7 @@ func prepareContactsOverflow(context *stepContext) {
 
 			rnA := rA.Cross(normal)
 			rnB := rB.Cross(normal)
+
 			kNormal := mA + mB + float32(iA*rnA*rnA) + float32(iB*rnB*rnB)
 			if kNormal > 0.0 {
 				cp.normalMass = 1.0 / kNormal
@@ -237,6 +239,7 @@ func prepareContactsOverflow(context *stepContext) {
 
 			rtA := rA.Cross(tangent)
 			rtB := rB.Cross(tangent)
+
 			kTangent := mA + mB + float32(iA*rtA*rtA) + float32(iB*rtB*rtB)
 			if kTangent > 0.0 {
 				cp.tangentMass = 1.0 / kTangent
@@ -277,7 +280,7 @@ func warmStartContactsOverflow(context *stepContext) {
 	// This is a dummy state to represent a static body because static bodies don't have a solver body.
 	dummyState := identityBodyState
 
-	for i := 0; i < contactCount; i++ {
+	for i := range contactCount {
 		constraint := &constraints[i]
 
 		indexA := constraint.indexA - 1
@@ -287,6 +290,7 @@ func warmStartContactsOverflow(context *stepContext) {
 		if indexA != nullIndex {
 			stateA = &states[indexA]
 		}
+
 		stateB := &dummyState
 		if indexB != nullIndex {
 			stateB = &states[indexB]
@@ -307,7 +311,7 @@ func warmStartContactsOverflow(context *stepContext) {
 		tangent := constraint.normal.RightPerp()
 		pointCount := constraint.pointCount
 
-		for j := 0; j < pointCount; j++ {
+		for j := range pointCount {
 			cp := &constraint.points[j]
 
 			// fixed anchors
@@ -355,7 +359,7 @@ func pushContactsOverflow(context *stepContext) {
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	dummyState := identityBodyState
 
-	for i := 0; i < contactCount; i++ {
+	for i := range contactCount {
 		constraint := &constraints[i]
 		mA := constraint.invMassA
 		iA := constraint.invIA
@@ -369,6 +373,7 @@ func pushContactsOverflow(context *stepContext) {
 		if indexA != nullIndex {
 			stateA = &states[indexA]
 		}
+
 		vA := stateA.linearVelocity
 		wA := stateA.angularVelocity
 		dqA := stateA.deltaRotation
@@ -377,6 +382,7 @@ func pushContactsOverflow(context *stepContext) {
 		if indexB != nullIndex {
 			stateB = &states[indexB]
 		}
+
 		vB := stateB.linearVelocity
 		wB := stateB.angularVelocity
 		dqB := stateB.deltaRotation
@@ -387,7 +393,7 @@ func pushContactsOverflow(context *stepContext) {
 		softness := constraint.softness
 		pointCount := constraint.pointCount
 
-		for j := 0; j < pointCount; j++ {
+		for j := range pointCount {
 			cp := &constraint.points[j]
 
 			// fixed anchor points
@@ -399,9 +405,12 @@ func pushContactsOverflow(context *stepContext) {
 			ds := dp.Add(dqB.Rotate(rB).Sub(dqA.Rotate(rA)))
 			s := cp.baseSeparation + ds.Dot(normal)
 
-			var velocityBias float32
-			var massScale float32
-			var impulseScale float32
+			var (
+				velocityBias float32
+				massScale    float32
+				impulseScale float32
+			)
+
 			if s > 0.0 {
 				// speculative bias is positive
 				velocityBias = float32(s * invH)
@@ -464,7 +473,7 @@ func solveContactsOverflow(context *stepContext) {
 	// This is a dummy body to represent a static body since static bodies don't have a solver body.
 	dummyState := identityBodyState
 
-	for i := 0; i < contactCount; i++ {
+	for i := range contactCount {
 		constraint := &constraints[i]
 		mA := constraint.invMassA
 		iA := constraint.invIA
@@ -478,6 +487,7 @@ func solveContactsOverflow(context *stepContext) {
 		if indexA != nullIndex {
 			stateA = &states[indexA]
 		}
+
 		vA := stateA.linearVelocity
 		wA := stateA.angularVelocity
 		dqA := stateA.deltaRotation
@@ -486,6 +496,7 @@ func solveContactsOverflow(context *stepContext) {
 		if indexB != nullIndex {
 			stateB = &states[indexB]
 		}
+
 		vB := stateB.linearVelocity
 		wB := stateB.angularVelocity
 		dqB := stateB.deltaRotation
@@ -499,7 +510,7 @@ func solveContactsOverflow(context *stepContext) {
 		pointCount := constraint.pointCount
 		totalNormalImpulse := float32(0.0)
 
-		for j := 0; j < pointCount; j++ {
+		for j := range pointCount {
 			cp := &constraint.points[j]
 
 			// fixed anchor points
@@ -556,7 +567,7 @@ func solveContactsOverflow(context *stepContext) {
 		}
 
 		// Friction
-		for j := 0; j < pointCount; j++ {
+		for j := range pointCount {
 			cp := &constraint.points[j]
 
 			// fixed anchor points
@@ -616,9 +627,9 @@ func applyRestitutionOverflow(context *stepContext) {
 
 	dummyState := identityBodyState
 
-	for i := 0; i < contactCount; i++ {
+	for i := range contactCount {
 		constraint := &constraints[i]
-		if propagate == false && constraint.restitution == 0.0 {
+		if !propagate && constraint.restitution == 0.0 {
 			continue
 		}
 
@@ -634,6 +645,7 @@ func applyRestitutionOverflow(context *stepContext) {
 		if indexA != nullIndex {
 			stateA = &states[indexA]
 		}
+
 		vA := stateA.linearVelocity
 		wA := stateA.angularVelocity
 		dqA := stateA.deltaRotation
@@ -642,6 +654,7 @@ func applyRestitutionOverflow(context *stepContext) {
 		if indexB != nullIndex {
 			stateB = &states[indexB]
 		}
+
 		vB := stateB.linearVelocity
 		wB := stateB.angularVelocity
 		dqB := stateB.deltaRotation
@@ -652,7 +665,7 @@ func applyRestitutionOverflow(context *stepContext) {
 		restitution := constraint.restitution
 		pointCount := constraint.pointCount
 
-		for j := 0; j < pointCount; j++ {
+		for j := range pointCount {
 			cp := &constraint.points[j]
 
 			rA := cp.anchorA
@@ -729,13 +742,13 @@ func storeImpulsesOverflow(context *stepContext) {
 	negHitThreshold := -world.hitEventThreshold
 	hasHitEvents := taskContext.hasHitEvents
 
-	for i := 0; i < contactCount; i++ {
+	for i := range contactCount {
 		constraint := &constraints[i]
 		contactSim := &contactSims[i]
 		manifold := &contactSim.manifold
 		pointCount := manifold.PointCount
 
-		for j := 0; j < pointCount; j++ {
+		for j := range pointCount {
 			mp := &manifold.Points[j]
 			mp.NormalImpulse = constraint.points[j].normalImpulse
 			mp.TangentImpulse = constraint.points[j].tangentImpulse
@@ -743,13 +756,15 @@ func storeImpulsesOverflow(context *stepContext) {
 		}
 
 		if contactSim.simFlags&simEnableHitEvent != 0 {
-			for j := 0; j < contactSim.manifold.PointCount; j++ {
+			for j := range contactSim.manifold.PointCount {
 				mp := &manifold.Points[j]
 
 				// Need to check total impulse because the point may be speculative and not colliding
 				if mp.NormalVelocity < negHitThreshold && mp.TotalNormalImpulse > 0.0 {
 					setBit(hitEventBitSet, uint32(contactSim.contactID))
+
 					hasHitEvents = true
+
 					break
 				}
 			}
@@ -808,21 +823,25 @@ func minW(a floatW, b floatW) floatW {
 	} else {
 		r.x = b.x
 	}
+
 	if a.y <= b.y {
 		r.y = a.y
 	} else {
 		r.y = b.y
 	}
+
 	if a.z <= b.z {
 		r.z = a.z
 	} else {
 		r.z = b.z
 	}
+
 	if a.w <= b.w {
 		r.w = a.w
 	} else {
 		r.w = b.w
 	}
+
 	return r
 }
 
@@ -833,31 +852,37 @@ func maxW(a floatW, b floatW) floatW {
 	} else {
 		r.x = b.x
 	}
+
 	if a.y >= b.y {
 		r.y = a.y
 	} else {
 		r.y = b.y
 	}
+
 	if a.z >= b.z {
 		r.z = a.z
 	} else {
 		r.z = b.z
 	}
+
 	if a.w >= b.w {
 		r.w = a.w
 	} else {
 		r.w = b.w
 	}
+
 	return r
 }
 
-// a = clamp(a, -b, b)
+// a = clamp(a, -b, b).
 func symClampW(a floatW, b floatW) floatW {
 	var r floatW
+
 	r.x = clampFloat(a.x, -b.x, b.x)
 	r.y = clampFloat(a.y, -b.y, b.y)
 	r.z = clampFloat(a.z, -b.z, b.z)
 	r.w = clampFloat(a.w, -b.w, b.w)
+
 	return r
 }
 
@@ -868,21 +893,25 @@ func andW(a floatW, b floatW) floatW {
 	} else {
 		r.x = 0.0
 	}
+
 	if a.y != 0.0 && b.y != 0.0 {
 		r.y = 1.0
 	} else {
 		r.y = 0.0
 	}
+
 	if a.z != 0.0 && b.z != 0.0 {
 		r.z = 1.0
 	} else {
 		r.z = 0.0
 	}
+
 	if a.w != 0.0 && b.w != 0.0 {
 		r.w = 1.0
 	} else {
 		r.w = 0.0
 	}
+
 	return r
 }
 
@@ -893,21 +922,25 @@ func greaterThanW(a floatW, b floatW) floatW {
 	} else {
 		r.x = 0.0
 	}
+
 	if a.y > b.y {
 		r.y = 1.0
 	} else {
 		r.y = 0.0
 	}
+
 	if a.z > b.z {
 		r.z = 1.0
 	} else {
 		r.z = 0.0
 	}
+
 	if a.w > b.w {
 		r.w = 1.0
 	} else {
 		r.w = 0.0
 	}
+
 	return r
 }
 
@@ -918,21 +951,25 @@ func lessThanW(a floatW, b floatW) floatW {
 	} else {
 		r.x = 0.0
 	}
+
 	if a.y < b.y {
 		r.y = 1.0
 	} else {
 		r.y = 0.0
 	}
+
 	if a.z < b.z {
 		r.z = 1.0
 	} else {
 		r.z = 0.0
 	}
+
 	if a.w < b.w {
 		r.w = 1.0
 	} else {
 		r.w = 0.0
 	}
+
 	return r
 }
 
@@ -955,7 +992,7 @@ func storeW(data []float32, a floatW) {
 	data[3] = a.w
 }
 
-// component-wise returns mask ? b : a
+// component-wise returns mask ? b : a.
 func blendW(a floatW, b floatW, mask floatW) floatW {
 	var r floatW
 	if mask.x != 0.0 {
@@ -963,21 +1000,25 @@ func blendW(a floatW, b floatW, mask floatW) floatW {
 	} else {
 		r.x = a.x
 	}
+
 	if mask.y != 0.0 {
 		r.y = b.y
 	} else {
 		r.y = a.y
 	}
+
 	if mask.z != 0.0 {
 		r.z = b.z
 	} else {
 		r.z = a.z
 	}
+
 	if mask.w != 0.0 {
 		r.w = b.w
 	} else {
 		r.w = a.w
 	}
+
 	return r
 }
 
@@ -996,23 +1037,28 @@ func softMaskW(indexA []int, indexB []int) floatW {
 	} else {
 		r.x = 0.0
 	}
+
 	if indexA[1] == 0 || indexB[1] == 0 {
 		r.y = 1.0
 	} else {
 		r.y = 0.0
 	}
+
 	if indexA[2] == 0 || indexB[2] == 0 {
 		r.z = 1.0
 	} else {
 		r.z = 0.0
 	}
+
 	if indexA[3] == 0 || indexB[3] == 0 {
 		r.w = 1.0
 	} else {
 		r.w = 0.0
 	}
+
 	return r
 }
+
 func subVW(a vec2W, b vec2W) vec2W {
 	return vec2W{x: subW(a.x, b.x), y: subW(a.y, b.y)}
 }
@@ -1052,20 +1098,24 @@ func gatherBodies(states []bodyState, indices []int) bodyStateW {
 	if i1 != nullIndex {
 		s1 = states[i1]
 	}
+
 	s2 := identity
 	if i2 != nullIndex {
 		s2 = states[i2]
 	}
+
 	s3 := identity
 	if i3 != nullIndex {
 		s3 = states[i3]
 	}
+
 	s4 := identity
 	if i4 != nullIndex {
 		s4 = states[i4]
 	}
 
 	var simdBody bodyStateW
+
 	simdBody.v.x = floatW{s1.linearVelocity.X, s2.linearVelocity.X, s3.linearVelocity.X, s4.linearVelocity.X}
 	simdBody.v.y = floatW{s1.linearVelocity.Y, s2.linearVelocity.Y, s3.linearVelocity.Y, s4.linearVelocity.Y}
 	simdBody.w = floatW{s1.angularVelocity, s2.angularVelocity, s3.angularVelocity, s4.angularVelocity}
@@ -1078,7 +1128,7 @@ func gatherBodies(states []bodyState, indices []int) bodyStateW {
 	return simdBody
 }
 
-// This writes only the velocities back to the solver bodies
+// This writes only the velocities back to the solver bodies.
 func scatterBodies(states []bodyState, indices []int, simdBody *bodyStateW) {
 	validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
 
@@ -1128,10 +1178,12 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 
 	zero := zeroW()
 	oneW := splatW(1.0)
+
 	warmStartScale := zero
 	if world.enableWarmStarting {
 		warmStartScale = oneW
 	}
+
 	anyRestitution := false
 
 	wideIndex := block.startIndex
@@ -1155,6 +1207,7 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 			if colorContactCount > 0 {
 				expectedWide = ((colorContactCount - 1) >> simdShift) + 1
 			}
+
 			assert(spans[colorIndex+1].start-spans[colorIndex].start == expectedWide, "spans[colorIndex + 1].start - spans[colorIndex].start == expectedWide")
 		}
 
@@ -1164,9 +1217,10 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 			localWideIndex := wideIndex - colorWideStart
 
 			var contactLanes [simdWidth]*contactSim
+
 			hitEvents := uint32(0)
 
-			for laneIndex := 0; laneIndex < simdWidth; laneIndex++ {
+			for laneIndex := range simdWidth {
 				contactIndex := simdWidth*localWideIndex + laneIndex
 				if contactIndex < colorContactCount {
 					c := &contactSims[contactIndex]
@@ -1204,8 +1258,8 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 
 			tangent := rightPerpW(cw.normal)
 
-			var pointCounts floatW
-			pointCounts = setW(float32(contactLanes[0].manifold.PointCount), float32(contactLanes[1].manifold.PointCount), float32(contactLanes[2].manifold.PointCount), float32(contactLanes[3].manifold.PointCount))
+			pointCounts := setW(float32(contactLanes[0].manifold.PointCount), float32(contactLanes[1].manifold.PointCount), float32(contactLanes[2].manifold.PointCount), float32(contactLanes[3].manifold.PointCount))
+
 			twoPointMask := greaterThanW(pointCounts, oneW)
 
 			{
@@ -1355,7 +1409,7 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 					var normalVelocities [simdWidth]float32
 					storeW(normalVelocities[:], vn)
 
-					for lane := 0; lane < simdWidth; lane++ {
+					for lane := range simdWidth {
 						// Check the point count to avoid a race writing to zeroContactSim.
 						if contactLanes[lane].manifold.PointCount > 0 {
 							contactLanes[lane].manifold.Points[0].NormalVelocity = normalVelocities[lane]
@@ -1376,7 +1430,7 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 					var normalVelocities [simdWidth]float32
 					storeW(normalVelocities[:], vn)
 
-					for lane := 0; lane < simdWidth; lane++ {
+					for lane := range simdWidth {
 						if contactLanes[lane].manifold.PointCount > 1 {
 							contactLanes[lane].manifold.Points[1].NormalVelocity = normalVelocities[lane]
 						}
@@ -1412,6 +1466,7 @@ func warmStartContactsWide(block solverBlock, context *stepContext) {
 			rB := c.anchorB1
 
 			var P vec2W
+
 			P.x = addW(mulW(c.normalImpulse1, c.normal.x), mulW(c.tangentImpulse1, tangentX))
 			P.y = addW(mulW(c.normalImpulse1, c.normal.y), mulW(c.tangentImpulse1, tangentY))
 			bA.w = mulSubW(bA.w, c.invIA, crossW(rA, P))
@@ -1430,6 +1485,7 @@ func warmStartContactsWide(block solverBlock, context *stepContext) {
 			rB := c.anchorB2
 
 			var P vec2W
+
 			P.x = addW(mulW(c.normalImpulse2, c.normal.x), mulW(c.tangentImpulse2, tangentX))
 			P.y = addW(mulW(c.normalImpulse2, c.normal.y), mulW(c.tangentImpulse2, tangentY))
 			bA.w = mulSubW(bA.w, c.invIA, crossW(rA, P))
@@ -1704,7 +1760,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 		}
 
 		// Rolling resistance
-		if allZeroW(c.rollingResistance) == false {
+		if !allZeroW(c.rollingResistance) {
 			k := addW(c.invIA, c.invIB)
 			mask := greaterThanW(k, zeroW())
 			deltaLambda := blendW(zeroW(), divW(subW(bA.w, bB.w), k), mask)
@@ -1810,7 +1866,7 @@ func applyRestitutionWide(block solverBlock, context *stepContext) {
 
 	for wideIndex := block.startIndex; wideIndex < block.startIndex+int(block.count); wideIndex++ {
 		c := &constraints[wideIndex]
-		if propagate == false && allZeroW(c.restitution) {
+		if !propagate && allZeroW(c.restitution) {
 			continue
 		}
 
@@ -1818,14 +1874,17 @@ func applyRestitutionWide(block solverBlock, context *stepContext) {
 		bB := gatherBodies(states, c.indexB[:])
 
 		restitutionMask := greaterThanW(c.restitution, zeroW)
+
 		normalMass1 := blendW(zeroW, c.normalMass1, restitutionMask)
 		if propagate {
 			normalMass1 = c.normalMass1
 		}
+
 		normalMass2 := blendW(zeroW, c.normalMass2, restitutionMask)
 		if propagate {
 			normalMass2 = c.normalMass2
 		}
+
 		dp := vec2W{subW(bB.dp.x, bA.dp.x), subW(bB.dp.y, bA.dp.y)}
 
 		{
@@ -1968,7 +2027,7 @@ func storeImpulsesWide(block solverBlock, context *stepContext, workerIndex int)
 			localWideIndex := wideIndex - colorWideStart
 			baseIndex := simdWidth * localWideIndex
 
-			for laneIndex := 0; laneIndex < simdWidth; laneIndex++ {
+			for laneIndex := range simdWidth {
 				contactIndex := baseIndex + laneIndex
 				if contactIndex >= colorContactCount {
 					break
@@ -1988,13 +2047,15 @@ func storeImpulsesWide(block solverBlock, context *stepContext, workerIndex int)
 
 				// Check for hit events to speed up serial processing later in the step
 				if contactSim.simFlags&simEnableHitEvent != 0 {
-					for k := 0; k < contactSim.manifold.PointCount; k++ {
+					for k := range contactSim.manifold.PointCount {
 						mp := &m.Points[k]
 
 						// Need to check total impulse because the point may be speculative and not colliding
 						if mp.NormalVelocity < negHitThreshold && mp.TotalNormalImpulse > 0.0 {
 							setBit(hitEventBitSet, uint32(contactSim.contactID))
+
 							hasHitEvents = true
+
 							break
 						}
 					}

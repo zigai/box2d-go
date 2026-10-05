@@ -8,24 +8,24 @@ import (
 	"testing"
 )
 
-func BTWorldCleanup(t testing.TB, id *World) {
-	t.Helper()
-	t.Cleanup(func() {
+func BTWorldCleanup(tb testing.TB, id *World) {
+	tb.Helper()
+	tb.Cleanup(func() {
 		if id.IsValid() {
 			id.Close()
 		}
 	})
 }
 
-func BTReplayCleanup(t testing.TB, player *Replay) func() {
-	t.Helper()
+func BTReplayCleanup(tb testing.TB, player *Replay) func() {
+	tb.Helper()
 
 	destroy := sync.OnceFunc(func() {
 		if player != nil {
 			player.Close()
 		}
 	})
-	t.Cleanup(destroy)
+	tb.Cleanup(destroy)
 
 	return destroy
 }
@@ -36,7 +36,7 @@ const (
 )
 
 func WorldDynamicTree(id *World) *DynamicTree   { return &id.broadPhase.trees[DynamicBody] }
-func WorldJointSetIndex(w *World, id Joint) int { return getJointFullId(w, id).setIndex }
+func WorldJointSetIndex(w *World, id Joint) int { return getJointFullID(w, id).setIndex }
 func WorldCountEnlargedNodes(tree *DynamicTree) int {
 	count := 0
 

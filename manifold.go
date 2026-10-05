@@ -5,6 +5,12 @@ package box2d
 
 import "math"
 
+const (
+	normalSkip normalType = iota
+	normalAdmit
+	normalSnap
+)
+
 // A manifold point is a contact point belonging to a contact manifold.
 // It holds details related to the geometry and dynamics of the contact points.
 // Box2D uses speculative collision so some contact points may be separated.
@@ -79,41 +85,12 @@ type LocalManifold struct {
 
 type normalType int32
 
-const (
-	normalSkip normalType = iota
-	normalAdmit
-	normalSnap
-)
-
 type chainSegmentParams struct {
 	edge1   Vec2
 	normal0 Vec2
 	normal2 Vec2
 	convex1 bool
 	convex2 bool
-}
-
-func makeCapsule(p1, p2 Vec2, radius float32) Polygon {
-	shape := Polygon{}
-
-	shape.Vertices[0] = p1
-	shape.Vertices[1] = p2
-	shape.Centroid = p1.Lerp(p2, 0.5)
-
-	d := p2.Sub(p1)
-	assert(d.LengthSquared() > float32(0x1p-23), "b2LengthSquared( d ) > FLT_EPSILON")
-
-	var (
-		axis   = d.Normalize()
-		normal = axis.RightPerp()
-	)
-
-	shape.Normals[0] = normal
-	shape.Normals[1] = normal.Neg()
-	shape.Count = 2
-	shape.Radius = radius
-
-	return shape
 }
 
 // Compute the contact manifold between two circles.
@@ -448,72 +425,8 @@ func CollideCapsules(capsuleA, capsuleB *Capsule, xf Transform) LocalManifold {
 		// in that case the algorithm falls back to single point collision
 
 		// find reference edge using SAT
-		var (
-			normalA     Vec2
-			separationA float32
-		)
-
-		{
-			normalA = u1.LeftPerp()
-
-			var (
-				ss1 = p2.Sub(p1).Dot(normalA)
-				ss2 = q2.Sub(p1).Dot(normalA)
-				s1p float32
-			)
-			if ss1 < ss2 {
-				s1p = ss1
-			} else {
-				s1p = ss2
-			}
-
-			var s1n float32
-			if -ss1 < -ss2 {
-				s1n = -ss1
-			} else {
-				s1n = -ss2
-			}
-
-			if s1p > s1n {
-				separationA = s1p
-			} else {
-				separationA = s1n
-				normalA = normalA.Neg()
-			}
-		}
-
-		var (
-			normalB     Vec2
-			separationB float32
-		)
-		{
-			normalB = u2.LeftPerp()
-
-			var (
-				ss1 = p1.Sub(p2).Dot(normalB)
-				ss2 = q1.Sub(p2).Dot(normalB)
-				s1p float32
-			)
-			if ss1 < ss2 {
-				s1p = ss1
-			} else {
-				s1p = ss2
-			}
-
-			var s1n float32
-			if -ss1 < -ss2 {
-				s1n = -ss1
-			} else {
-				s1n = -ss2
-			}
-
-			if s1p > s1n {
-				separationB = s1p
-			} else {
-				separationB = s1n
-				normalB = normalB.Neg()
-			}
-		}
+		normalA, separationA := capsuleAxisSeparation(p1, u1, p2, q2)
+		normalB, separationB := capsuleAxisSeparation(p2, u2, p1, q1)
 
 		// biased to avoid feature flip-flop
 		// todo more testing?
@@ -657,206 +570,6 @@ func CollidePolygonAndCapsule(polygonA *Polygon, capsuleB *Capsule, xf Transform
 	return CollidePolygons(polygonA, &polyB, xf)
 }
 
-func clipPolygons(polyA, polyB *Polygon, edgeA, edgeB int, flip bool) LocalManifold {
-	manifold := LocalManifold{}
-
-	// reference polygon
-	var (
-		poly1    *Polygon
-		i11, i12 int
-	)
-
-	// incident polygon
-	var (
-		poly2    *Polygon
-		i21, i22 int
-	)
-
-	if flip {
-		poly1 = polyB
-		poly2 = polyA
-
-		i11 = edgeB
-		if edgeB+1 < polyB.Count {
-			i12 = edgeB + 1
-		} else {
-			i12 = 0
-		}
-
-		i21 = edgeA
-		if edgeA+1 < polyA.Count {
-			i22 = edgeA + 1
-		} else {
-			i22 = 0
-		}
-	} else {
-		poly1 = polyA
-		poly2 = polyB
-
-		i11 = edgeA
-		if edgeA+1 < polyA.Count {
-			i12 = edgeA + 1
-		} else {
-			i12 = 0
-		}
-
-		i21 = edgeB
-		if edgeB+1 < polyB.Count {
-			i22 = edgeB + 1
-		} else {
-			i22 = 0
-		}
-	}
-
-	normal := poly1.Normals[i11]
-
-	// Reference edge vertices
-	var (
-		v11 = poly1.Vertices[i11]
-		v12 = poly1.Vertices[i12]
-	)
-
-	// Incident edge vertices
-	var (
-		v21 = poly2.Vertices[i21]
-		v22 = poly2.Vertices[i22]
-	)
-
-	tangent := normal.ScalarCross(1.0)
-
-	var (
-		lower1 float32 = 0.0
-		upper1         = v12.Sub(v11).Dot(tangent)
-	)
-
-	// Incident edge points opposite of tangent due to CCW winding
-	var (
-		upper2 = v21.Sub(v11).Dot(tangent)
-		lower2 = v22.Sub(v11).Dot(tangent)
-	)
-
-	// Are the segments disjoint?
-	if upper2 < lower1 || upper1 < lower2 {
-		return manifold
-	}
-
-	var vLower Vec2
-	if lower2 < lower1 && upper2-lower2 > float32(0x1p-23) {
-		vLower = v22.Lerp(v21, (lower1-lower2)/(upper2-lower2))
-	} else {
-		vLower = v22
-	}
-
-	var vUpper Vec2
-	if upper2 > upper1 && upper2-lower2 > float32(0x1p-23) {
-		vUpper = v22.Lerp(v21, (upper1-lower2)/(upper2-lower2))
-	} else {
-		vUpper = v21
-	}
-
-	// todo vLower can be very close to vUpper, reduce to one point?
-
-	var (
-		separationLower = vLower.Sub(v11).Dot(normal)
-		separationUpper = vUpper.Sub(v11).Dot(normal)
-	)
-
-	var (
-		r1 = poly1.Radius
-		r2 = poly2.Radius
-	)
-
-	// Put contact points at midpoint, accounting for radii
-	vLower = vLower.MulAdd(0.5*(r1-r2-separationLower), normal)
-	vUpper = vUpper.MulAdd(0.5*(r1-r2-separationUpper), normal)
-
-	radius := r1 + r2
-
-	if !flip {
-		manifold.Normal = normal
-
-		cp := &manifold.Points[0]
-
-		{
-			cp.Point = vLower
-			cp.Separation = separationLower - radius
-			cp.ID = (uint16(uint8(i11))<<8 | uint16(uint8(i22)))
-			manifold.PointCount += 1
-			cp = &manifold.Points[1]
-		}
-
-		{
-			cp.Point = vUpper
-			cp.Separation = separationUpper - radius
-			cp.ID = (uint16(uint8(i12))<<8 | uint16(uint8(i21)))
-			manifold.PointCount += 1
-		}
-	} else {
-		manifold.Normal = normal.Neg()
-
-		cp := &manifold.Points[0]
-
-		{
-			cp.Point = vUpper
-			cp.Separation = separationUpper - radius
-			cp.ID = (uint16(uint8(i21))<<8 | uint16(uint8(i12)))
-			manifold.PointCount += 1
-			cp = &manifold.Points[1]
-		}
-
-		{
-			cp.Point = vLower
-			cp.Separation = separationLower - radius
-			cp.ID = (uint16(uint8(i22))<<8 | uint16(uint8(i11)))
-			manifold.PointCount += 1
-		}
-	}
-
-	return manifold
-}
-
-func findMaxSeparation(edgeIndex *int, poly1, poly2 *Polygon) float32 {
-	var (
-		count1 = poly1.Count
-		count2 = poly2.Count
-		n1s    = poly1.Normals[:]
-		v1s    = poly1.Vertices[:]
-		v2s    = poly2.Vertices[:]
-	)
-
-	var (
-		bestIndex     = 0
-		maxSeparation = -float32(0x1.fffffep127)
-	)
-
-	for i := range count1 {
-		// Get poly1 normal in frame2.
-		var (
-			n  = n1s[i]
-			v1 = v1s[i]
-		)
-
-		// Find the deepest point for normal i.
-		si := float32(0x1.fffffep127)
-
-		for j := range count2 {
-			sij := n.Dot(v2s[j].Sub(v1))
-			if sij < si {
-				si = sij
-			}
-		}
-
-		if si > maxSeparation {
-			maxSeparation = si
-			bestIndex = i
-		}
-	}
-
-	*edgeIndex = bestIndex
-
-	return maxSeparation
-}
-
 // Compute the contact manifold between two polygons.
 func CollidePolygons(polygonA, polygonB *Polygon, xf Transform) LocalManifold {
 	var (
@@ -914,47 +627,13 @@ func CollidePolygons(polygonA, polygonB *Polygon, xf Transform) LocalManifold {
 	if separationA >= separationB {
 		flip = false
 
-		searchDirection := localPolyA.Normals[edgeA]
-
 		// Find the incident edge on polyB
-		var (
-			count   = localPolyB.Count
-			normals = localPolyB.Normals[:]
-		)
-
-		edgeB = 0
-
-		minDot := float32(0x1.fffffep127)
-
-		for i := range count {
-			dot := searchDirection.Dot(normals[i])
-			if dot < minDot {
-				minDot = dot
-				edgeB = i
-			}
-		}
+		edgeB = findIncidentPolygonEdge(localPolyB.Normals[:localPolyB.Count], localPolyA.Normals[edgeA])
 	} else {
 		flip = true
 
-		searchDirection := localPolyB.Normals[edgeB]
-
 		// Find the incident edge on polyA
-		var (
-			count   = localPolyA.Count
-			normals = localPolyA.Normals[:]
-		)
-
-		edgeA = 0
-
-		minDot := float32(0x1.fffffep127)
-
-		for i := range count {
-			dot := searchDirection.Dot(normals[i])
-			if dot < minDot {
-				minDot = dot
-				edgeA = i
-			}
-		}
+		edgeA = findIncidentPolygonEdge(localPolyA.Normals[:localPolyA.Count], localPolyB.Normals[edgeB])
 	}
 
 	manifold := LocalManifold{}
@@ -1016,84 +695,16 @@ func CollidePolygons(polygonA, polygonB *Polygon, xf Transform) LocalManifold {
 		if separation+float32(0.1*linearSlop) < minSeparation {
 			if result.Fraction1 == 0.0 && result.Fraction2 == 0.0 {
 				// v11 - v21
-				var (
-					normal      = v21.Sub(v11)
-					invDistance = 1.0 / distance
-				)
-
-				normal.X *= invDistance
-				normal.Y *= invDistance
-
-				var (
-					c1 = v11.MulAdd(localPolyA.Radius, normal)
-					c2 = v21.MulAdd(-localPolyB.Radius, normal)
-				)
-
-				manifold.Normal = normal
-				manifold.Points[0].Point = c1.Lerp(c2, 0.5)
-				manifold.Points[0].Separation = distance - radius
-				manifold.Points[0].ID = (uint16(uint8(i11))<<8 | uint16(uint8(i21)))
-				manifold.PointCount = 1
+				manifold.setVertexContact(v11, v21, distance, separation, localPolyA.Radius, localPolyB.Radius, uint16(uint8(i11))<<8|uint16(uint8(i21)))
 			} else if result.Fraction1 == 0.0 && result.Fraction2 == 1.0 {
 				// v11 - v22
-				var (
-					normal      = v22.Sub(v11)
-					invDistance = 1.0 / distance
-				)
-
-				normal.X *= invDistance
-				normal.Y *= invDistance
-
-				var (
-					c1 = v11.MulAdd(localPolyA.Radius, normal)
-					c2 = v22.MulAdd(-localPolyB.Radius, normal)
-				)
-
-				manifold.Normal = normal
-				manifold.Points[0].Point = c1.Lerp(c2, 0.5)
-				manifold.Points[0].Separation = distance - radius
-				manifold.Points[0].ID = (uint16(uint8(i11))<<8 | uint16(uint8(i22)))
-				manifold.PointCount = 1
+				manifold.setVertexContact(v11, v22, distance, separation, localPolyA.Radius, localPolyB.Radius, uint16(uint8(i11))<<8|uint16(uint8(i22)))
 			} else if result.Fraction1 == 1.0 && result.Fraction2 == 0.0 {
 				// v12 - v21
-				var (
-					normal      = v21.Sub(v12)
-					invDistance = 1.0 / distance
-				)
-
-				normal.X *= invDistance
-				normal.Y *= invDistance
-
-				var (
-					c1 = v12.MulAdd(localPolyA.Radius, normal)
-					c2 = v21.MulAdd(-localPolyB.Radius, normal)
-				)
-
-				manifold.Normal = normal
-				manifold.Points[0].Point = c1.Lerp(c2, 0.5)
-				manifold.Points[0].Separation = distance - radius
-				manifold.Points[0].ID = (uint16(uint8(i12))<<8 | uint16(uint8(i21)))
-				manifold.PointCount = 1
+				manifold.setVertexContact(v12, v21, distance, separation, localPolyA.Radius, localPolyB.Radius, uint16(uint8(i12))<<8|uint16(uint8(i21)))
 			} else if result.Fraction1 == 1.0 && result.Fraction2 == 1.0 {
 				// v12 - v22
-				var (
-					normal      = v22.Sub(v12)
-					invDistance = 1.0 / distance
-				)
-
-				normal.X *= invDistance
-				normal.Y *= invDistance
-
-				var (
-					c1 = v12.MulAdd(localPolyA.Radius, normal)
-					c2 = v22.MulAdd(-localPolyB.Radius, normal)
-				)
-
-				manifold.Normal = normal
-				manifold.Points[0].Point = c1.Lerp(c2, 0.5)
-				manifold.Points[0].Separation = distance - radius
-				manifold.Points[0].ID = (uint16(uint8(i12))<<8 | uint16(uint8(i22)))
-				manifold.PointCount = 1
+				manifold.setVertexContact(v12, v22, distance, separation, localPolyA.Radius, localPolyB.Radius, uint16(uint8(i12))<<8|uint16(uint8(i22)))
 			}
 		}
 	} else {
@@ -1141,48 +752,9 @@ func CollideChainSegmentAndCircle(segmentA *ChainSegment, circleB *Circle, xf Tr
 		return manifold
 	}
 
-	// Barycentric coordinates
-	var (
-		u = e.Dot(p2.Sub(pB))
-		v = e.Dot(pB.Sub(p1))
-	)
-
-	var pA Vec2
-
-	if v <= 0.0 {
-		// Behind point1?
-		// Is pB in the Voronoi region of the previous edge?
-		var (
-			prevEdge = p1.Sub(segmentA.Ghost1)
-			uPrev    = prevEdge.Dot(pB.Sub(p1))
-		)
-		if uPrev <= 0.0 {
-			return manifold
-		}
-
-		pA = p1
-	} else if u <= 0.0 {
-		// Ahead of point2?
-		var (
-			nextEdge = segmentA.Ghost2.Sub(p2)
-			vNext    = nextEdge.Dot(pB.Sub(p2))
-		)
-
-		// Is pB in the Voronoi region of the next edge?
-		if vNext > 0.0 {
-			return manifold
-		}
-
-		pA = p2
-	} else {
-		ee := e.Dot(e)
-
-		pA = Vec2{float32(u*p1.X) + float32(v*p2.X), float32(u*p1.Y) + float32(v*p2.Y)}
-		if ee > 0.0 {
-			pA = pA.Scale(1.0 / ee)
-		} else {
-			pA = p1
-		}
+	pA, owned := chainCircleClosestPoint(segmentA, e, pB)
+	if !owned {
+		return manifold
 	}
 
 	distance, normal := pB.Sub(pA).LengthAndNormalize()
@@ -1216,105 +788,6 @@ func CollideChainSegmentAndCircle(segmentA *ChainSegment, circleB *Circle, xf Tr
 func CollideChainSegmentAndCapsule(segmentA *ChainSegment, capsuleB *Capsule, xf Transform, cache *SimplexCache) LocalManifold {
 	polyB := makeCapsule(capsuleB.Center1, capsuleB.Center2, capsuleB.Radius)
 	return CollideChainSegmentAndPolygon(segmentA, &polyB, xf, cache)
-}
-
-func clipSegments(a1, a2, b1, b2, normal Vec2, ra, rb float32, id1, id2 uint16) LocalManifold {
-	manifold := LocalManifold{}
-
-	tangent := normal.LeftPerp()
-
-	// Barycentric coordinates of each point relative to a1 along tangent
-	var (
-		lower1 float32 = 0.0
-		upper1         = a2.Sub(a1).Dot(tangent)
-	)
-
-	// Incident edge points opposite of tangent due to CCW winding
-	var (
-		upper2 = b1.Sub(a1).Dot(tangent)
-		lower2 = b2.Sub(a1).Dot(tangent)
-	)
-
-	// Do segments overlap?
-	if upper2 < lower1 || upper1 < lower2 {
-		return manifold
-	}
-
-	var vLower Vec2
-	if lower2 < lower1 && upper2-lower2 > float32(0x1p-23) {
-		vLower = b2.Lerp(b1, (lower1-lower2)/(upper2-lower2))
-	} else {
-		vLower = b2
-	}
-
-	var vUpper Vec2
-	if upper2 > upper1 && upper2-lower2 > float32(0x1p-23) {
-		vUpper = b2.Lerp(b1, (upper1-lower2)/(upper2-lower2))
-	} else {
-		vUpper = b1
-	}
-
-	// todo vLower can be very close to vUpper, reduce to one point?
-
-	var (
-		separationLower = vLower.Sub(a1).Dot(normal)
-		separationUpper = vUpper.Sub(a1).Dot(normal)
-	)
-
-	// Put contact points at midpoint, accounting for radii
-	vLower = vLower.MulAdd(0.5*(ra-rb-separationLower), normal)
-	vUpper = vUpper.MulAdd(0.5*(ra-rb-separationUpper), normal)
-
-	radius := ra + rb
-
-	manifold.Normal = normal
-	{
-		cp := &manifold.Points[0]
-
-		cp.Point = vLower
-		cp.Separation = separationLower - radius
-		cp.ID = id1
-	}
-
-	{
-		cp := &manifold.Points[1]
-
-		cp.Point = vUpper
-		cp.Separation = separationUpper - radius
-		cp.ID = id2
-	}
-
-	manifold.PointCount = 2
-
-	return manifold
-}
-
-func classifyNormal(params chainSegmentParams, normal Vec2) normalType {
-	var sinTol float32 = 0.01
-
-	if normal.Dot(params.edge1) <= 0.0 {
-		// Normal points towards the segment tail
-		if params.convex1 {
-			if normal.Cross(params.normal0) > sinTol {
-				return normalSkip
-			}
-
-			return normalAdmit
-		} else {
-			return normalSnap
-		}
-	} else {
-		// Normal points towards segment head
-		if params.convex2 {
-			if params.normal2.Cross(normal) > sinTol {
-				return normalSkip
-			}
-
-			return normalAdmit
-		} else {
-			return normalSnap
-		}
-	}
 }
 
 // Compute the contact manifold between a chain segment and a rounded polygon.
@@ -1545,26 +1018,12 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 		}
 	} else {
 		// SAT edge normal
-		edgeSeparation := float32(0x1.fffffep127)
-
-		for i := range count {
-			s := normal1.Dot(vertices[i].Sub(p1))
-			if s < edgeSeparation {
-				edgeSeparation = s
-				incidentIndex = i
-			}
-		}
+		edgeSeparation, incident := minimumNormalSeparation(vertices[:count], p1, normal1)
+		incidentIndex = incident
 
 		// Check convex neighbor for edge separation
 		if smoothParams.convex1 {
-			s0 := float32(0x1.fffffep127)
-
-			for i := range count {
-				s := smoothParams.normal0.Dot(vertices[i].Sub(p1))
-				if s < s0 {
-					s0 = s
-				}
-			}
+			s0, _ := minimumNormalSeparation(vertices[:count], p1, smoothParams.normal0)
 
 			if s0 > edgeSeparation {
 				edgeSeparation = s0
@@ -1576,14 +1035,7 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 
 		// Check convex neighbor for edge separation
 		if smoothParams.convex2 {
-			s2 := float32(0x1.fffffep127)
-
-			for i := range count {
-				s := smoothParams.normal2.Dot(vertices[i].Sub(p2))
-				if s < s2 {
-					s2 = s
-				}
-			}
+			s2, _ := minimumNormalSeparation(vertices[:count], p2, smoothParams.normal2)
 
 			if s2 > edgeSeparation {
 				edgeSeparation = s2
@@ -1736,4 +1188,424 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 	assert(manifold.PointCount == 0 || manifold.PointCount == 2, "manifold.pointCount == 0 || manifold.pointCount == 2")
 
 	return manifold
+}
+
+func makeCapsule(p1, p2 Vec2, radius float32) Polygon {
+	shape := Polygon{}
+
+	shape.Vertices[0] = p1
+	shape.Vertices[1] = p2
+	shape.Centroid = p1.Lerp(p2, 0.5)
+
+	d := p2.Sub(p1)
+	assert(d.LengthSquared() > float32(0x1p-23), "b2LengthSquared( d ) > FLT_EPSILON")
+
+	var (
+		axis   = d.Normalize()
+		normal = axis.RightPerp()
+	)
+
+	shape.Normals[0] = normal
+	shape.Normals[1] = normal.Neg()
+	shape.Count = 2
+	shape.Radius = radius
+
+	return shape
+}
+
+func clipPolygons(polyA, polyB *Polygon, edgeA, edgeB int, flip bool) LocalManifold {
+	manifold := LocalManifold{}
+
+	// reference polygon
+	var (
+		poly1    *Polygon
+		i11, i12 int
+	)
+
+	// incident polygon
+	var (
+		poly2    *Polygon
+		i21, i22 int
+	)
+
+	if flip {
+		poly1 = polyB
+		poly2 = polyA
+
+		i11 = edgeB
+		i21 = edgeA
+	} else {
+		poly1 = polyA
+		poly2 = polyB
+
+		i11 = edgeA
+		i21 = edgeB
+	}
+
+	i12 = i11 + 1
+	if i12 >= poly1.Count {
+		i12 = 0
+	}
+
+	i22 = i21 + 1
+	if i22 >= poly2.Count {
+		i22 = 0
+	}
+
+	normal := poly1.Normals[i11]
+
+	// Reference edge vertices
+	var (
+		v11 = poly1.Vertices[i11]
+		v12 = poly1.Vertices[i12]
+	)
+
+	// Incident edge vertices
+	var (
+		v21 = poly2.Vertices[i21]
+		v22 = poly2.Vertices[i22]
+	)
+
+	tangent := normal.ScalarCross(1.0)
+
+	var (
+		lower1 float32 = 0.0
+		upper1         = v12.Sub(v11).Dot(tangent)
+	)
+
+	// Incident edge points opposite of tangent due to CCW winding
+	var (
+		upper2 = v21.Sub(v11).Dot(tangent)
+		lower2 = v22.Sub(v11).Dot(tangent)
+	)
+
+	// Are the segments disjoint?
+	if upper2 < lower1 || upper1 < lower2 {
+		return manifold
+	}
+
+	var vLower Vec2
+	if lower2 < lower1 && upper2-lower2 > float32(0x1p-23) {
+		vLower = v22.Lerp(v21, (lower1-lower2)/(upper2-lower2))
+	} else {
+		vLower = v22
+	}
+
+	var vUpper Vec2
+	if upper2 > upper1 && upper2-lower2 > float32(0x1p-23) {
+		vUpper = v22.Lerp(v21, (upper1-lower2)/(upper2-lower2))
+	} else {
+		vUpper = v21
+	}
+
+	// todo vLower can be very close to vUpper, reduce to one point?
+
+	var (
+		separationLower = vLower.Sub(v11).Dot(normal)
+		separationUpper = vUpper.Sub(v11).Dot(normal)
+	)
+
+	var (
+		r1 = poly1.Radius
+		r2 = poly2.Radius
+	)
+
+	// Put contact points at midpoint, accounting for radii
+	vLower = vLower.MulAdd(0.5*(r1-r2-separationLower), normal)
+	vUpper = vUpper.MulAdd(0.5*(r1-r2-separationUpper), normal)
+
+	radius := r1 + r2
+
+	if !flip {
+		manifold.Normal = normal
+
+		cp := &manifold.Points[0]
+
+		{
+			cp.Point = vLower
+			cp.Separation = separationLower - radius
+			cp.ID = (uint16(uint8(i11))<<8 | uint16(uint8(i22)))
+			manifold.PointCount += 1
+			cp = &manifold.Points[1]
+		}
+
+		{
+			cp.Point = vUpper
+			cp.Separation = separationUpper - radius
+			cp.ID = (uint16(uint8(i12))<<8 | uint16(uint8(i21)))
+			manifold.PointCount += 1
+		}
+	} else {
+		manifold.Normal = normal.Neg()
+
+		cp := &manifold.Points[0]
+
+		{
+			cp.Point = vUpper
+			cp.Separation = separationUpper - radius
+			cp.ID = (uint16(uint8(i21))<<8 | uint16(uint8(i12)))
+			manifold.PointCount += 1
+			cp = &manifold.Points[1]
+		}
+
+		{
+			cp.Point = vLower
+			cp.Separation = separationLower - radius
+			cp.ID = (uint16(uint8(i22))<<8 | uint16(uint8(i11)))
+			manifold.PointCount += 1
+		}
+	}
+
+	return manifold
+}
+
+func findMaxSeparation(edgeIndex *int, poly1, poly2 *Polygon) float32 {
+	var (
+		count1 = poly1.Count
+		count2 = poly2.Count
+		n1s    = poly1.Normals[:]
+		v1s    = poly1.Vertices[:]
+		v2s    = poly2.Vertices[:]
+	)
+
+	var (
+		bestIndex     = 0
+		maxSeparation = -float32(0x1.fffffep127)
+	)
+
+	for i := range count1 {
+		// Get poly1 normal in frame2.
+		var (
+			n  = n1s[i]
+			v1 = v1s[i]
+		)
+
+		// Find the deepest point for normal i.
+		si := float32(0x1.fffffep127)
+
+		for j := range count2 {
+			sij := n.Dot(v2s[j].Sub(v1))
+			if sij < si {
+				si = sij
+			}
+		}
+
+		if si > maxSeparation {
+			maxSeparation = si
+			bestIndex = i
+		}
+	}
+
+	*edgeIndex = bestIndex
+
+	return maxSeparation
+}
+
+func clipSegments(a1, a2, b1, b2, normal Vec2, ra, rb float32, id1, id2 uint16) LocalManifold {
+	manifold := LocalManifold{}
+
+	tangent := normal.LeftPerp()
+
+	// Barycentric coordinates of each point relative to a1 along tangent
+	var (
+		lower1 float32 = 0.0
+		upper1         = a2.Sub(a1).Dot(tangent)
+	)
+
+	// Incident edge points opposite of tangent due to CCW winding
+	var (
+		upper2 = b1.Sub(a1).Dot(tangent)
+		lower2 = b2.Sub(a1).Dot(tangent)
+	)
+
+	// Do segments overlap?
+	if upper2 < lower1 || upper1 < lower2 {
+		return manifold
+	}
+
+	var vLower Vec2
+	if lower2 < lower1 && upper2-lower2 > float32(0x1p-23) {
+		vLower = b2.Lerp(b1, (lower1-lower2)/(upper2-lower2))
+	} else {
+		vLower = b2
+	}
+
+	var vUpper Vec2
+	if upper2 > upper1 && upper2-lower2 > float32(0x1p-23) {
+		vUpper = b2.Lerp(b1, (upper1-lower2)/(upper2-lower2))
+	} else {
+		vUpper = b1
+	}
+
+	// todo vLower can be very close to vUpper, reduce to one point?
+
+	var (
+		separationLower = vLower.Sub(a1).Dot(normal)
+		separationUpper = vUpper.Sub(a1).Dot(normal)
+	)
+
+	// Put contact points at midpoint, accounting for radii
+	vLower = vLower.MulAdd(0.5*(ra-rb-separationLower), normal)
+	vUpper = vUpper.MulAdd(0.5*(ra-rb-separationUpper), normal)
+
+	radius := ra + rb
+
+	manifold.Normal = normal
+	{
+		cp := &manifold.Points[0]
+
+		cp.Point = vLower
+		cp.Separation = separationLower - radius
+		cp.ID = id1
+	}
+
+	{
+		cp := &manifold.Points[1]
+
+		cp.Point = vUpper
+		cp.Separation = separationUpper - radius
+		cp.ID = id2
+	}
+
+	manifold.PointCount = 2
+
+	return manifold
+}
+
+func classifyNormal(params chainSegmentParams, normal Vec2) normalType {
+	var sinTol float32 = 0.01
+
+	if normal.Dot(params.edge1) <= 0.0 {
+		// Normal points towards the segment tail
+		if !params.convex1 {
+			return normalSnap
+		}
+
+		if normal.Cross(params.normal0) > sinTol {
+			return normalSkip
+		}
+
+		return normalAdmit
+	}
+	// Normal points towards segment head
+	if !params.convex2 {
+		return normalSnap
+	}
+
+	if params.normal2.Cross(normal) > sinTol {
+		return normalSkip
+	}
+
+	return normalAdmit
+}
+
+func capsuleAxisSeparation(origin, edgeDirection, point1, point2 Vec2) (Vec2, float32) {
+	normal := edgeDirection.LeftPerp()
+	ss1 := point1.Sub(origin).Dot(normal)
+	ss2 := point2.Sub(origin).Dot(normal)
+
+	var positiveSeparation float32
+	if ss1 < ss2 {
+		positiveSeparation = ss1
+	} else {
+		positiveSeparation = ss2
+	}
+
+	var negativeSeparation float32
+	if -ss1 < -ss2 {
+		negativeSeparation = -ss1
+	} else {
+		negativeSeparation = -ss2
+	}
+
+	if positiveSeparation > negativeSeparation {
+		return normal, positiveSeparation
+	}
+
+	return normal.Neg(), negativeSeparation
+}
+
+func (manifold *LocalManifold) setVertexContact(pointA, pointB Vec2, distance, separation, radiusA, radiusB float32, id uint16) {
+	normal := pointB.Sub(pointA)
+	invDistance := 1.0 / distance
+	normal.X *= invDistance
+	normal.Y *= invDistance
+	c1 := pointA.MulAdd(radiusA, normal)
+	c2 := pointB.MulAdd(-radiusB, normal)
+	manifold.Normal = normal
+	manifold.Points[0].Point = c1.Lerp(c2, 0.5)
+	manifold.Points[0].Separation = separation
+	manifold.Points[0].ID = id
+	manifold.PointCount = 1
+}
+
+func findIncidentPolygonEdge(normals []Vec2, searchDirection Vec2) int {
+	edge := 0
+	minDot := float32(0x1.fffffep127)
+
+	for i := range normals {
+		dot := searchDirection.Dot(normals[i])
+		if dot < minDot {
+			minDot = dot
+			edge = i
+		}
+	}
+
+	return edge
+}
+
+func minimumNormalSeparation(vertices []Vec2, origin, normal Vec2) (float32, int) {
+	separation := float32(0x1.fffffep127)
+	index := -1
+
+	for i := range vertices {
+		s := normal.Dot(vertices[i].Sub(origin))
+		if s < separation {
+			separation = s
+			index = i
+		}
+	}
+
+	return separation, index
+}
+
+func chainCircleClosestPoint(segment *ChainSegment, edge, point Vec2) (Vec2, bool) {
+	p1 := segment.Segment.Point1
+	p2 := segment.Segment.Point2
+	// Barycentric coordinates
+	u := edge.Dot(p2.Sub(point))
+
+	v := edge.Dot(point.Sub(p1))
+	if v <= 0.0 {
+		// Behind point1? Is the point in the previous edge's Voronoi region?
+		prevEdge := p1.Sub(segment.Ghost1)
+
+		uPrev := prevEdge.Dot(point.Sub(p1))
+		if uPrev <= 0.0 {
+			return Vec2{}, false
+		}
+
+		return p1, true
+	}
+
+	if u <= 0.0 {
+		// Ahead of point2? Is the point in the next edge's Voronoi region?
+		nextEdge := segment.Ghost2.Sub(p2)
+
+		vNext := nextEdge.Dot(point.Sub(p2))
+		if vNext > 0.0 {
+			return Vec2{}, false
+		}
+
+		return p2, true
+	}
+
+	ee := edge.Dot(edge)
+
+	pA := Vec2{float32(u*p1.X) + float32(v*p2.X), float32(u*p1.Y) + float32(v*p2.Y)}
+	if ee > 0.0 {
+		return pA.Scale(1.0 / ee), true
+	}
+
+	return p1, true
 }

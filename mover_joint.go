@@ -66,8 +66,8 @@ func getMoverJointForce(world *World, base *jointSim) Vec2 {
 func prepareMoverJoint(base *jointSim, context *stepContext) {
 	assert(base.jointType == MoverJointType, "base->type == b2_moverJoint")
 
-	idA := base.bodyIdA
-	idB := base.bodyIdB
+	idA := base.bodyIDA
+	idB := base.bodyIDB
 
 	world := context.world
 

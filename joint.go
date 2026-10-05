@@ -8,8 +8,6 @@ import (
 	"math"
 )
 
-type JointType int32
-
 const (
 	DistanceJointType  JointType = 0
 	FilterJointType    JointType = 1
@@ -21,6 +19,8 @@ const (
 	WeldJointType      JointType = 7
 	WheelJointType     JointType = 8
 )
+
+type JointType int32
 
 // Base joint definition used by all joint types.
 // The local frames are measured from the body's origin rather than the center of mass because:
@@ -83,7 +83,7 @@ type JointEvents struct {
 }
 
 type jointEdge struct {
-	bodyId  int
+	bodyID  int
 	prevKey int
 	nextKey int
 }
@@ -94,8 +94,8 @@ type joint struct {
 	colorIndex       int
 	localIndex       int
 	edges            [2]jointEdge
-	jointId          int
-	islandId         int
+	jointID          int
+	islandID         int
 	islandIndex      int
 	drawScale        float32
 	jointType        JointType
@@ -276,9 +276,9 @@ type wheelJoint struct {
 }
 
 type jointSim struct {
-	jointId                int
-	bodyIdA                int
-	bodyIdB                int
+	jointID                int
+	bodyIDA                int
+	bodyIDB                int
 	jointType              JointType
 	localFrameA            Transform
 	localFrameB            Transform
@@ -304,18 +304,6 @@ type jointSim struct {
 type jointPair struct {
 	joint    *joint
 	jointSim *jointSim
-}
-
-func defaultJointDef() JointDef {
-	return JointDef{
-		LocalFrameA:            Transform{Q: Rot{C: 1}},
-		LocalFrameB:            Transform{Q: Rot{C: 1}},
-		ForceThreshold:         math.MaxFloat32,
-		TorqueThreshold:        math.MaxFloat32,
-		ConstraintHertz:        60,
-		ConstraintDampingRatio: 2,
-		DrawScale:              lengthUnitsPerMeter,
-	}
 }
 
 // Use this to initialize your joint definition.
@@ -375,12 +363,24 @@ func DefaultExplosionDef() ExplosionDef {
 	return ExplosionDef{MaskBits: DefaultMaskBits}
 }
 
-func getJointFullId(world *World, jointID Joint) *joint {
+func defaultJointDef() JointDef {
+	return JointDef{
+		LocalFrameA:            Transform{Q: Rot{C: 1}},
+		LocalFrameB:            Transform{Q: Rot{C: 1}},
+		ForceThreshold:         math.MaxFloat32,
+		TorqueThreshold:        math.MaxFloat32,
+		ConstraintHertz:        60,
+		ConstraintDampingRatio: 2,
+		DrawScale:              lengthUnitsPerMeter,
+	}
+}
+
+func getJointFullID(world *World, jointID Joint) *joint {
 	var (
 		id  = int(jointID.index1) - 1
 		jnt = &world.joints[id]
 	)
-	assert(jnt.jointId == id && jnt.generation == jointID.generation, "joint->jointId == id && joint->generation == jointId.generation")
+	assert(jnt.jointID == id && jnt.generation == jointID.generation, "joint->jointId == id && joint->generation == jointId.generation")
 
 	return jnt
 }
@@ -407,7 +407,7 @@ func getJointSimCheckType(jointID Joint, jointType JointType) *jointSim {
 		return nil
 	}
 
-	jnt := getJointFullId(world, jointID)
+	jnt := getJointFullID(world, jointID)
 	assert(jnt.jointType == jointType, "joint->type == type")
 
 	sim := getJointSim(world, jnt)
@@ -419,31 +419,31 @@ func getJointSimCheckType(jointID Joint, jointType JointType) *jointSim {
 func destroyContactsBetweenBodies(world *World, bodyA *body, bodyB *body) {
 	var (
 		contactKey  int
-		otherBodyId int
+		otherBodyID int
 	)
 
 	// use the smaller of the two contact lists
 	if bodyA.contactCount < bodyB.contactCount {
 		contactKey = bodyA.headContactKey
-		otherBodyId = bodyB.id
+		otherBodyID = bodyB.id
 	} else {
 		contactKey = bodyB.headContactKey
-		otherBodyId = bodyA.id
+		otherBodyID = bodyA.id
 	}
 
 	// destroy the contacts
 	for contactKey != nullIndex {
 		var (
-			contactId = contactKey >> 1
+			contactID = contactKey >> 1
 			edgeIndex = contactKey & 1
 		)
 
-		contact := &world.contacts[contactId]
+		contact := &world.contacts[contactID]
 
 		contactKey = contact.edges[edgeIndex].nextKey
 
 		otherEdgeIndex := edgeIndex ^ 1
-		if contact.edges[otherEdgeIndex].bodyID == otherBodyId {
+		if contact.edges[otherEdgeIndex].bodyID == otherBodyID {
 			// Careful, this removes the contact from the current doubly linked list
 			destroyContact(world, contact)
 		}
@@ -468,8 +468,8 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 	assert(def.BodyA != def.BodyB, "B2_ID_EQUALS( def->bodyIdA, def->bodyIdB ) == false")
 
 	var (
-		bodyA = getBodyFullId(world, def.BodyA)
-		bodyB = getBodyFullId(world, def.BodyB)
+		bodyA = getBodyFullID(world, def.BodyA)
+		bodyB = getBodyFullID(world, def.BodyB)
 	)
 
 	// If the joint prevents collisions, then destroy all contacts between attached bodies.
@@ -479,37 +479,37 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 	}
 
 	var (
-		bodyIdA     = bodyA.id
-		bodyIdB     = bodyB.id
+		bodyIDA     = bodyA.id
+		bodyIDB     = bodyB.id
 		maxSetIndex = max(bodyA.setIndex, bodyB.setIndex)
 	)
 
 	// Create joint id and joint
-	jointId := allocID(&world.jointIDPool)
-	if jointId == len(world.joints) {
+	jointID := allocID(&world.jointIDPool)
+	if jointID == len(world.joints) {
 		world.joints = arrayPush(world.joints, joint{})
 	}
 
-	jnt := &world.joints[jointId]
+	jnt := &world.joints[jointID]
 
-	jnt.jointId = jointId
+	jnt.jointID = jointID
 	jnt.userData = def.UserData
 	jnt.generation += 1
 	jnt.setIndex = nullIndex
 	jnt.colorIndex = nullIndex
 	jnt.localIndex = nullIndex
-	jnt.islandId = nullIndex
+	jnt.islandID = nullIndex
 	jnt.islandIndex = nullIndex
 	jnt.drawScale = def.DrawScale
 	jnt.jointType = jointType
 	jnt.collideConnected = def.CollideConnected
 
 	// Doubly linked list on bodyA
-	jnt.edges[0].bodyId = bodyIdA
+	jnt.edges[0].bodyID = bodyIDA
 	jnt.edges[0].prevKey = nullIndex
 	jnt.edges[0].nextKey = bodyA.headJointKey
 
-	keyA := (jointId << 1) | 0
+	keyA := jointID << 1
 
 	if bodyA.headJointKey != nullIndex {
 		var (
@@ -524,11 +524,11 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 	bodyA.jointCount += 1
 
 	// Doubly linked list on bodyB
-	jnt.edges[1].bodyId = bodyIdB
+	jnt.edges[1].bodyID = bodyIDB
 	jnt.edges[1].prevKey = nullIndex
 	jnt.edges[1].nextKey = bodyB.headJointKey
 
-	keyB := (jointId << 1) | 1
+	keyB := (jointID << 1) | 1
 
 	if bodyB.headJointKey != nullIndex {
 		var (
@@ -542,84 +542,7 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 	bodyB.headJointKey = keyB
 	bodyB.jointCount += 1
 
-	var sim *jointSim
-
-	if bodyA.setIndex == disabledSet || bodyB.setIndex == disabledSet {
-		// if either body is disabled, create in disabled set
-		set := &world.solverSets[disabledSet]
-
-		jnt.setIndex = disabledSet
-		jnt.localIndex = len(set.jointSims)
-
-		set.jointSims, sim = arrayEmplace(set.jointSims)
-		*sim = jointSim{}
-
-		sim.jointId = jointId
-		sim.bodyIdA = bodyIdA
-		sim.bodyIdB = bodyIdB
-	} else if bodyA.bodyType != DynamicBody && bodyB.bodyType != DynamicBody {
-		// joint is not attached to a dynamic body
-		set := &world.solverSets[staticSet]
-
-		jnt.setIndex = staticSet
-		jnt.localIndex = len(set.jointSims)
-
-		set.jointSims, sim = arrayEmplace(set.jointSims)
-		*sim = jointSim{}
-
-		sim.jointId = jointId
-		sim.bodyIdA = bodyIdA
-		sim.bodyIdB = bodyIdB
-	} else if bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet {
-		// if either body is sleeping, wake it
-		if maxSetIndex >= firstSleepingSet {
-			wakeSolverSet(world, maxSetIndex)
-		}
-
-		jnt.setIndex = awakeSet
-
-		sim = createJointInGraph(world, jnt)
-		sim.jointId = jointId
-		sim.bodyIdA = bodyIdA
-		sim.bodyIdB = bodyIdB
-	} else {
-		// joint connected between sleeping and/or static bodies
-		assert(bodyA.setIndex >= firstSleepingSet || bodyB.setIndex >= firstSleepingSet, "bodyA->setIndex >= b2_firstSleepingSet || bodyB->setIndex >= b2_firstSleepingSet")
-		assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet")
-
-		// joint should go into the sleeping set (not static set)
-		setIndex := maxSetIndex
-
-		set := &world.solverSets[setIndex]
-
-		jnt.setIndex = setIndex
-		jnt.localIndex = len(set.jointSims)
-
-		set.jointSims, sim = arrayEmplace(set.jointSims)
-		*sim = jointSim{}
-
-		// These must be set to accommodate the merge below
-		sim.jointId = jointId
-		sim.bodyIdA = bodyIdA
-		sim.bodyIdB = bodyIdB
-
-		if bodyA.setIndex != bodyB.setIndex && bodyA.setIndex >= firstSleepingSet &&
-			bodyB.setIndex >= firstSleepingSet {
-			// merge sleeping sets
-			mergeSolverSets(world, bodyA.setIndex, bodyB.setIndex)
-			assert(bodyA.setIndex == bodyB.setIndex, "bodyA->setIndex == bodyB->setIndex")
-
-			// fix potentially invalid set index
-			setIndex = bodyA.setIndex
-
-			mergedSet := &world.solverSets[setIndex]
-
-			// Careful! The joint sim pointer was orphaned by the set merge.
-			sim = &mergedSet.jointSims[jnt.localIndex]
-		}
-
-		assert(jnt.setIndex == setIndex, "joint->setIndex == setIndex")
-	}
+	sim := placeJointInSolverSet(world, jnt, bodyA, bodyB, maxSetIndex)
 
 	sim.localFrameA = def.LocalFrameA
 	sim.localFrameB = def.LocalFrameB
@@ -638,9 +561,9 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 	sim.forceThreshold = def.ForceThreshold
 	sim.torqueThreshold = def.TorqueThreshold
 
-	assert(sim.jointId == jointId, "jointSim->jointId == jointId")
-	assert(sim.bodyIdA == bodyIdA, "jointSim->bodyIdA == bodyIdA")
-	assert(sim.bodyIdB == bodyIdB, "jointSim->bodyIdB == bodyIdB")
+	assert(sim.jointID == jointID, "jointSim->jointId == jointId")
+	assert(sim.bodyIDA == bodyIDA, "jointSim->bodyIdA == bodyIdA")
+	assert(sim.bodyIDB == bodyIDB, "jointSim->bodyIdB == bodyIdB")
 
 	if jnt.setIndex > disabledSet {
 		// Add edge to island graph
@@ -699,13 +622,13 @@ func (w *World) CreateDistanceJoint(def *DistanceJointDef) DistanceJoint {
 	jnt.distanceJoint.upperImpulse = 0.0
 	jnt.distanceJoint.motorImpulse = 0.0
 
-	jointId := Joint{int32(jnt.jointId + 1), world, pair.joint.generation}
+	jointID := Joint{int32(jnt.jointID + 1), world, pair.joint.generation}
 
 	if world.recording != nil {
-		recWriteRetCreateDistanceJoint(world.recording, &recArgsCreateDistanceJoint{def: *def}, jointId)
+		recWriteRetCreateDistanceJoint(world.recording, &recArgsCreateDistanceJoint{def: *def}, jointID)
 	}
 
-	return DistanceJoint{Joint: jointId}
+	return DistanceJoint{Joint: jointID}
 }
 
 // Create a filter joint.
@@ -725,13 +648,13 @@ func (w *World) CreateFilterJoint(def *FilterJointDef) FilterJoint {
 
 	jnt := pair.jointSim
 
-	jointId := Joint{int32(jnt.jointId + 1), world, pair.joint.generation}
+	jointID := Joint{int32(jnt.jointID + 1), world, pair.joint.generation}
 
 	if world.recording != nil {
-		recWriteRetCreateFilterJoint(world.recording, &recArgsCreateFilterJoint{def: *def}, jointId)
+		recWriteRetCreateFilterJoint(world.recording, &recArgsCreateFilterJoint{def: *def}, jointID)
 	}
 
-	return FilterJoint{Joint: jointId}
+	return FilterJoint{Joint: jointID}
 }
 
 // Create a motor joint.
@@ -774,13 +697,13 @@ func (w *World) CreateMotorJoint(def *MotorJointDef) MotorJoint {
 	jnt.motorJoint.angularDampingRatio = def.AngularDampingRatio
 	jnt.motorJoint.maxSpringTorque = def.MaxSpringTorque
 
-	jointId := Joint{int32(jnt.jointId + 1), world, pair.joint.generation}
+	jointID := Joint{int32(jnt.jointID + 1), world, pair.joint.generation}
 
 	if world.recording != nil {
-		recWriteRetCreateMotorJoint(world.recording, &recArgsCreateMotorJoint{def: *def}, jointId)
+		recWriteRetCreateMotorJoint(world.recording, &recArgsCreateMotorJoint{def: *def}, jointID)
 	}
 
-	return MotorJoint{Joint: jointId}
+	return MotorJoint{Joint: jointID}
 }
 
 // Create a mover joint.
@@ -807,13 +730,13 @@ func (w *World) CreateMoverJoint(def *MoverJointDef) MoverJoint {
 	jnt.moverJoint.linearVelocity = def.LinearVelocity
 	jnt.moverJoint.maxVelocityForce = def.MaxVelocityForce
 
-	jointId := Joint{int32(jnt.jointId + 1), world, pair.joint.generation}
+	jointID := Joint{int32(jnt.jointID + 1), world, pair.joint.generation}
 
 	if world.recording != nil {
-		recWriteRetCreateMoverJoint(world.recording, &recArgsCreateMoverJoint{def: *def}, jointId)
+		recWriteRetCreateMoverJoint(world.recording, &recArgsCreateMoverJoint{def: *def}, jointID)
 	}
 
-	return MoverJoint{Joint: jointId}
+	return MoverJoint{Joint: jointID}
 }
 
 // Create a pog joint.
@@ -851,17 +774,17 @@ func (w *World) CreatePogoJoint(def *PogoJointDef) PogoJoint {
 	jnt.pogoJoint.impulse = def.Impulse
 	jnt.pogoJoint.velocity = def.Velocity
 
-	jointId := Joint{
-		index1:     int32(jnt.jointId + 1),
+	jointID := Joint{
+		index1:     int32(jnt.jointID + 1),
 		world:      world,
 		generation: pair.joint.generation,
 	}
 
 	if world.recording != nil {
-		recWriteRetCreatePogoJoint(world.recording, &recArgsCreatePogoJoint{def: *def}, jointId)
+		recWriteRetCreatePogoJoint(world.recording, &recArgsCreatePogoJoint{def: *def}, jointID)
 	}
 
-	return PogoJoint{Joint: jointId}
+	return PogoJoint{Joint: jointID}
 }
 
 // Create a prismatic (slider) joint.
@@ -901,17 +824,17 @@ func (w *World) CreatePrismaticJoint(def *PrismaticJointDef) PrismaticJoint {
 	jnt.prismaticJoint.enableLimit = def.EnableLimit
 	jnt.prismaticJoint.enableMotor = def.EnableMotor
 
-	jointId := Joint{
-		index1:     int32(jnt.jointId + 1),
+	jointID := Joint{
+		index1:     int32(jnt.jointID + 1),
 		world:      world,
 		generation: pair.joint.generation,
 	}
 
 	if world.recording != nil {
-		recWriteRetCreatePrismaticJoint(world.recording, &recArgsCreatePrismaticJoint{def: *def}, jointId)
+		recWriteRetCreatePrismaticJoint(world.recording, &recArgsCreatePrismaticJoint{def: *def}, jointID)
 	}
 
-	return PrismaticJoint{Joint: jointId}
+	return PrismaticJoint{Joint: jointID}
 }
 
 // Create a revolute joint.
@@ -961,13 +884,13 @@ func (w *World) CreateRevoluteJoint(def *RevoluteJointDef) RevoluteJoint {
 	jnt.revoluteJoint.enableLimit = def.EnableLimit
 	jnt.revoluteJoint.enableMotor = def.EnableMotor
 
-	jointId := Joint{int32(jnt.jointId + 1), world, pair.joint.generation}
+	jointID := Joint{int32(jnt.jointID + 1), world, pair.joint.generation}
 
 	if world.recording != nil {
-		recWriteRetCreateRevoluteJoint(world.recording, &recArgsCreateRevoluteJoint{def: *def}, jointId)
+		recWriteRetCreateRevoluteJoint(world.recording, &recArgsCreateRevoluteJoint{def: *def}, jointID)
 	}
 
-	return RevoluteJoint{Joint: jointId}
+	return RevoluteJoint{Joint: jointID}
 }
 
 // Create a weld joint.
@@ -1001,13 +924,13 @@ func (w *World) CreateWeldJoint(def *WeldJointDef) WeldJoint {
 	jnt.weldJoint.linearImpulse = Vec2Zero
 	jnt.weldJoint.angularImpulse = 0.0
 
-	jointId := Joint{int32(jnt.jointId + 1), world, pair.joint.generation}
+	jointID := Joint{int32(jnt.jointID + 1), world, pair.joint.generation}
 
 	if world.recording != nil {
-		recWriteRetCreateWeldJoint(world.recording, &recArgsCreateWeldJoint{def: *def}, jointId)
+		recWriteRetCreateWeldJoint(world.recording, &recArgsCreateWeldJoint{def: *def}, jointID)
 	}
 
-	return WeldJoint{Joint: jointId}
+	return WeldJoint{Joint: jointID}
 }
 
 // Create a wheel joint.
@@ -1050,17 +973,17 @@ func (w *World) CreateWheelJoint(def *WheelJointDef) WheelJoint {
 	jnt.wheelJoint.enableLimit = def.EnableLimit
 	jnt.wheelJoint.enableMotor = def.EnableMotor
 
-	jointId := Joint{int32(jnt.jointId + 1), world, pair.joint.generation}
+	jointID := Joint{int32(jnt.jointID + 1), world, pair.joint.generation}
 
 	if world.recording != nil {
-		recWriteRetCreateWheelJoint(world.recording, &recArgsCreateWheelJoint{def: *def}, jointId)
+		recWriteRetCreateWheelJoint(world.recording, &recArgsCreateWheelJoint{def: *def}, jointID)
 	}
 
-	return WheelJoint{Joint: jointId}
+	return WheelJoint{Joint: jointID}
 }
 
 func destroyJointInternal(world *World, jnt *joint) {
-	jointId := jnt.jointId
+	jointID := jnt.jointID
 
 	var (
 		edgeA = &jnt.edges[0]
@@ -1068,8 +991,8 @@ func destroyJointInternal(world *World, jnt *joint) {
 	)
 
 	var (
-		idA   = edgeA.bodyId
-		idB   = edgeB.bodyId
+		idA   = edgeA.bodyID
+		idB   = edgeB.bodyID
 		bodyA = &world.bodies[idA]
 		bodyB = &world.bodies[idB]
 	)
@@ -1093,7 +1016,7 @@ func destroyJointInternal(world *World, jnt *joint) {
 		nextEdge.prevKey = edgeA.prevKey
 	}
 
-	edgeKeyA := (jointId << 1) | 0
+	edgeKeyA := jointID << 1
 	if bodyA.headJointKey == edgeKeyA {
 		bodyA.headJointKey = edgeA.nextKey
 	}
@@ -1119,14 +1042,14 @@ func destroyJointInternal(world *World, jnt *joint) {
 		nextEdge.prevKey = edgeB.prevKey
 	}
 
-	edgeKeyB := (jointId << 1) | 1
+	edgeKeyB := (jointID << 1) | 1
 	if bodyB.headJointKey == edgeKeyB {
 		bodyB.headJointKey = edgeB.nextKey
 	}
 
 	bodyB.jointCount -= 1
 
-	if jnt.islandId != nullIndex {
+	if jnt.islandID != nullIndex {
 		assert(jnt.setIndex > disabledSet, "joint->setIndex > b2_disabledSet")
 		unlinkJoint(world, jnt)
 	} else {
@@ -1140,7 +1063,7 @@ func destroyJointInternal(world *World, jnt *joint) {
 	)
 
 	if setIndex == awakeSet {
-		removeJointFromGraph(world, jnt.edges[0].bodyId, jnt.edges[1].bodyId, jnt.colorIndex, localIndex)
+		removeJointFromGraph(world, jnt.edges[0].bodyID, jnt.edges[1].bodyID, jnt.colorIndex, localIndex)
 	} else {
 		var (
 			set        = &world.solverSets[setIndex]
@@ -1152,8 +1075,8 @@ func destroyJointInternal(world *World, jnt *joint) {
 			// Fix moved joint
 			var (
 				movedJointSim = &set.jointSims[localIndex]
-				movedId       = movedJointSim.jointId
-				movedJoint    = &world.joints[movedId]
+				movedID       = movedJointSim.jointID
+				movedJoint    = &world.joints[movedID]
 			)
 			assert(movedJoint.localIndex == movedIndex, "movedJoint->localIndex == movedIndex")
 			movedJoint.localIndex = localIndex
@@ -1164,8 +1087,8 @@ func destroyJointInternal(world *World, jnt *joint) {
 	jnt.setIndex = nullIndex
 	jnt.localIndex = nullIndex
 	jnt.colorIndex = nullIndex
-	jnt.jointId = nullIndex
-	freeID(&world.jointIDPool, jointId)
+	jnt.jointID = nullIndex
+	freeID(&world.jointIDPool, jointID)
 
 	wakeBody(world, bodyA)
 	wakeBody(world, bodyB)
@@ -1186,7 +1109,7 @@ func (j Joint) Destroy() {
 		recWriteDestroyJoint(world.recording, &recArgsDestroyJoint{joint: j})
 	}
 
-	jnt := getJointFullId(world, j)
+	jnt := getJointFullID(world, j)
 
 	destroyJointInternal(world, jnt)
 }
@@ -1195,7 +1118,7 @@ func (j Joint) Destroy() {
 func (j Joint) Type() JointType {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
 	return jnt.jointType
@@ -1205,20 +1128,20 @@ func (j Joint) Type() JointType {
 func (j Joint) BodyA() Body {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
-	return makeBodyId(world, jnt.edges[0].bodyId)
+	return makeBodyID(world, jnt.edges[0].bodyID)
 }
 
 // Get body B id on a joint.
 func (j Joint) BodyB() Body {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
-	return makeBodyId(world, jnt.edges[1].bodyId)
+	return makeBodyID(world, jnt.edges[1].bodyID)
 }
 
 // Distance returns j as a DistanceJoint, or false when j is not a distance joint.
@@ -1317,7 +1240,7 @@ func (j Joint) SetLocalFrameA(localFrame Transform) {
 	}
 
 	var (
-		jnt = getJointFullId(world, j)
+		jnt = getJointFullID(world, j)
 		sim = getJointSim(world, jnt)
 	)
 
@@ -1328,7 +1251,7 @@ func (j Joint) SetLocalFrameA(localFrame Transform) {
 func (j Joint) LocalFrameA() Transform {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 		sim   = getJointSim(world, jnt)
 	)
 
@@ -1345,7 +1268,7 @@ func (j Joint) SetLocalFrameB(localFrame Transform) {
 	}
 
 	var (
-		jnt = getJointFullId(world, j)
+		jnt = getJointFullID(world, j)
 		sim = getJointSim(world, jnt)
 	)
 
@@ -1356,7 +1279,7 @@ func (j Joint) SetLocalFrameB(localFrame Transform) {
 func (j Joint) LocalFrameB() Transform {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 		sim   = getJointSim(world, jnt)
 	)
 
@@ -1374,7 +1297,7 @@ func (j Joint) SetCollideConnected(shouldCollide bool) {
 		recWriteJointSetCollideConnected(world.recording, &recArgsJointSetCollideConnected{joint: j, shouldCollide: shouldCollide})
 	}
 
-	jnt := getJointFullId(world, j)
+	jnt := getJointFullID(world, j)
 	if jnt.collideConnected == shouldCollide {
 		return
 	}
@@ -1382,41 +1305,42 @@ func (j Joint) SetCollideConnected(shouldCollide bool) {
 	jnt.collideConnected = shouldCollide
 
 	var (
-		bodyA = &world.bodies[jnt.edges[0].bodyId]
-		bodyB = &world.bodies[jnt.edges[1].bodyId]
+		bodyA = &world.bodies[jnt.edges[0].bodyID]
+		bodyB = &world.bodies[jnt.edges[1].bodyID]
 	)
 
-	if shouldCollide {
-		var (
-			typeA = bodyA.bodyType
-			typeB = bodyB.bodyType
-		)
-
-		shapeId := nullIndex
-
-		if typeA == DynamicBody && typeB == DynamicBody {
-			if bodyA.shapeCount < bodyB.shapeCount {
-				shapeId = bodyA.headShapeID
-			} else {
-				shapeId = bodyB.headShapeID
-			}
-		} else if typeA == DynamicBody {
-			shapeId = bodyA.headShapeID
-		} else if typeB == DynamicBody {
-			shapeId = bodyB.headShapeID
-		}
-
-		for shapeId != nullIndex {
-			shape := &world.shapes[shapeId]
-
-			if shape.proxyKey != nullIndex {
-				world.broadPhase.markProxyMovedSerial(shape.proxyKey)
-			}
-
-			shapeId = shape.nextShapeID
-		}
-	} else {
+	if !shouldCollide {
 		destroyContactsBetweenBodies(world, bodyA, bodyB)
+		return
+	}
+
+	var (
+		typeA = bodyA.bodyType
+		typeB = bodyB.bodyType
+	)
+
+	shapeID := nullIndex
+
+	if typeA == DynamicBody && typeB == DynamicBody {
+		if bodyA.shapeCount < bodyB.shapeCount {
+			shapeID = bodyA.headShapeID
+		} else {
+			shapeID = bodyB.headShapeID
+		}
+	} else if typeA == DynamicBody {
+		shapeID = bodyA.headShapeID
+	} else if typeB == DynamicBody {
+		shapeID = bodyB.headShapeID
+	}
+
+	for shapeID != nullIndex {
+		shape := &world.shapes[shapeID]
+
+		if shape.proxyKey != nullIndex {
+			world.broadPhase.markProxyMovedSerial(shape.proxyKey)
+		}
+
+		shapeID = shape.nextShapeID
 	}
 }
 
@@ -1424,7 +1348,7 @@ func (j Joint) SetCollideConnected(shouldCollide bool) {
 func (j Joint) CollideConnected() bool {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
 	return jnt.collideConnected
@@ -1434,7 +1358,7 @@ func (j Joint) CollideConnected() bool {
 func (j Joint) SetUserData(userData any) {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
 	jnt.userData = userData
@@ -1444,7 +1368,7 @@ func (j Joint) SetUserData(userData any) {
 func (j Joint) UserData() any {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
 	return jnt.userData
@@ -1462,16 +1386,16 @@ func (j Joint) WakeBodies() {
 	}
 
 	var (
-		jnt   = getJointFullId(world, j)
-		bodyA = &world.bodies[jnt.edges[0].bodyId]
-		bodyB = &world.bodies[jnt.edges[1].bodyId]
+		jnt   = getJointFullID(world, j)
+		bodyA = &world.bodies[jnt.edges[0].bodyID]
+		bodyB = &world.bodies[jnt.edges[1].bodyID]
 	)
 
 	wakeBody(world, bodyA)
 	wakeBody(world, bodyB)
 }
 
-func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque float32) {
+func getJointReaction(sim *jointSim, invTimeStep float32) (float32, float32) {
 	var (
 		linearImpulse  float32 = 0.0
 		angularImpulse float32 = 0.0
@@ -1485,8 +1409,6 @@ func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque
 			linearImpulse = absFloat(jnt.impulse + jnt.lowerImpulse - jnt.upperImpulse + jnt.motorImpulse)
 		}
 
-		break
-
 	case MotorJointType:
 		{
 			jnt := &sim.motorJoint
@@ -1495,8 +1417,6 @@ func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque
 			angularImpulse = absFloat(jnt.angularVelocityImpulse + jnt.angularSpringImpulse)
 		}
 
-		break
-
 	case MoverJointType:
 		{
 			jnt := &sim.moverJoint
@@ -1504,16 +1424,12 @@ func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque
 			linearImpulse = jnt.linearVelocityImpulse.Length()
 		}
 
-		break
-
 	case PogoJointType:
 		{
 			jnt := &sim.pogoJoint
 
 			linearImpulse = absFloat(jnt.impulse)
 		}
-
-		break
 
 	case PrismaticJointType:
 		{
@@ -1527,8 +1443,6 @@ func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque
 			angularImpulse = absFloat(jnt.impulse.Y)
 		}
 
-		break
-
 	case RevoluteJointType:
 		{
 			jnt := &sim.revoluteJoint
@@ -1537,8 +1451,6 @@ func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque
 			angularImpulse = absFloat(jnt.motorImpulse + jnt.lowerImpulse - jnt.upperImpulse)
 		}
 
-		break
-
 	case WeldJointType:
 		{
 			jnt := &sim.weldJoint
@@ -1546,8 +1458,6 @@ func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque
 			linearImpulse = jnt.linearImpulse.Length()
 			angularImpulse = absFloat(jnt.angularImpulse)
 		}
-
-		break
 
 	case WheelJointType:
 		{
@@ -1561,14 +1471,15 @@ func getJointReaction(sim *jointSim, invTimeStep float32) (force float32, torque
 			angularImpulse = absFloat(jnt.motorImpulse)
 		}
 
-		break
+	case FilterJointType:
+		// Filter joints have no reaction impulse.
 
 	default:
 		break
 	}
 
-	force = float32(linearImpulse * invTimeStep)
-	torque = float32(angularImpulse * invTimeStep)
+	force := float32(linearImpulse * invTimeStep)
+	torque := float32(angularImpulse * invTimeStep)
 
 	return force, torque
 }
@@ -1635,6 +1546,11 @@ func getJointConstraintTorque(world *World, jnt *joint) float32 {
 	case WheelJointType:
 		return getWheelJointTorque(world, base)
 
+	case MoverJointType, PogoJointType:
+		// Preserve the C port's unsupported constraint-torque query.
+		assert(false, "false")
+		return 0.0
+
 	default:
 		assert(false, "false")
 		return 0.0
@@ -1645,7 +1561,7 @@ func getJointConstraintTorque(world *World, jnt *joint) float32 {
 func (j Joint) ConstraintForce() Vec2 {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
 	return getJointConstraintForce(world, jnt)
@@ -1655,7 +1571,7 @@ func (j Joint) ConstraintForce() Vec2 {
 func (j Joint) ConstraintTorque() float32 {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 	)
 
 	return getJointConstraintTorque(world, jnt)
@@ -1665,15 +1581,15 @@ func (j Joint) ConstraintTorque() float32 {
 func (j Joint) LinearSeparation() float32 {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 		base  = getJointSim(world, jnt)
 	)
 
 	// Relative to body A so the difference stays in float32 precision far from the origin
 	var (
-		wxfA = getBodyTransform(world, jnt.edges[0].bodyId)
+		wxfA = getBodyTransform(world, jnt.edges[0].bodyID)
 		xfA  = wxfA.Relative(wxfA.P)
-		xfB  = getBodyTransform(world, jnt.edges[1].bodyId).Relative(wxfA.P)
+		xfB  = getBodyTransform(world, jnt.edges[1].bodyID).Relative(wxfA.P)
 	)
 
 	var (
@@ -1684,30 +1600,7 @@ func (j Joint) LinearSeparation() float32 {
 
 	switch jnt.jointType {
 	case DistanceJointType:
-		{
-			var (
-				distanceJoint = &base.distanceJoint
-				length        = dp.Length()
-			)
-
-			if distanceJoint.enableSpring {
-				if distanceJoint.enableLimit {
-					if length < distanceJoint.minLength {
-						return distanceJoint.minLength - length
-					}
-
-					if length > distanceJoint.maxLength {
-						return length - distanceJoint.maxLength
-					}
-
-					return 0.0
-				}
-
-				return 0.0
-			}
-
-			return absFloat(length - distanceJoint.length)
-		}
+		return distanceLinearSeparation(&base.distanceJoint, dp.Length())
 
 	case MotorJointType:
 		return 0.0
@@ -1716,28 +1609,8 @@ func (j Joint) LinearSeparation() float32 {
 		return 0.0
 
 	case PrismaticJointType:
-		{
-			var (
-				prismaticJoint                  = &base.prismaticJoint
-				axisA                           = xfA.Q.Rotate(Vec2{1.0, 0.0})
-				perpA                           = axisA.LeftPerp()
-				perpendicularSeparation         = absFloat(perpA.Dot(dp))
-				limitSeparation         float32 = 0.0
-			)
-
-			if prismaticJoint.enableLimit {
-				translation := axisA.Dot(dp)
-				if translation < prismaticJoint.lowerTranslation {
-					limitSeparation = prismaticJoint.lowerTranslation - translation
-				}
-
-				if prismaticJoint.upperTranslation < translation {
-					limitSeparation = translation - prismaticJoint.upperTranslation
-				}
-			}
-
-			return float32(math.Sqrt(float64(float32(perpendicularSeparation*perpendicularSeparation) + float32(limitSeparation*limitSeparation))))
-		}
+		joint := &base.prismaticJoint
+		return axialLinearSeparation(xfA.Q.Rotate(Vec2{1.0, 0.0}), dp, joint.enableLimit, joint.lowerTranslation, joint.upperTranslation)
 
 	case RevoluteJointType:
 		return dp.Length()
@@ -1753,28 +1626,13 @@ func (j Joint) LinearSeparation() float32 {
 		}
 
 	case WheelJointType:
-		{
-			var (
-				wheelJoint                      = &base.wheelJoint
-				axisA                           = xfA.Q.Rotate(Vec2{1.0, 0.0})
-				perpA                           = axisA.LeftPerp()
-				perpendicularSeparation         = absFloat(perpA.Dot(dp))
-				limitSeparation         float32 = 0.0
-			)
+		joint := &base.wheelJoint
+		return axialLinearSeparation(xfA.Q.Rotate(Vec2{1.0, 0.0}), dp, joint.enableLimit, joint.lowerTranslation, joint.upperTranslation)
 
-			if wheelJoint.enableLimit {
-				translation := axisA.Dot(dp)
-				if translation < wheelJoint.lowerTranslation {
-					limitSeparation = wheelJoint.lowerTranslation - translation
-				}
-
-				if wheelJoint.upperTranslation < translation {
-					limitSeparation = translation - wheelJoint.upperTranslation
-				}
-			}
-
-			return float32(math.Sqrt(float64(float32(perpendicularSeparation*perpendicularSeparation) + float32(limitSeparation*limitSeparation))))
-		}
+	case MoverJointType, PogoJointType:
+		// Preserve the C port's unsupported linear-separation query.
+		assert(false, "false")
+		return 0.0
 
 	default:
 		assert(false, "false")
@@ -1786,13 +1644,13 @@ func (j Joint) LinearSeparation() float32 {
 func (j Joint) AngularSeparation() float32 {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 		base  = getJointSim(world, jnt)
 	)
 
 	var (
-		qA            = getBodyTransform(world, jnt.edges[0].bodyId).Q
-		qB            = getBodyTransform(world, jnt.edges[1].bodyId).Q
+		qA            = getBodyTransform(world, jnt.edges[0].bodyID).Q
+		qB            = getBodyTransform(world, jnt.edges[1].bodyID).Q
 		relativeAngle = qA.RelativeAngle(qB)
 	)
 
@@ -1812,21 +1670,7 @@ func (j Joint) AngularSeparation() float32 {
 		}
 
 	case RevoluteJointType:
-		{
-			revoluteJoint := &base.revoluteJoint
-			if revoluteJoint.enableLimit {
-				angle := relativeAngle
-				if angle < revoluteJoint.lowerAngle {
-					return revoluteJoint.lowerAngle - angle
-				}
-
-				if revoluteJoint.upperAngle < angle {
-					return angle - revoluteJoint.upperAngle
-				}
-			}
-
-			return 0.0
-		}
+		return revoluteAngularSeparation(&base.revoluteJoint, relativeAngle)
 
 	case WeldJointType:
 		{
@@ -1839,6 +1683,11 @@ func (j Joint) AngularSeparation() float32 {
 		}
 
 	case WheelJointType:
+		return 0.0
+
+	case MoverJointType, PogoJointType:
+		// Preserve the C port's unsupported angular-separation query.
+		assert(false, "false")
 		return 0.0
 
 	default:
@@ -1858,7 +1707,7 @@ func (j Joint) SetConstraintTuning(hertz float32, dampingRatio float32) {
 	}
 
 	var (
-		jnt  = getJointFullId(world, j)
+		jnt  = getJointFullID(world, j)
 		base = getJointSim(world, jnt)
 	)
 
@@ -1867,15 +1716,15 @@ func (j Joint) SetConstraintTuning(hertz float32, dampingRatio float32) {
 }
 
 // Get the joint constraint tuning. Advanced feature.
-func (j Joint) ConstraintTuning() (hertz float32, dampingRatio float32) {
+func (j Joint) ConstraintTuning() (float32, float32) {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 		base  = getJointSim(world, jnt)
 	)
 
-	hertz = base.constraintHertz
-	dampingRatio = base.constraintDampingRatio
+	hertz := base.constraintHertz
+	dampingRatio := base.constraintDampingRatio
 
 	return hertz, dampingRatio
 }
@@ -1890,7 +1739,7 @@ func (j Joint) SetForceThreshold(threshold float32) {
 	}
 
 	var (
-		jnt  = getJointFullId(world, j)
+		jnt  = getJointFullID(world, j)
 		base = getJointSim(world, jnt)
 	)
 
@@ -1901,7 +1750,7 @@ func (j Joint) SetForceThreshold(threshold float32) {
 func (j Joint) ForceThreshold() float32 {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 		base  = getJointSim(world, jnt)
 	)
 
@@ -1918,7 +1767,7 @@ func (j Joint) SetTorqueThreshold(threshold float32) {
 	}
 
 	var (
-		jnt  = getJointFullId(world, j)
+		jnt  = getJointFullID(world, j)
 		base = getJointSim(world, jnt)
 	)
 
@@ -1929,7 +1778,7 @@ func (j Joint) SetTorqueThreshold(threshold float32) {
 func (j Joint) TorqueThreshold() float32 {
 	var (
 		world = j.world
-		jnt   = getJointFullId(world, j)
+		jnt   = getJointFullID(world, j)
 		base  = getJointSim(world, jnt)
 	)
 
@@ -1945,38 +1794,30 @@ func prepareJoint(jnt *jointSim, context *stepContext) {
 	switch jnt.jointType {
 	case DistanceJointType:
 		prepareDistanceJoint(jnt, context)
-		break
 
 	case MotorJointType:
 		prepareMotorJoint(jnt, context)
-		break
 
 	case MoverJointType:
 		prepareMoverJoint(jnt, context)
-		break
 
 	case FilterJointType:
 		break
 
 	case PogoJointType:
 		preparePogoJoint(jnt, context)
-		break
 
 	case PrismaticJointType:
 		preparePrismaticJoint(jnt, context)
-		break
 
 	case RevoluteJointType:
 		prepareRevoluteJoint(jnt, context)
-		break
 
 	case WeldJointType:
 		prepareWeldJoint(jnt, context)
-		break
 
 	case WheelJointType:
 		prepareWheelJoint(jnt, context)
-		break
 
 	default:
 		assert(false, "false")
@@ -1987,38 +1828,30 @@ func warmStartJoint(jnt *jointSim, context *stepContext) {
 	switch jnt.jointType {
 	case DistanceJointType:
 		warmStartDistanceJoint(jnt, context)
-		break
 
 	case MotorJointType:
 		warmStartMotorJoint(jnt, context)
-		break
 
 	case MoverJointType:
 		warmStartMoverJoint(jnt, context)
-		break
 
 	case FilterJointType:
 		break
 
 	case PogoJointType:
 		warmStartPogoJoint(jnt, context)
-		break
 
 	case PrismaticJointType:
 		warmStartPrismaticJoint(jnt, context)
-		break
 
 	case RevoluteJointType:
 		warmStartRevoluteJoint(jnt, context)
-		break
 
 	case WeldJointType:
 		warmStartWeldJoint(jnt, context)
-		break
 
 	case WheelJointType:
 		warmStartWheelJoint(jnt, context)
-		break
 
 	default:
 		assert(false, "false")
@@ -2029,38 +1862,30 @@ func solveJoint(jnt *jointSim, context *stepContext, useBias bool) {
 	switch jnt.jointType {
 	case DistanceJointType:
 		solveDistanceJoint(jnt, context, useBias)
-		break
 
 	case MotorJointType:
 		solveMotorJoint(jnt, context)
-		break
 
 	case MoverJointType:
 		solveMoverJoint(jnt, context)
-		break
 
 	case FilterJointType:
 		break
 
 	case PogoJointType:
 		solvePogoJoint(jnt, context, useBias)
-		break
 
 	case PrismaticJointType:
 		solvePrismaticJoint(jnt, context, useBias)
-		break
 
 	case RevoluteJointType:
 		solveRevoluteJoint(jnt, context, useBias)
-		break
 
 	case WeldJointType:
 		solveWeldJoint(jnt, context, useBias)
-		break
 
 	case WheelJointType:
 		solveWheelJoint(jnt, context, useBias)
-		break
 
 	default:
 		assert(false, "false")
@@ -2168,7 +1993,7 @@ func solveJointsTask(block solverBlock, context *stepContext, useBias bool, work
 		solveJoint(jnt, context, useBias)
 
 		if useBias && (jnt.forceThreshold < math.MaxFloat32 || jnt.torqueThreshold < math.MaxFloat32) &&
-			!getBit(jointStateBitSet, uint32(jnt.jointId)) {
+			!getBit(jointStateBitSet, uint32(jnt.jointID)) {
 			var force, torque float32
 
 			force, torque = getJointReaction(jnt, context.invH)
@@ -2176,7 +2001,7 @@ func solveJointsTask(block solverBlock, context *stepContext, useBias bool, work
 			// Check thresholds. A zero threshold means all awake joints get reported.
 			if force >= jnt.forceThreshold || torque >= jnt.torqueThreshold {
 				// Flag this joint for processing.
-				setBit(jointStateBitSet, uint32(jnt.jointId))
+				setBit(jointStateBitSet, uint32(jnt.jointID))
 			}
 		}
 	}
@@ -2184,8 +2009,8 @@ func solveJointsTask(block solverBlock, context *stepContext, useBias bool, work
 
 func drawJoint(draw *DebugDraw, world *World, jnt *joint) {
 	var (
-		bodyA = &world.bodies[jnt.edges[0].bodyId]
-		bodyB = &world.bodies[jnt.edges[1].bodyId]
+		bodyA = &world.bodies[jnt.edges[0].bodyID]
+		bodyB = &world.bodies[jnt.edges[1].bodyID]
 	)
 	if bodyA.setIndex == disabledSet || bodyB.setIndex == disabledSet {
 		return
@@ -2198,65 +2023,7 @@ func drawJoint(draw *DebugDraw, world *World, jnt *joint) {
 		xfB = getBodyTransformQuick(world, bodyB)
 	)
 
-	var (
-		pA = xfA.Apply(sim.localFrameA.P)
-		pB = xfB.Apply(sim.localFrameB.P)
-	)
-
-	scale := maxFloat(0.0001, float32(draw.JointScale*jnt.drawScale))
-
-	switch jnt.jointType {
-	case DistanceJointType:
-		drawDistanceJoint(draw, sim, xfA, xfB)
-		break
-
-	case FilterJointType:
-		draw.DrawPoint(pA, 8.0, ColorLightSkyBlue)
-		draw.DrawPoint(pB, 8.0, ColorLightSkyBlue)
-
-		if draw.DrawJointExtras {
-			draw.DrawLine(pA, pB, ColorGold)
-		}
-
-		break
-
-	case MotorJointType:
-		draw.DrawPoint(pA, 8.0, ColorYellowGreen)
-		draw.DrawPoint(pB, 8.0, ColorPlum)
-
-		if draw.DrawJointExtras {
-			draw.DrawLine(pA, pB, ColorLightGray)
-		}
-
-		break
-
-	case MoverJointType:
-		draw.DrawPoint(pB, 8.0, ColorPlum)
-		break
-
-	case PogoJointType:
-		draw.DrawLine(pA, pB, ColorLightGray)
-		break
-
-	case PrismaticJointType:
-		drawPrismaticJoint(draw, sim, xfA, xfB, scale)
-		break
-
-	case RevoluteJointType:
-		drawRevoluteJoint(draw, sim, xfA, xfB, scale)
-		break
-
-	case WeldJointType:
-		drawWeldJoint(draw, sim, xfA, xfB, scale)
-		break
-
-	case WheelJointType:
-		drawWheelJoint(draw, sim, xfA, xfB, scale)
-		break
-
-	default:
-		break
-	}
+	pA, pB := drawJointGeometry(draw, jnt, sim, xfA, xfB)
 
 	if draw.DrawGraphColors {
 		colorIndex := jnt.colorIndex
@@ -2278,4 +2045,205 @@ func drawJoint(draw *DebugDraw, world *World, jnt *joint) {
 		buffer := fmt.Sprintf("f = [%.6g, %.6g], t = %.6g", force.X, force.Y, torque)
 		draw.DrawString(p, buffer, ColorAzure)
 	}
+}
+
+func placeJointInSolverSet(world *World, jnt *joint, bodyA, bodyB *body, maxSetIndex int) *jointSim {
+	jointID := jnt.jointID
+	bodyIDA := bodyA.id
+	bodyIDB := bodyB.id
+
+	var sim *jointSim
+
+	if bodyA.setIndex == disabledSet || bodyB.setIndex == disabledSet {
+		// if either body is disabled, create in disabled set
+		set := &world.solverSets[disabledSet]
+
+		jnt.setIndex = disabledSet
+		jnt.localIndex = len(set.jointSims)
+
+		set.jointSims, sim = arrayEmplace(set.jointSims)
+		*sim = jointSim{}
+
+		sim.jointID = jointID
+		sim.bodyIDA = bodyIDA
+		sim.bodyIDB = bodyIDB
+	} else if bodyA.bodyType != DynamicBody && bodyB.bodyType != DynamicBody {
+		// joint is not attached to a dynamic body
+		set := &world.solverSets[staticSet]
+
+		jnt.setIndex = staticSet
+		jnt.localIndex = len(set.jointSims)
+
+		set.jointSims, sim = arrayEmplace(set.jointSims)
+		*sim = jointSim{}
+
+		sim.jointID = jointID
+		sim.bodyIDA = bodyIDA
+		sim.bodyIDB = bodyIDB
+	} else if bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet {
+		// if either body is sleeping, wake it
+		if maxSetIndex >= firstSleepingSet {
+			wakeSolverSet(world, maxSetIndex)
+		}
+
+		jnt.setIndex = awakeSet
+
+		sim = createJointInGraph(world, jnt)
+		sim.jointID = jointID
+		sim.bodyIDA = bodyIDA
+		sim.bodyIDB = bodyIDB
+	} else {
+		// joint connected between sleeping and/or static bodies
+		assert(bodyA.setIndex >= firstSleepingSet || bodyB.setIndex >= firstSleepingSet, "bodyA->setIndex >= b2_firstSleepingSet || bodyB->setIndex >= b2_firstSleepingSet")
+		assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet")
+
+		// joint should go into the sleeping set (not static set)
+		setIndex := maxSetIndex
+
+		set := &world.solverSets[setIndex]
+
+		jnt.setIndex = setIndex
+		jnt.localIndex = len(set.jointSims)
+
+		set.jointSims, sim = arrayEmplace(set.jointSims)
+		*sim = jointSim{}
+
+		// These must be set to accommodate the merge below
+		sim.jointID = jointID
+		sim.bodyIDA = bodyIDA
+		sim.bodyIDB = bodyIDB
+
+		if bodyA.setIndex != bodyB.setIndex && bodyA.setIndex >= firstSleepingSet &&
+			bodyB.setIndex >= firstSleepingSet {
+			// merge sleeping sets
+			mergeSolverSets(world, bodyA.setIndex, bodyB.setIndex)
+			assert(bodyA.setIndex == bodyB.setIndex, "bodyA->setIndex == bodyB->setIndex")
+
+			// fix potentially invalid set index
+			setIndex = bodyA.setIndex
+
+			mergedSet := &world.solverSets[setIndex]
+
+			// Careful! The joint sim pointer was orphaned by the set merge.
+			sim = &mergedSet.jointSims[jnt.localIndex]
+		}
+
+		assert(jnt.setIndex == setIndex, "joint->setIndex == setIndex")
+	}
+
+	return sim
+}
+
+func distanceLinearSeparation(joint *distanceJoint, length float32) float32 {
+	if !joint.enableSpring {
+		return absFloat(length - joint.length)
+	}
+
+	if !joint.enableLimit {
+		return 0.0
+	}
+
+	if length < joint.minLength {
+		return joint.minLength - length
+	}
+
+	if length > joint.maxLength {
+		return length - joint.maxLength
+	}
+
+	return 0.0
+}
+
+func axialLinearSeparation(axisA, dp Vec2, enableLimit bool, lowerTranslation, upperTranslation float32) float32 {
+	perpA := axisA.LeftPerp()
+	perpendicularSeparation := absFloat(perpA.Dot(dp))
+	limitSeparation := float32(0.0)
+
+	if enableLimit {
+		translation := axisA.Dot(dp)
+		if translation < lowerTranslation {
+			limitSeparation = lowerTranslation - translation
+		}
+
+		if upperTranslation < translation {
+			limitSeparation = translation - upperTranslation
+		}
+	}
+
+	return float32(math.Sqrt(float64(float32(perpendicularSeparation*perpendicularSeparation) + float32(limitSeparation*limitSeparation))))
+}
+
+func revoluteAngularSeparation(joint *revoluteJoint, angle float32) float32 {
+	if joint.enableLimit {
+		if angle < joint.lowerAngle {
+			return joint.lowerAngle - angle
+		}
+
+		if joint.upperAngle < angle {
+			return angle - joint.upperAngle
+		}
+	}
+
+	return 0.0
+}
+
+func jointSolverBodyState(context *stepContext, index int, dummyState *bodyState) *bodyState {
+	if index == nullIndex {
+		return dummyState
+	}
+
+	return &context.states[index]
+}
+
+func drawJointGeometry(draw *DebugDraw, jnt *joint, sim *jointSim, xfA, xfB WorldTransform) (Pos, Pos) {
+	var (
+		pA = xfA.Apply(sim.localFrameA.P)
+		pB = xfB.Apply(sim.localFrameB.P)
+	)
+
+	scale := maxFloat(0.0001, float32(draw.JointScale*jnt.drawScale))
+
+	switch jnt.jointType {
+	case DistanceJointType:
+		drawDistanceJoint(draw, sim, xfA, xfB)
+
+	case FilterJointType:
+		draw.DrawPoint(pA, 8.0, ColorLightSkyBlue)
+		draw.DrawPoint(pB, 8.0, ColorLightSkyBlue)
+
+		if draw.DrawJointExtras {
+			draw.DrawLine(pA, pB, ColorGold)
+		}
+
+	case MotorJointType:
+		draw.DrawPoint(pA, 8.0, ColorYellowGreen)
+		draw.DrawPoint(pB, 8.0, ColorPlum)
+
+		if draw.DrawJointExtras {
+			draw.DrawLine(pA, pB, ColorLightGray)
+		}
+
+	case MoverJointType:
+		draw.DrawPoint(pB, 8.0, ColorPlum)
+
+	case PogoJointType:
+		draw.DrawLine(pA, pB, ColorLightGray)
+
+	case PrismaticJointType:
+		drawPrismaticJoint(draw, sim, xfA, xfB, scale)
+
+	case RevoluteJointType:
+		drawRevoluteJoint(draw, sim, xfA, xfB, scale)
+
+	case WeldJointType:
+		drawWeldJoint(draw, sim, xfA, xfB, scale)
+
+	case WheelJointType:
+		drawWheelJoint(draw, sim, xfA, xfB, scale)
+
+	default:
+		break
+	}
+
+	return pA, pB
 }

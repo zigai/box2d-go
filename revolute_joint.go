@@ -131,8 +131,8 @@ func (r RevoluteJoint) TargetAngle() float32 {
 func (r RevoluteJoint) Angle() float32 {
 	world := r.Joint.world
 	jointSim := getJointSimCheckType(r.Joint, RevoluteJointType)
-	qA := getBodyTransform(world, jointSim.bodyIdA).Q.Mul(jointSim.localFrameA.Q)
-	qB := getBodyTransform(world, jointSim.bodyIdB).Q.Mul(jointSim.localFrameB.Q)
+	qA := getBodyTransform(world, jointSim.bodyIDA).Q.Mul(jointSim.localFrameA.Q)
+	qB := getBodyTransform(world, jointSim.bodyIDB).Q.Mul(jointSim.localFrameB.Q)
 
 	angle := qA.RelativeAngle(qB)
 
@@ -274,8 +274,8 @@ func prepareRevoluteJoint(base *jointSim, context *stepContext) {
 	assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
 
 	// chase body id to the solver set where the body lives
-	idA := base.bodyIdA
-	idB := base.bodyIdB
+	idA := base.bodyIDA
+	idB := base.bodyIDB
 
 	world := context.world
 
@@ -360,19 +360,9 @@ func warmStartRevoluteJoint(base *jointSim, context *stepContext) {
 
 	joint := &base.revoluteJoint
 
-	var stateA *bodyState
-	if joint.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[joint.indexA]
-	}
+	stateA := jointSolverBodyState(context, joint.indexA, &dummyState)
 
-	var stateB *bodyState
-	if joint.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[joint.indexB]
-	}
+	stateB := jointSolverBodyState(context, joint.indexB, &dummyState)
 
 	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
 	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
@@ -403,19 +393,9 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 
 	joint := &base.revoluteJoint
 
-	var stateA *bodyState
-	if joint.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[joint.indexA]
-	}
+	stateA := jointSolverBodyState(context, joint.indexA, &dummyState)
 
-	var stateB *bodyState
-	if joint.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[joint.indexB]
-	}
+	stateB := jointSolverBodyState(context, joint.indexB, &dummyState)
 
 	vA := stateA.linearVelocity
 	wA := stateA.angularVelocity
@@ -433,13 +413,13 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		jointAngle := relQ.Angle()
 		jointAngleDelta := UnwindAngle(jointAngle - joint.targetAngle)
 
-		C := jointAngleDelta
-		bias := float32(joint.springSoftness.biasRate * C)
+		separation := jointAngleDelta
+		bias := float32(joint.springSoftness.biasRate * separation)
 		massScale := joint.springSoftness.massScale
 		impulseScale := joint.springSoftness.impulseScale
 
-		Cdot := wB - wA
-		impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*joint.springImpulse)
+		velocityError := wB - wA
+		impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.springImpulse)
 		joint.springImpulse += impulse
 
 		wA -= float32(iA * impulse)
@@ -448,8 +428,8 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 
 	// Solve motor constraint.
 	if joint.enableMotor && !fixedRotation {
-		Cdot := wB - wA - joint.motorSpeed
-		impulse := float32(-joint.axialMass * Cdot)
+		velocityError := wB - wA - joint.motorSpeed
+		impulse := float32(-joint.axialMass * velocityError)
 		oldImpulse := joint.motorImpulse
 		maxImpulse := float32(context.h * joint.maxMotorTorque)
 		joint.motorImpulse = clampFloat(joint.motorImpulse+impulse, -maxImpulse, maxImpulse)
@@ -464,23 +444,12 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 
 		// Lower limit
 		{
-			C := jointAngle - joint.lowerAngle
-			bias := float32(0.0)
-			massScale := float32(1.0)
-			impulseScale := float32(0.0)
+			separation := jointAngle - joint.lowerAngle
+			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
 
-			if C > float32(0.0) {
-				// speculation
-				bias = float32(C * context.invH)
-			} else if useBias {
-				bias = float32(base.constraintSoftness.biasRate * C)
-				massScale = base.constraintSoftness.massScale
-				impulseScale = base.constraintSoftness.impulseScale
-			}
-
-			Cdot := wB - wA
+			velocityError := wB - wA
 			oldImpulse := joint.lowerImpulse
-			impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*oldImpulse)
+			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*oldImpulse)
 			joint.lowerImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.lowerImpulse - oldImpulse
 
@@ -492,24 +461,13 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		// Note: signs are flipped to keep C positive when the constraint is satisfied.
 		// This also keeps the impulse positive when the limit is active.
 		{
-			C := joint.upperAngle - jointAngle
-			bias := float32(0.0)
-			massScale := float32(1.0)
-			impulseScale := float32(0.0)
+			separation := joint.upperAngle - jointAngle
+			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
 
-			if C > float32(0.0) {
-				// speculation
-				bias = float32(C * context.invH)
-			} else if useBias {
-				bias = float32(base.constraintSoftness.biasRate * C)
-				massScale = base.constraintSoftness.massScale
-				impulseScale = base.constraintSoftness.impulseScale
-			}
-
-			// sign flipped on Cdot
-			Cdot := wA - wB
+			// sign flipped on velocityError
+			velocityError := wA - wB
 			oldImpulse := joint.upperImpulse
-			impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*oldImpulse)
+			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*oldImpulse)
 			joint.upperImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.upperImpulse - oldImpulse
 
@@ -530,7 +488,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		rA := stateA.deltaRotation.Rotate(joint.frameA.P)
 		rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
-		Cdot := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
+		velocityError := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 
 		bias := Vec2{}
 		massScale := float32(1.0)
@@ -546,13 +504,13 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 			impulseScale = base.constraintSoftness.impulseScale
 		}
 
-		var K Mat22
+		var massMatrix Mat22
 
-		K.Cx.X = mA + mB + float32(float32(rA.Y*rA.Y)*iA) + float32(float32(rB.Y*rB.Y)*iB)
-		K.Cy.X = float32(float32(-rA.Y*rA.X)*iA) - float32(float32(rB.Y*rB.X)*iB)
-		K.Cx.Y = K.Cy.X
-		K.Cy.Y = mA + mB + float32(float32(rA.X*rA.X)*iA) + float32(float32(rB.X*rB.X)*iB)
-		b := K.Solve(Cdot.Add(bias))
+		massMatrix.Cx.X = mA + mB + float32(float32(rA.Y*rA.Y)*iA) + float32(float32(rB.Y*rB.Y)*iB)
+		massMatrix.Cy.X = float32(float32(-rA.Y*rA.X)*iA) - float32(float32(rB.Y*rB.X)*iB)
+		massMatrix.Cx.Y = massMatrix.Cy.X
+		massMatrix.Cy.Y = mA + mB + float32(float32(rA.X*rA.X)*iA) + float32(float32(rB.X*rB.X)*iB)
+		b := massMatrix.Solve(velocityError.Add(bias))
 		b.X = float32(b.X)
 		b.Y = float32(b.Y)
 

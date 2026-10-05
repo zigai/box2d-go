@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d_test
 
 import (
@@ -68,8 +69,8 @@ func TestRecordingMutationParity(t *testing.T) {
 	for phase := range 18 {
 		switch phase {
 		case 0:
-			cap := box2d.Capsule{Center1: box2d.Vec2{X: -0.4}, Center2: box2d.Vec2{X: 0.6}, Radius: 0.3}
-			shape.SetCapsule(&cap)
+			capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.4}, Center2: box2d.Vec2{X: 0.6}, Radius: 0.3}
+			shape.SetCapsule(&capsule)
 			body.SetMassData(box2d.MassData{Mass: 7, Center: box2d.Vec2{X: 0.2}, RotationalInertia: 2})
 			body.SetName("mutated name")
 			body.SetContactEventsEnabled(true)

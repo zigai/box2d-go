@@ -32,21 +32,21 @@ func BTDynamicsPack(rows [][36]uint64) []byte {
 	return data
 }
 
-func BTDynamicsUnpack(t testing.TB, data []byte) [][36]uint64 {
-	t.Helper()
+func BTDynamicsUnpack(tb testing.TB, data []byte) [][36]uint64 {
+	tb.Helper()
 
 	var rows [][36]uint64
 
 	for len(data) != 0 {
 		if len(data) < 292 {
-			t.Fatal("incomplete dynamics RLE row")
+			tb.Fatal("incomplete dynamics RLE row")
 		}
 
 		count := binary.LittleEndian.Uint32(data[:4])
 		data = data[4:]
 
 		if count == 0 || count > 1048576 || len(rows)+int(count) > 1048576 {
-			t.Fatal("invalid dynamics RLE run count")
+			tb.Fatal("invalid dynamics RLE run count")
 		}
 
 		var row [36]uint64
@@ -63,16 +63,16 @@ func BTDynamicsUnpack(t testing.TB, data []byte) [][36]uint64 {
 	return rows
 }
 
-func BTDynamicsCompare(t testing.TB, label string, step int, got [36]uint64, want [][36]uint64) {
-	t.Helper()
+func BTDynamicsCompare(tb testing.TB, label string, step int, got [36]uint64, want [][36]uint64) {
+	tb.Helper()
 
 	if step > len(want) {
-		t.Fatalf("%s: unexpected observation %d", label, step)
+		tb.Fatalf("%s: unexpected observation %d", label, step)
 	}
 
 	for i, v := range got {
 		if v != want[step-1][i] {
-			t.Fatalf("%s: first divergent observation %d field %s: C=%016x Go=%016x", label, step, btDynamicsFields[i], want[step-1][i], v)
+			tb.Fatalf("%s: first divergent observation %d field %s: C=%016x Go=%016x", label, step, btDynamicsFields[i], want[step-1][i], v)
 		}
 	}
 }

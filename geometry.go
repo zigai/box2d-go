@@ -146,42 +146,6 @@ func (input *RayCastInput) IsValid() bool {
 	return isValid
 }
 
-func computePolygonCentroid(vertices []Vec2, count int) Vec2 {
-	var (
-		center Vec2
-		area   float32 = 0.0
-	)
-
-	// Get a reference point for forming triangles.
-	// Use the first vertex to reduce round-off errors.
-	origin := vertices[0]
-
-	var inv3 float32 = 1.0 / 3.0
-
-	for i := 1; i < count-1; i++ {
-		// Triangle edges
-		e1 := vertices[i].Sub(origin)
-		e2 := vertices[i+1].Sub(origin)
-
-		a := float32(0.5 * e1.Cross(e2))
-
-		// Area weighted centroid
-		center = center.MulAdd(a*inv3, e1.Add(e2))
-		area += a
-	}
-
-	assert(area > float32(0x1p-23), "area > FLT_EPSILON")
-
-	invArea := 1.0 / area
-
-	center.X = float32(center.X * invArea)
-	center.Y = float32(center.Y * invArea)
-	// Restore offset
-	center = origin.Add(center)
-
-	return center
-}
-
 // Make a convex polygon from a convex hull. This will assert if the hull is not valid.
 // @warning Do not manually fill in the hull data, it must come directly from ComputeHull.
 func MakePolygon(hull *Hull, radius float32) Polygon {
@@ -531,9 +495,9 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 		e1 := vertices[i].Sub(r)
 		e2 := vertices[i+1].Sub(r)
 
-		D := e1.Cross(e2)
+		d := e1.Cross(e2)
 
-		triangleArea := float32(0.5 * D)
+		triangleArea := float32(0.5 * d)
 
 		area += triangleArea
 		// Area weighted centroid, r at origin
@@ -546,7 +510,7 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 			inty2 = float32(ey1*ey1) + float32(ey2*ey1) + float32(ey2*ey2)
 		)
 
-		rotationalInertia += float32((0.25 * inv3 * D) * (intx2 + inty2))
+		rotationalInertia += float32((0.25 * inv3 * d) * (intx2 + inty2))
 	}
 
 	var massData MassData
@@ -571,108 +535,6 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 	return massData
 }
 
-func computeCircleFatAABB(shape *Circle, xf WorldTransform, extra float32) AABB {
-	c := xf.Apply(shape.Center)
-	r := float64(shape.Radius) + float64(extra)
-
-	return AABB{
-		Vec2{RoundDownFloat(float64(c.X) - r), RoundDownFloat(float64(c.Y) - r)},
-		Vec2{RoundUpFloat(float64(c.X) + r), RoundUpFloat(float64(c.Y) + r)},
-	}
-}
-
-func computeCapsuleFatAABB(shape *Capsule, xf WorldTransform, extra float32) AABB {
-	v1 := xf.Apply(shape.Center1)
-	v2 := xf.Apply(shape.Center2)
-	lx, ly := v2.X, v2.Y
-
-	ux, uy := v2.X, v2.Y
-	if v1.X < v2.X {
-		lx = v1.X
-	}
-
-	if v1.Y < v2.Y {
-		ly = v1.Y
-	}
-
-	if v1.X > v2.X {
-		ux = v1.X
-	}
-
-	if v1.Y > v2.Y {
-		uy = v1.Y
-	}
-
-	r := float64(shape.Radius) + float64(extra)
-
-	return AABB{
-		Vec2{RoundDownFloat(float64(lx) - r), RoundDownFloat(float64(ly) - r)},
-		Vec2{RoundUpFloat(float64(ux) + r), RoundUpFloat(float64(uy) + r)},
-	}
-}
-
-func computePolygonFatAABB(shape *Polygon, xf WorldTransform, extra float32) AABB {
-	assert(shape.Count > 0, "shape->count > 0")
-	v := xf.Apply(shape.Vertices[0])
-
-	lx, ly, ux, uy := float64(v.X), float64(v.Y), float64(v.X), float64(v.Y)
-	for i := 1; i < shape.Count; i++ {
-		v = xf.Apply(shape.Vertices[i])
-		if float64(v.X) < lx {
-			lx = float64(v.X)
-		}
-
-		if float64(v.Y) < ly {
-			ly = float64(v.Y)
-		}
-
-		if float64(v.X) > ux {
-			ux = float64(v.X)
-		}
-
-		if float64(v.Y) > uy {
-			uy = float64(v.Y)
-		}
-	}
-
-	r := float64(shape.Radius) + float64(extra)
-
-	return AABB{
-		Vec2{RoundDownFloat(lx - r), RoundDownFloat(ly - r)},
-		Vec2{RoundUpFloat(ux + r), RoundUpFloat(uy + r)},
-	}
-}
-
-func computeSegmentFatAABB(shape *Segment, xf WorldTransform, extra float32) AABB {
-	v1 := xf.Apply(shape.Point1)
-	v2 := xf.Apply(shape.Point2)
-	lx, ly := v2.X, v2.Y
-
-	ux, uy := v2.X, v2.Y
-	if v1.X < v2.X {
-		lx = v1.X
-	}
-
-	if v1.Y < v2.Y {
-		ly = v1.Y
-	}
-
-	if v1.X > v2.X {
-		ux = v1.X
-	}
-
-	if v1.Y > v2.Y {
-		uy = v1.Y
-	}
-
-	r := float64(extra)
-
-	return AABB{
-		Vec2{RoundDownFloat(float64(lx) - r), RoundDownFloat(float64(ly) - r)},
-		Vec2{RoundUpFloat(float64(ux) + r), RoundUpFloat(float64(uy) + r)},
-	}
-}
-
 // Compute the bounding box of a transformed circle.
 func ComputeCircleAABB(shape *Circle, xf WorldTransform) AABB {
 	return computeCircleFatAABB(shape, xf, 0.0)
@@ -691,31 +553,6 @@ func ComputePolygonAABB(shape *Polygon, xf WorldTransform) AABB {
 // Compute the bounding box of a transformed line segment.
 func ComputeSegmentAABB(shape *Segment, xf WorldTransform) AABB {
 	return computeSegmentFatAABB(shape, xf, 0.0)
-}
-
-// Conservative world AABB for a shape, inflated by extra margin. In large world mode this is
-// computed in double and rounded outward so the inflation is not lost far from the origin.
-func computeFatShapeAABB(shape *shape, xf WorldTransform, extra float32) AABB {
-	switch shape.shapeType {
-	case CapsuleShape:
-		return computeCapsuleFatAABB(&shape.capsule, xf, extra)
-	case CircleShape:
-		return computeCircleFatAABB(&shape.circle, xf, extra)
-	case PolygonShape:
-		return computePolygonFatAABB(&shape.polygon, xf, extra)
-	case SegmentShape:
-		return computeSegmentFatAABB(&shape.segment, xf, extra)
-	case ChainSegmentShape:
-		return computeSegmentFatAABB(&shape.chainSegment.Segment, xf, extra)
-	default:
-		{
-			assert(false, "false")
-
-			var empty AABB
-
-			return empty
-		}
-	}
 }
 
 // Test a point for overlap with a circle in local space.
@@ -949,19 +786,20 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 		// ray passes behind capsule segment
 		circle := Circle{v1, shape.Radius}
 		return RayCastCircle(&circle, input)
-	} else if capsuleLength < s1 {
+	}
+
+	if capsuleLength < s1 {
 		// ray passes ahead of capsule segment
 		circle := Circle{v2, shape.Radius}
 		return RayCastCircle(&circle, input)
-	} else {
-		// ray hits capsule side
-		output.Fraction = s2 / rayLength
-		output.Point = v1.Lerp(v2, s1/capsuleLength).Add(n.Scale(shape.Radius))
-		output.Normal = n
-		output.Hit = true
-
-		return output
 	}
+	// ray hits capsule side
+	output.Fraction = s2 / rayLength
+	output.Point = v1.Lerp(v2, s1/capsuleLength).Add(n.Scale(shape.Radius))
+	output.Normal = n
+	output.Hit = true
+
+	return output
 }
 
 // Ray cast versus segment shape in local space. Optionally treat the segment as one-sided with hits from
@@ -1045,74 +883,7 @@ func RayCastPolygon(shape *Polygon, input *RayCastInput) CastOutput {
 	assert(input.IsValid(), "b2IsValidRay( input )")
 
 	if shape.Radius == 0.0 {
-		// Shift all math to first vertex since the polygon may be far
-		// from the origin.
-		base := shape.Vertices[0]
-
-		p1 := input.Origin.Sub(base)
-		d := input.Translation
-
-		var lower float32
-
-		upper := input.MaxFraction
-
-		index := -1
-
-		var output CastOutput
-
-		for edgeIndex := range shape.Count {
-			// p = p1 + a * d
-			// dot(normal, p - v) = 0
-			// dot(normal, p1 - v) + a * dot(normal, d) = 0
-			vertex := shape.Vertices[edgeIndex].Sub(base)
-
-			var (
-				numerator   = shape.Normals[edgeIndex].Dot(vertex.Sub(p1))
-				denominator = shape.Normals[edgeIndex].Dot(d)
-			)
-
-			if denominator == 0.0 {
-				// Parallel and runs outside edge
-				if numerator < 0.0 {
-					return output
-				}
-			} else {
-				// Note: we want this predicate without division:
-				// lower < numerator / denominator, where denominator < 0
-				// Since denominator < 0, we have to flip the inequality:
-				// lower < numerator / denominator <==> denominator * lower > numerator.
-				if denominator < 0.0 && numerator < lower*denominator {
-					// Increase lower.
-					// The segment enters this half-space.
-					lower = numerator / denominator
-					index = edgeIndex
-				} else if denominator > 0.0 && numerator < upper*denominator {
-					// Decrease upper.
-					// The segment exits this half-space.
-					upper = numerator / denominator
-				}
-			}
-
-			if upper < lower {
-				// Ray misses
-				return output
-			}
-		}
-
-		assert(0.0 <= lower && lower <= input.MaxFraction, "0.0f <= lower && lower <= input->maxFraction")
-
-		if index >= 0 {
-			output.Fraction = lower
-			output.Normal = shape.Normals[index]
-			output.Point = input.Origin.MulAdd(lower, d)
-			output.Hit = true
-		} else {
-			// initial overlap
-			output.Point = input.Origin
-			output.Hit = true
-		}
-
-		return output
+		return rayCastSharpPolygon(shape, input)
 	}
 
 	var castInput ShapeCastPairInput
@@ -1181,6 +952,172 @@ func ShapeCastPolygon(shape *Polygon, input *ShapeCastInput) CastOutput {
 	pairInput.CanEncroach = input.CanEncroach
 
 	return ShapeCast(&pairInput)
+}
+
+func computePolygonCentroid(vertices []Vec2, count int) Vec2 {
+	var (
+		center Vec2
+		area   float32 = 0.0
+	)
+
+	// Get a reference point for forming triangles.
+	// Use the first vertex to reduce round-off errors.
+	origin := vertices[0]
+
+	var inv3 float32 = 1.0 / 3.0
+
+	for i := 1; i < count-1; i++ {
+		// Triangle edges
+		e1 := vertices[i].Sub(origin)
+		e2 := vertices[i+1].Sub(origin)
+
+		a := float32(0.5 * e1.Cross(e2))
+
+		// Area weighted centroid
+		center = center.MulAdd(a*inv3, e1.Add(e2))
+		area += a
+	}
+
+	assert(area > float32(0x1p-23), "area > FLT_EPSILON")
+
+	invArea := 1.0 / area
+
+	center.X = float32(center.X * invArea)
+	center.Y = float32(center.Y * invArea)
+	// Restore offset
+	center = origin.Add(center)
+
+	return center
+}
+
+func computeCircleFatAABB(shape *Circle, xf WorldTransform, extra float32) AABB {
+	c := xf.Apply(shape.Center)
+	r := float64(shape.Radius) + float64(extra)
+
+	return AABB{
+		Vec2{RoundDownFloat(float64(c.X) - r), RoundDownFloat(float64(c.Y) - r)},
+		Vec2{RoundUpFloat(float64(c.X) + r), RoundUpFloat(float64(c.Y) + r)},
+	}
+}
+
+func computeCapsuleFatAABB(shape *Capsule, xf WorldTransform, extra float32) AABB {
+	v1 := xf.Apply(shape.Center1)
+	v2 := xf.Apply(shape.Center2)
+	lx, ly := v2.X, v2.Y
+
+	ux, uy := v2.X, v2.Y
+	if v1.X < v2.X {
+		lx = v1.X
+	}
+
+	if v1.Y < v2.Y {
+		ly = v1.Y
+	}
+
+	if v1.X > v2.X {
+		ux = v1.X
+	}
+
+	if v1.Y > v2.Y {
+		uy = v1.Y
+	}
+
+	r := float64(shape.Radius) + float64(extra)
+
+	return AABB{
+		Vec2{RoundDownFloat(float64(lx) - r), RoundDownFloat(float64(ly) - r)},
+		Vec2{RoundUpFloat(float64(ux) + r), RoundUpFloat(float64(uy) + r)},
+	}
+}
+
+func computePolygonFatAABB(shape *Polygon, xf WorldTransform, extra float32) AABB {
+	assert(shape.Count > 0, "shape->count > 0")
+	v := xf.Apply(shape.Vertices[0])
+
+	lx, ly, ux, uy := float64(v.X), float64(v.Y), float64(v.X), float64(v.Y)
+	for i := 1; i < shape.Count; i++ {
+		v = xf.Apply(shape.Vertices[i])
+		if float64(v.X) < lx {
+			lx = float64(v.X)
+		}
+
+		if float64(v.Y) < ly {
+			ly = float64(v.Y)
+		}
+
+		if float64(v.X) > ux {
+			ux = float64(v.X)
+		}
+
+		if float64(v.Y) > uy {
+			uy = float64(v.Y)
+		}
+	}
+
+	r := float64(shape.Radius) + float64(extra)
+
+	return AABB{
+		Vec2{RoundDownFloat(lx - r), RoundDownFloat(ly - r)},
+		Vec2{RoundUpFloat(ux + r), RoundUpFloat(uy + r)},
+	}
+}
+
+func computeSegmentFatAABB(shape *Segment, xf WorldTransform, extra float32) AABB {
+	v1 := xf.Apply(shape.Point1)
+	v2 := xf.Apply(shape.Point2)
+	lx, ly := v2.X, v2.Y
+
+	ux, uy := v2.X, v2.Y
+	if v1.X < v2.X {
+		lx = v1.X
+	}
+
+	if v1.Y < v2.Y {
+		ly = v1.Y
+	}
+
+	if v1.X > v2.X {
+		ux = v1.X
+	}
+
+	if v1.Y > v2.Y {
+		uy = v1.Y
+	}
+
+	r := float64(extra)
+
+	return AABB{
+		Vec2{RoundDownFloat(float64(lx) - r), RoundDownFloat(float64(ly) - r)},
+		Vec2{RoundUpFloat(float64(ux) + r), RoundUpFloat(float64(uy) + r)},
+	}
+}
+
+// Conservative world AABB for a shape, inflated by extra margin. In large world mode this is
+// computed in double and rounded outward so the inflation is not lost far from the origin.
+func computeFatShapeAABB(shape *shape, xf WorldTransform, extra float32) AABB {
+	switch shape.shapeType {
+	case CapsuleShape:
+		return computeCapsuleFatAABB(&shape.capsule, xf, extra)
+	case CircleShape:
+		return computeCircleFatAABB(&shape.circle, xf, extra)
+	case PolygonShape:
+		return computePolygonFatAABB(&shape.polygon, xf, extra)
+	case SegmentShape:
+		return computeSegmentFatAABB(&shape.segment, xf, extra)
+	case ChainSegmentShape:
+		return computeSegmentFatAABB(&shape.chainSegment.Segment, xf, extra)
+	case ShapeTypeCount:
+		assert(false, "false")
+		return AABB{}
+	default:
+		{
+			assert(false, "false")
+
+			var empty AABB
+
+			return empty
+		}
+	}
 }
 
 func collideMoverAndCircle(mover *Capsule, shape *Circle) PlaneResult {
@@ -1289,4 +1226,80 @@ func collideMoverAndSegment(mover *Capsule, shape *Segment) PlaneResult {
 	}
 
 	return PlaneResult{}
+}
+
+func rayCastSharpPolygon(shape *Polygon, input *RayCastInput) CastOutput {
+	// Shift all math to first vertex since the polygon may be far
+	// from the origin.
+	base := shape.Vertices[0]
+
+	p1 := input.Origin.Sub(base)
+	d := input.Translation
+
+	var lower float32
+
+	upper := input.MaxFraction
+
+	index := -1
+
+	var output CastOutput
+
+	for edgeIndex := range shape.Count {
+		// p = p1 + a * d
+		// dot(normal, p - v) = 0
+		// dot(normal, p1 - v) + a * dot(normal, d) = 0
+		vertex := shape.Vertices[edgeIndex].Sub(base)
+
+		var (
+			numerator   = shape.Normals[edgeIndex].Dot(vertex.Sub(p1))
+			denominator = shape.Normals[edgeIndex].Dot(d)
+		)
+
+		if denominator == 0.0 {
+			// Parallel and runs outside edge
+			if numerator < 0.0 {
+				return output
+			}
+
+			if upper < lower {
+				return output
+			}
+
+			continue
+		}
+		// Note: we want this predicate without division:
+		// lower < numerator / denominator, where denominator < 0
+		// Since denominator < 0, we have to flip the inequality:
+		// lower < numerator / denominator <==> denominator * lower > numerator.
+		if denominator < 0.0 && numerator < lower*denominator {
+			// Increase lower.
+			// The segment enters this half-space.
+			lower = numerator / denominator
+			index = edgeIndex
+		} else if denominator > 0.0 && numerator < upper*denominator {
+			// Decrease upper.
+			// The segment exits this half-space.
+			upper = numerator / denominator
+		}
+
+		if upper < lower {
+			// Ray misses
+			return output
+		}
+	}
+
+	assert(0.0 <= lower && lower <= input.MaxFraction, "0.0f <= lower && lower <= input->maxFraction")
+
+	if index >= 0 {
+		output.Fraction = lower
+		output.Normal = shape.Normals[index]
+		output.Point = input.Origin.MulAdd(lower, d)
+		output.Hit = true
+	} else {
+		// initial overlap
+		output.Point = input.Origin
+		output.Hit = true
+	}
+
+	return output
 }

@@ -40,9 +40,7 @@ func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 	bodyCount := rowCount * columnCount
 	bodyIDs := make([]box2d.Body, bodyCount)
 	h := float32(0.25)
-	r := float32(0.1) * h
-	box := box2d.MakeRoundedBox(h-r, h-r, r)
-	box = box2d.MakeSquare(h)
+	box := box2d.MakeSquare(h)
 	shapeDef := box2d.DefaultShapeDef()
 	// shapeDef.Material.Friction = 0.3f;
 	jointDef := box2d.DefaultRevoluteJointDef()
@@ -124,23 +122,7 @@ func UpdateFallingHinges(worldID *box2d.World, data *FallingHingeData) bool {
 			}
 
 			data.Hash = box2d.HashInit
-			for i := range data.BodyCount {
-				transform := data.BodyIDs[i].Transform()
-
-				var bytes [int(unsafe.Sizeof(box2d.WorldTransform{}))]byte
-				if fallingHingePrecision == 1 {
-					binary.LittleEndian.PutUint64(bytes[0:8], math.Float64bits(float64(transform.P.X)))
-					binary.LittleEndian.PutUint64(bytes[8:16], math.Float64bits(float64(transform.P.Y)))
-				} else {
-					binary.LittleEndian.PutUint32(bytes[0:4], math.Float32bits(float32(transform.P.X)))
-					binary.LittleEndian.PutUint32(bytes[4:8], math.Float32bits(float32(transform.P.Y)))
-				}
-
-				offset := int(unsafe.Sizeof(box2d.Pos{}))
-				binary.LittleEndian.PutUint32(bytes[offset:offset+4], math.Float32bits(transform.Q.C))
-				binary.LittleEndian.PutUint32(bytes[offset+4:offset+8], math.Float32bits(transform.Q.S))
-				data.Hash = box2d.Hash(data.Hash, bytes[:])
-			}
+			hashFallingHingeTransforms(data)
 
 			data.SleepStep = data.StepCount
 		}
@@ -152,3 +134,23 @@ func UpdateFallingHinges(worldID *box2d.World, data *FallingHingeData) bool {
 }
 
 func DestroyFallingHinges(data *FallingHingeData) { data.BodyIDs = nil }
+
+func hashFallingHingeTransforms(data *FallingHingeData) {
+	for i := range data.BodyCount {
+		transform := data.BodyIDs[i].Transform()
+
+		var bytes [int(unsafe.Sizeof(box2d.WorldTransform{}))]byte
+		if fallingHingePrecision == 1 {
+			binary.LittleEndian.PutUint64(bytes[0:8], math.Float64bits(float64(transform.P.X)))
+			binary.LittleEndian.PutUint64(bytes[8:16], math.Float64bits(float64(transform.P.Y)))
+		} else {
+			binary.LittleEndian.PutUint32(bytes[0:4], math.Float32bits(float32(transform.P.X)))
+			binary.LittleEndian.PutUint32(bytes[4:8], math.Float32bits(float32(transform.P.Y)))
+		}
+
+		offset := int(unsafe.Sizeof(box2d.Pos{}))
+		binary.LittleEndian.PutUint32(bytes[offset:offset+4], math.Float32bits(transform.Q.C))
+		binary.LittleEndian.PutUint32(bytes[offset+4:offset+8], math.Float32bits(transform.Q.S))
+		data.Hash = box2d.Hash(data.Hash, bytes[:])
+	}
+}

@@ -70,7 +70,3 @@ func getIDCount(pool *idPool) int {
 func getIDCapacity(pool *idPool) int {
 	return pool.nextIndex
 }
-
-func getIDBytes(pool *idPool) int {
-	return cap(pool.freeArray) * 4
-}

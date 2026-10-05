@@ -33,70 +33,8 @@ func qsort[T any](s []T, less func(a, b T) bool) {
 
 	var stack [48]struct{ l, r int }
 	for {
-		if r-l+1 >= qThresh {
-			m := l + ((r - l) >> 1)
-
-			a1, a2, a3 := l+1, m, r
-			if less(s[a2], s[a1]) {
-				if less(s[a3], s[a2]) {
-					s[a1], s[a3] = s[a3], s[a1]
-				} else {
-					s[a1], s[a2] = s[a2], s[a1]
-					if less(s[a3], s[a2]) {
-						s[a2], s[a3] = s[a3], s[a2]
-					}
-				}
-			} else if less(s[a3], s[a2]) {
-				s[a2], s[a3] = s[a3], s[a2]
-				if less(s[a2], s[a1]) {
-					s[a1], s[a2] = s[a2], s[a1]
-				}
-			}
-
-			s[l], s[m] = s[m], s[l]
-
-			i, j := l+1, r
-			for {
-				i++
-				for less(s[i], s[l]) {
-					i++
-				}
-
-				j--
-				for less(s[l], s[j]) {
-					j--
-				}
-
-				if i >= j {
-					break
-				}
-
-				s[i], s[j] = s[j], s[i]
-			}
-
-			i = j + 1
-			s[l], s[j] = s[j], s[l]
-			j--
-
-			l1, r1, l2, r2 := l, j, i, r
-			if j-l < r-i {
-				l1, r1, l2, r2 = i, r, l, j
-			}
-
-			if l2 == r2 {
-				l, r = l1, r1
-			} else {
-				stack[sp].l = l1
-				stack[sp].r = r1
-				sp++
-				l, r = l2, r2
-			}
-		} else {
-			for i := l + 1; i <= r; i++ {
-				for j := i; j > l && less(s[j], s[j-1]); j-- {
-					s[j], s[j-1] = s[j-1], s[j]
-				}
-			}
+		if r-l+1 < qThresh {
+			insertionSortRange(s, less, l, r)
 
 			if sp == 0 {
 				break
@@ -104,6 +42,88 @@ func qsort[T any](s []T, less func(a, b T) bool) {
 
 			sp--
 			l, r = stack[sp].l, stack[sp].r
+
+			continue
+		}
+
+		j := partitionQuickSort(s, less, l, r)
+		i := j + 1
+		j--
+
+		l1, r1, l2, r2 := l, j, i, r
+		if j-l < r-i {
+			l1, r1, l2, r2 = i, r, l, j
+		}
+
+		if l2 == r2 {
+			l, r = l1, r1
+			continue
+		}
+
+		stack[sp].l = l1
+		stack[sp].r = r1
+		sp++
+		l, r = l2, r2
+	}
+}
+
+func orderQuickSortPivot[T any](s []T, less func(a, b T) bool, l, m, r int) {
+	a1, a2, a3 := l+1, m, r
+	if less(s[a2], s[a1]) {
+		if less(s[a3], s[a2]) {
+			s[a1], s[a3] = s[a3], s[a1]
+			return
+		}
+
+		s[a1], s[a2] = s[a2], s[a1]
+		if less(s[a3], s[a2]) {
+			s[a2], s[a3] = s[a3], s[a2]
+		}
+
+		return
+	}
+
+	if less(s[a3], s[a2]) {
+		s[a2], s[a3] = s[a3], s[a2]
+		if less(s[a2], s[a1]) {
+			s[a1], s[a2] = s[a2], s[a1]
+		}
+	}
+}
+
+func partitionQuickSort[T any](s []T, less func(a, b T) bool, l, r int) int {
+	m := l + ((r - l) >> 1)
+	orderQuickSortPivot(s, less, l, m, r)
+	s[l], s[m] = s[m], s[l]
+
+	i, j := l+1, r
+	for {
+		i++
+		for less(s[i], s[l]) {
+			i++
+		}
+
+		j--
+		for less(s[l], s[j]) {
+			j--
+		}
+
+		if i >= j {
+			break
+		}
+
+		s[i], s[j] = s[j], s[i]
+	}
+
+	s[l], s[j] = s[j], s[l]
+
+	return j
+}
+
+func insertionSortRange[T any](s []T, less func(a, b T) bool, l, r int) {
+	for i := l + 1; i <= r; i++ {
+		for j := i; j > l && less(s[j], s[j-1]); j-- {
+			s[j], s[j-1] = s[j-1], s[j]
 		}
 	}
 }

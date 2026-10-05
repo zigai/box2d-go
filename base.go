@@ -68,10 +68,6 @@ func validate(ok bool, condition string) {
 	}
 }
 
-func isDenormalFlushEnabled() bool {
-	return false
-}
-
 func (e *AssertError) Error() string {
 	return fmt.Sprintf("BOX2D ASSERTION: %s, %s, line %d", e.Condition, e.File, e.Line)
 }

@@ -1,3 +1,5 @@
+//go:build box2d_stress
+
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
 
@@ -37,30 +39,7 @@ func TestSceneHelperBoundaries(t *testing.T) {
 		r.I32(fmt.Sprintf("%d.s", step), int32(c.ShapeCount))
 		r.I32(fmt.Sprintf("%d.j", step), int32(c.JointCount))
 	}
-	flags := func(step int) {
-		t.Helper()
-
-		spawned, cleared := true, true
-
-		for row := range rainRowCount {
-			for i := range rainGroupSize {
-				h := &gRainData.groups[row*rainColumnCount+rainColumnCount-1].humans[i]
-
-				spawned = spawned && h.IsSpawned
-				for _, b := range h.Bones {
-					cleared = cleared && b.BodyID == (box2d.Body{}) && b.JointID == (box2d.Joint{})
-				}
-			}
-		}
-
-		r.Bool(fmt.Sprintf("%d.spawned", step), spawned)
-		r.Bool(fmt.Sprintf("%d.cleared", step), cleared)
-		r.I32(fmt.Sprintf("%d.column", step), int32(gRainData.columnIndex))
-
-		if !(spawned == (step != 1) && cleared == (step == 1)) {
-			t.Fatal("condition false")
-		}
-	}
+	flags := func(step int) { observeRainHelperFlags(t, r, step) }
 
 	CreateRain(world)
 	counts(-1)
@@ -98,7 +77,7 @@ func TestSceneHelperBoundaries(t *testing.T) {
 	r.Bool("2.oldBody", oldBody.IsValid())
 	r.Bool("2.oldJoint", oldJoint.IsValid())
 
-	if !(gRainData.columnIndex == 0 && gRainData.columnCount == rainColumnCount) {
+	if gRainData.columnIndex != 0 || gRainData.columnCount != rainColumnCount {
 		t.Fatal("condition false")
 	}
 
@@ -132,5 +111,30 @@ func TestSceneHelperBoundaries(t *testing.T) {
 		if !(v == (box2d.Vec2{X: want[i]})) {
 			t.Fatal("condition false")
 		}
+	}
+}
+
+func observeRainHelperFlags(t *testing.T, r *oracle.Reader, step int) {
+	t.Helper()
+
+	spawned, cleared := true, true
+
+	for row := range rainRowCount {
+		for i := range rainGroupSize {
+			h := &gRainData.groups[row*rainColumnCount+rainColumnCount-1].humans[i]
+
+			spawned = spawned && h.IsSpawned
+			for _, b := range h.Bones {
+				cleared = cleared && b.BodyID == (box2d.Body{}) && b.JointID == (box2d.Joint{})
+			}
+		}
+	}
+
+	r.Bool(fmt.Sprintf("%d.spawned", step), spawned)
+	r.Bool(fmt.Sprintf("%d.cleared", step), cleared)
+	r.I32(fmt.Sprintf("%d.column", step), int32(gRainData.columnIndex))
+
+	if spawned != (step != 1) || cleared != (step == 1) {
+		t.Fatal("condition false")
 	}
 }

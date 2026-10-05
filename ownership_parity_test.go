@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d_test
 
 import (
@@ -236,59 +237,15 @@ func TestOwnershipAsyncStepWaitsForExplicitRelease(t *testing.T) {
 	finishing := make(chan struct{})
 	returned := make(chan struct{})
 
-	var (
-		first, heldCompleted          atomic.Bool
-		enqueued, completed, finished atomic.Int64
-		tasks                         sync.WaitGroup
-		releaseOnce                   sync.Once
-	)
+	var releaseOnce sync.Once
 
-	enqueue := func(task func()) func() {
-		enqueued.Add(1)
-
-		held := first.CompareAndSwap(false, true)
-		done := make(chan struct{})
-
-		tasks.Go(func() {
-			defer close(done)
-
-			if held {
-				close(started)
-				<-release
-			}
-
-			task()
-			completed.Add(1)
-
-			if held {
-				heldCompleted.Store(true)
-			}
-		})
-
-		var (
-			observed   atomic.Bool
-			finishOnce sync.Once
-		)
-
-		return func() {
-			finishOnce.Do(func() {
-				if held {
-					close(finishing)
-				}
-			})
-			<-done
-
-			if observed.CompareAndSwap(false, true) {
-				finished.Add(1)
-			}
-		}
-	}
-	s := newOwnershipScene(t, 0, 1, enqueue)
+	work := ownershipHeldTasks{release: release, started: started, finishing: finishing}
+	s := newOwnershipScene(t, 0, 1, work.enqueue)
 	// Release and join before the registered world cleanup, including failure paths.
 	t.Cleanup(func() {
 		releaseOnce.Do(func() { close(release) })
 		ownershipWait(t, returned, "blocked Step cleanup")
-		tasks.Wait()
+		work.tasks.Wait()
 	})
 
 	go func() { s.w.Step(1.0/60, 4); close(returned) }()
@@ -309,25 +266,25 @@ func TestOwnershipAsyncStepWaitsForExplicitRelease(t *testing.T) {
 	default:
 	}
 
-	if heldCompleted.Load() {
+	if work.heldCompleted.Load() {
 		t.Fatal("held first task completed before release")
 	}
 
 	releaseOnce.Do(func() { close(release) })
 	ownershipWait(t, returned, "Step after task release")
-	tasks.Wait()
+	work.tasks.Wait()
 
-	if enqueued.Load() != completed.Load() || enqueued.Load() != finished.Load() {
-		t.Fatalf("task completion: enqueued=%d completed=%d finished=%d", enqueued.Load(), completed.Load(), finished.Load())
+	if work.enqueued.Load() != work.completed.Load() || work.enqueued.Load() != work.finished.Load() {
+		t.Fatalf("task completion: enqueued=%d completed=%d finished=%d", work.enqueued.Load(), work.completed.Load(), work.finished.Load())
 	}
 
 	observeOwnershipScene(r, s, 0)
 
 	for step := 1; step < 48; step++ {
 		s.w.Step(1.0/60, 4)
-		tasks.Wait()
+		work.tasks.Wait()
 
-		if enqueued.Load() != completed.Load() || enqueued.Load() != finished.Load() {
+		if work.enqueued.Load() != work.completed.Load() || work.enqueued.Load() != work.finished.Load() {
 			t.Fatalf("step %d incomplete or unowned work", step)
 		}
 
@@ -335,7 +292,7 @@ func TestOwnershipAsyncStepWaitsForExplicitRelease(t *testing.T) {
 	}
 
 	s.w.Close()
-	tasks.Wait()
+	work.tasks.Wait()
 }
 
 func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
@@ -364,9 +321,7 @@ func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
 				if step%6 == 0 {
 					tasks.Wait()
 
-					if enqueued.Load() != completed.Load() {
-						t.Fatal("reconfiguration with incomplete work")
-					}
+					ownershipCheckCompletedTasks(t, &enqueued, &completed, "reconfiguration with incomplete work")
 
 					s.w.SetWorkerCount(ownershipWorkerCounts[step/6])
 				}
@@ -374,9 +329,7 @@ func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
 				s.w.Step(1.0/60, 4)
 				tasks.Wait()
 
-				if enqueued.Load() != completed.Load() {
-					t.Fatal("Step returned with incomplete owned work")
-				}
+				ownershipCheckCompletedTasks(t, &enqueued, &completed, "Step returned with incomplete owned work")
 
 				observeOwnershipScene(r, s, step)
 			}
@@ -425,15 +378,7 @@ func TestOwnershipConcurrentWorldsAgainstIndependentC(t *testing.T) {
 		done[variant] = make(chan struct{}, 1)
 
 		joined[variant] = make(chan struct{})
-		go func() {
-			defer close(joined[variant])
-
-			for range requests[variant] {
-				scenes[variant].w.Step(1.0/60, 4)
-
-				done[variant] <- struct{}{}
-			}
-		}()
+		go ownershipStepWorker(scenes[variant].w, requests[variant], done[variant], joined[variant])
 	}
 
 	t.Cleanup(func() {
@@ -478,15 +423,7 @@ func TestOwnershipConcurrentWorldsAgainstIndependentC(t *testing.T) {
 		for variant := range 2 {
 			ownershipWait(t, done[variant], "concurrent world step")
 
-			if scenes[variant].w.UserData() != variant {
-				t.Fatal("world user data crossed owners")
-			}
-
-			for i, b := range scenes[variant].bodies {
-				if b.UserData() != variant*100+i {
-					t.Fatal("body user data crossed owners")
-				}
-			}
+			ownershipCheckUserData(t, &scenes[variant], variant)
 
 			observeOwnershipScene(readers[variant], scenes[variant], step)
 		}
@@ -495,6 +432,87 @@ func TestOwnershipConcurrentWorldsAgainstIndependentC(t *testing.T) {
 	for variant := range 2 {
 		if callbacks[variant].Load() == 0 {
 			t.Fatal("world callback was not exercised")
+		}
+	}
+}
+
+type ownershipHeldTasks struct {
+	release                       <-chan struct{}
+	started, finishing            chan struct{}
+	first, heldCompleted          atomic.Bool
+	enqueued, completed, finished atomic.Int64
+	tasks                         sync.WaitGroup
+}
+
+func (work *ownershipHeldTasks) enqueue(task func()) func() {
+	work.enqueued.Add(1)
+
+	held := work.first.CompareAndSwap(false, true)
+	done := make(chan struct{})
+
+	work.tasks.Go(func() {
+		defer close(done)
+
+		if held {
+			close(work.started)
+			<-work.release
+		}
+
+		task()
+		work.completed.Add(1)
+
+		if held {
+			work.heldCompleted.Store(true)
+		}
+	})
+
+	var (
+		observed   atomic.Bool
+		finishOnce sync.Once
+	)
+
+	return func() {
+		finishOnce.Do(func() {
+			if held {
+				close(work.finishing)
+			}
+		})
+		<-done
+
+		if observed.CompareAndSwap(false, true) {
+			work.finished.Add(1)
+		}
+	}
+}
+
+func ownershipCheckCompletedTasks(t *testing.T, enqueued, completed *atomic.Int64, message string) {
+	t.Helper()
+
+	if enqueued.Load() != completed.Load() {
+		t.Fatal(message)
+	}
+}
+
+func ownershipStepWorker(w *box2d.World, requests <-chan struct{}, done chan<- struct{}, joined chan struct{}) {
+	defer close(joined)
+
+	for range requests {
+		w.Step(1.0/60, 4)
+
+		done <- struct{}{}
+	}
+}
+
+func ownershipCheckUserData(t *testing.T, s *ownershipScene, variant int) {
+	t.Helper()
+
+	if s.w.UserData() != variant {
+		t.Fatal("world user data crossed owners")
+	}
+
+	for i, b := range s.bodies {
+		if b.UserData() != variant*100+i {
+			t.Fatal("body user data crossed owners")
 		}
 	}
 }

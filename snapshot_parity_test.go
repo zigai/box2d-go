@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d
 
 import (
@@ -10,110 +11,28 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
+type snapshotFamilyScene struct {
+	world    *World
+	origin   Pos
+	shapes   [5]Shape
+	joints   [5]Joint
+	edge     Shape
+	disabled Body
+	sleeping Body
+	sensor   Shape
+	visitor  Body
+	circle   Circle
+}
+
 func snapshotVec2(r *oracle.Reader, key string, v Vec2) { r.Vec2(key, v.X, v.Y) }
 func snapshotPos(r *oracle.Reader, key string, v Pos)   { r.Pos(key, v.X, v.Y) }
 
 // Native images never cross this boundary: only typed public observations do.
 func snapshotEvents(r *oracle.Reader, w *World, key string) {
 	r.U64(key+"/state", w.StateHash())
-
-	var sb []SensorBeginTouchEvent
-	for e := range w.SensorBeginEvents() {
-		sb = append(sb, e)
-	}
-
-	r.I32(key+"/sensorBegin", int32(len(sb)))
-
-	for i, e := range sb {
-		p := fmt.Sprintf("%s/sensorBegin/%d", key, i)
-		r.I32(p+"/sensor", e.SensorShape.index1)
-		r.U32(p+"/sensorGeneration", uint32(e.SensorShape.generation))
-		r.I32(p+"/visitor", e.VisitorShape.index1)
-		r.U32(p+"/visitorGeneration", uint32(e.VisitorShape.generation))
-	}
-
-	var se []SensorEndTouchEvent
-	for e := range w.SensorEndEvents() {
-		se = append(se, e)
-	}
-
-	r.I32(key+"/sensorEnd", int32(len(se)))
-
-	for i, e := range se {
-		p := fmt.Sprintf("%s/sensorEnd/%d", key, i)
-		r.I32(p+"/sensor", e.SensorShape.index1)
-		r.U32(p+"/sensorGeneration", uint32(e.SensorShape.generation))
-		r.I32(p+"/visitor", e.VisitorShape.index1)
-		r.U32(p+"/visitorGeneration", uint32(e.VisitorShape.generation))
-	}
-
-	var cb []ContactBeginTouchEvent
-	for e := range w.ContactBeginEvents() {
-		cb = append(cb, e)
-	}
-
-	r.I32(key+"/contactBegin", int32(len(cb)))
-
-	for i, e := range cb {
-		p := fmt.Sprintf("%s/contactBegin/%d", key, i)
-		r.I32(p+"/a", e.ShapeA.index1)
-		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
-		r.I32(p+"/b", e.ShapeB.index1)
-		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
-		r.I32(p+"/contact", e.Contact.index1)
-		r.U32(p+"/contactGeneration", e.Contact.generation)
-	}
-
-	var ce []ContactEndTouchEvent
-	for e := range w.ContactEndEvents() {
-		ce = append(ce, e)
-	}
-
-	r.I32(key+"/contactEnd", int32(len(ce)))
-
-	for i, e := range ce {
-		p := fmt.Sprintf("%s/contactEnd/%d", key, i)
-		r.I32(p+"/a", e.ShapeA.index1)
-		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
-		r.I32(p+"/b", e.ShapeB.index1)
-		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
-		r.I32(p+"/contact", e.Contact.index1)
-		r.U32(p+"/contactGeneration", e.Contact.generation)
-	}
-
-	var ch []ContactHitEvent
-	for e := range w.ContactHitEvents() {
-		ch = append(ch, e)
-	}
-
-	r.I32(key+"/contactHit", int32(len(ch)))
-
-	for i, e := range ch {
-		p := fmt.Sprintf("%s/contactHit/%d", key, i)
-		r.I32(p+"/a", e.ShapeA.index1)
-		r.I32(p+"/b", e.ShapeB.index1)
-		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
-		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
-		r.I32(p+"/contact", e.Contact.index1)
-		r.U32(p+"/contactGeneration", e.Contact.generation)
-		snapshotPos(r, p+"/point", e.Point)
-		snapshotVec2(r, p+"/normal", e.Normal)
-		r.F32(p+"/speed", e.ApproachSpeed)
-	}
-
-	var je []JointEvent
-	for e := range w.JointEvents() {
-		je = append(je, e)
-	}
-
-	r.I32(key+"/jointEvents", int32(len(je)))
-
-	for i, e := range je {
-		p := fmt.Sprintf("%s/jointEvent/%d", key, i)
-		r.I32(p+"/id", e.Joint.index1)
-		r.U32(p+"/generation", uint32(e.Joint.generation))
-		r.Bool(p+"/userDataNil", e.UserData == nil)
-	}
+	snapshotSensorEvents(r, w, key)
+	snapshotContactEvents(r, w, key)
+	snapshotJointEvents(r, w, key)
 }
 
 func snapshotQuery(t *testing.T, r *oracle.Reader, w *World, origin Pos, key string) {
@@ -163,131 +82,13 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := oracle.Open(t, "snapshot/"+tc.name)
 			origin := tc.origin
-			wd := DefaultWorldDef()
-			wd.Gravity = Vec2{0, -2}
-			w := NewWorld(&wd)
-			BTWorldCleanup(t, w)
-
-			bd := DefaultBodyDef()
-			bd.Position = origin
-			ground := w.CreateBody(&bd)
-			sd := DefaultShapeDef()
-			sd.EnableContactEvents = true
-			sd.EnableHitEvents = true
-			sd.EnableSensorEvents = true
-			segment := Segment{Point1: Vec2{-25, 0}, Point2: Vec2{25, 0}}
-			edge := ground.CreateSegmentShape(&sd, &segment)
-
-			var (
-				bodies [5]Body
-				shapes [5]Shape
-				joints [5]Joint
-			)
-
-			for i := range 5 {
-				bd = DefaultBodyDef()
-				bd.Type = DynamicBody
-				bd.Position = Pos{origin.X + oracle.Real(3*i), origin.Y + 3}
-
-				bodies[i] = w.CreateBody(&bd)
-				if i%2 == 0 {
-					c := Circle{Center: Vec2{0.125, 0}, Radius: 0.4}
-					shapes[i] = bodies[i].CreateCircleShape(&sd, &c)
-				} else {
-					c := Capsule{Center1: Vec2{-0.3, 0}, Center2: Vec2{0.3, 0}, Radius: 0.25}
-					shapes[i] = bodies[i].CreateCapsuleShape(&sd, &c)
-				}
-
-				base := DefaultFilterJointDef().Base
-				base.BodyA = ground
-				base.BodyB = bodies[i]
-				base.LocalFrameA.P = Vec2{float32(3 * i), 3}
-				base.ForceThreshold = 0.5
-				base.TorqueThreshold = 0.5
-
-				switch i {
-				case 0:
-					d := DefaultWheelJointDef()
-					d.Base = base
-					d.EnableMotor = true
-					d.MotorSpeed = 2
-					d.MaxMotorTorque = 3
-					d.EnableLimit = true
-					d.LowerTranslation = -1
-					d.UpperTranslation = 1
-					joints[i] = w.CreateWheelJoint(&d).Joint
-				case 1:
-					d := DefaultMotorJointDef()
-					d.Base = base
-					d.LinearVelocity = Vec2{0.5, -0.25}
-					d.MaxVelocityForce = 4
-					d.AngularVelocity = 1
-					d.MaxVelocityTorque = 2
-					d.LinearHertz = 2
-					d.LinearDampingRatio = 0.7
-					d.MaxSpringForce = 5
-					d.AngularHertz = 1
-					d.AngularDampingRatio = 0.5
-					d.MaxSpringTorque = 3
-					joints[i] = w.CreateMotorJoint(&d).Joint
-				case 2:
-					d := DefaultMoverJointDef()
-					d.Base = base
-					d.LinearVelocity = Vec2{1, -0.5}
-					d.MaxVelocityForce = Vec2{2, 3}
-					joints[i] = w.CreateMoverJoint(&d).Joint
-				case 3:
-					d := DefaultPogoJointDef()
-					d.Base = base
-					d.Normal = Vec2{0, 1}
-					d.Hertz = 3
-					d.DampingRatio = 0.6
-					d.RestLength = 0.5
-					d.MaxTensionForce = 2
-					d.MaxCompressionForce = 6
-					d.Impulse = 0.125
-					d.Velocity = 0.25
-					joints[i] = w.CreatePogoJoint(&d).Joint
-				case 4:
-					d := DefaultFilterJointDef()
-					d.Base = base
-					joints[i] = w.CreateFilterJoint(&d).Joint
-				}
-			}
-
-			bd = DefaultBodyDef()
-			bd.Type = DynamicBody
-			bd.Position = Pos{origin.X - 10, origin.Y + 5}
-			bd.IsEnabled = false
-			disabled := w.CreateBody(&bd)
-			circle := Circle{Radius: 0.5}
-			disabled.CreateCircleShape(&sd, &circle)
-
-			bd.Position.X = origin.X - 15
-			bd.IsEnabled = true
-			bd.IsAwake = false
-			sleeping := w.CreateBody(&bd)
-			sleeping.CreateCircleShape(&sd, &circle)
-
-			bd = DefaultBodyDef()
-			bd.Position = Pos{origin.X - 5, origin.Y + 4}
-			sensorBody := w.CreateBody(&bd)
-			sensorDef := DefaultShapeDef()
-			sensorDef.IsSensor = true
-			sensorDef.EnableSensorEvents = true
-			circle.Radius = 1.25
-			sensor := sensorBody.CreateCircleShape(&sensorDef, &circle)
-			bd.Type = DynamicBody
-			bd.Position.X = origin.X - 8
-			bd.LinearVelocity = Vec2{4, 0}
-			bd.GravityScale = 0
-			visitor := w.CreateBody(&bd)
-			circle.Radius = 0.25
-			visitor.CreateCircleShape(&sd, &circle)
-
-			for range 20 {
-				w.Step(float32(1.0)/60, 4)
-			}
+			scene := snapshotFamilyScene{origin: origin}
+			snapshotBuildFamilyScene(t, &scene)
+			w := scene.world
+			shapes, joints := &scene.shapes, &scene.joints
+			edge, sensor := scene.edge, scene.sensor
+			disabled, sleeping, visitor := scene.disabled, scene.sleeping, scene.visitor
+			circle := scene.circle
 
 			image := BTSnapshot(w)
 			initial := w.StateHash()
@@ -299,15 +100,7 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 			r.Bool("capture/sleeping", sleeping.Awake())
 
 			for i := range 90 {
-				if i == 5 {
-					disabled.Enable()
-				}
-
-				if i == 9 {
-					sleeping.SetAwake(true)
-				}
-
-				w.Step(float32(1.0)/60, 4)
+				scene.step(i)
 				tail[i] = w.StateHash()
 				key := fmt.Sprintf("reference/%d", i)
 				snapshotEvents(r, w, key)
@@ -374,26 +167,18 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 			snapshotVec2(r, "restore/circleCenter", c.Center)
 			r.F32("restore/circleRadius", c.Radius)
 
-			cap := shapes[1].Capsule()
-			snapshotVec2(r, "restore/capsule1", cap.Center1)
-			snapshotVec2(r, "restore/capsule2", cap.Center2)
-			r.F32("restore/capsuleRadius", cap.Radius)
+			capsule := shapes[1].Capsule()
+			snapshotVec2(r, "restore/capsule1", capsule.Center1)
+			snapshotVec2(r, "restore/capsule2", capsule.Center2)
+			r.F32("restore/capsuleRadius", capsule.Radius)
 
-			segment = edge.Segment()
+			segment := edge.Segment()
 			snapshotVec2(r, "restore/segment1", segment.Point1)
 			snapshotVec2(r, "restore/segment2", segment.Point2)
 			r.I32("restore/sensorOverlaps", int32(sensor.SensorCapacity()))
 
 			for i := range 90 {
-				if i == 5 {
-					disabled.Enable()
-				}
-
-				if i == 9 {
-					sleeping.SetAwake(true)
-				}
-
-				w.Step(float32(1.0)/60, 4)
+				scene.step(i)
 
 				if w.StateHash() != tail[i] {
 					t.Fatalf("rollback canonical state at step %d: got %x reference %x", i, w.StateHash(), tail[i])
@@ -566,34 +351,11 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 		category error
 	}{{"nil", -2, nil}, {"short", -1, nil}, {"magic", 0, ErrBadMagic}, {"version", 4, ErrVersion}, {"layout", 8, ErrLayout}, {"precision", 12, ErrLayout}}
 	for _, tc := range cases {
-		bad := append([]byte(nil), image...)
-
-		switch tc.offset {
-		case -2:
-			bad = nil
-		case -1:
-			bad = bad[:15]
-		default:
-			value := binary.LittleEndian.Uint32(bad[tc.offset:])
-
-			bit := uint32(1)
-			if tc.offset == 12 {
-				bit = 2
-			}
-
-			binary.LittleEndian.PutUint32(bad[tc.offset:], value^bit)
-		}
+		bad := snapshotCorruptHeader(image, tc.offset)
 
 		err := w.UnmarshalBinary(bad)
 
-		var snapshotErr *SnapshotError
-		if err == nil || !errors.As(err, &snapshotErr) {
-			t.Fatalf("%s restore error category: %v", tc.name, err)
-		}
-
-		if tc.category != nil && !errors.Is(err, tc.category) {
-			t.Fatalf("%s restore: got %v want errors.Is(%v)", tc.name, err, tc.category)
-		}
+		snapshotRequireError(t, err, tc.category, tc.name, "restore")
 
 		if w.StateHash() != hash {
 			t.Fatalf("%s early rejection changed canonical state", tc.name)
@@ -615,13 +377,7 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 		invalid, err := NewWorldFromSnapshot(bad, 0)
 		r.Bool(tc.name+"/newRejected", !invalid.IsValid())
 
-		if err == nil || !errors.As(err, &snapshotErr) {
-			t.Fatalf("%s new-world error category: %v", tc.name, err)
-		}
-
-		if tc.category != nil && !errors.Is(err, tc.category) {
-			t.Fatalf("%s new-world: got %v want %v", tc.name, err, tc.category)
-		}
+		snapshotRequireError(t, err, tc.category, tc.name, "new-world")
 	}
 	// Each engine truncates its own native image at the final payload boundary.
 	err := w.UnmarshalBinary(image[:len(image)-1])
@@ -737,7 +493,9 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	r.I32("restore/workers", int32(w.workerCount))
 	w.Step(float32(1.0)/60, 4)
 
-	if tasks == 0 || tasks != finishes || liveFilter == 0 || livePre == 0 || liveFriction == 0 || liveRestitution == 0 {
+	snapshotRequireTasksComplete(t, tasks, finishes)
+
+	if liveFilter == 0 || livePre == 0 || liveFriction == 0 || liveRestitution == 0 {
 		t.Fatalf("restored wiring inactive: tasks %d finished %d filter %d pre %d friction %d restitution %d", tasks, finishes, liveFilter, livePre, liveFriction, liveRestitution)
 	}
 
@@ -780,4 +538,299 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	snapshotPos(r, "new/position", cb.Position())
 	r.U64("new/state", clone.StateHash())
 	snapshotContactMaterials(r, clone, "new")
+}
+
+func snapshotSensorEvents(r *oracle.Reader, w *World, key string) {
+	var sb []SensorBeginTouchEvent
+	for e := range w.SensorBeginEvents() {
+		sb = append(sb, e)
+	}
+
+	r.I32(key+"/sensorBegin", int32(len(sb)))
+
+	for i, e := range sb {
+		p := fmt.Sprintf("%s/sensorBegin/%d", key, i)
+		r.I32(p+"/sensor", e.SensorShape.index1)
+		r.U32(p+"/sensorGeneration", uint32(e.SensorShape.generation))
+		r.I32(p+"/visitor", e.VisitorShape.index1)
+		r.U32(p+"/visitorGeneration", uint32(e.VisitorShape.generation))
+	}
+
+	var se []SensorEndTouchEvent
+	for e := range w.SensorEndEvents() {
+		se = append(se, e)
+	}
+
+	r.I32(key+"/sensorEnd", int32(len(se)))
+
+	for i, e := range se {
+		p := fmt.Sprintf("%s/sensorEnd/%d", key, i)
+		r.I32(p+"/sensor", e.SensorShape.index1)
+		r.U32(p+"/sensorGeneration", uint32(e.SensorShape.generation))
+		r.I32(p+"/visitor", e.VisitorShape.index1)
+		r.U32(p+"/visitorGeneration", uint32(e.VisitorShape.generation))
+	}
+}
+
+func snapshotContactEvents(r *oracle.Reader, w *World, key string) {
+	var cb []ContactBeginTouchEvent
+	for e := range w.ContactBeginEvents() {
+		cb = append(cb, e)
+	}
+
+	r.I32(key+"/contactBegin", int32(len(cb)))
+
+	for i, e := range cb {
+		p := fmt.Sprintf("%s/contactBegin/%d", key, i)
+		r.I32(p+"/a", e.ShapeA.index1)
+		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
+		r.I32(p+"/b", e.ShapeB.index1)
+		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
+		r.I32(p+"/contact", e.Contact.index1)
+		r.U32(p+"/contactGeneration", e.Contact.generation)
+	}
+
+	var ce []ContactEndTouchEvent
+	for e := range w.ContactEndEvents() {
+		ce = append(ce, e)
+	}
+
+	r.I32(key+"/contactEnd", int32(len(ce)))
+
+	for i, e := range ce {
+		p := fmt.Sprintf("%s/contactEnd/%d", key, i)
+		r.I32(p+"/a", e.ShapeA.index1)
+		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
+		r.I32(p+"/b", e.ShapeB.index1)
+		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
+		r.I32(p+"/contact", e.Contact.index1)
+		r.U32(p+"/contactGeneration", e.Contact.generation)
+	}
+
+	var ch []ContactHitEvent
+	for e := range w.ContactHitEvents() {
+		ch = append(ch, e)
+	}
+
+	r.I32(key+"/contactHit", int32(len(ch)))
+
+	for i, e := range ch {
+		p := fmt.Sprintf("%s/contactHit/%d", key, i)
+		r.I32(p+"/a", e.ShapeA.index1)
+		r.I32(p+"/b", e.ShapeB.index1)
+		r.U32(p+"/aGeneration", uint32(e.ShapeA.generation))
+		r.U32(p+"/bGeneration", uint32(e.ShapeB.generation))
+		r.I32(p+"/contact", e.Contact.index1)
+		r.U32(p+"/contactGeneration", e.Contact.generation)
+		snapshotPos(r, p+"/point", e.Point)
+		snapshotVec2(r, p+"/normal", e.Normal)
+		r.F32(p+"/speed", e.ApproachSpeed)
+	}
+}
+
+func snapshotJointEvents(r *oracle.Reader, w *World, key string) {
+	var je []JointEvent
+	for e := range w.JointEvents() {
+		je = append(je, e)
+	}
+
+	r.I32(key+"/jointEvents", int32(len(je)))
+
+	for i, e := range je {
+		p := fmt.Sprintf("%s/jointEvent/%d", key, i)
+		r.I32(p+"/id", e.Joint.index1)
+		r.U32(p+"/generation", uint32(e.Joint.generation))
+		r.Bool(p+"/userDataNil", e.UserData == nil)
+	}
+}
+
+func snapshotCorruptHeader(image []byte, offset int) []byte {
+	bad := append([]byte(nil), image...)
+
+	switch offset {
+	case -2:
+		return nil
+	case -1:
+		return bad[:15]
+	default:
+		value := binary.LittleEndian.Uint32(bad[offset:])
+		bit := uint32(1)
+
+		if offset == 12 {
+			bit = 2
+		}
+
+		binary.LittleEndian.PutUint32(bad[offset:], value^bit)
+
+		return bad
+	}
+}
+
+func snapshotRequireError(t *testing.T, err, category error, name, operation string) {
+	t.Helper()
+
+	var snapshotErr *SnapshotError
+	if err == nil || !errors.As(err, &snapshotErr) {
+		t.Fatalf("%s %s error category: %v", name, operation, err)
+	}
+
+	if category != nil && !errors.Is(err, category) {
+		t.Fatalf("%s %s: got %v want errors.Is(%v)", name, operation, err, category)
+	}
+}
+
+func snapshotBuildFamilyScene(t *testing.T, scene *snapshotFamilyScene) {
+	t.Helper()
+
+	origin := scene.origin
+	shapes, joints := &scene.shapes, &scene.joints
+	wd := DefaultWorldDef()
+	wd.Gravity = Vec2{0, -2}
+	w := NewWorld(&wd)
+	BTWorldCleanup(t, w)
+
+	bd := DefaultBodyDef()
+	bd.Position = origin
+	ground := w.CreateBody(&bd)
+	sd := DefaultShapeDef()
+	sd.EnableContactEvents = true
+	sd.EnableHitEvents = true
+	sd.EnableSensorEvents = true
+	segment := Segment{Point1: Vec2{-25, 0}, Point2: Vec2{25, 0}}
+	edge := ground.CreateSegmentShape(&sd, &segment)
+
+	var bodies [5]Body
+
+	for i := range 5 {
+		bd = DefaultBodyDef()
+		bd.Type = DynamicBody
+		bd.Position = Pos{origin.X + oracle.Real(3*i), origin.Y + 3}
+
+		bodies[i] = w.CreateBody(&bd)
+		if i%2 == 0 {
+			c := Circle{Center: Vec2{0.125, 0}, Radius: 0.4}
+			shapes[i] = bodies[i].CreateCircleShape(&sd, &c)
+		} else {
+			c := Capsule{Center1: Vec2{-0.3, 0}, Center2: Vec2{0.3, 0}, Radius: 0.25}
+			shapes[i] = bodies[i].CreateCapsuleShape(&sd, &c)
+		}
+
+		base := DefaultFilterJointDef().Base
+		base.BodyA = ground
+		base.BodyB = bodies[i]
+		base.LocalFrameA.P = Vec2{float32(3 * i), 3}
+		base.ForceThreshold = 0.5
+		base.TorqueThreshold = 0.5
+
+		switch i {
+		case 0:
+			d := DefaultWheelJointDef()
+			d.Base = base
+			d.EnableMotor = true
+			d.MotorSpeed = 2
+			d.MaxMotorTorque = 3
+			d.EnableLimit = true
+			d.LowerTranslation = -1
+			d.UpperTranslation = 1
+			joints[i] = w.CreateWheelJoint(&d).Joint
+		case 1:
+			d := DefaultMotorJointDef()
+			d.Base = base
+			d.LinearVelocity = Vec2{0.5, -0.25}
+			d.MaxVelocityForce = 4
+			d.AngularVelocity = 1
+			d.MaxVelocityTorque = 2
+			d.LinearHertz = 2
+			d.LinearDampingRatio = 0.7
+			d.MaxSpringForce = 5
+			d.AngularHertz = 1
+			d.AngularDampingRatio = 0.5
+			d.MaxSpringTorque = 3
+			joints[i] = w.CreateMotorJoint(&d).Joint
+		case 2:
+			d := DefaultMoverJointDef()
+			d.Base = base
+			d.LinearVelocity = Vec2{1, -0.5}
+			d.MaxVelocityForce = Vec2{2, 3}
+			joints[i] = w.CreateMoverJoint(&d).Joint
+		case 3:
+			d := DefaultPogoJointDef()
+			d.Base = base
+			d.Normal = Vec2{0, 1}
+			d.Hertz = 3
+			d.DampingRatio = 0.6
+			d.RestLength = 0.5
+			d.MaxTensionForce = 2
+			d.MaxCompressionForce = 6
+			d.Impulse = 0.125
+			d.Velocity = 0.25
+			joints[i] = w.CreatePogoJoint(&d).Joint
+		case 4:
+			d := DefaultFilterJointDef()
+			d.Base = base
+			joints[i] = w.CreateFilterJoint(&d).Joint
+		}
+	}
+
+	bd = DefaultBodyDef()
+	bd.Type = DynamicBody
+	bd.Position = Pos{origin.X - 10, origin.Y + 5}
+	bd.IsEnabled = false
+	disabled := w.CreateBody(&bd)
+	circle := Circle{Radius: 0.5}
+	disabled.CreateCircleShape(&sd, &circle)
+
+	bd.Position.X = origin.X - 15
+	bd.IsEnabled = true
+	bd.IsAwake = false
+	sleeping := w.CreateBody(&bd)
+	sleeping.CreateCircleShape(&sd, &circle)
+
+	bd = DefaultBodyDef()
+	bd.Position = Pos{origin.X - 5, origin.Y + 4}
+	sensorBody := w.CreateBody(&bd)
+	sensorDef := DefaultShapeDef()
+	sensorDef.IsSensor = true
+	sensorDef.EnableSensorEvents = true
+	circle.Radius = 1.25
+	sensor := sensorBody.CreateCircleShape(&sensorDef, &circle)
+	bd.Type = DynamicBody
+	bd.Position.X = origin.X - 8
+	bd.LinearVelocity = Vec2{4, 0}
+	bd.GravityScale = 0
+	visitor := w.CreateBody(&bd)
+	circle.Radius = 0.25
+	visitor.CreateCircleShape(&sd, &circle)
+
+	scene.world = w
+	scene.edge = edge
+	scene.disabled = disabled
+	scene.sleeping = sleeping
+	scene.sensor = sensor
+	scene.visitor = visitor
+	scene.circle = circle
+
+	for range 20 {
+		w.Step(float32(1.0)/60, 4)
+	}
+}
+
+func (scene *snapshotFamilyScene) step(i int) {
+	if i == 5 {
+		scene.disabled.Enable()
+	}
+
+	if i == 9 {
+		scene.sleeping.SetAwake(true)
+	}
+
+	scene.world.Step(float32(1.0)/60, 4)
+}
+
+func snapshotRequireTasksComplete(t *testing.T, tasks, finishes int) {
+	t.Helper()
+
+	if tasks == 0 || tasks != finishes {
+		t.Fatalf("restored tasks incomplete: tasks %d finished %d", tasks, finishes)
+	}
 }

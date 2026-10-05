@@ -12,7 +12,7 @@ func InputBodyTransforms(worldID *World) []WorldTransform {
 			continue
 		}
 
-		transforms = append(transforms, makeBodyId(w, i).Transform())
+		transforms = append(transforms, makeBodyID(w, i).Transform())
 	}
 
 	return transforms
@@ -25,7 +25,7 @@ func InputBodies(worldID *World) []Body {
 	bodies := make([]Body, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id != nullIndex {
-			bodies = append(bodies, makeBodyId(w, i))
+			bodies = append(bodies, makeBodyID(w, i))
 		}
 	}
 

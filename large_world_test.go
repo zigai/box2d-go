@@ -68,7 +68,7 @@ func snapshotTransformTrace(r *oracle.Reader, worldID *World, key string, step i
 
 func snapshotBodyRelativeCenter(worldID *World, bodyID Body, base Pos) Vec2 {
 	w := worldID
-	b := getBodyFullId(w, bodyID)
+	b := getBodyFullID(w, bodyID)
 
 	return getBodySim(w, b).center.Sub(base)
 }
@@ -79,6 +79,8 @@ type snapshotPyramidResult struct {
 }
 
 func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyramidResult {
+	t.Helper()
+
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
@@ -134,6 +136,8 @@ func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyrami
 }
 
 func snapshotRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
+	t.Helper()
+
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
@@ -170,6 +174,8 @@ func snapshotRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
 }
 
 func snapshotRunRayCast(t *testing.T, base Pos) Vec2 {
+	t.Helper()
+
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
@@ -203,6 +209,8 @@ type snapshotOriginQueryData struct {
 }
 
 func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
+	t.Helper()
+
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
@@ -243,297 +251,266 @@ func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
 }
 
 func TestLargeWorld(t *testing.T) {
-	t.Run("LargeWorldPyramidTest", func(t *testing.T) {
-		r := oracle.Open(t, "large_world/LargeWorldPyramidTest")
+	t.Run("LargeWorldPyramidTest", func(t *testing.T) { snapshotCheckLargeWorldPyramidTest(t) })
+	t.Run("LargeWorldBulletTest", func(t *testing.T) { snapshotCheckLargeWorldBulletTest(t) })
+	t.Run("LargeWorldRayCastTest", func(t *testing.T) { snapshotCheckLargeWorldRayCastTest(t) })
+	t.Run("LargeWorldOriginQueryTest", func(t *testing.T) { snapshotCheckLargeWorldOriginQueryTest(t) })
+	t.Run("LargeWorldRecordingTest", func(t *testing.T) { snapshotCheckLargeWorldRecordingTest(t) })
+}
 
-		origin := snapshotRunPyramid(t, r, Pos{})
-		if origin.sleepStep <= 0 {
+func snapshotCheckRelativeCoordinate(t *testing.T, r *oracle.Reader, key string, delta, tolerance float32) {
+	t.Helper()
+
+	if delta < -tolerance || tolerance < delta {
+		t.Fatalf("condition false: abs(%v) < %v", delta, tolerance)
+	}
+
+	r.F32(key, delta)
+}
+
+func snapshotCheckLargeWorldPyramidTest(t *testing.T) {
+	t.Helper()
+	r := oracle.Open(t, "large_world/LargeWorldPyramidTest")
+
+	origin := snapshotRunPyramid(t, r, Pos{})
+	if origin.sleepStep <= 0 {
+		t.Fatal("condition false")
+	}
+
+	r.Bool("L102", origin.sleepStep > 0)
+	r.I32("L102/value0", int32(origin.sleepStep))
+
+	if IsDoublePrecision() {
+		large := snapshotRunPyramid(t, r, Pos{X: 1e7})
+		if large.sleepStep != origin.sleepStep {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("L102", origin.sleepStep > 0)
-		r.I32("L102/value0", int32(origin.sleepStep))
+		r.Bool("L107", large.sleepStep == origin.sleepStep)
+		r.I32("L107/value0", int32(large.sleepStep))
+		r.I32("L107/value1", int32(origin.sleepStep))
 
-		if IsDoublePrecision() {
-			large := snapshotRunPyramid(t, r, Pos{X: 1e7})
-			if large.sleepStep != origin.sleepStep {
-				t.Fatal("condition false")
-			}
+		for i := range origin.rel {
+			snapshotCheckRelativeCoordinate(t, r, "L110", large.rel[i].X-origin.rel[i].X, float32(1e-3))
 
-			r.Bool("L107", large.sleepStep == origin.sleepStep)
-			r.I32("L107/value0", int32(large.sleepStep))
-			r.I32("L107/value1", int32(origin.sleepStep))
-
-			for i := range origin.rel {
-				if v := large.rel[i].X - origin.rel[i].X; v < -float32(1e-3) || float32(1e-3) < v {
-					t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-				}
-
-				r.F32("L110", large.rel[i].X-origin.rel[i].X)
-
-				if v := large.rel[i].Y - origin.rel[i].Y; v < -float32(1e-3) || float32(1e-3) < v {
-					t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-				}
-
-				r.F32("L111", large.rel[i].Y-origin.rel[i].Y)
-			}
+			snapshotCheckRelativeCoordinate(t, r, "L111", large.rel[i].Y-origin.rel[i].Y, float32(1e-3))
 		}
-	})
-	t.Run("LargeWorldBulletTest", func(t *testing.T) {
-		r := oracle.Open(t, "large_world/LargeWorldBulletTest")
+	}
+}
 
-		x := snapshotRunBullet(t, r, Pos{})
+func snapshotCheckLargeWorldBulletTest(t *testing.T) {
+	t.Helper()
+	r := oracle.Open(t, "large_world/LargeWorldBulletTest")
+
+	x := snapshotRunBullet(t, r, Pos{})
+	if !(x > 0 && x < 0.5) {
+		t.Fatal("condition false")
+	}
+
+	r.Bool("L165", x > 0 && x < 0.5)
+	r.F32("L165/value0", x)
+
+	if IsDoublePrecision() {
+		x = snapshotRunBullet(t, r, Pos{X: 1e7})
 		if !(x > 0 && x < 0.5) {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("L165", x > 0 && x < 0.5)
-		r.F32("L165/value0", x)
+		r.Bool("L169", x > 0 && x < 0.5)
+		r.F32("L169/value0", x)
+	}
+}
 
-		if IsDoublePrecision() {
-			x = snapshotRunBullet(t, r, Pos{X: 1e7})
-			if !(x > 0 && x < 0.5) {
-				t.Fatal("condition false")
-			}
+func snapshotCheckLargeWorldRayCastTest(t *testing.T) {
+	t.Helper()
+	r := oracle.Open(t, "large_world/LargeWorldRayCastTest")
 
-			r.Bool("L169", x > 0 && x < 0.5)
-			r.F32("L169/value0", x)
-		}
-	})
-	t.Run("LargeWorldRayCastTest", func(t *testing.T) {
-		r := oracle.Open(t, "large_world/LargeWorldRayCastTest")
+	rel := snapshotRunRayCast(t, Pos{})
+	snapshotCheckRelativeCoordinate(t, r, "L207", rel.X+0.5, float32(1e-4))
 
-		rel := snapshotRunRayCast(t, Pos{})
-		if v := rel.X + 0.5; v < -float32(1e-4) || float32(1e-4) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
-		}
+	snapshotCheckRelativeCoordinate(t, r, "L208", rel.Y, float32(1e-4))
 
-		r.F32("L207", rel.X+0.5)
+	if IsDoublePrecision() {
+		rel = snapshotRunRayCast(t, Pos{X: 1e7})
+		snapshotCheckRelativeCoordinate(t, r, "L212", rel.X+0.5, float32(1e-4))
 
-		if v := rel.Y; v < -float32(1e-4) || float32(1e-4) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
-		}
+		snapshotCheckRelativeCoordinate(t, r, "L213", rel.Y, float32(1e-4))
+	}
+}
 
-		r.F32("L208", rel.Y)
+func snapshotCheckLargeWorldOriginQueryTest(t *testing.T) {
+	t.Helper()
+	r := oracle.Open(t, "large_world/LargeWorldOriginQueryTest")
 
-		if IsDoublePrecision() {
-			rel = snapshotRunRayCast(t, Pos{X: 1e7})
-			if v := rel.X + 0.5; v < -float32(1e-4) || float32(1e-4) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
-			}
+	origin := snapshotRunOriginQueries(t, Pos{})
+	if origin.overlapCount != 1 {
+		t.Fatal("condition false")
+	}
 
-			r.F32("L212", rel.X+0.5)
+	r.Bool("L311", origin.overlapCount == 1)
+	r.I32("L311/value0", int32(origin.overlapCount))
 
-			if v := rel.Y; v < -float32(1e-4) || float32(1e-4) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
-			}
+	if !(origin.castFraction < 1) {
+		t.Fatal("condition false")
+	}
 
-			r.F32("L213", rel.Y)
-		}
-	})
-	t.Run("LargeWorldOriginQueryTest", func(t *testing.T) {
-		r := oracle.Open(t, "large_world/LargeWorldOriginQueryTest")
+	r.Bool("L312", origin.castFraction < 1)
+	r.F32("L312/value0", origin.castFraction)
 
-		origin := snapshotRunOriginQueries(t, Pos{})
-		if origin.overlapCount != 1 {
+	if !(origin.moverFraction < 1) {
+		t.Fatal("condition false")
+	}
+
+	r.Bool("L313", origin.moverFraction < 1)
+	r.F32("L313/value0", origin.moverFraction)
+
+	if origin.planeCount < 1 {
+		t.Fatal("condition false")
+	}
+
+	r.Bool("L314", origin.planeCount >= 1)
+	r.I32("L314/value0", int32(origin.planeCount))
+
+	if !origin.insidePoint {
+		t.Fatal("condition false")
+	}
+
+	r.Bool("L315", origin.insidePoint)
+
+	if !origin.shapeRayHit {
+		t.Fatal("condition false")
+	}
+
+	r.Bool("L316", origin.shapeRayHit)
+
+	castRel := origin.castPoint.Sub(Pos{})
+	snapshotCheckRelativeCoordinate(t, r, "L319", castRel.X+0.5, float32(1e-3))
+
+	rayRel := origin.shapeRayPoint.Sub(Pos{})
+	snapshotCheckRelativeCoordinate(t, r, "L321", rayRel.X+0.5, float32(1e-3))
+
+	if IsDoublePrecision() {
+		base := Pos{X: 1e7}
+
+		large := snapshotRunOriginQueries(t, base)
+		if large.overlapCount != origin.overlapCount {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("L311", origin.overlapCount == 1)
-		r.I32("L311/value0", int32(origin.overlapCount))
+		r.Bool("L328", large.overlapCount == origin.overlapCount)
+		r.I32("L328/value0", int32(large.overlapCount))
+		r.I32("L328/value1", int32(origin.overlapCount))
 
-		if !(origin.castFraction < 1) {
+		if large.planeCount != origin.planeCount {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("L312", origin.castFraction < 1)
-		r.F32("L312/value0", origin.castFraction)
+		r.Bool("L329", large.planeCount == origin.planeCount)
+		r.I32("L329/value0", int32(large.planeCount))
+		r.I32("L329/value1", int32(origin.planeCount))
 
-		if !(origin.moverFraction < 1) {
+		if large.insidePoint != origin.insidePoint {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("L313", origin.moverFraction < 1)
-		r.F32("L313/value0", origin.moverFraction)
+		r.Bool("L330", large.insidePoint == origin.insidePoint)
 
-		if origin.planeCount < 1 {
+		if large.shapeRayHit != origin.shapeRayHit {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("L314", origin.planeCount >= 1)
-		r.I32("L314/value0", int32(origin.planeCount))
+		r.Bool("L331", large.shapeRayHit == origin.shapeRayHit)
 
-		if !origin.insidePoint {
-			t.Fatal("condition false")
-		}
+		snapshotCheckRelativeCoordinate(t, r, "L332", large.castFraction-origin.castFraction, float32(1e-4))
 
-		r.Bool("L315", origin.insidePoint)
+		snapshotCheckRelativeCoordinate(t, r, "L333", large.moverFraction-origin.moverFraction, float32(1e-4))
 
-		if !origin.shapeRayHit {
-			t.Fatal("condition false")
-		}
+		largeCast := large.castPoint.Sub(base)
+		snapshotCheckRelativeCoordinate(t, r, "L336", largeCast.X-castRel.X, float32(1e-3))
 
-		r.Bool("L316", origin.shapeRayHit)
+		snapshotCheckRelativeCoordinate(t, r, "L337", largeCast.Y-castRel.Y, float32(1e-3))
 
-		castRel := origin.castPoint.Sub(Pos{})
-		if v := castRel.X + 0.5; v < -float32(1e-3) || float32(1e-3) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-		}
+		largeRay := large.shapeRayPoint.Sub(base)
+		snapshotCheckRelativeCoordinate(t, r, "L340", largeRay.X-rayRel.X, float32(1e-3))
 
-		r.F32("L319", castRel.X+0.5)
+		snapshotCheckRelativeCoordinate(t, r, "L341", largeRay.Y-rayRel.Y, float32(1e-3))
+	}
+}
 
-		rayRel := origin.shapeRayPoint.Sub(Pos{})
-		if v := rayRel.X + 0.5; v < -float32(1e-3) || float32(1e-3) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-		}
+func snapshotCheckLargeWorldRecordingTest(t *testing.T) {
+	t.Helper()
+	r := oracle.Open(t, "large_world/LargeWorldRecordingTest")
+	wd := DefaultWorldDef()
+	wd.WorkerCount = 1
+	w := NewWorld(&wd)
+	BTWorldCleanup(t, w)
 
-		r.F32("L321", rayRel.X+0.5)
+	base := Pos{}
+	if IsDoublePrecision() {
+		base = Pos{X: 1e7}
+	}
 
-		if IsDoublePrecision() {
-			base := Pos{X: 1e7}
+	rec := NewRecording(0)
+	w.StartRecording(rec)
 
-			large := snapshotRunOriginQueries(t, base)
-			if large.overlapCount != origin.overlapCount {
-				t.Fatal("condition false")
-			}
+	groundDef := DefaultBodyDef()
+	groundDef.Position = base
+	ground := w.CreateBody(&groundDef)
+	groundBox := MakeBox(20, 0.5)
+	gsd := DefaultShapeDef()
+	ground.CreatePolygonShape(&gsd, &groundBox)
 
-			r.Bool("L328", large.overlapCount == origin.overlapCount)
-			r.I32("L328/value0", int32(large.overlapCount))
-			r.I32("L328/value1", int32(origin.overlapCount))
+	stackDef := DefaultBodyDef()
+	stackDef.Type = DynamicBody
+	stackDef.Position = Pos{X: base.X, Y: base.Y + 1}
+	stack := w.CreateBody(&stackDef)
+	box := MakeBox(0.5, 0.5)
+	sd := DefaultShapeDef()
+	sd.Density = 1
+	stack.CreatePolygonShape(&sd, &box)
 
-			if large.planeCount != origin.planeCount {
-				t.Fatal("condition false")
-			}
+	sliderDef := DefaultBodyDef()
+	sliderDef.Type = DynamicBody
+	sliderDef.GravityScale = 0
+	sliderDef.Position = Pos{X: base.X, Y: base.Y + 5}
+	sliderDef.LinearVelocity = Vec2{X: 3}
+	slider := w.CreateBody(&sliderDef)
+	slider.CreatePolygonShape(&sd, &box)
 
-			r.Bool("L329", large.planeCount == origin.planeCount)
-			r.I32("L329/value0", int32(large.planeCount))
-			r.I32("L329/value1", int32(origin.planeCount))
+	for step := range 30 {
+		w.Step(float32(1)/60, 4)
+		snapshotTransformTrace(r, w, fmt.Sprintf("L401/step/%d", step), step)
+	}
 
-			if large.insidePoint != origin.insidePoint {
-				t.Fatal("condition false")
-			}
+	xf := slider.Transform()
+	slider.SetTransform(xf.P, xf.Q)
 
-			r.Bool("L330", large.insidePoint == origin.insidePoint)
+	for step := range 30 {
+		w.Step(float32(1)/60, 4)
+		snapshotTransformTrace(r, w, fmt.Sprintf("L409/step/%d", step), step+30)
+	}
 
-			if large.shapeRayHit != origin.shapeRayHit {
-				t.Fatal("condition false")
-			}
+	w.StopRecording()
+	w.Close()
 
-			r.Bool("L331", large.shapeRayHit == origin.shapeRayHit)
+	data := rec.Data()
 
-			if v := large.castFraction - origin.castFraction; v < -float32(1e-4) || float32(1e-4) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
-			}
+	size := rec.Size()
+	if size <= 0 {
+		t.Fatal("condition false")
+	}
 
-			r.F32("L332", large.castFraction-origin.castFraction)
+	r.Bool("L417", size > 0)
 
-			if v := large.moverFraction - origin.moverFraction; v < -float32(1e-4) || float32(1e-4) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-4))
-			}
+	if ValidateReplay(data, 0) != nil {
+		t.Fatal("condition false")
+	}
 
-			r.F32("L333", large.moverFraction-origin.moverFraction)
+	r.Bool("L421", true)
 
-			largeCast := large.castPoint.Sub(base)
-			if v := largeCast.X - castRel.X; v < -float32(1e-3) || float32(1e-3) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-			}
+	if ValidateReplay(data, 4) != nil {
+		t.Fatal("condition false")
+	}
 
-			r.F32("L336", largeCast.X-castRel.X)
-
-			if v := largeCast.Y - castRel.Y; v < -float32(1e-3) || float32(1e-3) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-			}
-
-			r.F32("L337", largeCast.Y-castRel.Y)
-
-			largeRay := large.shapeRayPoint.Sub(base)
-			if v := largeRay.X - rayRel.X; v < -float32(1e-3) || float32(1e-3) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-			}
-
-			r.F32("L340", largeRay.X-rayRel.X)
-
-			if v := largeRay.Y - rayRel.Y; v < -float32(1e-3) || float32(1e-3) < v {
-				t.Fatalf("condition false: abs(%v) < %v", v, float32(1e-3))
-			}
-
-			r.F32("L341", largeRay.Y-rayRel.Y)
-		}
-	})
-	t.Run("LargeWorldRecordingTest", func(t *testing.T) {
-		r := oracle.Open(t, "large_world/LargeWorldRecordingTest")
-		wd := DefaultWorldDef()
-		wd.WorkerCount = 1
-		w := NewWorld(&wd)
-		BTWorldCleanup(t, w)
-
-		base := Pos{}
-		if IsDoublePrecision() {
-			base = Pos{X: 1e7}
-		}
-
-		rec := NewRecording(0)
-		w.StartRecording(rec)
-
-		groundDef := DefaultBodyDef()
-		groundDef.Position = base
-		ground := w.CreateBody(&groundDef)
-		groundBox := MakeBox(20, 0.5)
-		gsd := DefaultShapeDef()
-		ground.CreatePolygonShape(&gsd, &groundBox)
-
-		stackDef := DefaultBodyDef()
-		stackDef.Type = DynamicBody
-		stackDef.Position = Pos{X: base.X, Y: base.Y + 1}
-		stack := w.CreateBody(&stackDef)
-		box := MakeBox(0.5, 0.5)
-		sd := DefaultShapeDef()
-		sd.Density = 1
-		stack.CreatePolygonShape(&sd, &box)
-
-		sliderDef := DefaultBodyDef()
-		sliderDef.Type = DynamicBody
-		sliderDef.GravityScale = 0
-		sliderDef.Position = Pos{X: base.X, Y: base.Y + 5}
-		sliderDef.LinearVelocity = Vec2{X: 3}
-		slider := w.CreateBody(&sliderDef)
-		slider.CreatePolygonShape(&sd, &box)
-
-		for step := range 30 {
-			w.Step(float32(1)/60, 4)
-			snapshotTransformTrace(r, w, fmt.Sprintf("L401/step/%d", step), step)
-		}
-
-		xf := slider.Transform()
-		slider.SetTransform(xf.P, xf.Q)
-
-		for step := range 30 {
-			w.Step(float32(1)/60, 4)
-			snapshotTransformTrace(r, w, fmt.Sprintf("L409/step/%d", step), step+30)
-		}
-
-		w.StopRecording()
-		w.Close()
-
-		data := rec.Data()
-
-		size := rec.Size()
-		if size <= 0 {
-			t.Fatal("condition false")
-		}
-
-		r.Bool("L417", size > 0)
-
-		if ValidateReplay(data, 0) != nil {
-			t.Fatal("condition false")
-		}
-
-		r.Bool("L421", true)
-
-		if ValidateReplay(data, 4) != nil {
-			t.Fatal("condition false")
-		}
-
-		r.Bool("L422", true)
-	})
+	r.Bool("L422", true)
 }

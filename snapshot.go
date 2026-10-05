@@ -17,12 +17,13 @@ const (
 	snapFlagDoublePrecision uint32 = 0x2
 )
 
-type snapHeader struct {
-	magic      uint32
-	version    uint32
-	layoutHash uint32
-	flags      uint32
-}
+var (
+	ErrBadMagic = errors.New("box2d: invalid magic")
+	ErrVersion  = errors.New("box2d: version mismatch")
+	ErrLayout   = errors.New("box2d: layout mismatch")
+	ErrCorrupt  = errors.New("box2d: corrupt data")
+	ErrDiverged = errors.New("box2d: replay diverged")
+)
 
 type snapReader struct {
 	data   []byte
@@ -35,13 +36,33 @@ type SnapshotError struct {
 	Err error
 }
 
-var (
-	ErrBadMagic = errors.New("box2d: invalid magic")
-	ErrVersion  = errors.New("box2d: version mismatch")
-	ErrLayout   = errors.New("box2d: layout mismatch")
-	ErrCorrupt  = errors.New("box2d: corrupt data")
-	ErrDiverged = errors.New("box2d: replay diverged")
-)
+// Create a new world from a snapshot image. Use this to load a saved world when there is
+// no existing world to restore into. Handles held from the origin world do not reference
+// the new world. Host wiring is reset to defaults.
+// A rejected image returns a SnapshotError and releases the new world's resources.
+func NewWorldFromSnapshot(image []byte, workerCount int) (*World, error) {
+	if err := snapshotHeaderError(image, len(image)); err != nil {
+		return nil, err
+	}
+
+	var r snapReader
+	openSnapshotImage(image, len(image), &r)
+
+	def := DefaultWorldDef()
+	def.WorkerCount = workerCount
+
+	world := NewWorld(&def)
+	if !deserializeIntoShell(&r, world) {
+		world.Close()
+		return nil, &SnapshotError{Err: ErrCorrupt}
+	}
+
+	world.preSolveFcn = nil
+	world.customFilterFcn = nil
+	world.userData = nil
+
+	return world, nil
+}
 
 func computeLayoutHash() uint32 {
 	h := uint32(3498484001)
@@ -93,10 +114,6 @@ func snapWI32(buf *recBuffer, v int) {
 
 func snapWU32(buf *recBuffer, v uint32) {
 	recWU32(buf, v)
-}
-
-func snapWBytes(buf *recBuffer, src []byte, n int) {
-	recBufAppend(buf, src, n)
 }
 
 func snapCheckCount(r *snapReader, count int, memSize int, minStreamBytes int) bool {
@@ -219,7 +236,7 @@ func desTree(r *snapReader, tree *DynamicTree) {
 	proxyFreeList := snapRI32(r)
 	ordered := snapRI32(r)
 
-	valid := nodeEnd >= 2 && nodeEnd&1 == 0 && nodeCapacity >= nodeEnd && proxyCount >= 0 && proxyCapacity >= 1 && proxyCapacity >= proxyCount && snapCheckCount(r, nodeEnd, int(unsafe.Sizeof(TreeNode{})), 28) && snapCheckCount(r, proxyCapacity, 24, 24)
+	valid := snapTreeCountsValid(r, nodeEnd, nodeCapacity, proxyCount, proxyCapacity)
 	if !r.ok || !valid {
 		r.ok = false
 		*tree = NewDynamicTree(0)
@@ -481,74 +498,16 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 	desPodArray(r, &world.contacts)
 	desPodArray(r, &world.joints)
 
-	n = snapReadCount(r, int(unsafe.Sizeof(chainShape{})), 18)
-	if !r.ok {
+	if !desChainShapes(r, world) {
 		return false
 	}
 
-	world.chainShapes = make([]chainShape, n)
-	for i := range world.chainShapes {
-		c := &world.chainShapes[i]
-		c.id = snapRI32(r)
-		c.bodyID = snapRI32(r)
-		c.nextChainID = snapRI32(r)
-		c.segmentCount = snapRI32(r)
-
-		c.generation = snapReadU16(r)
-		if !r.ok {
-			return false
-		}
-
-		if c.id != nullIndex {
-			if !snapCheckCount(r, c.segmentCount, 8, 4) {
-				r.ok = false
-				return false
-			}
-
-			c.shapeIndices = make([]int, c.segmentCount)
-			for j := range c.shapeIndices {
-				c.shapeIndices[j] = snapRI32(r)
-			}
-		}
-	}
-
-	n = snapReadCount(r, int(unsafe.Sizeof(sensor{})), 16)
-	if !r.ok {
+	if !desSensors(r, world) {
 		return false
 	}
 
-	world.sensors = make([]sensor, n)
-	for i := range world.sensors {
-		s := &world.sensors[i]
-		s.shapeID = snapRI32(r)
-		desPodArray(r, &s.hits)
-		desPodArray(r, &s.overlaps1)
-		desPodArray(r, &s.overlaps2)
-
-		if !r.ok {
-			return false
-		}
-	}
-
-	n = snapReadCount(r, int(unsafe.Sizeof(island{})), 28)
-	if !r.ok {
+	if !desIslands(r, world) {
 		return false
-	}
-
-	world.islands = make([]island, n)
-	for i := range world.islands {
-		s := &world.islands[i]
-		s.setIndex = snapRI32(r)
-		s.localIndex = snapRI32(r)
-		s.islandID = snapRI32(r)
-		s.constraintRemoveCount = snapRI32(r)
-		desPodArray(r, &s.bodies)
-		desPodArray(r, &s.contacts)
-		desPodArray(r, &s.joints)
-
-		if !r.ok {
-			return false
-		}
 	}
 
 	for i := range world.broadPhase.trees {
@@ -576,42 +535,12 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 	return r.ok
 }
 
-func openSnapshotImage(image []byte, size int, r *snapReader) bool {
+func openSnapshotImage(image []byte, size int, r *snapReader) {
 	if snapshotHeaderError(image, size) != nil {
-		return false
+		return
 	}
 
 	*r = snapReader{data: image[:size], cursor: 16, size: size, ok: true}
-
-	return true
-}
-
-// Create a new world from a snapshot image. Use this to load a saved world when there is
-// no existing world to restore into. Handles held from the origin world do not reference
-// the new world. Host wiring is reset to defaults.
-// A rejected image returns a SnapshotError and releases the new world's resources.
-func NewWorldFromSnapshot(image []byte, workerCount int) (*World, error) {
-	if err := snapshotHeaderError(image, len(image)); err != nil {
-		return nil, err
-	}
-
-	var r snapReader
-	openSnapshotImage(image, len(image), &r)
-
-	def := DefaultWorldDef()
-	def.WorkerCount = workerCount
-
-	world := NewWorld(&def)
-	if !deserializeIntoShell(&r, world) {
-		world.Close()
-		return nil, &SnapshotError{Err: ErrCorrupt}
-	}
-
-	world.preSolveFcn = nil
-	world.customFilterFcn = nil
-	world.userData = nil
-
-	return world, nil
 }
 
 // UnmarshalBinary restores a world's simulation state from a snapshot image, in place. Handles
@@ -722,7 +651,7 @@ func hashWorldStateDeep(world *World) uint64 {
 
 	for i := range world.joints {
 		j := &world.joints[i]
-		if j.jointId != i {
+		if j.jointID != i {
 			continue
 		}
 
@@ -731,62 +660,7 @@ func hashWorldStateDeep(world *World) uint64 {
 
 		hash = fnvMixInt(hash, j.localIndex)
 		if sim := getJointSim(world, j); sim != nil {
-			switch sim.jointType {
-			case DistanceJointType:
-				hash = fnvMixFloat(hash, sim.distanceJoint.impulse)
-				hash = fnvMixFloat(hash, sim.distanceJoint.lowerImpulse)
-				hash = fnvMixFloat(hash, sim.distanceJoint.upperImpulse)
-				hash = fnvMixFloat(hash, sim.distanceJoint.motorImpulse)
-			case MoverJointType:
-				hash = fnvMixFloat(hash, sim.moverJoint.linearVelocityImpulse.X)
-				hash = fnvMixFloat(hash, sim.moverJoint.linearVelocityImpulse.Y)
-			case MotorJointType:
-				hash = fnvMixFloat(hash, sim.motorJoint.linearVelocityImpulse.X)
-				hash = fnvMixFloat(hash, sim.motorJoint.linearVelocityImpulse.Y)
-				hash = fnvMixFloat(hash, sim.motorJoint.angularVelocityImpulse)
-				hash = fnvMixFloat(hash, sim.motorJoint.linearSpringImpulse.X)
-				hash = fnvMixFloat(hash, sim.motorJoint.linearSpringImpulse.Y)
-				hash = fnvMixFloat(hash, sim.motorJoint.angularSpringImpulse)
-			case PogoJointType:
-				hash = fnvMixFloat(hash, sim.pogoJoint.impulse)
-				hash = fnvMixFloat(hash, sim.pogoJoint.velocity)
-			case PrismaticJointType:
-				{
-					var b recBuffer
-					recWVEC2(&b, sim.prismaticJoint.impulse)
-					hash = fnvMixBytes(hash, b.data, 8)
-				}
-
-				hash = fnvMixFloat(hash, sim.prismaticJoint.springImpulse)
-				hash = fnvMixFloat(hash, sim.prismaticJoint.motorImpulse)
-				hash = fnvMixFloat(hash, sim.prismaticJoint.lowerImpulse)
-				hash = fnvMixFloat(hash, sim.prismaticJoint.upperImpulse)
-			case RevoluteJointType:
-				{
-					var b recBuffer
-					recWVEC2(&b, sim.revoluteJoint.linearImpulse)
-					hash = fnvMixBytes(hash, b.data, 8)
-				}
-
-				hash = fnvMixFloat(hash, sim.revoluteJoint.springImpulse)
-				hash = fnvMixFloat(hash, sim.revoluteJoint.motorImpulse)
-				hash = fnvMixFloat(hash, sim.revoluteJoint.lowerImpulse)
-				hash = fnvMixFloat(hash, sim.revoluteJoint.upperImpulse)
-			case WeldJointType:
-				{
-					var b recBuffer
-					recWVEC2(&b, sim.weldJoint.linearImpulse)
-					hash = fnvMixBytes(hash, b.data, 8)
-				}
-
-				hash = fnvMixFloat(hash, sim.weldJoint.angularImpulse)
-			case WheelJointType:
-				hash = fnvMixFloat(hash, sim.wheelJoint.perpImpulse)
-				hash = fnvMixFloat(hash, sim.wheelJoint.motorImpulse)
-				hash = fnvMixFloat(hash, sim.wheelJoint.springImpulse)
-				hash = fnvMixFloat(hash, sim.wheelJoint.lowerImpulse)
-				hash = fnvMixFloat(hash, sim.wheelJoint.upperImpulse)
-			}
+			hash = hashSnapshotJointImpulses(hash, sim)
 		}
 	}
 
@@ -814,8 +688,8 @@ func hashWorldStateDeep(world *World) uint64 {
 // counts and ignores struct padding and free slots, so two worlds that simulate identically always
 // agree. Use this to detect desyncs (for example rollback resimulation) instead of comparing
 // serialized world bytes, which carry non-canonical padding.
-func (r *World) StateHash() uint64 {
-	return hashWorldStateDeep(r)
+func (w *World) StateHash() uint64 {
+	return hashWorldStateDeep(w)
 }
 
 func (e *SnapshotError) Error() string {
@@ -1186,6 +1060,8 @@ func snapWriteShape(buf *recBuffer, v shape) {
 		snapWriteSegment(buf, v.segment)
 	case ChainSegmentShape:
 		snapWriteChainSegment(buf, v.chainSegment)
+	case ShapeTypeCount:
+		// The count sentinel has no geometry payload.
 	}
 }
 
@@ -1222,6 +1098,8 @@ func snapReadShape(r *snapReader, v *shape) {
 		snapReadSegment(r, &v.segment)
 	case ChainSegmentShape:
 		snapReadChainSegment(r, &v.chainSegment)
+	case ShapeTypeCount:
+		r.ok = false
 	default:
 		r.ok = false
 	}
@@ -1354,6 +1232,7 @@ func snapReadSimplexCache(r *snapReader, v *SimplexCache) {
 	}
 }
 
+//nolint:dupl // Snapshot v12 contact and prismatic layouts encode unrelated structs in independently fixed field order.
 func snapWriteContactSim(buf *recBuffer, v contactSim) {
 	snapWI32(buf, v.contactID)
 	snapWriteRot(buf, v.cachedRotationA)
@@ -1403,13 +1282,13 @@ func snapReadContactSim(r *snapReader, v *contactSim) {
 }
 
 func snapWriteJointEdge(buf *recBuffer, v jointEdge) {
-	snapWI32(buf, v.bodyId)
+	snapWI32(buf, v.bodyID)
 	snapWI32(buf, v.prevKey)
 	snapWI32(buf, v.nextKey)
 }
 
 func snapReadJointEdge(r *snapReader, v *jointEdge) {
-	v.bodyId = snapRI32(r)
+	v.bodyID = snapRI32(r)
 	v.prevKey = snapRI32(r)
 	v.nextKey = snapRI32(r)
 }
@@ -1423,8 +1302,8 @@ func snapWriteJoint(buf *recBuffer, v joint) {
 		snapWriteJointEdge(buf, v.edges[i])
 	}
 
-	snapWI32(buf, v.jointId)
-	snapWI32(buf, v.islandId)
+	snapWI32(buf, v.jointID)
+	snapWI32(buf, v.islandID)
 	snapWI32(buf, v.islandIndex)
 	recWF32(buf, v.drawScale)
 	snapWI32(buf, int(v.jointType))
@@ -1442,8 +1321,8 @@ func snapReadJoint(r *snapReader, v *joint) {
 		snapReadJointEdge(r, &v.edges[i])
 	}
 
-	v.jointId = snapRI32(r)
-	v.islandId = snapRI32(r)
+	v.jointID = snapRI32(r)
+	v.islandID = snapRI32(r)
 	v.islandIndex = snapRI32(r)
 	v.drawScale = math.Float32frombits(snapRU32(r))
 	v.jointType = JointType(snapRI32(r))
@@ -1463,6 +1342,7 @@ func snapReadSoftness(r *snapReader, v *softness) {
 	v.impulseScale = math.Float32frombits(snapRU32(r))
 }
 
+//nolint:dupl // Snapshot v12 distance, motor, and wheel layouts have distinct fields and independently fixed field order.
 func snapWriteDistanceJoint(buf *recBuffer, v distanceJoint) {
 	recWF32(buf, v.length)
 	recWF32(buf, v.hertz)
@@ -1525,6 +1405,7 @@ func snapReadMat22(r *snapReader, v *Mat22) {
 	snapReadVec2(r, &v.Cy)
 }
 
+//nolint:dupl // Snapshot v12 motor, distance, and wheel layouts have distinct fields and independently fixed field order.
 func snapWriteMotorJoint(buf *recBuffer, v motorJoint) {
 	snapWriteVec2(buf, v.linearVelocity)
 	recWF32(buf, v.maxVelocityForce)
@@ -1633,6 +1514,7 @@ func snapReadPogoJoint(r *snapReader, v *pogoJoint) {
 	v.velocity = math.Float32frombits(snapRU32(r))
 }
 
+//nolint:dupl // Snapshot v12 prismatic and contact layouts encode unrelated structs in independently fixed field order.
 func snapWritePrismaticJoint(buf *recBuffer, v prismaticJoint) {
 	snapWriteVec2(buf, v.impulse)
 	recWF32(buf, v.springImpulse)
@@ -1765,6 +1647,7 @@ func snapReadWeldJoint(r *snapReader, v *weldJoint) {
 	v.axialMass = math.Float32frombits(snapRU32(r))
 }
 
+//nolint:dupl // Snapshot v12 wheel, distance, and motor layouts have distinct fields and independently fixed field order.
 func snapWriteWheelJoint(buf *recBuffer, v wheelJoint) {
 	recWF32(buf, v.perpImpulse)
 	recWF32(buf, v.motorImpulse)
@@ -1818,9 +1701,9 @@ func snapReadWheelJoint(r *snapReader, v *wheelJoint) {
 }
 
 func snapWriteJointSim(buf *recBuffer, v jointSim) {
-	snapWI32(buf, v.jointId)
-	snapWI32(buf, v.bodyIdA)
-	snapWI32(buf, v.bodyIdB)
+	snapWI32(buf, v.jointID)
+	snapWI32(buf, v.bodyIDA)
+	snapWI32(buf, v.bodyIDB)
 	snapWI32(buf, int(v.jointType))
 	snapWriteTransform(buf, v.localFrameA)
 	snapWriteTransform(buf, v.localFrameB)
@@ -1851,13 +1734,15 @@ func snapWriteJointSim(buf *recBuffer, v jointSim) {
 		snapWriteWeldJoint(buf, v.weldJoint)
 	case WheelJointType:
 		snapWriteWheelJoint(buf, v.wheelJoint)
+	case FilterJointType:
+		// Filter joints have no solver payload.
 	}
 }
 
 func snapReadJointSim(r *snapReader, v *jointSim) {
-	v.jointId = snapRI32(r)
-	v.bodyIdA = snapRI32(r)
-	v.bodyIdB = snapRI32(r)
+	v.jointID = snapRI32(r)
+	v.bodyIDA = snapRI32(r)
+	v.bodyIDB = snapRI32(r)
 	v.jointType = JointType(snapRI32(r))
 	snapReadTransform(r, &v.localFrameA)
 	snapReadTransform(r, &v.localFrameB)
@@ -1888,10 +1773,10 @@ func snapReadJointSim(r *snapReader, v *jointSim) {
 		snapReadWeldJoint(r, &v.weldJoint)
 	case WheelJointType:
 		snapReadWheelJoint(r, &v.wheelJoint)
+	case FilterJointType:
+		// Filter joints have no solver payload.
 	default:
-		if v.jointType != FilterJointType {
-			r.ok = false
-		}
+		r.ok = false
 	}
 }
 
@@ -2175,10 +2060,164 @@ func snapshotHeaderError(image []byte, size int) error {
 		return &SnapshotError{Err: ErrVersion}
 	}
 
+	expectedPrecision := uint32(0)
+	if doublePrecision {
+		expectedPrecision = snapFlagDoublePrecision
+	}
+
 	flags := binary.LittleEndian.Uint32(image[12:])
-	if (flags&snapFlagDoublePrecision != 0) || binary.LittleEndian.Uint32(image[8:]) != computeLayoutHash() {
+	if flags&snapFlagDoublePrecision != expectedPrecision || binary.LittleEndian.Uint32(image[8:]) != computeLayoutHash() {
 		return &SnapshotError{Err: ErrLayout}
 	}
 
 	return nil
+}
+
+func snapTreeCountsValid(r *snapReader, nodeEnd, nodeCapacity, proxyCount, proxyCapacity int) bool {
+	return nodeEnd >= 2 && nodeEnd&1 == 0 && nodeCapacity >= nodeEnd && proxyCount >= 0 && proxyCapacity >= 1 && proxyCapacity >= proxyCount && snapCheckCount(r, nodeEnd, int(unsafe.Sizeof(TreeNode{})), 28) && snapCheckCount(r, proxyCapacity, 24, 24)
+}
+
+func desChainShapes(r *snapReader, world *World) bool {
+	n := snapReadCount(r, int(unsafe.Sizeof(chainShape{})), 18)
+	if !r.ok {
+		return false
+	}
+
+	world.chainShapes = make([]chainShape, n)
+	for i := range world.chainShapes {
+		c := &world.chainShapes[i]
+		c.id = snapRI32(r)
+		c.bodyID = snapRI32(r)
+		c.nextChainID = snapRI32(r)
+		c.segmentCount = snapRI32(r)
+
+		c.generation = snapReadU16(r)
+		if !r.ok {
+			return false
+		}
+
+		if c.id != nullIndex {
+			if !snapCheckCount(r, c.segmentCount, 8, 4) {
+				r.ok = false
+				return false
+			}
+
+			c.shapeIndices = make([]int, c.segmentCount)
+			for j := range c.shapeIndices {
+				c.shapeIndices[j] = snapRI32(r)
+			}
+		}
+	}
+
+	return true
+}
+
+func desSensors(r *snapReader, world *World) bool {
+	n := snapReadCount(r, int(unsafe.Sizeof(sensor{})), 16)
+	if !r.ok {
+		return false
+	}
+
+	world.sensors = make([]sensor, n)
+	for i := range world.sensors {
+		s := &world.sensors[i]
+		s.shapeID = snapRI32(r)
+		desPodArray(r, &s.hits)
+		desPodArray(r, &s.overlaps1)
+		desPodArray(r, &s.overlaps2)
+
+		if !r.ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+func desIslands(r *snapReader, world *World) bool {
+	n := snapReadCount(r, int(unsafe.Sizeof(island{})), 28)
+	if !r.ok {
+		return false
+	}
+
+	world.islands = make([]island, n)
+	for i := range world.islands {
+		s := &world.islands[i]
+		s.setIndex = snapRI32(r)
+		s.localIndex = snapRI32(r)
+		s.islandID = snapRI32(r)
+		s.constraintRemoveCount = snapRI32(r)
+		desPodArray(r, &s.bodies)
+		desPodArray(r, &s.contacts)
+		desPodArray(r, &s.joints)
+
+		if !r.ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+func hashSnapshotJointImpulses(hash uint64, sim *jointSim) uint64 {
+	switch sim.jointType {
+	case DistanceJointType:
+		hash = fnvMixFloat(hash, sim.distanceJoint.impulse)
+		hash = fnvMixFloat(hash, sim.distanceJoint.lowerImpulse)
+		hash = fnvMixFloat(hash, sim.distanceJoint.upperImpulse)
+		hash = fnvMixFloat(hash, sim.distanceJoint.motorImpulse)
+	case MoverJointType:
+		hash = fnvMixFloat(hash, sim.moverJoint.linearVelocityImpulse.X)
+		hash = fnvMixFloat(hash, sim.moverJoint.linearVelocityImpulse.Y)
+	case MotorJointType:
+		hash = fnvMixFloat(hash, sim.motorJoint.linearVelocityImpulse.X)
+		hash = fnvMixFloat(hash, sim.motorJoint.linearVelocityImpulse.Y)
+		hash = fnvMixFloat(hash, sim.motorJoint.angularVelocityImpulse)
+		hash = fnvMixFloat(hash, sim.motorJoint.linearSpringImpulse.X)
+		hash = fnvMixFloat(hash, sim.motorJoint.linearSpringImpulse.Y)
+		hash = fnvMixFloat(hash, sim.motorJoint.angularSpringImpulse)
+	case PogoJointType:
+		hash = fnvMixFloat(hash, sim.pogoJoint.impulse)
+		hash = fnvMixFloat(hash, sim.pogoJoint.velocity)
+	case PrismaticJointType:
+		{
+			var b recBuffer
+			recWVEC2(&b, sim.prismaticJoint.impulse)
+			hash = fnvMixBytes(hash, b.data, 8)
+		}
+
+		hash = fnvMixFloat(hash, sim.prismaticJoint.springImpulse)
+		hash = fnvMixFloat(hash, sim.prismaticJoint.motorImpulse)
+		hash = fnvMixFloat(hash, sim.prismaticJoint.lowerImpulse)
+		hash = fnvMixFloat(hash, sim.prismaticJoint.upperImpulse)
+	case RevoluteJointType:
+		{
+			var b recBuffer
+			recWVEC2(&b, sim.revoluteJoint.linearImpulse)
+			hash = fnvMixBytes(hash, b.data, 8)
+		}
+
+		hash = fnvMixFloat(hash, sim.revoluteJoint.springImpulse)
+		hash = fnvMixFloat(hash, sim.revoluteJoint.motorImpulse)
+		hash = fnvMixFloat(hash, sim.revoluteJoint.lowerImpulse)
+		hash = fnvMixFloat(hash, sim.revoluteJoint.upperImpulse)
+	case WeldJointType:
+		{
+			var b recBuffer
+			recWVEC2(&b, sim.weldJoint.linearImpulse)
+			hash = fnvMixBytes(hash, b.data, 8)
+		}
+
+		hash = fnvMixFloat(hash, sim.weldJoint.angularImpulse)
+	case WheelJointType:
+		hash = fnvMixFloat(hash, sim.wheelJoint.perpImpulse)
+		hash = fnvMixFloat(hash, sim.wheelJoint.motorImpulse)
+		hash = fnvMixFloat(hash, sim.wheelJoint.springImpulse)
+		hash = fnvMixFloat(hash, sim.wheelJoint.lowerImpulse)
+		hash = fnvMixFloat(hash, sim.wheelJoint.upperImpulse)
+	case FilterJointType:
+		// Filter joints have no solver impulses.
+	}
+
+	return hash
 }

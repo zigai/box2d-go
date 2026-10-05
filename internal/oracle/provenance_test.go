@@ -15,7 +15,7 @@ func testReference(t *testing.T) (string, string, referenceManifest, []byte) {
 	root := t.TempDir()
 
 	pin := strings.Repeat("a", 40)
-	if err := os.WriteFile(filepath.Join(root, "UPSTREAM"), []byte(pin+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "UPSTREAM"), []byte(pin+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -38,7 +38,7 @@ func testReference(t *testing.T) (string, string, referenceManifest, []byte) {
 		}
 
 		content := []byte("unit adapter identity: " + name)
-		if err := os.WriteFile(file, content, 0o644); err != nil {
+		if err := os.WriteFile(file, content, 0o600); err != nil {
 			t.Fatal(err)
 		}
 
@@ -65,7 +65,7 @@ func storeReference(t *testing.T, file string, reference referenceManifest) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(file, data, 0o644); err != nil {
+	if err := os.WriteFile(file, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -76,6 +76,8 @@ func TestReferenceRejectsStalePinProfileAndAdapters(t *testing.T) {
 		mutate func(*testing.T, string, string, *referenceManifest)
 	}{
 		{"missing", func(t *testing.T, _, file string, _ *referenceManifest) {
+			t.Helper()
+
 			if err := os.Remove(file); err != nil {
 				t.Fatal(err)
 			}
@@ -89,20 +91,26 @@ func TestReferenceRejectsStalePinProfileAndAdapters(t *testing.T) {
 		{"contraction", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Contraction = "fast" }},
 		{"compiler", func(_ *testing.T, _, _ string, r *referenceManifest) { r.CompilerVersion = "" }},
 		{"adapter_changed", func(t *testing.T, root, _ string, _ *referenceManifest) {
-			if err := os.WriteFile(filepath.Join(root, "oracle", "oracle.c"), []byte("changed adapter"), 0o644); err != nil {
+			t.Helper()
+
+			if err := os.WriteFile(filepath.Join(root, "oracle", "oracle.c"), []byte("changed adapter"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"adapter_added", func(t *testing.T, root, _ string, _ *referenceManifest) {
+			t.Helper()
+
 			if err := os.MkdirAll(filepath.Join(root, "oracle", "tests"), 0o755); err != nil {
 				t.Fatal(err)
 			}
 
-			if err := os.WriteFile(filepath.Join(root, "oracle", "tests", "added.c"), []byte("new case"), 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "oracle", "tests", "added.c"), []byte("new case"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"adapter_missing", func(t *testing.T, root, _ string, _ *referenceManifest) {
+			t.Helper()
+
 			if err := os.Remove(filepath.Join(root, "oracle", "oracle.c")); err != nil {
 				t.Fatal(err)
 			}

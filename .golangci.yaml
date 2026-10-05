@@ -224,3 +224,247 @@ linters:
     rules:
       - path: ".*_test\\.go"
         linters: [decorder, funcorder]
+      - path: "^body\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if bodyA\\.bodyType != DynamicBody && bodyB\\.bodyType != DynamicBody \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^contact_solver\\.go$"
+        linters: [dupl]
+        source: "^[\\t ]*\\{$"
+        text: "^(?:1505-1532 lines are duplicate of `contact_solver\\.go:1534-1561`|1534-1561 lines are duplicate of `contact_solver\\.go:1505-1532`)$"
+      - path: "^distance_joint\\.go$"
+        linters: [nestif]
+        source: "^[\\t ]*if jnt\\.enableSpring && \\(jnt\\.minLength < jnt\\.maxLength \\|\\| !jnt\\.enableLimit\\) \\{$"
+        text: "^(?:`if jnt\\.enableSpring && \\(jnt\\.minLength < jnt\\.maxLength \\|\\| !jnt\\.enableLimit\\)` has complex nested blocks \\(complexity: 5\\))$"
+      - path: "^distance_test\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func testDistanceSegments\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function testDistanceSegments is 15, max is 12)$"
+      - path: "^draw_parity_test\\.go$"
+        linters: [gocognit]
+        source: "^[\\t ]*func TestWorldDrawTypedParity\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:cognitive complexity 23 of func `TestWorldDrawTypedParity` is high \\(> 20\\))$"
+      - path: "^dynamic_tree\\.go$"
+        linters: [cyclop, gocognit]
+        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) CastBox\\(input \\*BoxCastInput, maskBits uint64, callback TreeBoxCastCallbackFunc\\) TreeStats \\{$"
+        text: "^(?:calculated cyclomatic complexity for function CastBox is 13, max is 12|cognitive complexity 30 of func `\\(\\*DynamicTree\\)\\.CastBox` is high \\(> 20\\))$"
+      - path: "^dynamic_tree\\.go$"
+        linters: [cyclop, gocognit]
+        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) CastRay\\(input \\*RayCastInput, maskBits uint64, callback TreeRayCastCallbackFunc\\) TreeStats \\{$"
+        text: "^(?:calculated cyclomatic complexity for function CastRay is 13, max is 12|cognitive complexity 30 of func `\\(\\*DynamicTree\\)\\.CastRay` is high \\(> 20\\))$"
+      - path: "^dynamic_tree\\.go$"
+        linters: [gocognit]
+        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) Query\\(aabb AABB, maskBits uint64, callback TreeQueryCallbackFunc\\) TreeStats \\{$"
+        text: "^(?:cognitive complexity 21 of func `\\(\\*DynamicTree\\)\\.Query` is high \\(> 20\\))$"
+      - path: "^dynamic_tree\\.go$"
+        linters: [cyclop, gocognit]
+        source: "^[\\t ]*func findBestSibling\\(tree \\*DynamicTree, boxD AABB\\) int \\{$"
+        text: "^(?:calculated cyclomatic complexity for function findBestSibling is 16, max is 12|cognitive complexity 29 of func `findBestSibling` is high \\(> 20\\))$"
+      - path: "^dynamic_tree_test\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func runDynamicTreeTreeDfsOrderTest\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function runDynamicTreeTreeDfsOrderTest is 31, max is 12|cognitive complexity 32 of func `runDynamicTreeTreeDfsOrderTest` is high \\(> 20\\)|Function name: runDynamicTreeTreeDfsOrderTest, Cyclomatic Complexity: 31, Halstead Volume: 9687\\.82, Maintainability Index: 13)$"
+      - path: "^dynamic_tree_test\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func runDynamicTreeTreeLeafRootTest\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function runDynamicTreeTreeLeafRootTest is 31, max is 12|cognitive complexity 30 of func `runDynamicTreeTreeLeafRootTest` is high \\(> 20\\)|Function name: runDynamicTreeTreeLeafRootTest, Cyclomatic Complexity: 31, Halstead Volume: 10368\\.64, Maintainability Index: 13)$"
+      - path: "^dynamic_tree_test\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func runDynamicTreeTreeMarkAndRefitTest\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function runDynamicTreeTreeMarkAndRefitTest is 31, max is 12|cognitive complexity 35 of func `runDynamicTreeTreeMarkAndRefitTest` is high \\(> 20\\)|Function name: runDynamicTreeTreeMarkAndRefitTest, Cyclomatic Complexity: 31, Halstead Volume: 8112\\.54, Maintainability Index: 15)$"
+      - path: "^dynamic_tree_test\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func runDynamicTreeTreeOneProxyTest\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function runDynamicTreeTreeOneProxyTest is 29, max is 12|cognitive complexity 28 of func `runDynamicTreeTreeOneProxyTest` is high \\(> 20\\)|Function name: runDynamicTreeTreeOneProxyTest, Cyclomatic Complexity: 29, Halstead Volume: 9756\\.23, Maintainability Index: 14)$"
+      - path: "^dynamic_tree_test\\.go$"
+        linters: [cyclop, maintidx]
+        source: "^[\\t ]*func runDynamicTreeTreeRayCastTest\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function runDynamicTreeTreeRayCastTest is 18, max is 12|Function name: runDynamicTreeTreeRayCastTest, Cyclomatic Complexity: 18, Halstead Volume: 11476\\.28, Maintainability Index: 13)$"
+      - path: "^internal/oracle/oracle\\.go$"
+        linters: [unparam]
+        source: "^[\\t ]*func \\(r \\*Reader\\) checkFloat\\(rec record, component, field string, width int, got uint64\\) \\{$"
+        text: "^(?:\\(\\*Reader\\)\\.checkFloat - width always receives 32)$"
+      - path: "^joint\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func drawJointGeometry\\(draw \\*DebugDraw, jnt \\*joint, sim \\*jointSim, xfA, xfB WorldTransform\\) \\(Pos, Pos\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function drawJointGeometry is 13, max is 12)$"
+      - path: "^joint\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func placeJointInSolverSet\\(world \\*World, jnt \\*joint, bodyA, bodyB \\*body, maxSetIndex int\\) \\*jointSim \\{$"
+        text: "^(?:calculated cyclomatic complexity for function placeJointInSolverSet is 13, max is 12)$"
+      - path: "^joint\\.go$"
+        linters: [gocritic, nestif]
+        source: "^[\\t ]*if bodyA\\.setIndex == disabledSet \\|\\| bodyB\\.setIndex == disabledSet \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement|`if bodyA\\.setIndex == disabledSet \\|\\| bodyB\\.setIndex == disabledSet` has complex nested blocks \\(complexity: 5\\))$"
+      - path: "^joint\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if typeA == DynamicBody && typeB == DynamicBody \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^manifold\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func CollideCapsules\\(capsuleA, capsuleB \\*Capsule, xf Transform\\) LocalManifold \\{$"
+        text: "^(?:calculated cyclomatic complexity for function CollideCapsules is 40, max is 12|cognitive complexity 56 of func `CollideCapsules` is high \\(> 20\\)|Function name: CollideCapsules, Cyclomatic Complexity: 40, Halstead Volume: 7216\\.29, Maintainability Index: 15)$"
+      - path: "^manifold\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func CollideChainSegmentAndPolygon\\(segmentA \\*ChainSegment, polygonB \\*Polygon, xf Transform, cache \\*SimplexCache\\) LocalManifold \\{$"
+        text: "^(?:calculated cyclomatic complexity for function CollideChainSegmentAndPolygon is 48, max is 12|cognitive complexity 102 of func `CollideChainSegmentAndPolygon` is high \\(> 20\\)|Function name: CollideChainSegmentAndPolygon, Cyclomatic Complexity: 48, Halstead Volume: 8939\\.94, Maintainability Index: 9)$"
+      - path: "^manifold\\.go$"
+        linters: [cyclop, gocognit]
+        source: "^[\\t ]*func CollidePolygons\\(polygonA, polygonB \\*Polygon, xf Transform\\) LocalManifold \\{$"
+        text: "^(?:calculated cyclomatic complexity for function CollidePolygons is 22, max is 12|cognitive complexity 32 of func `CollidePolygons` is high \\(> 20\\))$"
+      - path: "^manifold\\.go$"
+        linters: [nestif]
+        source: "^[\\t ]*if !behind1 && output\\.Distance > float32\\(0\\.1\\*LinearSlop\\(\\)\\) \\{$"
+        text: "^(?:`if !behind1 && output\\.Distance > float32\\(0\\.1\\*LinearSlop\\(\\)\\)` has complex nested blocks \\(complexity: 72\\))$"
+      - path: "^manifold\\.go$"
+        linters: [nestif]
+        source: "^[\\t ]*if !outsideA && !outsideB \\{$"
+        text: "^(?:`if !outsideA && !outsideB` has complex nested blocks \\(complexity: 18\\))$"
+      - path: "^manifold\\.go$"
+        linters: [nestif]
+        source: "^[\\t ]*if incidentNormal != -1 \\{$"
+        text: "^(?:`if incidentNormal != -1` has complex nested blocks \\(complexity: 10\\))$"
+      - path: "^manifold\\.go$"
+        linters: [nestif]
+        source: "^[\\t ]*if manifold\\.PointCount == 0 \\{$"
+        text: "^(?:`if manifold\\.PointCount == 0` has complex nested blocks \\(complexity: 6\\))$"
+      - path: "^manifold\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if result\\.Fraction1 == 0\\.0 && result\\.Fraction2 == 0\\.0 \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^manifold\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if s1 < 0\\.0 \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^manifold\\.go$"
+        linters: [nestif]
+        source: "^[\\t ]*if separationA > float32\\(0\\.1\\*linearSlop\\) \\|\\| separationB > float32\\(0\\.1\\*linearSlop\\) \\{$"
+        text: "^(?:`if separationA > float32\\(0\\.1\\*linearSlop\\) \\|\\| separationB > float32\\(0\\.1\\*linearSlop\\)` has complex nested blocks \\(complexity: 12\\))$"
+      - path: "^manifold\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if u1 < 0\\.0 && separation > float32\\(0x1p-23\\) \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^mover_test\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func testMoverClipVector\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function testMoverClipVector is 13, max is 12)$"
+      - path: "^physics_world_query\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if bodySetIndex == disabledSet \\|\\| otherBody\\.setIndex == disabledSet \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^physics_world_query\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if draw\\.DrawGraphColors && contact\\.colorIndex != nullIndex \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^physics_world_query\\.go$"
+        linters: [gocritic]
+        source: "^[\\t ]*if setIndex == disabledSet \\|\\| otherBody\\.setIndex == disabledSet \\{$"
+        text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^prismatic_joint\\.go$"
+        linters: [maintidx]
+        source: "^[\\t ]*func solvePrismaticJoint\\(base \\*jointSim, context \\*stepContext, useBias bool\\) \\{$"
+        text: "^(?:Function name: solvePrismaticJoint, Cyclomatic Complexity: 11, Halstead Volume: 8853\\.21, Maintainability Index: 19)$"
+      - path: "^prismatic_joint\\.go$"
+        linters: [dupl]
+        source: "^[\\t ]*if separation < speculativeDistance \\{$"
+        text: "^(?:596-615 lines are duplicate of `prismatic_joint\\.go:625-647`|625-647 lines are duplicate of `prismatic_joint\\.go:596-615`)$"
+      - path: "^recording_mutations_test\\.go$"
+        linters: [cyclop, maintidx]
+        source: "^[\\t ]*func TestRecordingMutationParity\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function TestRecordingMutationParity is 23, max is 12|Function name: TestRecordingMutationParity, Cyclomatic Complexity: 23, Halstead Volume: 10557\\.47, Maintainability Index: 17)$"
+      - path: "^recording_test\\.go$"
+        linters: [cyclop, maintidx]
+        source: "^[\\t ]*func TestRecording\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function TestRecording is 16, max is 12|Function name: TestRecording, Cyclomatic Complexity: 16, Halstead Volume: 12550\\.92, Maintainability Index: 15)$"
+      - path: "^recording_test\\.go$"
+        linters: [gocognit]
+        source: "^[\\t ]*func TestRecordingTransformFixturePacking\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:cognitive complexity 24 of func `TestRecordingTransformFixturePacking` is high \\(> 20\\))$"
+      - path: "^recording_test\\.go$"
+        linters: [cyclop, gocognit]
+        source: "^[\\t ]*func newRecordingTrace\\(t \\*testing\\.T, name string\\) \\*recordingTrace \\{$"
+        text: "^(?:calculated cyclomatic complexity for function newRecordingTrace is 21, max is 12|cognitive complexity 28 of func `newRecordingTrace` is high \\(> 20\\))$"
+      - path: "^recording_test\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func recordingCheckKeyframeSeek\\(t \\*testing\\.T, r \\*oracle\\.Reader, trace \\*recordingTrace, recData \\[\\]byte, workerCount, budgetBytes, minInterval int\\) int \\{$"
+        text: "^(?:calculated cyclomatic complexity for function recordingCheckKeyframeSeek is 16, max is 12)$"
+      - path: "^recording_test\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func recordingCheckPlayback\\(t \\*testing\\.T, r \\*oracle\\.Reader, trace \\*recordingTrace, recData \\[\\]byte\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function recordingCheckPlayback is 13, max is 12)$"
+      - path: "^recording_test\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func recordingCheckScrubAllFrames\\(t \\*testing\\.T, r \\*oracle\\.Reader, trace \\*recordingTrace, recData \\[\\]byte, workerCount, budgetBytes, minInterval int\\) int \\{$"
+        text: "^(?:calculated cyclomatic complexity for function recordingCheckScrubAllFrames is 16, max is 12)$"
+      - path: "^recording_test\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func recordingUnpackTransforms\\(raw \\[\\]byte\\) \\(\\[\\]recordingTransformBits, error\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function recordingUnpackTransforms is 17, max is 12)$"
+      - path: "^scenes_test\\.go$"
+        linters: [gocognit]
+        source: "^[\\t ]*func TestSceneFixtureInventory\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:cognitive complexity 21 of func `TestSceneFixtureInventory` is high \\(> 20\\))$"
+      - path: "^snapshot\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func snapMinSize\\[T any\\]\\(\\) int \\{$"
+        text: "^(?:calculated cyclomatic complexity for function snapMinSize is 22, max is 12)$"
+      - path: "^snapshot\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func snapReadValue\\[T any\\]\\(r \\*snapReader, value \\*T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function snapReadValue is 22, max is 12)$"
+      - path: "^snapshot\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func snapWriteValue\\[T any\\]\\(buf \\*recBuffer, value T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function snapWriteValue is 22, max is 12)$"
+      - path: "^snapshot_parity_test\\.go$"
+        linters: [gocognit]
+        source: "^[\\t ]*func TestSnapshotFamiliesRollback\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:cognitive complexity 28 of func `TestSnapshotFamiliesRollback` is high \\(> 20\\))$"
+      - path: "^solver\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func solve\\(world \\*World, stepContext \\*stepContext\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function solve is 17, max is 12|cognitive complexity 27 of func `solve` is high \\(> 20\\)|Function name: solve, Cyclomatic Complexity: 17, Halstead Volume: 7812\\.60, Maintainability Index: 15)$"
+      - path: "^solver\\.go$"
+        linters: [cyclop, gocognit, maintidx]
+        source: "^[\\t ]*func solverTask\\(taskContext \\*workerContext\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function solverTask is 18, max is 12|cognitive complexity 44 of func `solverTask` is high \\(> 20\\)|Function name: solverTask, Cyclomatic Complexity: 18, Halstead Volume: 4601\\.04, Maintainability Index: 19)$"
+      - path: "^solver_arena_test\\.go$"
+        linters: [thelper]
+        source: "^[\\t ]*func testSolverArenaGrowthShrink\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^solver_arena_test\\.go$"
+        linters: [cyclop, thelper]
+        source: "^[\\t ]*func testSolverArenaRestoreDestroy\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function testSolverArenaRestoreDestroy is 13, max is 12|test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^solver_arena_test\\.go$"
+        linters: [thelper]
+        source: "^[\\t ]*func testSolverArenaReuse\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^solver_arena_test\\.go$"
+        linters: [thelper]
+        source: "^[\\t ]*func testSolverArenaSleep\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^solver_arena_test\\.go$"
+        linters: [thelper]
+        source: "^[\\t ]*func testSolverArenaZero\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^solver_scratch_test\\.go$"
+        linters: [thelper]
+        source: "^[\\t ]*func testSolverScratchInactiveContacts\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^solver_scratch_test\\.go$"
+        linters: [thelper]
+        source: "^[\\t ]*func testSolverScratchRepeatedContacts\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^solver_scratch_test\\.go$"
+        linters: [thelper]
+        source: "^[\\t ]*func testSolverScratchSleepingContacts\\(t \\*testing\\.T, workers int\\) \\{$"
+        text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+      - path: "^table_test\\.go$"
+        linters: [cyclop]
+        source: "^[\\t ]*func runTableHashSetAddRemoveTest\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function runTableHashSetAddRemoveTest is 18, max is 12)$"
+      - path: "^table_test\\.go$"
+        linters: [cyclop, gocognit]
+        source: "^[\\t ]*func runTableHashSetTest\\(t \\*testing\\.T\\) \\{$"
+        text: "^(?:calculated cyclomatic complexity for function runTableHashSetTest is 19, max is 12|cognitive complexity 51 of func `runTableHashSetTest` is high \\(> 20\\))$"

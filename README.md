@@ -47,9 +47,9 @@ func main() {
 
 ## Conformance checks
 
-Run `just test` for offline float, double, and race comparisons. These tests never regenerate expectations. Missing, changed, stale, or incomplete C captures fail.
+Run `go test ./...` for default checks, or `just test` for both float and double precision. Run `just stress` for full-size scene and replay comparisons, or `just test-all` for complete normal and race coverage in both precisions. Tests never regenerate expectations.
 
-Race and WASM CI use `test/run.sh` to execute ordinary families, one-worker scenes, and four-worker scenes in separate processes. All existing cases, scene horizons, assertions, and C fixtures are retained; the process boundaries bound cumulative memory and instrumented run time.
+Full-size checks require the `box2d_stress` build tag. CI runs default and stress suites explicitly. `test/run.sh` separates one-worker and four-worker scenes into different processes, preserving all cases, scene horizons, assertions, and C fixtures.
 
 Run `just oracle` to explicitly rebuild expectations with `CMake`, GCC, and the exact `UPSTREAM` checkout; review the resulting fixture changes. The generator also runs the unchanged upstream suite and cross-checks SIMD and alternate-compiler profiles. The designated assertion-enabled scalar reference disables floating-point contraction. Requested distance-simplex histories use a separate Debug C profile.
 

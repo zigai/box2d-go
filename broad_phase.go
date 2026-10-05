@@ -127,44 +127,50 @@ func flushCandidatePairs(context *pairContext) {
 
 	for i := range count2 {
 		shapeIDA, shapeIDB := candidates[i].shapeIDA, candidates[i].shapeIDB
-		shapeA, shapeB := &w.shapes[shapeIDA], &w.shapes[shapeIDB]
-
-		bodyIDA, bodyIDB := shapeA.bodyID, shapeB.bodyID
-		if bodyIDA == bodyIDB {
+		if !candidateShapesCollide(w, shapeIDA, shapeIDB) {
 			continue
-		}
-
-		if shapeA.sensorIndex != nullIndex || shapeB.sensorIndex != nullIndex {
-			continue
-		}
-
-		if !shouldShapesCollide(shapeA.filter, shapeB.filter) {
-			continue
-		}
-
-		if !canCollide(shapeA.shapeType, shapeB.shapeType) {
-			continue
-		}
-
-		bodyA, bodyB := &w.bodies[bodyIDA], &w.bodies[bodyIDB]
-		if !shouldBodiesCollide(w, bodyA, bodyB) {
-			continue
-		}
-
-		if shapeA.enableCustomFiltering || shapeB.enableCustomFiltering {
-			customFilter := w.customFilterFcn
-			if customFilter != nil {
-				idA := Shape{index1: int32(shapeIDA + 1), world: w, generation: shapeA.generation}
-
-				idB := Shape{index1: int32(shapeIDB + 1), world: w, generation: shapeB.generation}
-				if !customFilter(idA, idB) {
-					continue
-				}
-			}
 		}
 
 		*pairKeys = arrayPush(*pairKeys, shapePairKey(shapeIDA, shapeIDB))
 	}
+}
+
+func candidateShapesCollide(w *World, shapeIDA, shapeIDB int) bool {
+	shapeA, shapeB := &w.shapes[shapeIDA], &w.shapes[shapeIDB]
+
+	bodyIDA, bodyIDB := shapeA.bodyID, shapeB.bodyID
+	if bodyIDA == bodyIDB {
+		return false
+	}
+
+	if shapeA.sensorIndex != nullIndex || shapeB.sensorIndex != nullIndex {
+		return false
+	}
+
+	if !shouldShapesCollide(shapeA.filter, shapeB.filter) {
+		return false
+	}
+
+	if !canCollide(shapeA.shapeType, shapeB.shapeType) {
+		return false
+	}
+
+	bodyA, bodyB := &w.bodies[bodyIDA], &w.bodies[bodyIDB]
+	if !shouldBodiesCollide(w, bodyA, bodyB) {
+		return false
+	}
+
+	if shapeA.enableCustomFiltering || shapeB.enableCustomFiltering {
+		customFilter := w.customFilterFcn
+		if customFilter != nil {
+			idA := Shape{index1: int32(shapeIDA + 1), world: w, generation: shapeA.generation}
+			idB := Shape{index1: int32(shapeIDB + 1), world: w, generation: shapeB.generation}
+
+			return customFilter(idA, idB)
+		}
+	}
+
+	return true
 }
 
 func addCandidatePair(shapeIDA, shapeIDB int, context *pairContext) {
@@ -230,13 +236,14 @@ func visitPair(arrayA, arrayB []TreeNode, nodeA, nodeB *TreeNode, stack []indexP
 	}
 
 	leafA, leafB := isLeaf(nodeA), isLeaf(nodeB)
-	if leafA && leafB {
+	switch {
+	case leafA && leafB:
 		addCandidatePair(int(nodeA.ShapeIndex), int(nodeB.ShapeIndex), context)
-	} else if leafA {
+	case leafA:
 		collideProxyAndSubtree(nodeA, arrayB, getLeftChild(nodeB), context)
-	} else if leafB {
+	case leafB:
 		collideProxyAndSubtree(nodeB, arrayA, getLeftChild(nodeA), context)
-	} else {
+	default:
 		if *stackCount < treeStackSize {
 			stack[*stackCount] = indexPair{a: getLeftChild(nodeA), b: getLeftChild(nodeB)}
 			*stackCount += 1

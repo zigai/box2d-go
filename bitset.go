@@ -94,7 +94,3 @@ func getBit(bitSet *bitSet, bitIndex uint32) bool {
 
 	return bitSet.bits[blockIndex]&(uint64(1)<<(bitIndex%64)) != 0
 }
-
-func getBitSetBytes(bitSet *bitSet) int {
-	return int(bitSet.blockCapacity) * 8
-}

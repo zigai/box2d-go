@@ -139,6 +139,34 @@ type copyItem struct {
 	newIndex int
 }
 
+// Constructing the tree initializes the node pool.
+func NewDynamicTree(proxyCapacity int) DynamicTree {
+	capacity := max(proxyCapacity, 16)
+	tree := DynamicTree{}
+	tree.nodeCapacity = int32(2 * capacity)
+	tree.nodes = make([]TreeNode, tree.nodeCapacity)
+	tree.parents = make([]int32, tree.nodeCapacity)
+	tree.pairFreeList = int32(nullIndex)
+	tree.nodes[rootNode] = makeEmptyNode()
+	tree.nodes[rootNode+1] = makeEmptyNode()
+	tree.parents[rootNode] = int32(nullIndex)
+	tree.parents[rootNode+1] = int32(nullIndex)
+	tree.nodeEnd = 2
+	tree.dfsOrdered = true
+	tree.proxyCapacity = int32(capacity)
+
+	tree.proxies = make([]TreeProxy, capacity)
+	for i := range capacity - 1 {
+		tree.proxies[i].Node = int32(nullIndex)
+		tree.proxies[i].Next = int32(i + 1)
+	}
+
+	tree.proxies[capacity-1].Node = int32(nullIndex)
+	tree.proxies[capacity-1].Next = int32(nullIndex)
+
+	return tree
+}
+
 func allocateSiblingPair(tree *DynamicTree) int {
 	if tree.pairFreeList != int32(nullIndex) {
 		pair := int(tree.pairFreeList)
@@ -174,34 +202,6 @@ func freePair(tree *DynamicTree, pair int) {
 	tree.parents[pair] = tree.pairFreeList
 	tree.parents[pair+1] = int32(nullIndex)
 	tree.pairFreeList = int32(pair)
-}
-
-// Constructing the tree initializes the node pool.
-func NewDynamicTree(proxyCapacity int) DynamicTree {
-	capacity := max(proxyCapacity, 16)
-	tree := DynamicTree{}
-	tree.nodeCapacity = int32(2 * capacity)
-	tree.nodes = make([]TreeNode, tree.nodeCapacity)
-	tree.parents = make([]int32, tree.nodeCapacity)
-	tree.pairFreeList = int32(nullIndex)
-	tree.nodes[rootNode] = makeEmptyNode()
-	tree.nodes[rootNode+1] = makeEmptyNode()
-	tree.parents[rootNode] = int32(nullIndex)
-	tree.parents[rootNode+1] = int32(nullIndex)
-	tree.nodeEnd = 2
-	tree.dfsOrdered = true
-	tree.proxyCapacity = int32(capacity)
-
-	tree.proxies = make([]TreeProxy, capacity)
-	for i := range capacity - 1 {
-		tree.proxies[i].Node = int32(nullIndex)
-		tree.proxies[i].Next = int32(i + 1)
-	}
-
-	tree.proxies[capacity-1].Node = int32(nullIndex)
-	tree.proxies[capacity-1].Next = int32(nullIndex)
-
-	return tree
 }
 
 func allocateProxy(tree *DynamicTree) int {
@@ -536,54 +536,9 @@ func (tree *DynamicTree) ProxyCount() int {
 	return int(tree.proxyCount)
 }
 
-func (tree *DynamicTree) moveProxyInternal(proxyID int, aabb AABB, markMoved bool) {
-	validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
-	validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
-	validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
-	assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
-	removeLeaf(tree, proxyID)
-	insertLeaf(tree, aabb, proxyID, markMoved, false)
-}
-
 // Move a proxy to a new AABB by removing and reinserting into the tree.
 func (tree *DynamicTree) MoveProxy(proxyID int, aabb AABB) {
 	tree.moveProxyInternal(proxyID, aabb, false)
-}
-
-func (tree *DynamicTree) enlargeProxy(proxyID int, aabb AABB) {
-	validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
-	validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
-	validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
-	assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
-	nodes, parents := tree.nodes, tree.parents
-	index := int(tree.proxies[proxyID].Node)
-	node := &nodes[index]
-	assert(isLeaf(node), "b2IsLeaf( node )")
-	validate(!node.AABB.Contains(aabb), "b2AABB_Contains( node->aabb, aabb ) == false")
-	node.AABB = aabb
-	node.FlagIndex |= movedNode
-
-	index = int(parents[index])
-	for index != nullIndex {
-		node = &nodes[index]
-		changed := enlargeAABB(&node.AABB, aabb)
-		node.FlagIndex |= movedNode
-		index = int(parents[index])
-
-		if !changed {
-			break
-		}
-	}
-
-	for index != nullIndex {
-		node = &nodes[index]
-		if node.FlagIndex&movedNode != 0 {
-			break
-		}
-
-		node.FlagIndex |= movedNode
-		index = int(parents[index])
-	}
 }
 
 // Modify the category bits on a proxy.
@@ -716,16 +671,6 @@ func (tree *DynamicTree) Validate() {
 	assert(leafCount == int(tree.proxyCount), "leafCount == tree->proxyCount")
 }
 
-func (tree *DynamicTree) validateNoMoved() {
-	if !validationEnabled {
-		return
-	}
-
-	for i := range tree.nodeEnd {
-		assert(!isNodeMoved(&tree.nodes[i]), "b2IsNodeMoved( nodes + i ) == false")
-	}
-}
-
 // Get the number of bytes used by this tree.
 func (tree *DynamicTree) ByteCount() int {
 	size := int(unsafe.Sizeof(*tree))
@@ -781,27 +726,33 @@ func (tree *DynamicTree) Query(aabb AABB, maskBits uint64, callback TreeQueryCal
 
 		for i := range 2 {
 			node := &nodes[pair+i]
-			if overlapNode(boxv, node) {
-				if isLeaf(node) {
-					proxyID := getProxyID(node)
+			if !overlapNode(boxv, node) {
+				continue
+			}
 
-					proxy := &tree.proxies[proxyID]
-					if proxy.CategoryBits&maskBits != 0 {
-						proceed := callback(proxyID, proxy.UserData)
-
-						result.LeafVisits++
-						if !proceed {
-							return result
-						}
-					}
+			if !isLeaf(node) {
+				if stackCount < treeStackSize-1 {
+					stack[stackCount] = getLeftChild(node)
+					stackCount++
 				} else {
-					if stackCount < treeStackSize-1 {
-						stack[stackCount] = getLeftChild(node)
-						stackCount++
-					} else {
-						assert(stackCount < treeStackSize-1, "stackCount < B2_TREE_STACK_SIZE - 1")
-					}
+					assert(stackCount < treeStackSize-1, "stackCount < B2_TREE_STACK_SIZE - 1")
 				}
+
+				continue
+			}
+
+			proxyID := getProxyID(node)
+
+			proxy := &tree.proxies[proxyID]
+			if proxy.CategoryBits&maskBits == 0 {
+				continue
+			}
+
+			proceed := callback(proxyID, proxy.UserData)
+
+			result.LeafVisits++
+			if !proceed {
+				return result
 			}
 		}
 	}
@@ -834,24 +785,28 @@ func (tree *DynamicTree) QueryAll(aabb AABB, callback TreeQueryCallbackFunc) Tre
 
 		for i := range 2 {
 			node := &nodes[pair+i]
-			if overlapNode(boxv, node) {
-				if isLeaf(node) {
-					proxyID := getProxyID(node)
-					proxy := &tree.proxies[proxyID]
-					proceed := callback(proxyID, proxy.UserData)
+			if !overlapNode(boxv, node) {
+				continue
+			}
 
-					result.LeafVisits++
-					if !proceed {
-						return result
-					}
+			if !isLeaf(node) {
+				if stackCount < treeStackSize-1 {
+					stack[stackCount] = getLeftChild(node)
+					stackCount++
 				} else {
-					if stackCount < treeStackSize-1 {
-						stack[stackCount] = getLeftChild(node)
-						stackCount++
-					} else {
-						assert(stackCount < treeStackSize-1, "stackCount < B2_TREE_STACK_SIZE - 1")
-					}
+					assert(stackCount < treeStackSize-1, "stackCount < B2_TREE_STACK_SIZE - 1")
 				}
+
+				continue
+			}
+
+			proxyID := getProxyID(node)
+			proxy := &tree.proxies[proxyID]
+			proceed := callback(proxyID, proxy.UserData)
+
+			result.LeafVisits++
+			if !proceed {
+				return result
 			}
 		}
 	}
@@ -929,48 +884,41 @@ func (tree *DynamicTree) CastRay(input *RayCastInput, maskBits uint64, callback 
 			hitCount++
 		}
 
-		if hitCount == 2 && !leaf[0] && !leaf[1] {
-			center1 := hit[0].AABB.Center()
-			center2 := hit[1].AABB.Center()
-			d1 := center1.DistanceSquared(p1)
-
-			d2 := center2.DistanceSquared(p1)
-			if d1 < d2 {
-				hit[0], hit[1] = hit[1], hit[0]
-			}
-		}
+		orderCastHits(&hit, &leaf, hitCount, p1)
 
 		for i := range hitCount {
-			if leaf[i] {
-				proxyID := getProxyID(hit[i])
-
-				proxy := &tree.proxies[proxyID]
-				if proxy.CategoryBits&maskBits == 0 {
-					continue
-				}
-
-				subInput.MaxFraction = maxFraction
-				value := callback(&subInput, proxyID, proxy.UserData)
-
-				result.LeafVisits++
-				if value == 0 {
-					return result
-				}
-
-				if 0 < value && value <= maxFraction {
-					maxFraction = value
-					p2 = p1.MulAdd(maxFraction, d)
-					segmentAABB.LowerBound = p1.Min(p2)
-					segmentAABB.UpperBound = p1.Max(p2)
-					boxv = loadAABBV(&segmentAABB)
-				}
-			} else {
+			if !leaf[i] {
 				if stackCount < treeStackSize-1 {
 					stack[stackCount] = getLeftChild(hit[i])
 					stackCount++
 				} else {
 					assert(stackCount < treeStackSize-1, "stackCount < B2_TREE_STACK_SIZE - 1")
 				}
+
+				continue
+			}
+
+			proxyID := getProxyID(hit[i])
+
+			proxy := &tree.proxies[proxyID]
+			if proxy.CategoryBits&maskBits == 0 {
+				continue
+			}
+
+			subInput.MaxFraction = maxFraction
+			value := callback(&subInput, proxyID, proxy.UserData)
+
+			result.LeafVisits++
+			if value == 0 {
+				return result
+			}
+
+			if 0 < value && value <= maxFraction {
+				maxFraction = value
+				p2 = p1.MulAdd(maxFraction, d)
+				segmentAABB.LowerBound = p1.Min(p2)
+				segmentAABB.UpperBound = p1.Max(p2)
+				boxv = loadAABBV(&segmentAABB)
 			}
 		}
 	}
@@ -1042,53 +990,114 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 			hitCount++
 		}
 
-		if hitCount == 2 && !leaf[0] && !leaf[1] {
-			center1 := hit[0].AABB.Center()
-			center2 := hit[1].AABB.Center()
-			d1 := center1.DistanceSquared(p1)
-
-			d2 := center2.DistanceSquared(p1)
-			if d1 < d2 {
-				hit[0], hit[1] = hit[1], hit[0]
-			}
-		}
+		orderCastHits(&hit, &leaf, hitCount, p1)
 
 		for i := range hitCount {
-			if leaf[i] {
-				proxyID := getProxyID(hit[i])
-
-				proxy := &tree.proxies[proxyID]
-				if proxy.CategoryBits&maskBits == 0 {
-					continue
-				}
-
-				subInput.MaxFraction = maxFraction
-				value := callback(&subInput, proxyID, proxy.UserData)
-
-				result.LeafVisits++
-				if value == 0 {
-					return result
-				}
-
-				if 0 < value && value < maxFraction {
-					maxFraction = value
-					t = Vec2{X: float32(maxFraction * input.Translation.X), Y: float32(maxFraction * input.Translation.Y)}
-					totalAABB.LowerBound = originAABB.LowerBound.Min(originAABB.LowerBound.Add(t))
-					totalAABB.UpperBound = originAABB.UpperBound.Max(originAABB.UpperBound.Add(t))
-					boxv = loadAABBV(&totalAABB)
-				}
-			} else {
+			if !leaf[i] {
 				if stackCount < treeStackSize-1 {
 					stack[stackCount] = getLeftChild(hit[i])
 					stackCount++
 				} else {
 					assert(stackCount < treeStackSize-1, "stackCount < B2_TREE_STACK_SIZE - 1")
 				}
+
+				continue
+			}
+
+			proxyID := getProxyID(hit[i])
+
+			proxy := &tree.proxies[proxyID]
+			if proxy.CategoryBits&maskBits == 0 {
+				continue
+			}
+
+			subInput.MaxFraction = maxFraction
+			value := callback(&subInput, proxyID, proxy.UserData)
+
+			result.LeafVisits++
+			if value == 0 {
+				return result
+			}
+
+			if 0 < value && value < maxFraction {
+				maxFraction = value
+				t = Vec2{X: float32(maxFraction * input.Translation.X), Y: float32(maxFraction * input.Translation.Y)}
+				totalAABB.LowerBound = originAABB.LowerBound.Min(originAABB.LowerBound.Add(t))
+				totalAABB.UpperBound = originAABB.UpperBound.Max(originAABB.UpperBound.Add(t))
+				boxv = loadAABBV(&totalAABB)
 			}
 		}
 	}
 
 	return result
+}
+
+func (tree *DynamicTree) moveProxyInternal(proxyID int, aabb AABB, markMoved bool) {
+	validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
+	validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
+	validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
+	assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	removeLeaf(tree, proxyID)
+	insertLeaf(tree, aabb, proxyID, markMoved, false)
+}
+
+func (tree *DynamicTree) enlargeProxy(proxyID int, aabb AABB) {
+	validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
+	validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
+	validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
+	assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	nodes, parents := tree.nodes, tree.parents
+	index := int(tree.proxies[proxyID].Node)
+	node := &nodes[index]
+	assert(isLeaf(node), "b2IsLeaf( node )")
+	validate(!node.AABB.Contains(aabb), "b2AABB_Contains( node->aabb, aabb ) == false")
+	node.AABB = aabb
+	node.FlagIndex |= movedNode
+
+	index = int(parents[index])
+	for index != nullIndex {
+		node = &nodes[index]
+		changed := enlargeAABB(&node.AABB, aabb)
+		node.FlagIndex |= movedNode
+		index = int(parents[index])
+
+		if !changed {
+			break
+		}
+	}
+
+	for index != nullIndex {
+		node = &nodes[index]
+		if node.FlagIndex&movedNode != 0 {
+			break
+		}
+
+		node.FlagIndex |= movedNode
+		index = int(parents[index])
+	}
+}
+
+func (tree *DynamicTree) validateNoMoved() {
+	if !validationEnabled {
+		return
+	}
+
+	for i := range tree.nodeEnd {
+		assert(!isNodeMoved(&tree.nodes[i]), "b2IsNodeMoved( nodes + i ) == false")
+	}
+}
+
+func orderCastHits(hit *[2]*TreeNode, leaf *[2]bool, hitCount int, origin Vec2) {
+	if hitCount == 2 && !leaf[0] && !leaf[1] {
+		center1 := hit[0].AABB.Center()
+		center2 := hit[1].AABB.Center()
+		d1 := center1.DistanceSquared(origin)
+
+		d2 := center2.DistanceSquared(origin)
+		if d1 < d2 {
+			hit[0], hit[1] = hit[1], hit[0]
+		}
+	}
 }
 
 func partitionMid(indices []int32, centers []Vec2, count int) int {
@@ -1104,43 +1113,61 @@ func partitionMid(indices []int32, centers []Vec2, count int) int {
 
 	d := upperBound.Sub(lowerBound)
 	c := Vec2{X: 0.5 * (lowerBound.X + upperBound.X), Y: 0.5 * (lowerBound.Y + upperBound.Y)}
-	i1, i2 := 0, count
 
+	var split int
 	if d.X > d.Y {
-		pivot := c.X
-		for i1 < i2 {
-			for i1 < i2 && centers[i1].X < pivot {
-				i1++
-			}
-
-			for i1 < i2 && centers[i2-1].X >= pivot {
-				i2--
-			}
-
-			if i1 < i2 {
-				indices[i1], indices[i2-1] = indices[i2-1], indices[i1]
-				centers[i1], centers[i2-1] = centers[i2-1], centers[i1]
-				i1++
-				i2--
-			}
-		}
+		split = partitionCentersX(indices, centers, count, c.X)
 	} else {
-		pivot := c.Y
-		for i1 < i2 {
-			for i1 < i2 && centers[i1].Y < pivot {
-				i1++
-			}
+		split = partitionCentersY(indices, centers, count, c.Y)
+	}
 
-			for i1 < i2 && centers[i2-1].Y >= pivot {
-				i2--
-			}
+	return split
+}
 
-			if i1 < i2 {
-				indices[i1], indices[i2-1] = indices[i2-1], indices[i1]
-				centers[i1], centers[i2-1] = centers[i2-1], centers[i1]
-				i1++
-				i2--
-			}
+func partitionCentersX(indices []int32, centers []Vec2, count int, pivot float32) int {
+	i1, i2 := 0, count
+	for i1 < i2 {
+		for i1 < i2 && centers[i1].X < pivot {
+			i1++
+		}
+
+		for i1 < i2 && centers[i2-1].X >= pivot {
+			i2--
+		}
+
+		if i1 < i2 {
+			indices[i1], indices[i2-1] = indices[i2-1], indices[i1]
+			centers[i1], centers[i2-1] = centers[i2-1], centers[i1]
+			i1++
+			i2--
+		}
+	}
+
+	assert(i1 == i2, "i1 == i2")
+
+	if i1 > 0 && i1 < count {
+		return i1
+	}
+
+	return count / 2
+}
+
+func partitionCentersY(indices []int32, centers []Vec2, count int, pivot float32) int {
+	i1, i2 := 0, count
+	for i1 < i2 {
+		for i1 < i2 && centers[i1].Y < pivot {
+			i1++
+		}
+
+		for i1 < i2 && centers[i2-1].Y >= pivot {
+			i2--
+		}
+
+		if i1 < i2 {
+			indices[i1], indices[i2-1] = indices[i2-1], indices[i1]
+			centers[i1], centers[i2-1] = centers[i2-1], centers[i1]
+			i1++
+			i2--
 		}
 	}
 
@@ -1321,6 +1348,22 @@ func (tree *DynamicTree) rebuild(fullBuild bool) int {
 		tree.rebuildCapacity = int32(newCapacity)
 	}
 
+	leafCount := tree.collectRebuildLeaves(fullBuild)
+
+	assert(0 < leafCount && leafCount <= proxyCount, "0 < leafCount && leafCount <= proxyCount")
+	buildTree(tree, leafCount)
+	tree.nodes, tree.swapNodes = tree.swapNodes, tree.nodes
+	tree.pairFreeList = int32(nullIndex)
+	tree.dfsOrdered = true
+	tree.Validate()
+	tree.validateNoMoved()
+
+	return leafCount
+}
+
+func (tree *DynamicTree) collectRebuildLeaves(fullBuild bool) int {
+	nodes := tree.nodes
+	root := &nodes[rootNode]
 	leafIndices, leaves, leafCenters := tree.leafIndices, tree.leafNodes, tree.leafCenters
 	leafCount := 0
 
@@ -1360,14 +1403,6 @@ func (tree *DynamicTree) rebuild(fullBuild bool) int {
 			leafCount++
 		}
 	}
-
-	assert(0 < leafCount && leafCount <= proxyCount, "0 < leafCount && leafCount <= proxyCount")
-	buildTree(tree, leafCount)
-	tree.nodes, tree.swapNodes = tree.swapNodes, tree.nodes
-	tree.pairFreeList = int32(nullIndex)
-	tree.dfsOrdered = true
-	tree.Validate()
-	tree.validateNoMoved()
 
 	return leafCount
 }

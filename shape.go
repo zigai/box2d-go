@@ -8,6 +8,26 @@ import (
 	"math"
 )
 
+const (
+	// A circle with an offset.
+	CircleShape ShapeType = 0
+	// A capsule is an extruded circle.
+	CapsuleShape ShapeType = 1
+	// A line segment.
+	SegmentShape ShapeType = 2
+	// A convex polygon.
+	PolygonShape ShapeType = 3
+	// A line segment owned by a chain shape.
+	ChainSegmentShape ShapeType = 4
+	// The number of shape types.
+	ShapeTypeCount ShapeType = 5
+)
+
+const (
+	DefaultCategoryBits uint64 = 1
+	DefaultMaskBits     uint64 = 0xffffffffffffffff
+)
+
 // This is used to filter collision on shapes. It affects shape-vs-shape collision
 // and shape-versus-query collision (such as World.CastRay).
 type Filter struct {
@@ -50,21 +70,6 @@ type QueryFilter struct {
 
 // Shape type.
 type ShapeType int
-
-const (
-	// A circle with an offset.
-	CircleShape ShapeType = 0
-	// A capsule is an extruded circle.
-	CapsuleShape ShapeType = 1
-	// A line segment.
-	SegmentShape ShapeType = 2
-	// A convex polygon.
-	PolygonShape ShapeType = 3
-	// A line segment owned by a chain shape.
-	ChainSegmentShape ShapeType = 4
-	// The number of shape types.
-	ShapeTypeCount ShapeType = 5
-)
 
 // Surface materials allow chain shapes to have per segment surface properties.
 type SurfaceMaterial struct {
@@ -208,15 +213,6 @@ type shapeExtent struct {
 	maxExtent float32
 }
 
-type sensorOverlaps struct {
-	overlaps []int
-}
-
-const (
-	DefaultCategoryBits uint64 = 1
-	DefaultMaskBits     uint64 = 0xffffffffffffffff
-)
-
 func getShape(world *World, shapeID Shape) *shape {
 	id := int(shapeID.index1) - 1
 	shape := &world.shapes[id]
@@ -234,7 +230,7 @@ func getChainShape(world *World, chainID Chain) *chainShape {
 }
 
 func computeShapeMargin(shape *shape) float32 {
-	margin := float32(0.0)
+	var margin float32
 
 	switch shape.shapeType {
 	case CapsuleShape:
@@ -242,14 +238,10 @@ func computeShapeMargin(shape *shape) float32 {
 			margin = float32(0.5*shape.capsule.Center2.Distance(shape.capsule.Center1)) + shape.capsule.Radius
 		}
 
-		break
-
 	case CircleShape:
 		{
 			margin = shape.circle.Radius
 		}
-
-		break
 
 	case PolygonShape:
 		{
@@ -265,22 +257,18 @@ func computeShapeMargin(shape *shape) float32 {
 			margin = float32(math.Sqrt(float64(maxExtentSqr)))
 		}
 
-		break
-
 	case SegmentShape:
 		{
 			margin = 0.5 * shape.segment.Point1.Distance(shape.segment.Point2)
 		}
-
-		break
 
 	case ChainSegmentShape:
 		{
 			margin = 0.5 * shape.chainSegment.Segment.Point1.Distance(shape.chainSegment.Segment.Point2)
 		}
 
-		break
-
+	case ShapeTypeCount:
+		fallthrough // The count sentinel uses the invalid-geometry path.
 	default:
 		validate(false, "false")
 		return MaxAABBMargin()
@@ -309,6 +297,34 @@ func updateShapeAABBs(shape *shape, fatAABB *AABB, transform WorldTransform, pro
 	fatAABB.UpperBound.Y = aabb.UpperBound.Y + margin
 }
 
+func setShapeGeometry(shape *shape, geometry any, shapeType ShapeType) {
+	switch shapeType {
+	case CapsuleShape:
+		shape.capsule = *checkedShapeGeometry[Capsule](geometry, "capsule shape requires *Capsule geometry")
+	case CircleShape:
+		shape.circle = *checkedShapeGeometry[Circle](geometry, "circle shape requires *Circle geometry")
+	case PolygonShape:
+		shape.polygon = *checkedShapeGeometry[Polygon](geometry, "polygon shape requires *Polygon geometry")
+	case SegmentShape:
+		shape.segment = *checkedShapeGeometry[Segment](geometry, "segment shape requires *Segment geometry")
+	case ChainSegmentShape:
+		shape.chainSegment = *checkedShapeGeometry[ChainSegment](geometry, "chain segment shape requires *ChainSegment geometry")
+	case ShapeTypeCount:
+		fallthrough // The count sentinel uses the invalid-geometry path.
+	default:
+		assert(false, "false")
+	}
+}
+
+func checkedShapeGeometry[T any](geometry any, mismatch string) *T {
+	value, ok := geometry.(*T)
+	if !ok {
+		panic(mismatch)
+	}
+
+	return value
+}
+
 func createShapeInternal(world *World, body *body, transform WorldTransform, def *ShapeDef, geometry any, shapeType ShapeType) *shape {
 	shapeID := allocID(&world.shapeIDPool)
 
@@ -323,31 +339,7 @@ func createShapeInternal(world *World, body *body, transform WorldTransform, def
 
 	shape := &world.shapes[shapeID]
 
-	switch shapeType {
-	case CapsuleShape:
-		shape.capsule = *geometry.(*Capsule)
-		break
-
-	case CircleShape:
-		shape.circle = *geometry.(*Circle)
-		break
-
-	case PolygonShape:
-		shape.polygon = *geometry.(*Polygon)
-		break
-
-	case SegmentShape:
-		shape.segment = *geometry.(*Segment)
-		break
-
-	case ChainSegmentShape:
-		shape.chainSegment = *geometry.(*ChainSegment)
-		break
-
-	default:
-		assert(false, "false")
-		break
-	}
+	setShapeGeometry(shape, geometry, shapeType)
 
 	shape.id = shapeID
 	shape.bodyID = body.id
@@ -457,7 +449,7 @@ func createShape(bodyID Body, def *ShapeDef, geometry any, shapeType ShapeType) 
 		return Shape{}
 	}
 
-	body := getBodyFullId(world, bodyID)
+	body := getBodyFullID(world, bodyID)
 	transform := getBodyTransformQuick(world, body)
 
 	shape := createShapeInternal(world, body, transform, def, geometry, shapeType)
@@ -682,67 +674,10 @@ func (s Shape) Destroy(updateBodyMass bool) {
 	}
 }
 
-// Create a chain shape
-// See: ChainDef for details.
-func (b Body) CreateChain(def *ChainDef) Chain {
-	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
-
-	validPointCount := len(def.Points) >= 2
-	if def.IsLoop {
-		validPointCount = len(def.Points) >= 3
-	}
-
-	checkInput(validPointCount, "def.IsLoop ? len(def.Points) >= 3 : len(def.Points) >= 2")
-
-	segmentCount := len(def.Points) - 1
-	if def.IsLoop {
-		segmentCount = len(def.Points)
-	}
-
-	checkInput(len(def.Materials) == 1 || len(def.Materials) == segmentCount, "len(def.Materials) == 1 || len(def.Materials) == segmentCount")
-
-	for i := range len(def.Points) {
-		checkInput(def.Points[i].IsValid(), "IsValidVec2( def.Points[i] )")
-	}
-
-	for i := range len(def.Materials) {
-		checkInput(isValidMaterial(&def.Materials[i]), "isValidMaterial( &def.Materials[i] )")
-	}
-
-	if !def.IsLoop {
-		// These are set to INFINITY in the default def as a sentinel to ensure they are set.
-		checkInput(def.Ghost1.IsValid(), "IsValidVec2( def.Ghost1 )")
-		checkInput(def.Ghost2.IsValid(), "IsValidVec2( def.Ghost2 )")
-	}
-
-	world := getWorldLocked(b.world)
-	if world == nil {
-		return Chain{}
-	}
-
-	body := getBodyFullId(world, b)
-	transform := getBodyTransformQuick(world, body)
-
-	chainID := allocID(&world.chainIDPool)
-
-	if chainID == len(world.chainShapes) {
-		world.chainShapes = arrayPush(world.chainShapes, chainShape{})
-	} else {
-		assert(world.chainShapes[chainID].id == nullIndex, "world.chainShapes[chainID].id == nullIndex")
-	}
-
-	chainShape := &world.chainShapes[chainID]
-
-	chainShape.id = chainID
-	chainShape.bodyID = body.id
-	chainShape.nextChainID = body.headChainID
-	chainShape.segmentCount = segmentCount
-	chainShape.generation += 1
-
+func createChainSegments(world *World, body *body, transform WorldTransform, def *ChainDef, chainShape *chainShape) {
+	chainID := chainShape.id
+	segmentCount := chainShape.segmentCount
 	materialCount := len(def.Materials)
-
-	body.headChainID = chainID
-
 	shapeDef := DefaultShapeDef()
 	shapeDef.UserData = def.UserData
 	shapeDef.Filter = def.Filter
@@ -783,44 +718,107 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 			shape := createShapeInternal(world, body, transform, &shapeDef, &chainSegment, ChainSegmentShape)
 			chainShape.shapeIndices[i] = shape.id
 		}
-	} else {
-		var chainSegment ChainSegment
 
-		for i := range n {
-			assert(i+1 < len(def.Points), "i + 1 < len(def.Points)")
-
-			if i == 0 {
-				chainSegment.Ghost1 = def.Ghost1
-			} else {
-				chainSegment.Ghost1 = points[i-1]
-			}
-
-			chainSegment.Segment.Point1 = points[i+0]
-
-			chainSegment.Segment.Point2 = points[i+1]
-			if i == n-1 {
-				chainSegment.Ghost2 = def.Ghost2
-			} else {
-				chainSegment.Ghost2 = points[i+2]
-			}
-
-			assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
-			assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
-			assert(chainSegment.Segment.Point2.DistanceSquared(chainSegment.Ghost2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point2, chainSegment.Ghost2) > tolSqr")
-
-			chainSegment.ChainID = chainID
-
-			materialIndex := i
-			if materialCount == 1 {
-				materialIndex = 0
-			}
-
-			shapeDef.Material = def.Materials[materialIndex]
-
-			shape := createShapeInternal(world, body, transform, &shapeDef, &chainSegment, ChainSegmentShape)
-			chainShape.shapeIndices[i] = shape.id
-		}
+		return
 	}
+
+	var chainSegment ChainSegment
+
+	for i := range n {
+		assert(i+1 < len(def.Points), "i + 1 < len(def.Points)")
+
+		if i == 0 {
+			chainSegment.Ghost1 = def.Ghost1
+		} else {
+			chainSegment.Ghost1 = points[i-1]
+		}
+
+		chainSegment.Segment.Point1 = points[i+0]
+
+		chainSegment.Segment.Point2 = points[i+1]
+		if i == n-1 {
+			chainSegment.Ghost2 = def.Ghost2
+		} else {
+			chainSegment.Ghost2 = points[i+2]
+		}
+
+		assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
+		assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
+		assert(chainSegment.Segment.Point2.DistanceSquared(chainSegment.Ghost2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point2, chainSegment.Ghost2) > tolSqr")
+
+		chainSegment.ChainID = chainID
+
+		materialIndex := i
+		if materialCount == 1 {
+			materialIndex = 0
+		}
+
+		shapeDef.Material = def.Materials[materialIndex]
+
+		shape := createShapeInternal(world, body, transform, &shapeDef, &chainSegment, ChainSegmentShape)
+		chainShape.shapeIndices[i] = shape.id
+	}
+}
+
+// Create a chain shape
+// See: ChainDef for details.
+func (b Body) CreateChain(def *ChainDef) Chain {
+	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
+
+	validPointCount := len(def.Points) >= 2
+	if def.IsLoop {
+		validPointCount = len(def.Points) >= 3
+	}
+
+	checkInput(validPointCount, "def.IsLoop ? len(def.Points) >= 3 : len(def.Points) >= 2")
+
+	segmentCount := len(def.Points) - 1
+	if def.IsLoop {
+		segmentCount = len(def.Points)
+	}
+
+	checkInput(len(def.Materials) == 1 || len(def.Materials) == segmentCount, "len(def.Materials) == 1 || len(def.Materials) == segmentCount")
+
+	for i := range len(def.Points) {
+		checkInput(def.Points[i].IsValid(), "IsValidVec2( def.Points[i] )")
+	}
+
+	for i := range len(def.Materials) {
+		checkInput(isValidMaterial(&def.Materials[i]), "isValidMaterial( &def.Materials[i] )")
+	}
+
+	if !def.IsLoop {
+		// These are set to INFINITY in the default def as a sentinel to ensure they are set.
+		checkInput(def.Ghost1.IsValid(), "IsValidVec2( def.Ghost1 )")
+		checkInput(def.Ghost2.IsValid(), "IsValidVec2( def.Ghost2 )")
+	}
+
+	world := getWorldLocked(b.world)
+	if world == nil {
+		return Chain{}
+	}
+
+	body := getBodyFullID(world, b)
+	transform := getBodyTransformQuick(world, body)
+
+	chainID := allocID(&world.chainIDPool)
+
+	if chainID == len(world.chainShapes) {
+		world.chainShapes = arrayPush(world.chainShapes, chainShape{})
+	} else {
+		assert(world.chainShapes[chainID].id == nullIndex, "world.chainShapes[chainID].id == nullIndex")
+	}
+
+	chainShape := &world.chainShapes[chainID]
+
+	chainShape.id = chainID
+	chainShape.bodyID = body.id
+	chainShape.nextChainID = body.headChainID
+	chainShape.segmentCount = segmentCount
+	chainShape.generation += 1
+
+	body.headChainID = chainID
+	createChainSegments(world, body, transform, def, chainShape)
 
 	id := Chain{index1: int32(chainID + 1), world: world, generation: chainShape.generation}
 
@@ -851,18 +849,18 @@ func (c Chain) Destroy() {
 	body := &world.bodies[chain.bodyID]
 
 	// Remove the chain from the body's singly linked list.
-	chainIdPtr := &body.headChainID
+	chainIDPtr := &body.headChainID
 	found := false
 
-	for *chainIdPtr != nullIndex {
-		if *chainIdPtr == chain.id {
-			*chainIdPtr = chain.nextChainID
+	for *chainIDPtr != nullIndex {
+		if *chainIDPtr == chain.id {
+			*chainIDPtr = chain.nextChainID
 			found = true
 
 			break
 		}
 
-		chainIdPtr = &world.chainShapes[*chainIdPtr].nextChainID
+		chainIDPtr = &world.chainShapes[*chainIDPtr].nextChainID
 	}
 
 	assert(found, "found == true")
@@ -990,6 +988,8 @@ func computeShapeAABB(shape *shape, xf WorldTransform) AABB {
 		return ComputeSegmentAABB(&shape.segment, xf)
 	case ChainSegmentShape:
 		return ComputeSegmentAABB(&shape.chainSegment.Segment, xf)
+	case ShapeTypeCount:
+		fallthrough // The count sentinel uses the invalid-geometry path.
 	default:
 		{
 			assert(false, "false")
@@ -1013,40 +1013,10 @@ func getShapeCentroid(shape *shape) Vec2 {
 		return shape.segment.Point1.Lerp(shape.segment.Point2, 0.5)
 	case ChainSegmentShape:
 		return shape.chainSegment.Segment.Point1.Lerp(shape.chainSegment.Segment.Point2, 0.5)
+	case ShapeTypeCount:
+		return Vec2{}
 	default:
 		return Vec2{}
-	}
-}
-
-func getShapePerimeter(shape *shape) float32 {
-	switch shape.shapeType {
-	case CapsuleShape:
-		return float32(2.0*shape.capsule.Center1.Sub(shape.capsule.Center2).Length()) + float32(2.0*Pi*shape.capsule.Radius)
-	case CircleShape:
-		return 2.0 * Pi * shape.circle.Radius
-	case PolygonShape:
-		{
-			points := shape.polygon.Vertices
-			count := shape.polygon.Count
-			perimeter := float32(2.0 * Pi * shape.polygon.Radius)
-
-			assert(count > 0, "count > 0")
-
-			prev := points[count-1]
-			for i := range count {
-				next := points[i]
-				perimeter += next.Sub(prev).Length()
-				prev = next
-			}
-
-			return perimeter
-		}
-	case SegmentShape:
-		return 2.0 * shape.segment.Point1.Sub(shape.segment.Point2).Length()
-	case ChainSegmentShape:
-		return 2.0 * shape.chainSegment.Segment.Point1.Sub(shape.chainSegment.Segment.Point2).Length()
-	default:
-		return 0.0
 	}
 }
 
@@ -1098,6 +1068,8 @@ func getShapeProjectedPerimeter(shape *shape, line Vec2) float32 {
 			return absFloat(value2 - value1)
 		}
 
+	case ShapeTypeCount:
+		return 0.0
 	default:
 		return 0.0
 	}
@@ -1111,6 +1083,8 @@ func computeShapeMass(shape *shape) MassData {
 		return ComputeCircleMass(&shape.circle, shape.density)
 	case PolygonShape:
 		return ComputePolygonMass(&shape.polygon, shape.density)
+	case SegmentShape, ChainSegmentShape, ShapeTypeCount:
+		return MassData{} // Edges and the count sentinel have no area mass.
 	default:
 		return MassData{}
 	}
@@ -1129,16 +1103,12 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 			extent.maxExtent = float32(math.Sqrt(float64(maxFloat(c1.LengthSquared(), c2.LengthSquared())))) + radius
 		}
 
-		break
-
 	case CircleShape:
 		{
 			radius := shape.circle.Radius
 			extent.minExtent = radius
 			extent.maxExtent = shape.circle.Center.Sub(localCenter).Length() + radius
 		}
-
-		break
 
 	case PolygonShape:
 		{
@@ -1160,8 +1130,6 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 			extent.maxExtent = float32(math.Sqrt(float64(maxExtentSqr))) + poly.Radius
 		}
 
-		break
-
 	case SegmentShape:
 		{
 			extent.minExtent = 0.0
@@ -1169,8 +1137,6 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 			c2 := shape.segment.Point2.Sub(localCenter)
 			extent.maxExtent = float32(math.Sqrt(float64(maxFloat(c1.LengthSquared(), c2.LengthSquared()))))
 		}
-
-		break
 
 	case ChainSegmentShape:
 		{
@@ -1180,8 +1146,8 @@ func computeShapeExtent(shape *shape, localCenter Vec2) shapeExtent {
 			extent.maxExtent = float32(math.Sqrt(float64(maxFloat(c1.LengthSquared(), c2.LengthSquared()))))
 		}
 
-		break
-
+	case ShapeTypeCount:
+		// The count sentinel has no extent.
 	default:
 		break
 	}
@@ -1199,19 +1165,16 @@ func rayCastShape(input *RayCastInput, shape *shape, transform Transform) CastOu
 	switch shape.shapeType {
 	case CapsuleShape:
 		output = RayCastCapsule(&shape.capsule, &localInput)
-		break
 	case CircleShape:
 		output = RayCastCircle(&shape.circle, &localInput)
-		break
 	case PolygonShape:
 		output = RayCastPolygon(&shape.polygon, &localInput)
-		break
 	case SegmentShape:
 		output = RayCastSegment(&shape.segment, &localInput, false)
-		break
 	case ChainSegmentShape:
 		output = RayCastSegment(&shape.chainSegment.Segment, &localInput, true)
-		break
+	case ShapeTypeCount:
+		return output
 	default:
 		return output
 	}
@@ -1242,16 +1205,12 @@ func shapeCastShape(input *ShapeCastInput, shape *shape, transform Transform) Ca
 	switch shape.shapeType {
 	case CapsuleShape:
 		output = ShapeCastCapsule(&shape.capsule, &localInput)
-		break
 	case CircleShape:
 		output = ShapeCastCircle(&shape.circle, &localInput)
-		break
 	case PolygonShape:
 		output = ShapeCastPolygon(&shape.polygon, &localInput)
-		break
 	case SegmentShape:
 		output = ShapeCastSegment(&shape.segment, &localInput)
-		break
 	case ChainSegmentShape:
 		{
 			// Check for back side collision
@@ -1273,7 +1232,8 @@ func shapeCastShape(input *ShapeCastInput, shape *shape, transform Transform) Ca
 			output = ShapeCastSegment(&shape.chainSegment.Segment, &localInput)
 		}
 
-		break
+	case ShapeTypeCount:
+		return output
 	default:
 		return output
 	}
@@ -1297,19 +1257,16 @@ func collideMover(mover *Capsule, shape *shape, transform Transform) PlaneResult
 	switch shape.shapeType {
 	case CapsuleShape:
 		result = collideMoverAndCapsule(&localMover, &shape.capsule)
-		break
 	case CircleShape:
 		result = collideMoverAndCircle(&localMover, &shape.circle)
-		break
 	case PolygonShape:
 		result = collideMoverAndPolygon(&localMover, &shape.polygon)
-		break
 	case SegmentShape:
 		result = collideMoverAndSegment(&localMover, &shape.segment)
-		break
 	case ChainSegmentShape:
 		result = collideMoverAndSegment(&localMover, &shape.chainSegment.Segment)
-		break
+	case ShapeTypeCount:
+		return result
 	default:
 		return result
 	}
@@ -1354,6 +1311,8 @@ func makeShapeDistanceProxy(shape *shape) ShapeProxy {
 		return MakeProxy([]Vec2{shape.segment.Point1, shape.segment.Point2}, 0)
 	case ChainSegmentShape:
 		return MakeProxy([]Vec2{shape.chainSegment.Segment.Point1, shape.chainSegment.Segment.Point2}, 0)
+	case ShapeTypeCount:
+		fallthrough // The count sentinel uses the invalid-geometry path.
 	default:
 		{
 			assert(false, "false")
@@ -1370,7 +1329,7 @@ func (s Shape) Body() Body {
 	world := s.world
 	shape := getShape(world, s)
 
-	return makeBodyId(world, shape.bodyID)
+	return makeBodyID(world, shape.bodyID)
 }
 
 // Get the world that owns this shape.
@@ -1417,19 +1376,17 @@ func (s Shape) TestPoint(point Pos) bool {
 	switch shape.shapeType {
 	case CapsuleShape:
 		result = PointInCapsule(&shape.capsule, localPoint)
-		break
 
 	case CircleShape:
 		result = PointInCircle(&shape.circle, localPoint)
-		break
 
 	case PolygonShape:
 		result = PointInPolygon(&shape.polygon, localPoint)
-		break
 
+	case SegmentShape, ChainSegmentShape, ShapeTypeCount:
+		result = false // Edges and the count sentinel contain no area.
 	default:
 		result = false
-		break
 	}
 
 	if world.recording != nil {
@@ -2220,14 +2177,20 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 	assert(body.setIndex == awakeSet, "body.setIndex == awakeSet")
 
 	state := getBodyState(world, body)
-	transform := sim.transform
 
 	lengthUnits := LengthUnitsPerMeter()
 	volumeUnits := lengthUnits * lengthUnits * lengthUnits
 
 	// In 2D I'm assuming unit depth
 	airDensity := 1.2250 / volumeUnits
+	force, torque := computeShapeWindForce(shape, sim, state, wind, drag, lift, airDensity)
 
+	sim.force = sim.force.Add(force)
+	sim.torque += torque
+}
+
+func computeShapeWindForce(shape *shape, sim *bodySim, state *bodyState, wind Vec2, drag, lift, airDensity float32) (Vec2, float32) {
+	transform := sim.transform
 	force := Vec2{}
 	torque := float32(0.0)
 
@@ -2244,8 +2207,6 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 			force = direction.Scale(0.5 * airDensity * projectedArea * speed * speed)
 			torque = lever.Cross(force)
 		}
-
-		break
 
 	case CapsuleShape:
 		{
@@ -2276,8 +2237,6 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 			edgeLever := lever.MulAdd(radius, normal)
 			torque = edgeLever.Cross(force)
 		}
-
-		break
 
 	case PolygonShape:
 		{
@@ -2321,14 +2280,13 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 			}
 		}
 
-		break
-
+	case SegmentShape, ChainSegmentShape, ShapeTypeCount:
+		// Edges and the count sentinel present no wind-catching area.
 	default:
 		break
 	}
 
-	sim.force = sim.force.Add(force)
-	sim.torque += torque
+	return force, torque
 }
 
 func getShapeRadius(shape *shape) float32 {
@@ -2339,6 +2297,8 @@ func getShapeRadius(shape *shape) float32 {
 		return shape.circle.Radius
 	case PolygonShape:
 		return shape.polygon.Radius
+	case SegmentShape, ChainSegmentShape, ShapeTypeCount:
+		return 0.0 // Edges and the count sentinel have no radius.
 	default:
 		return 0.0
 	}

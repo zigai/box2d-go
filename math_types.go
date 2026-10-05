@@ -3,6 +3,18 @@
 
 package box2d
 
+// https://en.wikipedia.org/wiki/Pi
+const Pi float32 = 3.14159265359
+
+var (
+	Vec2Zero               = Vec2{}
+	RotIdentity            = Rot{C: 1}
+	TransformIdentity      = Transform{Q: Rot{C: 1}}
+	Mat22Zero              = Mat22{}
+	PosZero                = Pos{}
+	WorldTransformIdentity = WorldTransform{Q: Rot{C: 1}}
+)
+
 // 2D vector
 // This can be used to represent a point or free vector.
 type Vec2 struct {
@@ -48,15 +60,3 @@ type Plane struct {
 	Normal Vec2
 	Offset float32
 }
-
-// https://en.wikipedia.org/wiki/Pi
-const Pi float32 = 3.14159265359
-
-var (
-	Vec2Zero               = Vec2{}
-	RotIdentity            = Rot{C: 1}
-	TransformIdentity      = Transform{Q: Rot{C: 1}}
-	Mat22Zero              = Mat22{}
-	PosZero                = Pos{}
-	WorldTransformIdentity = WorldTransform{Q: Rot{C: 1}}
-)

@@ -3,6 +3,20 @@
 
 package box2d
 
+const (
+	overflowIndex     = GraphColorCount - 1
+	dynamicColorCount = GraphColorCount - 4
+	forceOverflow     = 0
+)
+
+var graphColors = [GraphColorCount]HexColor{
+	ColorRed, ColorOrange, ColorYellow, ColorLimeGreen, ColorSpringGreen,
+	ColorAqua, ColorDodgerBlue, ColorBlueViolet, ColorMagenta, ColorDeepPink,
+	ColorCrimson, ColorCoral, ColorGold, ColorGreenYellow, ColorMediumSeaGreen,
+	ColorTurquoise, ColorDeepSkyBlue, ColorCornflowerBlue, ColorMediumSlateBlue, ColorMediumOrchid,
+	ColorHotPink, ColorTomato, ColorKhaki, ColorSilver,
+}
+
 type graphColor struct {
 	bodySet             bitSet
 	contactSims         []contactSim
@@ -16,18 +30,11 @@ type constraintGraph struct {
 	colors [GraphColorCount]graphColor
 }
 
-const (
-	overflowIndex     = GraphColorCount - 1
-	dynamicColorCount = GraphColorCount - 4
-	forceOverflow     = 0
-)
-
-var graphColors = [GraphColorCount]HexColor{
-	ColorRed, ColorOrange, ColorYellow, ColorLimeGreen, ColorSpringGreen,
-	ColorAqua, ColorDodgerBlue, ColorBlueViolet, ColorMagenta, ColorDeepPink,
-	ColorCrimson, ColorCoral, ColorGold, ColorGreenYellow, ColorMediumSeaGreen,
-	ColorTurquoise, ColorDeepSkyBlue, ColorCornflowerBlue, ColorMediumSlateBlue, ColorMediumOrchid,
-	ColorHotPink, ColorTomato, ColorKhaki, ColorSilver,
+// GraphColor returns the visualization color assigned to a constraint graph color slot. The last index
+// (GraphColorCount - 1) is the overflow color.
+func GraphColor(index int) HexColor {
+	assert(0 <= index && index < GraphColorCount, "0 <= index && index < B2_GRAPH_COLOR_COUNT")
+	return graphColors[index]
 }
 
 func createGraph(graph *constraintGraph, capacity *Capacity) {
@@ -64,7 +71,6 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 	assert((contact.flags&contactTouchingFlag) != 0, "contact->flags & b2_contactTouchingFlag")
 
 	graph := &world.constraintGraph
-	colorIndex := overflowIndex
 
 	bodyIDA := contact.edges[0].bodyID
 	bodyIDB := contact.edges[1].bodyID
@@ -75,51 +81,7 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 	typeB := bodyB.bodyType
 	assert(typeA == DynamicBody || typeB == DynamicBody, "typeA == b2_dynamicBody || typeB == b2_dynamicBody")
 
-	if typeA == DynamicBody && typeB == DynamicBody {
-		// Dynamic constraint colors cannot encroach on colors reserved for static constraints
-		for i := range dynamicColorCount {
-			color := &graph.colors[i]
-			if getBit(&color.bodySet, uint32(bodyIDA)) || getBit(&color.bodySet, uint32(bodyIDB)) {
-				continue
-			}
-
-			setBitGrow(&color.bodySet, uint32(bodyIDA))
-			setBitGrow(&color.bodySet, uint32(bodyIDB))
-
-			colorIndex = i
-
-			break
-		}
-	} else if typeA == DynamicBody {
-		// Static constraint colors build from the end to get higher priority than dyn-dyn constraints
-		for i := overflowIndex - 1; i >= 1; i-- {
-			color := &graph.colors[i]
-			if getBit(&color.bodySet, uint32(bodyIDA)) {
-				continue
-			}
-
-			setBitGrow(&color.bodySet, uint32(bodyIDA))
-
-			colorIndex = i
-
-			break
-		}
-	} else if typeB == DynamicBody {
-		// Static constraint colors build from the end to get higher priority than dyn-dyn constraints
-		for i := overflowIndex - 1; i >= 1; i-- {
-			color := &graph.colors[i]
-			if getBit(&color.bodySet, uint32(bodyIDB)) {
-				continue
-			}
-
-			setBitGrow(&color.bodySet, uint32(bodyIDB))
-
-			colorIndex = i
-
-			break
-		}
-	}
-
+	colorIndex := assignConstraintColor(graph, bodyIDA, bodyIDB, typeA, typeB)
 	color := &graph.colors[colorIndex]
 	contact.colorIndex = colorIndex
 	contact.localIndex = len(color.contactSims)
@@ -183,8 +145,8 @@ func removeContactFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex i
 		movedContactSim := &color.contactSims[localIndex]
 
 		// Fix moved contact
-		movedId := movedContactSim.contactID
-		movedContact := &world.contacts[movedId]
+		movedID := movedContactSim.contactID
+		movedContact := &world.contacts[movedID]
 		assert(movedContact.setIndex == awakeSet, "movedContact->setIndex == b2_awakeSet")
 		assert(movedContact.colorIndex == colorIndex, "movedContact->colorIndex == colorIndex")
 		assert(movedContact.localIndex == movedIndex, "movedContact->localIndex == movedIndex")
@@ -192,7 +154,7 @@ func removeContactFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex i
 	}
 }
 
-func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA BodyType, typeB BodyType) int {
+func assignConstraintColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA BodyType, typeB BodyType) int {
 	assert(typeA == DynamicBody || typeB == DynamicBody, "typeA == b2_dynamicBody || typeB == b2_dynamicBody")
 
 	if typeA == DynamicBody && typeB == DynamicBody {
@@ -208,30 +170,27 @@ func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA Bo
 
 			return i
 		}
-	} else if typeA == DynamicBody {
-		// Static constraint colors build from the end to get higher priority than dyn-dyn constraints
-		for i := overflowIndex - 1; i >= 1; i-- {
-			color := &graph.colors[i]
-			if getBit(&color.bodySet, uint32(bodyIDA)) {
-				continue
-			}
 
-			setBitGrow(&color.bodySet, uint32(bodyIDA))
+		return overflowIndex
+	}
 
-			return i
+	bodyID := bodyIDB
+	if typeA == DynamicBody {
+		bodyID = bodyIDA
+	} else if typeB != DynamicBody {
+		return overflowIndex
+	}
+
+	// Static constraint colors build from the end to get higher priority than dyn-dyn constraints
+	for i := overflowIndex - 1; i >= 1; i-- {
+		color := &graph.colors[i]
+		if getBit(&color.bodySet, uint32(bodyID)) {
+			continue
 		}
-	} else if typeB == DynamicBody {
-		// Static constraint colors build from the end to get higher priority than dyn-dyn constraints
-		for i := overflowIndex - 1; i >= 1; i-- {
-			color := &graph.colors[i]
-			if getBit(&color.bodySet, uint32(bodyIDB)) {
-				continue
-			}
 
-			setBitGrow(&color.bodySet, uint32(bodyIDB))
+		setBitGrow(&color.bodySet, uint32(bodyID))
 
-			return i
-		}
+		return i
 	}
 
 	return overflowIndex
@@ -240,12 +199,12 @@ func assignJointColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA Bo
 func createJointInGraph(world *World, joint *joint) *jointSim {
 	graph := &world.constraintGraph
 
-	bodyIDA := joint.edges[0].bodyId
-	bodyIDB := joint.edges[1].bodyId
+	bodyIDA := joint.edges[0].bodyID
+	bodyIDB := joint.edges[1].bodyID
 	bodyA := &world.bodies[bodyIDA]
 	bodyB := &world.bodies[bodyIDB]
 
-	colorIndex := assignJointColor(graph, bodyIDA, bodyIDB, bodyA.bodyType, bodyB.bodyType)
+	colorIndex := assignConstraintColor(graph, bodyIDA, bodyIDB, bodyA.bodyType, bodyB.bodyType)
 
 	graph.colors[colorIndex].jointSims, _ = arrayEmplace(graph.colors[colorIndex].jointSims)
 	jointSim := &graph.colors[colorIndex].jointSims[len(graph.colors[colorIndex].jointSims)-1]
@@ -279,18 +238,11 @@ func removeJointFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex int
 	if movedIndex != nullIndex {
 		// Fix moved joint
 		movedJointSim := &color.jointSims[localIndex]
-		movedId := movedJointSim.jointId
-		movedJoint := &world.joints[movedId]
+		movedID := movedJointSim.jointID
+		movedJoint := &world.joints[movedID]
 		assert(movedJoint.setIndex == awakeSet, "movedJoint->setIndex == b2_awakeSet")
 		assert(movedJoint.colorIndex == colorIndex, "movedJoint->colorIndex == colorIndex")
 		assert(movedJoint.localIndex == movedIndex, "movedJoint->localIndex == movedIndex")
 		movedJoint.localIndex = localIndex
 	}
-}
-
-// GraphColor returns the visualization color assigned to a constraint graph color slot. The last index
-// (GraphColorCount - 1) is the overflow color.
-func GraphColor(index int) HexColor {
-	assert(0 <= index && index < GraphColorCount, "0 <= index && index < B2_GRAPH_COLOR_COUNT")
-	return graphColors[index]
 }

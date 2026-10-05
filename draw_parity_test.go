@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d
 
 import (
@@ -6,6 +7,138 @@ import (
 
 	"github.com/zigai/box2d/internal/oracle"
 )
+
+const (
+	drawParityShapes uint32 = 1 << iota
+	drawParityChainNormals
+	drawParityJoints
+	drawParityJointExtras
+	drawParityBounds
+	drawParityMass
+	drawParityBodyNames
+	drawParityContacts
+	drawParityAnchorA
+	drawParityGraphColors
+	drawParityContactFeatures
+	drawParityContactNormals
+	drawParityContactForces
+	drawParityFrictionForces
+	drawParityIslands
+)
+
+var drawParityOptionFlags = [...]uint32{
+	drawParityShapes,
+	drawParityShapes | drawParityChainNormals,
+	drawParityJoints,
+	drawParityJoints | drawParityJointExtras,
+	drawParityBounds,
+	drawParityMass,
+	drawParityBodyNames,
+	drawParityContacts,
+	drawParityContacts | drawParityGraphColors,
+	drawParityContacts | drawParityContactFeatures,
+	drawParityContacts | drawParityContactNormals,
+	drawParityContacts | drawParityContactForces,
+	drawParityContacts | drawParityFrictionForces,
+	drawParityContacts | drawParityAnchorA,
+	drawParityIslands,
+	drawParityShapes | drawParityChainNormals | drawParityJoints | drawParityJointExtras |
+		drawParityBounds | drawParityMass | drawParityBodyNames | drawParityContacts |
+		drawParityGraphColors | drawParityContactFeatures | drawParityContactForces |
+		drawParityFrictionForces | drawParityIslands,
+	drawParityShapes,
+}
+
+func configureDrawParityOption(draw *DebugDraw, option int, base Pos) {
+	flags := drawParityOptionFlags[option]
+	draw.DrawShapes = flags&drawParityShapes != 0
+	draw.ForceScale = .3
+	draw.JointScale = .7
+	draw.DrawChainNormals = flags&drawParityChainNormals != 0
+	draw.DrawJoints = flags&drawParityJoints != 0
+	draw.DrawJointExtras = flags&drawParityJointExtras != 0
+	draw.DrawBounds = flags&drawParityBounds != 0
+	draw.DrawMass = flags&drawParityMass != 0
+	draw.DrawBodyNames = flags&drawParityBodyNames != 0
+	draw.DrawContacts = flags&drawParityContacts != 0
+	draw.DrawAnchorA = flags&drawParityAnchorA != 0
+	draw.DrawGraphColors = flags&drawParityGraphColors != 0
+	draw.DrawContactFeatures = flags&drawParityContactFeatures != 0
+	draw.DrawContactNormals = flags&drawParityContactNormals != 0
+	draw.DrawContactForces = flags&drawParityContactForces != 0
+	draw.DrawFrictionForces = flags&drawParityFrictionForces != 0
+	draw.DrawIslands = flags&drawParityIslands != 0
+
+	if option == 16 {
+		center := base.Vec2()
+		draw.DrawingBounds = AABB{Vec2{center.X - 1, center.Y - 1}, Vec2{center.X + 1, center.Y + 1}}
+	}
+}
+
+func drawParityBodyDef(base Pos, i int) BodyDef {
+	bd := DefaultBodyDef()
+
+	offset := Vec2{2 * float32(i), 2}
+	if i == 0 {
+		offset = Vec2{0, -.5}
+	}
+
+	if i == 1 {
+		offset = Vec2{0, .45}
+	}
+
+	bd.Position = base.Add(offset)
+	if i == 1 || i == 2 {
+		bd.Type = DynamicBody
+	}
+
+	if i == 3 {
+		bd.Type = KinematicBody
+	}
+
+	bd.Name = "fixture"
+	if i == 1 {
+		bd.Name = "contact box"
+	}
+
+	if i == 2 {
+		bd.Name = "capsule"
+		bd.Rotation = MakeRot(.25)
+	}
+
+	return bd
+}
+
+func drawParityCreateGeometry(body Body, i int) {
+	sd := DefaultShapeDef()
+
+	switch i {
+	case 0, 1:
+		halfWidth := float32(.5)
+		if i == 0 {
+			halfWidth = 3
+		}
+
+		p := MakeBox(halfWidth, .5)
+		body.CreatePolygonShape(&sd, &p)
+	case 2:
+		c := Capsule{Vec2{-.3, 0}, Vec2{.7, 0}, .3}
+		body.CreateCapsuleShape(&sd, &c)
+	case 3:
+		sd.IsSensor = true
+		c := Circle{Vec2{.2, .1}, .6}
+		body.CreateCircleShape(&sd, &c)
+	case 4:
+		sd.Material.CustomColor = 0x123456
+		s := Segment{Vec2{-1, 0}, Vec2{1, .5}}
+		body.CreateSegmentShape(&sd, &s)
+	case 5:
+		cd := DefaultChainDef()
+		cd.Points = []Vec2{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}
+		cd.IsLoop = true
+		body.CreateChain(&cd)
+	}
+}
 
 func TestWorldDrawTypedParity(t *testing.T) {
 	frames := []struct {
@@ -34,65 +167,9 @@ func TestWorldDrawTypedParity(t *testing.T) {
 			var bodies [6]Body
 
 			for i := range 6 {
-				bd := DefaultBodyDef()
-
-				offset := Vec2{2 * float32(i), 2}
-				if i == 0 {
-					offset = Vec2{0, -.5}
-				}
-
-				if i == 1 {
-					offset = Vec2{0, .45}
-				}
-
-				bd.Position = base.Add(offset)
-				if i == 1 || i == 2 {
-					bd.Type = DynamicBody
-				}
-
-				if i == 3 {
-					bd.Type = KinematicBody
-				}
-
-				bd.Name = "fixture"
-				if i == 1 {
-					bd.Name = "contact box"
-				}
-
-				if i == 2 {
-					bd.Name = "capsule"
-					bd.Rotation = MakeRot(.25)
-				}
-
+				bd := drawParityBodyDef(base, i)
 				bodies[i] = w.CreateBody(&bd)
-				sd := DefaultShapeDef()
-
-				switch i {
-				case 0, 1:
-					halfWidth := float32(.5)
-					if i == 0 {
-						halfWidth = 3
-					}
-
-					p := MakeBox(halfWidth, .5)
-					bodies[i].CreatePolygonShape(&sd, &p)
-				case 2:
-					c := Capsule{Vec2{-.3, 0}, Vec2{.7, 0}, .3}
-					bodies[i].CreateCapsuleShape(&sd, &c)
-				case 3:
-					sd.IsSensor = true
-					c := Circle{Vec2{.2, .1}, .6}
-					bodies[i].CreateCircleShape(&sd, &c)
-				case 4:
-					sd.Material.CustomColor = 0x123456
-					s := Segment{Vec2{-1, 0}, Vec2{1, .5}}
-					bodies[i].CreateSegmentShape(&sd, &s)
-				case 5:
-					cd := DefaultChainDef()
-					cd.Points = []Vec2{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}
-					cd.IsLoop = true
-					bodies[i].CreateChain(&cd)
-				}
+				drawParityCreateGeometry(bodies[i], i)
 
 				inspect()
 			}
@@ -158,28 +235,8 @@ func TestWorldDrawTypedParity(t *testing.T) {
 					r.Vec2("lower", a.LowerBound.X, a.LowerBound.Y)
 					r.Vec2("upper", a.UpperBound.X, a.UpperBound.Y)
 				}
-				d.DrawShapes = option == 0 || option == 1 || option == 15 || option == 16
-				d.ForceScale = .3
-				d.JointScale = .7
-				d.DrawChainNormals = option == 1 || option == 15
-				d.DrawJoints = option == 2 || option == 3 || option == 15
-				d.DrawJointExtras = option == 3 || option == 15
-				d.DrawBounds = option == 4 || option == 15
-				d.DrawMass = option == 5 || option == 15
-				d.DrawBodyNames = option == 6 || option == 15
-				d.DrawContacts = (option >= 7 && option <= 13) || option == 15
-				d.DrawAnchorA = option == 13
-				d.DrawGraphColors = option == 8 || option == 15
-				d.DrawContactFeatures = option == 9 || option == 15
-				d.DrawContactNormals = option == 10
-				d.DrawContactForces = option == 11 || option == 15
-				d.DrawFrictionForces = option == 12 || option == 15
 
-				d.DrawIslands = option == 14 || option == 15
-				if option == 16 {
-					center := base.Vec2()
-					d.DrawingBounds = AABB{Vec2{center.X - 1, center.Y - 1}, Vec2{center.X + 1, center.Y + 1}}
-				}
+				configureDrawParityOption(&d, option, base)
 
 				before := w.StateHash()
 				r.U64("before", before)

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d_test
 
 import (
@@ -186,26 +187,7 @@ func createParityJoint(family box2d.JointType, w *box2d.World, a, b box2d.Body, 
 
 		return w.CreateMoverJoint(&d).Joint
 	case box2d.PogoJointType:
-		d := box2d.DefaultPogoJointDef()
-		d.Base.BodyA, d.Base.BodyB = a, b
-		d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
-		d.Normal = box2d.Vec2{X: 0.6, Y: 0.8}
-
-		d.RestLength, d.Hertz, d.DampingRatio = 1, 3, 0.2
-		if partition != 0 {
-			d.MaxTensionForce = 2
-		}
-
-		d.MaxCompressionForce = 4
-		if partition == 2 {
-			d.MaxCompressionForce = 100
-		}
-
-		if loaded {
-			d.Impulse, d.Velocity = 0.2, -0.5
-		}
-
-		return w.CreatePogoJoint(&d).Joint
+		return createParityPogoJoint(w, a, b, fa, fb, partition, loaded)
 	case box2d.PrismaticJointType:
 		d := box2d.DefaultPrismaticJointDef()
 		d.Base.BodyA, d.Base.BodyB = a, b
@@ -236,294 +218,33 @@ func createParityJoint(family box2d.JointType, w *box2d.World, a, b box2d.Body, 
 }
 
 func mutateParityJoint(j box2d.Joint, stage int) {
-	cap := float32(3)
+	forceLimit := float32(3)
 	if stage == 5 {
-		cap = 0
+		forceLimit = 0
 	}
 
 	if stage == 6 {
-		cap = 100
+		forceLimit = 100
 	}
 
 	switch j.Type() {
 	case box2d.DistanceJointType:
-		f := box2d.DistanceJoint{Joint: j}
-		f.SetSpringEnabled(stage != 0)
-		f.SetLimitEnabled(stage >= 2)
-		f.SetMotorEnabled(stage >= 3)
-		f.SetSpringHertz(func() float32 {
-			if stage == 1 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetSpringDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
-		f.SetMotorSpeed(func() float32 {
-			if stage == 4 {
-				return -4
-			}
-
-			return 4
-		}())
-		f.SetMaxMotorForce(cap)
-		f.SetLength(func() float32 {
-			if stage == 7 {
-				return 0.7
-			}
-
-			return 1.3
-		}())
-		f.SetLengthRange(0.7, 1.3)
-		f.SetSpringForceRange(-cap, cap)
+		mutateParityDistanceJoint(j, stage, forceLimit)
 	case box2d.FilterJointType:
 	case box2d.MotorJointType:
-		f := box2d.MotorJoint{Joint: j}
-		f.SetLinearHertz(func() float32 {
-			if stage == 0 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetLinearDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
-		f.SetAngularHertz(func() float32 {
-			if stage == 0 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetAngularDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
-		f.SetLinearVelocity(box2d.Vec2{X: func() float32 {
-			if stage == 4 {
-				return -4
-			}
-
-			return 4
-		}(), Y: -2})
-		f.SetMaxVelocityForce(cap)
-		f.SetMaxVelocityTorque(cap)
-		f.SetMaxSpringForce(cap)
-		f.SetMaxSpringTorque(cap)
-		f.SetAngularVelocity(func() float32 {
-			if stage == 4 {
-				return -3
-			}
-
-			return 3
-		}())
+		mutateParityMotorJoint(j, stage, forceLimit)
 	case box2d.MoverJointType:
-		f := box2d.MoverJoint{Joint: j}
-		f.SetLinearVelocity(box2d.Vec2{X: func() float32 {
-			if stage == 4 {
-				return -4
-			}
-
-			return 4
-		}(), Y: -2})
-		f.SetMaxVelocityForce(box2d.Vec2{X: cap, Y: 0.5 * cap})
+		mutateParityMoverJoint(j, stage, forceLimit)
 	case box2d.PogoJointType:
-		f := box2d.PogoJoint{Joint: j}
-		f.SetRestLength(func() float32 {
-			if stage == 7 {
-				return 0.3
-			}
-
-			return 1.3
-		}())
-		f.SetSpringHertz(func() float32 {
-			if stage == 0 {
-				return 0
-			}
-
-			return 5
-		}())
-		f.SetSpringDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
+		mutateParityPogoJoint(j, stage)
 	case box2d.PrismaticJointType:
-		f := box2d.PrismaticJoint{Joint: j}
-		f.SetSpringEnabled(stage != 0)
-		f.SetLimitEnabled(stage >= 2)
-		f.SetMotorEnabled(stage >= 3)
-		f.SetSpringHertz(func() float32 {
-			if stage == 1 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetSpringDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
-		f.SetMotorSpeed(func() float32 {
-			if stage == 4 {
-				return -4
-			}
-
-			return 4
-		}())
-		f.SetMaxMotorForce(cap)
-		f.SetLimits(-0.5, 0.5)
-		f.SetTargetTranslation(func() float32 {
-			if stage == 7 {
-				return -0.5
-			}
-
-			return 0.5
-		}())
+		mutateParityPrismaticJoint(j, stage, forceLimit)
 	case box2d.RevoluteJointType:
-		f := box2d.RevoluteJoint{Joint: j}
-		f.SetSpringEnabled(stage != 0)
-		f.SetLimitEnabled(stage >= 2)
-		f.SetMotorEnabled(stage >= 3)
-		f.SetSpringHertz(func() float32 {
-			if stage == 1 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetSpringDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
-		f.SetMotorSpeed(func() float32 {
-			if stage == 4 {
-				return -4
-			}
-
-			return 4
-		}())
-		f.SetMaxMotorTorque(cap)
-		f.SetLimits(-0.5, 0.5)
-		f.SetTargetAngle(func() float32 {
-			if stage == 7 {
-				return -0.5
-			}
-
-			return 0.5
-		}())
+		mutateParityRevoluteJoint(j, stage, forceLimit)
 	case box2d.WeldJointType:
-		f := box2d.WeldJoint{Joint: j}
-		f.SetLinearHertz(func() float32 {
-			if stage == 0 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetLinearDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
-		f.SetAngularHertz(func() float32 {
-			if stage == 0 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetAngularDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
+		mutateParityWeldJoint(j, stage)
 	case box2d.WheelJointType:
-		f := box2d.WheelJoint{Joint: j}
-		f.SetSpringEnabled(stage != 0)
-		f.SetLimitEnabled(stage >= 2)
-		f.SetMotorEnabled(stage >= 3)
-		f.SetSpringHertz(func() float32 {
-			if stage == 1 {
-				return 0
-			}
-
-			if stage == 7 {
-				return 9
-			}
-
-			return 3
-		}())
-		f.SetSpringDampingRatio(func() float32 {
-			if stage == 7 {
-				return 1
-			}
-
-			return 0.2
-		}())
-		f.SetMotorSpeed(func() float32 {
-			if stage == 4 {
-				return -4
-			}
-
-			return 4
-		}())
-		f.SetMaxMotorTorque(cap)
-		f.SetLimits(-0.5, 0.5)
+		mutateParityWheelJoint(j, stage, forceLimit)
 	}
 }
 
@@ -590,6 +311,8 @@ func jointBoundary(j box2d.Joint, a, b box2d.Body, value float32) {
 		}
 
 		f.SetLimits(lower, upper)
+	case box2d.FilterJointType, box2d.MotorJointType, box2d.MoverJointType, box2d.PogoJointType, box2d.WeldJointType:
+		// These joint families have no boundary limits to configure.
 	}
 }
 
@@ -602,147 +325,7 @@ func TestJointParity(t *testing.T) {
 				for partition := range 3 {
 					name := fmt.Sprintf("%d/partner%d/loaded%d/partition%d", family, partner, load, partition)
 					t.Run(name, func(t *testing.T) {
-						loaded := load != 0
-						r := oracle.Open(t, "joints/"+name)
-						wd := box2d.DefaultWorldDef()
-						wd.Gravity = box2d.Vec2{}
-						w := box2d.NewWorld(&wd)
-						t.Cleanup(w.Close)
-
-						bd := box2d.DefaultBodyDef()
-						bd.Type = box2d.BodyType(partner)
-						bd.Position = box2d.Pos{X: 7, Y: -3}
-						bd.Rotation = box2d.MakeRot(0.35)
-						bd.IsAwake = loaded
-						a := w.CreateBody(&bd)
-						bd.Type = box2d.DynamicBody
-						bd.Position = box2d.Pos{X: 7.5, Y: -2}.Add(box2d.Vec2{X: 1.5 * float32(partition)})
-						bd.Rotation = box2d.MakeRot(-0.2)
-						b := w.CreateBody(&bd)
-						sd := box2d.DefaultShapeDef()
-						sd.Density = 2
-						circle := box2d.Circle{Center: box2d.Vec2{X: 0.1, Y: 0.2}, Radius: 0.4}
-						a.CreateCircleShape(&sd, &circle)
-						b.CreateCircleShape(&sd, &circle)
-
-						if partition == 0 {
-							b.Disable()
-						}
-
-						jointBodyState(r, "beforeCreate/bodyA", a)
-						jointBodyState(r, "beforeCreate/bodyB", b)
-
-						fa := box2d.Transform{P: box2d.Vec2{X: 0.2, Y: -0.3}, Q: box2d.MakeRot(0.2)}
-						fb := box2d.Transform{P: box2d.Vec2{X: -0.1, Y: 0.25}, Q: box2d.MakeRot(-0.1)}
-
-						j := createParityJoint(box2d.JointType(family), w, a, b, fa, fb, partition, loaded)
-						if !j.IsValid() {
-							t.Fatal("valid family constructor rejected mechanism")
-						}
-
-						observeJoint(r, "created", w, j, a, b)
-
-						if partition == 0 {
-							mutateParityJoint(j, 3)
-							j.WakeBodies()
-							observeJoint(r, "createdDisabled/mutatedAndWoken", w, j, a, b)
-							jointRunSteps(r, "createdDisabled", 12, loaded, w, j, a, b)
-							b.Enable()
-							observeJoint(r, "createdDisabled/enabled", w, j, a, b)
-						}
-
-						jointRunSteps(r, "initial", 60, loaded, w, j, a, b)
-
-						stages := []string{"featuresOff", "springOn", "limitsOn", "positiveMotor", "negativeMotor", "zeroCaps", "highCaps", "retargetAndDamp"}
-						for stage, action := range stages {
-							mutateParityJoint(j, stage)
-							observeJoint(r, action+"/afterSetters", w, j, a, b)
-							j.WakeBodies()
-							jointRunSteps(r, action, 12, loaded, w, j, a, b)
-						}
-
-						if family == int(box2d.DistanceJointType) || family == int(box2d.PrismaticJointType) || family == int(box2d.RevoluteJointType) || family == int(box2d.WheelJointType) {
-							values := []float32{-0.8, -0.5, 0, 0.5, 0.8}
-							labels := []string{"belowLower", "atLower", "inside", "atUpper", "aboveUpper"}
-							lengths := []float32{0.25, 0.5, 1, 1.5, 1.75}
-
-							for i, value := range values {
-								if family == int(box2d.DistanceJointType) {
-									value = lengths[i]
-								}
-
-								jointBoundary(j, a, b, value)
-								observeJoint(r, labels[i], w, j, a, b)
-								j.WakeBodies()
-								jointRunSteps(r, labels[i], 12, loaded, w, j, a, b)
-							}
-						}
-
-						b.SetAwake(false)
-						jointBodyState(r, "beforeSleepingMutation/bodyA", a)
-						jointBodyState(r, "beforeSleepingMutation/bodyB", b)
-						mutateParityJoint(j, 4)
-						observeJoint(r, "sleepingFamilyMutation", w, j, a, b)
-						j.SetConstraintTuning(17, 0.6)
-						j.SetForceThreshold(4)
-						j.SetTorqueThreshold(2)
-
-						fa.P = box2d.Vec2{X: -0.35, Y: 0.15}
-						fa.Q = box2d.MakeRot(-0.4)
-						fb.P = box2d.Vec2{X: 0.3, Y: -0.2}
-						fb.Q = box2d.MakeRot(0.45)
-
-						j.SetLocalFrameA(fa)
-						j.SetLocalFrameB(fb)
-						j.SetUserData(&wd)
-						r.Bool("userData", j.UserData() == &wd)
-						observeJoint(r, "commonSetters", w, j, a, b)
-						j.WakeBodies()
-						observeJoint(r, "explicitWake", w, j, a, b)
-						jointRunSteps(r, "changedFrames", 12, loaded, w, j, a, b)
-						j.SetCollideConnected(true)
-						observeJoint(r, "collisionEnabled", w, j, a, b)
-						jointRunSteps(r, "collisionEnabled", 12, loaded, w, j, a, b)
-						j.SetCollideConnected(false)
-						observeJoint(r, "collisionDisabled", w, j, a, b)
-						jointRunSteps(r, "collisionDisabled", 12, loaded, w, j, a, b)
-						b.Disable()
-						observeJoint(r, "bodyDisabled", w, j, a, b)
-						jointRunSteps(r, "bodyDisabled", 12, loaded, w, j, a, b)
-						b.Enable()
-						observeJoint(r, "bodyEnabled", w, j, a, b)
-						jointRunSteps(r, "bodyEnabled", 12, loaded, w, j, a, b)
-						a.SetType(box2d.StaticBody)
-						b.SetType(box2d.KinematicBody)
-						observeJoint(r, "nonDynamicPair", w, j, a, b)
-						jointRunSteps(r, "nonDynamicPair", 12, false, w, j, a, b)
-						b.Disable()
-						b.Enable()
-						jointRunSteps(r, "nonDynamicReenabled", 12, false, w, j, a, b)
-						b.SetType(box2d.DynamicBody)
-						observeJoint(r, "dynamicRestored", w, j, a, b)
-						jointRunSteps(r, "dynamicRestored", 12, loaded, w, j, a, b)
-						j.Destroy()
-						r.I32("jointDestroyed/count", int32(w.Counters().JointCount))
-						b.SetLinearVelocity(box2d.Vec2{X: 2, Y: -1})
-						b.SetAngularVelocity(1.5)
-
-						for step := range 12 {
-							i := step + 1
-
-							w.Step(1.0/60.0, 4)
-
-							if i == 1 || i == 12 {
-								jointBodyState(r, fmt.Sprintf("freeMotion/step%d", i), b)
-							}
-						}
-
-						j = createParityJoint(box2d.JointType(family), w, a, b, fa, fb, partition, loaded)
-						observeJoint(r, "recreated", w, j, a, b)
-						b.Destroy()
-						r.I32("bodyDestroyed/jointCount", int32(w.Counters().JointCount))
-						w.Step(1.0/60.0, 4)
-						jointBodyState(r, "survivor", a)
+						runJointParityScenario(t, name, family, partner, load, partition)
 					})
 				}
 			}
@@ -828,4 +411,428 @@ func TestJointCollisionPolicy(t *testing.T) {
 			jointCollisionObserve(r, "afterDestroy", w, a, b, sa, sb)
 		})
 	}
+}
+
+func mutateParityDistanceJoint(j box2d.Joint, stage int, forceLimit float32) {
+	f := box2d.DistanceJoint{Joint: j}
+	f.SetSpringEnabled(stage != 0)
+	f.SetLimitEnabled(stage >= 2)
+	f.SetMotorEnabled(stage >= 3)
+	f.SetSpringHertz(func() float32 {
+		if stage == 1 {
+			return 0
+		}
+
+		if stage == 7 {
+			return 9
+		}
+
+		return 3
+	}())
+	f.SetSpringDampingRatio(func() float32 {
+		if stage == 7 {
+			return 1
+		}
+
+		return 0.2
+	}())
+	f.SetMotorSpeed(func() float32 {
+		if stage == 4 {
+			return -4
+		}
+
+		return 4
+	}())
+	f.SetMaxMotorForce(forceLimit)
+	f.SetLength(func() float32 {
+		if stage == 7 {
+			return 0.7
+		}
+
+		return 1.3
+	}())
+	f.SetLengthRange(0.7, 1.3)
+	f.SetSpringForceRange(-forceLimit, forceLimit)
+}
+
+func mutateParityMotorJoint(j box2d.Joint, stage int, forceLimit float32) {
+	f := box2d.MotorJoint{Joint: j}
+	f.SetLinearHertz(func() float32 {
+		if stage == 0 {
+			return 0
+		}
+
+		if stage == 7 {
+			return 9
+		}
+
+		return 3
+	}())
+	f.SetLinearDampingRatio(func() float32 {
+		if stage == 7 {
+			return 1
+		}
+
+		return 0.2
+	}())
+	f.SetAngularHertz(func() float32 {
+		if stage == 0 {
+			return 0
+		}
+
+		if stage == 7 {
+			return 9
+		}
+
+		return 3
+	}())
+	f.SetAngularDampingRatio(func() float32 {
+		if stage == 7 {
+			return 1
+		}
+
+		return 0.2
+	}())
+	f.SetLinearVelocity(box2d.Vec2{X: func() float32 {
+		if stage == 4 {
+			return -4
+		}
+
+		return 4
+	}(), Y: -2})
+	f.SetMaxVelocityForce(forceLimit)
+	f.SetMaxVelocityTorque(forceLimit)
+	f.SetMaxSpringForce(forceLimit)
+	f.SetMaxSpringTorque(forceLimit)
+	f.SetAngularVelocity(func() float32 {
+		if stage == 4 {
+			return -3
+		}
+
+		return 3
+	}())
+}
+
+func mutateParityMoverJoint(j box2d.Joint, stage int, forceLimit float32) {
+	f := box2d.MoverJoint{Joint: j}
+	f.SetLinearVelocity(box2d.Vec2{X: func() float32 {
+		if stage == 4 {
+			return -4
+		}
+
+		return 4
+	}(), Y: -2})
+	f.SetMaxVelocityForce(box2d.Vec2{X: forceLimit, Y: 0.5 * forceLimit})
+}
+
+func mutateParityPogoJoint(j box2d.Joint, stage int) {
+	f := box2d.PogoJoint{Joint: j}
+	f.SetRestLength(func() float32 {
+		if stage == 7 {
+			return 0.3
+		}
+
+		return 1.3
+	}())
+	f.SetSpringHertz(func() float32 {
+		if stage == 0 {
+			return 0
+		}
+
+		return 5
+	}())
+	f.SetSpringDampingRatio(func() float32 {
+		if stage == 7 {
+			return 1
+		}
+
+		return 0.2
+	}())
+}
+
+func parityJointTuning(stage int) (float32, float32, float32, float32) {
+	hertz, damping, speed, target := float32(3), float32(0.2), float32(4), float32(0.5)
+
+	switch stage {
+	case 1:
+		hertz = 0
+	case 4:
+		speed = -4
+	case 7:
+		hertz, damping, target = 9, 1, -0.5
+	}
+
+	return hertz, damping, speed, target
+}
+
+func mutateParityPrismaticJoint(j box2d.Joint, stage int, forceLimit float32) {
+	f := box2d.PrismaticJoint{Joint: j}
+	hertz, damping, speed, target := parityJointTuning(stage)
+	f.SetSpringEnabled(stage != 0)
+	f.SetLimitEnabled(stage >= 2)
+	f.SetMotorEnabled(stage >= 3)
+	f.SetSpringHertz(hertz)
+	f.SetSpringDampingRatio(damping)
+	f.SetMotorSpeed(speed)
+	f.SetMaxMotorForce(forceLimit)
+	f.SetLimits(-0.5, 0.5)
+	f.SetTargetTranslation(target)
+}
+
+func mutateParityRevoluteJoint(j box2d.Joint, stage int, forceLimit float32) {
+	f := box2d.RevoluteJoint{Joint: j}
+	hertz, damping, speed, target := parityJointTuning(stage)
+	f.SetSpringEnabled(stage != 0)
+	f.SetLimitEnabled(stage >= 2)
+	f.SetMotorEnabled(stage >= 3)
+	f.SetSpringHertz(hertz)
+	f.SetSpringDampingRatio(damping)
+	f.SetMotorSpeed(speed)
+	f.SetMaxMotorTorque(forceLimit)
+	f.SetLimits(-0.5, 0.5)
+	f.SetTargetAngle(target)
+}
+
+func mutateParityWeldJoint(j box2d.Joint, stage int) {
+	f := box2d.WeldJoint{Joint: j}
+	f.SetLinearHertz(func() float32 {
+		if stage == 0 {
+			return 0
+		}
+
+		if stage == 7 {
+			return 9
+		}
+
+		return 3
+	}())
+	f.SetLinearDampingRatio(func() float32 {
+		if stage == 7 {
+			return 1
+		}
+
+		return 0.2
+	}())
+	f.SetAngularHertz(func() float32 {
+		if stage == 0 {
+			return 0
+		}
+
+		if stage == 7 {
+			return 9
+		}
+
+		return 3
+	}())
+	f.SetAngularDampingRatio(func() float32 {
+		if stage == 7 {
+			return 1
+		}
+
+		return 0.2
+	}())
+}
+
+func mutateParityWheelJoint(j box2d.Joint, stage int, forceLimit float32) {
+	f := box2d.WheelJoint{Joint: j}
+	f.SetSpringEnabled(stage != 0)
+	f.SetLimitEnabled(stage >= 2)
+	f.SetMotorEnabled(stage >= 3)
+	f.SetSpringHertz(func() float32 {
+		if stage == 1 {
+			return 0
+		}
+
+		if stage == 7 {
+			return 9
+		}
+
+		return 3
+	}())
+	f.SetSpringDampingRatio(func() float32 {
+		if stage == 7 {
+			return 1
+		}
+
+		return 0.2
+	}())
+	f.SetMotorSpeed(func() float32 {
+		if stage == 4 {
+			return -4
+		}
+
+		return 4
+	}())
+	f.SetMaxMotorTorque(forceLimit)
+	f.SetLimits(-0.5, 0.5)
+}
+
+func runJointParityScenario(t *testing.T, name string, family, partner, load, partition int) {
+	t.Helper()
+
+	loaded := load != 0
+	r := oracle.Open(t, "joints/"+name)
+	wd := box2d.DefaultWorldDef()
+	wd.Gravity = box2d.Vec2{}
+	w := box2d.NewWorld(&wd)
+	t.Cleanup(w.Close)
+
+	bd := box2d.DefaultBodyDef()
+	bd.Type = box2d.BodyType(partner)
+	bd.Position = box2d.Pos{X: 7, Y: -3}
+	bd.Rotation = box2d.MakeRot(0.35)
+	bd.IsAwake = loaded
+	a := w.CreateBody(&bd)
+	bd.Type = box2d.DynamicBody
+	bd.Position = box2d.Pos{X: 7.5, Y: -2}.Add(box2d.Vec2{X: 1.5 * float32(partition)})
+	bd.Rotation = box2d.MakeRot(-0.2)
+	b := w.CreateBody(&bd)
+	sd := box2d.DefaultShapeDef()
+	sd.Density = 2
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.1, Y: 0.2}, Radius: 0.4}
+	a.CreateCircleShape(&sd, &circle)
+	b.CreateCircleShape(&sd, &circle)
+
+	if partition == 0 {
+		b.Disable()
+	}
+
+	jointBodyState(r, "beforeCreate/bodyA", a)
+	jointBodyState(r, "beforeCreate/bodyB", b)
+
+	fa := box2d.Transform{P: box2d.Vec2{X: 0.2, Y: -0.3}, Q: box2d.MakeRot(0.2)}
+	fb := box2d.Transform{P: box2d.Vec2{X: -0.1, Y: 0.25}, Q: box2d.MakeRot(-0.1)}
+
+	j := createParityJoint(box2d.JointType(family), w, a, b, fa, fb, partition, loaded)
+	if !j.IsValid() {
+		t.Fatal("valid family constructor rejected mechanism")
+	}
+
+	observeJoint(r, "created", w, j, a, b)
+
+	if partition == 0 {
+		mutateParityJoint(j, 3)
+		j.WakeBodies()
+		observeJoint(r, "createdDisabled/mutatedAndWoken", w, j, a, b)
+		jointRunSteps(r, "createdDisabled", 12, loaded, w, j, a, b)
+		b.Enable()
+		observeJoint(r, "createdDisabled/enabled", w, j, a, b)
+	}
+
+	jointRunSteps(r, "initial", 60, loaded, w, j, a, b)
+
+	stages := []string{"featuresOff", "springOn", "limitsOn", "positiveMotor", "negativeMotor", "zeroCaps", "highCaps", "retargetAndDamp"}
+	for stage, action := range stages {
+		mutateParityJoint(j, stage)
+		observeJoint(r, action+"/afterSetters", w, j, a, b)
+		j.WakeBodies()
+		jointRunSteps(r, action, 12, loaded, w, j, a, b)
+	}
+
+	switch family {
+	case int(box2d.DistanceJointType), int(box2d.PrismaticJointType), int(box2d.RevoluteJointType), int(box2d.WheelJointType):
+		values := []float32{-0.8, -0.5, 0, 0.5, 0.8}
+		labels := []string{"belowLower", "atLower", "inside", "atUpper", "aboveUpper"}
+		lengths := []float32{0.25, 0.5, 1, 1.5, 1.75}
+
+		for i, value := range values {
+			if family == int(box2d.DistanceJointType) {
+				value = lengths[i]
+			}
+
+			jointBoundary(j, a, b, value)
+			observeJoint(r, labels[i], w, j, a, b)
+			j.WakeBodies()
+			jointRunSteps(r, labels[i], 12, loaded, w, j, a, b)
+		}
+	}
+
+	b.SetAwake(false)
+	jointBodyState(r, "beforeSleepingMutation/bodyA", a)
+	jointBodyState(r, "beforeSleepingMutation/bodyB", b)
+	mutateParityJoint(j, 4)
+	observeJoint(r, "sleepingFamilyMutation", w, j, a, b)
+	j.SetConstraintTuning(17, 0.6)
+	j.SetForceThreshold(4)
+	j.SetTorqueThreshold(2)
+
+	fa.P = box2d.Vec2{X: -0.35, Y: 0.15}
+	fa.Q = box2d.MakeRot(-0.4)
+	fb.P = box2d.Vec2{X: 0.3, Y: -0.2}
+	fb.Q = box2d.MakeRot(0.45)
+
+	j.SetLocalFrameA(fa)
+	j.SetLocalFrameB(fb)
+	j.SetUserData(&wd)
+	r.Bool("userData", j.UserData() == &wd)
+	observeJoint(r, "commonSetters", w, j, a, b)
+	j.WakeBodies()
+	observeJoint(r, "explicitWake", w, j, a, b)
+	jointRunSteps(r, "changedFrames", 12, loaded, w, j, a, b)
+	j.SetCollideConnected(true)
+	observeJoint(r, "collisionEnabled", w, j, a, b)
+	jointRunSteps(r, "collisionEnabled", 12, loaded, w, j, a, b)
+	j.SetCollideConnected(false)
+	observeJoint(r, "collisionDisabled", w, j, a, b)
+	jointRunSteps(r, "collisionDisabled", 12, loaded, w, j, a, b)
+	b.Disable()
+	observeJoint(r, "bodyDisabled", w, j, a, b)
+	jointRunSteps(r, "bodyDisabled", 12, loaded, w, j, a, b)
+	b.Enable()
+	observeJoint(r, "bodyEnabled", w, j, a, b)
+	jointRunSteps(r, "bodyEnabled", 12, loaded, w, j, a, b)
+	a.SetType(box2d.StaticBody)
+	b.SetType(box2d.KinematicBody)
+	observeJoint(r, "nonDynamicPair", w, j, a, b)
+	jointRunSteps(r, "nonDynamicPair", 12, false, w, j, a, b)
+	b.Disable()
+	b.Enable()
+	jointRunSteps(r, "nonDynamicReenabled", 12, false, w, j, a, b)
+	b.SetType(box2d.DynamicBody)
+	observeJoint(r, "dynamicRestored", w, j, a, b)
+	jointRunSteps(r, "dynamicRestored", 12, loaded, w, j, a, b)
+	j.Destroy()
+	r.I32("jointDestroyed/count", int32(w.Counters().JointCount))
+	b.SetLinearVelocity(box2d.Vec2{X: 2, Y: -1})
+	b.SetAngularVelocity(1.5)
+
+	for step := range 12 {
+		i := step + 1
+
+		w.Step(1.0/60.0, 4)
+
+		if i == 1 || i == 12 {
+			jointBodyState(r, fmt.Sprintf("freeMotion/step%d", i), b)
+		}
+	}
+
+	j = createParityJoint(box2d.JointType(family), w, a, b, fa, fb, partition, loaded)
+	observeJoint(r, "recreated", w, j, a, b)
+	b.Destroy()
+	r.I32("bodyDestroyed/jointCount", int32(w.Counters().JointCount))
+	w.Step(1.0/60.0, 4)
+	jointBodyState(r, "survivor", a)
+}
+
+func createParityPogoJoint(w *box2d.World, a, b box2d.Body, fa, fb box2d.Transform, partition int, loaded bool) box2d.Joint {
+	d := box2d.DefaultPogoJointDef()
+	d.Base.BodyA, d.Base.BodyB = a, b
+	d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb
+	d.Normal = box2d.Vec2{X: 0.6, Y: 0.8}
+
+	d.RestLength, d.Hertz, d.DampingRatio = 1, 3, 0.2
+	if partition != 0 {
+		d.MaxTensionForce = 2
+	}
+
+	d.MaxCompressionForce = 4
+	if partition == 2 {
+		d.MaxCompressionForce = 100
+	}
+
+	if loaded {
+		d.Impulse, d.Velocity = 0.2, -0.5
+	}
+
+	return w.CreatePogoJoint(&d).Joint
 }

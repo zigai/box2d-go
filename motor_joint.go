@@ -250,8 +250,8 @@ func prepareMotorJoint(base *jointSim, context *stepContext) {
 
 	// chase body id to the solver set where the body lives
 	var (
-		idA = base.bodyIdA
-		idB = base.bodyIdB
+		idA = base.bodyIDA
+		idB = base.bodyIDB
 	)
 
 	world := context.world
@@ -358,19 +358,9 @@ func warmStartMotorJoint(base *jointSim, context *stepContext) {
 	// dummy state for static bodies
 	dummyState := identityBodyState
 
-	var stateA *bodyState
-	if jnt.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[jnt.indexA]
-	}
+	stateA := jointSolverBodyState(context, jnt.indexA, &dummyState)
 
-	var stateB *bodyState
-	if jnt.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[jnt.indexB]
-	}
+	stateB := jointSolverBodyState(context, jnt.indexB, &dummyState)
 
 	var (
 		rA = stateA.deltaRotation.Rotate(jnt.frameA.P)
@@ -408,20 +398,10 @@ func solveMotorJoint(base *jointSim, context *stepContext) {
 
 	var (
 		jnt    = &base.motorJoint
-		stateA *bodyState
+		stateA = jointSolverBodyState(context, jnt.indexA, &dummyState)
 	)
-	if jnt.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[jnt.indexA]
-	}
 
-	var stateB *bodyState
-	if jnt.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[jnt.indexB]
-	}
+	stateB := jointSolverBodyState(context, jnt.indexB, &dummyState)
 
 	var (
 		vA = stateA.linearVelocity

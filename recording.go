@@ -20,20 +20,6 @@ const (
 	recVersionMinor uint16 = 12
 )
 
-type recHeader struct {
-	magic             uint32
-	versionMajor      uint16
-	versionMinor      uint16
-	reserved2         uint32
-	lengthScale       float32
-	reserved3         uint8
-	pointerWidth      uint8
-	bigEndian         uint8
-	validationEnabled uint8
-	reserved1         uint32
-	snapshotSize      uint64
-}
-
 type recBuffer struct {
 	data      []byte
 	capacity  int
@@ -59,6 +45,39 @@ type recQueryWriter struct {
 	buf         recBuffer
 	countOffset int
 	hitCount    uint32
+}
+
+// Create a recording buffer. The buffer grows on demand. byteCapacity pre-sizes it to avoid
+// reallocations during a known-length session. Pass 0 for a small default.
+func NewRecording(byteCapacity int) *Recording {
+	if byteCapacity <= 0 {
+		byteCapacity = 65536
+	}
+
+	return &Recording{buffer: recBuffer{data: make([]byte, byteCapacity), capacity: byteCapacity}, lock: new(sync.Mutex)}
+}
+
+// ReadRecording reads a recording written by WriteTo into a new recording buffer. It returns
+// ErrCorrupt for data too short to hold a header and ErrBadMagic for data that is not a recording.
+func ReadRecording(src io.Reader) (*Recording, error) {
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return nil, err //nolint:wrapcheck // ReadRecording exposes the source reader's error identity unchanged.
+	}
+
+	if len(data) < 32 {
+		return nil, fmt.Errorf("%w: recording too small", ErrCorrupt)
+	}
+
+	if binary.LittleEndian.Uint32(data) != recMagic {
+		return nil, fmt.Errorf("%w: recording magic 0x%08X", ErrBadMagic, binary.LittleEndian.Uint32(data))
+	}
+
+	r := NewRecording(len(data))
+	copy(r.buffer.data, data)
+	r.buffer.size = len(data)
+
+	return r, nil
 }
 
 func recBufAppend(buf *recBuffer, data []byte, size int) {
@@ -565,16 +584,6 @@ func recEndRecord(rec *Recording) {
 	p[2] = byte(n >> 16)
 }
 
-// Create a recording buffer. The buffer grows on demand. byteCapacity pre-sizes it to avoid
-// reallocations during a known-length session. Pass 0 for a small default.
-func NewRecording(byteCapacity int) *Recording {
-	if byteCapacity <= 0 {
-		byteCapacity = 65536
-	}
-
-	return &Recording{buffer: recBuffer{data: make([]byte, byteCapacity), capacity: byteCapacity}, lock: new(sync.Mutex)}
-}
-
 // Get the recorded bytes, for saving to a file or transmitting. Valid until the
 // next recording call.
 func (r *Recording) Data() []byte {
@@ -647,29 +656,6 @@ func stopRecordingInternal(world *World) {
 func (r *Recording) WriteTo(w io.Writer) (int64, error) {
 	n, err := w.Write(r.Data())
 	return int64(n), err
-}
-
-// ReadRecording reads a recording written by WriteTo into a new recording buffer. It returns
-// ErrCorrupt for data too short to hold a header and ErrBadMagic for data that is not a recording.
-func ReadRecording(src io.Reader) (*Recording, error) {
-	data, err := io.ReadAll(src)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(data) < 32 {
-		return nil, fmt.Errorf("%w: recording too small", ErrCorrupt)
-	}
-
-	if binary.LittleEndian.Uint32(data) != recMagic {
-		return nil, fmt.Errorf("%w: recording magic 0x%08X", ErrBadMagic, binary.LittleEndian.Uint32(data))
-	}
-
-	r := NewRecording(len(data))
-	copy(r.buffer.data, data)
-	r.buffer.size = len(data)
-
-	return r, nil
 }
 
 func hashWorldState(world *World) uint64 {

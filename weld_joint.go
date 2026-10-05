@@ -141,8 +141,8 @@ func prepareWeldJoint(base *jointSim, context *stepContext) {
 	assert(base.jointType == WeldJointType, "base->type == b2_weldJoint")
 
 	// chase body id to the solver set where the body lives
-	idA := base.bodyIdA
-	idB := base.bodyIdB
+	idA := base.bodyIDA
+	idB := base.bodyIDB
 
 	world := context.world
 
@@ -301,14 +301,14 @@ func solveWeldJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulseScale := float32(0.0)
 
 		if useBias || joint.angularHertz > float32(0.0) {
-			C := jointAngle
-			bias = float32(joint.angularSpring.biasRate * C)
+			separation := jointAngle
+			bias = float32(joint.angularSpring.biasRate * separation)
 			massScale = joint.angularSpring.massScale
 			impulseScale = joint.angularSpring.impulseScale
 		}
 
-		Cdot := wB - wA
-		impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*joint.angularImpulse)
+		velocityError := wB - wA
+		impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.angularImpulse)
 		joint.angularImpulse += impulse
 
 		wA -= float32(iA * impulse)
@@ -327,22 +327,22 @@ func solveWeldJoint(base *jointSim, context *stepContext, useBias bool) {
 		if useBias || joint.linearHertz > float32(0.0) {
 			dcA := stateA.deltaPosition
 			dcB := stateB.deltaPosition
-			C := dcB.Sub(dcA).Add(rB.Sub(rA)).Add(joint.deltaCenter)
+			separation := dcB.Sub(dcA).Add(rB.Sub(rA)).Add(joint.deltaCenter)
 
-			bias = Vec2{X: float32(joint.linearSpring.biasRate * C.X), Y: float32(joint.linearSpring.biasRate * C.Y)}
+			bias = Vec2{X: float32(joint.linearSpring.biasRate * separation.X), Y: float32(joint.linearSpring.biasRate * separation.Y)}
 			massScale = joint.linearSpring.massScale
 			impulseScale = joint.linearSpring.impulseScale
 		}
 
-		Cdot := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
+		velocityError := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 
-		var K Mat22
+		var massMatrix Mat22
 
-		K.Cx.X = mA + mB + float32(float32(rA.Y*rA.Y)*iA) + float32(float32(rB.Y*rB.Y)*iB)
-		K.Cy.X = float32(float32(-rA.Y*rA.X)*iA) - float32(float32(rB.Y*rB.X)*iB)
-		K.Cx.Y = K.Cy.X
-		K.Cy.Y = mA + mB + float32(float32(rA.X*rA.X)*iA) + float32(float32(rB.X*rB.X)*iB)
-		b := K.Solve(Cdot.Add(bias))
+		massMatrix.Cx.X = mA + mB + float32(float32(rA.Y*rA.Y)*iA) + float32(float32(rB.Y*rB.Y)*iB)
+		massMatrix.Cy.X = float32(float32(-rA.Y*rA.X)*iA) - float32(float32(rB.Y*rB.X)*iB)
+		massMatrix.Cx.Y = massMatrix.Cy.X
+		massMatrix.Cy.Y = mA + mB + float32(float32(rA.X*rA.X)*iA) + float32(float32(rB.X*rB.X)*iB)
+		b := massMatrix.Solve(velocityError.Add(bias))
 		b.X = float32(b.X)
 		b.Y = float32(b.Y)
 

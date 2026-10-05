@@ -43,11 +43,17 @@ func TestContactSolverWideArithmetic(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestContactSolverWideMaskReduction(t *testing.T) {
+	a := setW(1, -2, 3, -4)
 
 	if !allZeroW(zeroW()) || allZeroW(a) || anyTrueW(zeroW()) || !anyTrueW(setW(0, 0, 0, -1)) {
 		t.Fatal("mask reduction")
 	}
+}
 
+func TestContactSolverWideLoadStore(t *testing.T) {
 	data := []float32{1, 2, 3, 4, 5}
 	v := loadU(data)
 	storeW(data, negW(v))
@@ -55,14 +61,18 @@ func TestContactSolverWideArithmetic(t *testing.T) {
 	if data[0] != -1 || data[1] != -2 || data[2] != -3 || data[3] != -4 || data[4] != 5 {
 		t.Fatal(data)
 	}
+}
 
+func TestContactSolverWideVectorArithmetic(t *testing.T) {
 	v2 := vec2W{splatW(2), splatW(3)}
 
 	w2 := vec2W{splatW(4), splatW(5)}
 	if dotW(v2, w2) != splatW(23) || crossW(v2, w2) != splatW(-2) || subVW(v2, w2) != (vec2W{splatW(-2), splatW(-2)}) || rightPerpW(v2) != (vec2W{splatW(3), splatW(-2)}) || rotateVectorW(rotW{zeroW(), splatW(1)}, v2) != (vec2W{splatW(-3), splatW(2)}) {
 		t.Fatal("wide vector arithmetic")
 	}
+}
 
+func TestContactSolverWideSignedZeroAndNaN(t *testing.T) {
 	negZero := math.Float32frombits(0x80000000)
 
 	nan := math.Float32frombits(0x7fc12345)
@@ -141,19 +151,7 @@ func TestContactSolverPhases(t *testing.T) {
 				solveContactsOverflow(ctx)
 			}
 
-			if ctx.states[0].linearVelocity != (Vec2{0, 0}) || ctx.states[0].angularVelocity != 1 {
-				t.Fatalf("solve: %+v", ctx.states[0])
-			}
-
-			if wide {
-				if cw.normalImpulse1.x != 4 || cw.totalNormalImpulse1.x != 4 || cw.tangentImpulse1.x != -2 || cw.rollingImpulse.x != -1 {
-					t.Fatalf("solve impulses: %+v", cw)
-				}
-			} else {
-				if c.points[0].normalImpulse != 4 || c.points[0].totalNormalImpulse != 4 || c.points[0].tangentImpulse != -2 || c.rollingImpulse != -1 {
-					t.Fatalf("solve impulses: %+v", c)
-				}
-			}
+			checkContactSolverSolveImpulses(t, ctx, c, cw, wide)
 
 			c.restitution = 0.5
 			cw.restitution.x = 0.5
@@ -164,19 +162,7 @@ func TestContactSolverPhases(t *testing.T) {
 				applyRestitutionOverflow(ctx)
 			}
 
-			if ctx.states[0].linearVelocity.Y != 2 {
-				t.Fatalf("bounce: %+v", ctx.states[0])
-			}
-
-			if wide {
-				if cw.normalImpulse1.x != 6 || cw.totalNormalImpulse1.x != 6 || cw.restitutionImpulse1.x != 2 {
-					t.Fatal("bounce impulses")
-				}
-			} else {
-				if c.points[0].normalImpulse != 6 || c.points[0].totalNormalImpulse != 6 || c.points[0].restitutionImpulse != 2 {
-					t.Fatal("bounce impulses")
-				}
-			}
+			checkContactSolverBounceImpulses(t, ctx, c, cw, wide)
 
 			if wide {
 				applyRestitutionWide(block, ctx)
@@ -199,52 +185,7 @@ func TestContactSolverWarmStartAndPush(t *testing.T) {
 		}
 
 		t.Run(name, func(t *testing.T) {
-			ctx, c, cw := solverContext()
-			block := solverBlock{count: 1}
-			c.points[0].normalImpulse = 2
-			c.points[0].tangentImpulse = -1
-			c.rollingImpulse = -0.5
-			cw.normalImpulse1.x = 2
-			cw.tangentImpulse1.x = -1
-			cw.rollingImpulse.x = -0.5
-
-			if wide {
-				warmStartContactsWide(block, ctx)
-			} else {
-				warmStartContactsOverflow(ctx)
-			}
-
-			if ctx.states[0].linearVelocity != (Vec2{1, -2}) || ctx.states[0].angularVelocity != 1.5 {
-				t.Fatalf("warm start: %+v", ctx.states[0])
-			}
-
-			c.points[0].baseSeparation = 1
-			cw.baseSeparation1.x = 1
-
-			if wide {
-				pushContactsWide(block, ctx)
-			} else {
-				pushContactsOverflow(ctx)
-			}
-
-			if ctx.states[0].linearVelocity != (Vec2{1, -1}) || ctx.states[0].angularVelocity != 1.5 {
-				t.Fatalf("speculative push: %+v", ctx.states[0])
-			}
-
-			c.points[0].baseSeparation = -2
-			cw.baseSeparation1.x = -2
-			c.softness = softness{massScale: 0.5, biasRate: 2, impulseScale: 0.25}
-
-			ctx.staticSoftness = c.softness
-			if wide {
-				pushContactsWide(block, ctx)
-			} else {
-				pushContactsOverflow(ctx)
-			}
-
-			if ctx.states[0].linearVelocity != (Vec2{1, 0.75}) || ctx.states[0].angularVelocity != 1.5 {
-				t.Fatalf("soft push: %+v", ctx.states[0])
-			}
+			testContactSolverWarmStartAndPush(t, wide)
 		})
 	}
 }
@@ -265,7 +206,8 @@ func TestContactSolverStoreImpulses(t *testing.T) {
 
 	storeImpulsesOverflow(ctx)
 
-	if contacts[0].manifold.Points[0].NormalImpulse != 3 || contacts[0].manifold.Points[0].TangentImpulse != -1 || contacts[0].manifold.Points[0].TotalNormalImpulse != 4 || contacts[0].manifold.RollingImpulse != 0.5 || !ctx.world.taskContexts[0].hasHitEvents || !getBit(&ctx.world.taskContexts[0].hitEventBitSet, 65) {
+	storedOverflow := [4]float32{contacts[0].manifold.Points[0].NormalImpulse, contacts[0].manifold.Points[0].TangentImpulse, contacts[0].manifold.Points[0].TotalNormalImpulse, contacts[0].manifold.RollingImpulse}
+	if storedOverflow != ([4]float32{3, -1, 4, 0.5}) || !ctx.world.taskContexts[0].hasHitEvents || !getBit(&ctx.world.taskContexts[0].hitEventBitSet, 65) {
 		t.Fatal("overflow store/hit")
 	}
 
@@ -281,7 +223,9 @@ func TestContactSolverStoreImpulses(t *testing.T) {
 	storeImpulsesWide(solverBlock{count: 1}, ctx, 1)
 
 	m := contacts[0].manifold
-	if m.Points[0].NormalImpulse != 5 || m.Points[1].NormalImpulse != 6 || m.Points[0].TangentImpulse != -2 || m.Points[1].TangentImpulse != -3 || m.Points[0].TotalNormalImpulse != 7 || m.Points[1].TotalNormalImpulse != 8 || m.RollingImpulse != 1 || !ctx.world.taskContexts[1].hasHitEvents || !getBit(&ctx.world.taskContexts[1].hitEventBitSet, 65) {
+
+	storedWide := [7]float32{m.Points[0].NormalImpulse, m.Points[1].NormalImpulse, m.Points[0].TangentImpulse, m.Points[1].TangentImpulse, m.Points[0].TotalNormalImpulse, m.Points[1].TotalNormalImpulse, m.RollingImpulse}
+	if storedWide != ([7]float32{5, 6, -2, -3, 7, 8, 1}) || !ctx.world.taskContexts[1].hasHitEvents || !getBit(&ctx.world.taskContexts[1].hitEventBitSet, 65) {
 		t.Fatal("wide store/hit")
 	}
 }
@@ -314,13 +258,9 @@ func TestContactSolverPrepare(t *testing.T) {
 			}
 
 			if wide {
-				if cw.indexA != ([simdWidth]int{}) || cw.indexB != ([simdWidth]int{1}) || cw.normalMass1.x != 0.5 || cw.tangentMass1.x != 1 || cw.normalMass2 != (floatW{}) || cw.tangentMass2 != (floatW{}) || cw.baseSeparation1.x != -0.25 || cw.normalImpulse1.x != 2 || cw.tangentImpulse1.x != -1 || cw.relativeVelocity1.x != -2 || cw.rollingImpulse.x != 0.5 {
-					t.Fatalf("wide prepare: %+v", cw)
-				}
+				checkContactSolverWidePrepare(t, cw)
 			} else {
-				if c.indexA != 0 || c.indexB != 1 || c.points[0].normalMass != 0.5 || c.points[0].tangentMass != 1 || c.points[0].baseSeparation != -0.25 || c.points[0].normalImpulse != 2 || c.points[0].tangentImpulse != -1 || c.points[0].relativeVelocity != -2 || c.rollingMass != 1 || c.rollingImpulse != 0.5 || c.softness != ctx.staticSoftness {
-					t.Fatalf("overflow prepare: %+v", c)
-				}
+				checkContactSolverOverflowPrepare(t, ctx, c)
 			}
 		})
 	}
@@ -361,5 +301,108 @@ func TestContactSolverTwoPointWarmStart(t *testing.T) {
 	cw = ctx.graph.colors[0].wideConstraints[0]
 	if cw.totalNormalImpulse1 != (floatW{1, 1, 0, 1}) || cw.totalNormalImpulse2 != (floatW{2, 2, 0, 2}) {
 		t.Fatal("wide two point totals")
+	}
+}
+
+func checkContactSolverSolveImpulses(t *testing.T, ctx *stepContext, c *contactConstraint, cw *contactConstraintWide, wide bool) {
+	t.Helper()
+
+	if ctx.states[0].linearVelocity != (Vec2{0, 0}) || ctx.states[0].angularVelocity != 1 {
+		t.Fatalf("solve: %+v", ctx.states[0])
+	}
+
+	if wide {
+		if cw.normalImpulse1.x != 4 || cw.totalNormalImpulse1.x != 4 || cw.tangentImpulse1.x != -2 || cw.rollingImpulse.x != -1 {
+			t.Fatalf("solve impulses: %+v", cw)
+		}
+	} else {
+		if c.points[0].normalImpulse != 4 || c.points[0].totalNormalImpulse != 4 || c.points[0].tangentImpulse != -2 || c.rollingImpulse != -1 {
+			t.Fatalf("solve impulses: %+v", c)
+		}
+	}
+}
+
+func checkContactSolverBounceImpulses(t *testing.T, ctx *stepContext, c *contactConstraint, cw *contactConstraintWide, wide bool) {
+	t.Helper()
+
+	if ctx.states[0].linearVelocity.Y != 2 {
+		t.Fatalf("bounce: %+v", ctx.states[0])
+	}
+
+	if wide {
+		if cw.normalImpulse1.x != 6 || cw.totalNormalImpulse1.x != 6 || cw.restitutionImpulse1.x != 2 {
+			t.Fatal("bounce impulses")
+		}
+	} else {
+		if c.points[0].normalImpulse != 6 || c.points[0].totalNormalImpulse != 6 || c.points[0].restitutionImpulse != 2 {
+			t.Fatal("bounce impulses")
+		}
+	}
+}
+
+func testContactSolverWarmStartAndPush(t *testing.T, wide bool) {
+	t.Helper()
+
+	ctx, c, cw := solverContext()
+	block := solverBlock{count: 1}
+	c.points[0].normalImpulse = 2
+	c.points[0].tangentImpulse = -1
+	c.rollingImpulse = -0.5
+	cw.normalImpulse1.x = 2
+	cw.tangentImpulse1.x = -1
+	cw.rollingImpulse.x = -0.5
+
+	if wide {
+		warmStartContactsWide(block, ctx)
+	} else {
+		warmStartContactsOverflow(ctx)
+	}
+
+	if ctx.states[0].linearVelocity != (Vec2{1, -2}) || ctx.states[0].angularVelocity != 1.5 {
+		t.Fatalf("warm start: %+v", ctx.states[0])
+	}
+
+	c.points[0].baseSeparation = 1
+	cw.baseSeparation1.x = 1
+
+	if wide {
+		pushContactsWide(block, ctx)
+	} else {
+		pushContactsOverflow(ctx)
+	}
+
+	if ctx.states[0].linearVelocity != (Vec2{1, -1}) || ctx.states[0].angularVelocity != 1.5 {
+		t.Fatalf("speculative push: %+v", ctx.states[0])
+	}
+
+	c.points[0].baseSeparation = -2
+	cw.baseSeparation1.x = -2
+	c.softness = softness{massScale: 0.5, biasRate: 2, impulseScale: 0.25}
+
+	ctx.staticSoftness = c.softness
+	if wide {
+		pushContactsWide(block, ctx)
+	} else {
+		pushContactsOverflow(ctx)
+	}
+
+	if ctx.states[0].linearVelocity != (Vec2{1, 0.75}) || ctx.states[0].angularVelocity != 1.5 {
+		t.Fatalf("soft push: %+v", ctx.states[0])
+	}
+}
+
+func checkContactSolverWidePrepare(t *testing.T, cw *contactConstraintWide) {
+	t.Helper()
+
+	if cw.indexA != ([simdWidth]int{}) || cw.indexB != ([simdWidth]int{1}) || cw.normalMass1.x != 0.5 || cw.tangentMass1.x != 1 || cw.normalMass2 != (floatW{}) || cw.tangentMass2 != (floatW{}) || cw.baseSeparation1.x != -0.25 || cw.normalImpulse1.x != 2 || cw.tangentImpulse1.x != -1 || cw.relativeVelocity1.x != -2 || cw.rollingImpulse.x != 0.5 {
+		t.Fatalf("wide prepare: %+v", cw)
+	}
+}
+
+func checkContactSolverOverflowPrepare(t *testing.T, ctx *stepContext, c *contactConstraint) {
+	t.Helper()
+
+	if c.indexA != 0 || c.indexB != 1 || c.points[0].normalMass != 0.5 || c.points[0].tangentMass != 1 || c.points[0].baseSeparation != -0.25 || c.points[0].normalImpulse != 2 || c.points[0].tangentImpulse != -1 || c.points[0].relativeVelocity != -2 || c.rollingMass != 1 || c.rollingImpulse != 0.5 || c.softness != ctx.staticSoftness {
+		t.Fatalf("overflow prepare: %+v", c)
 	}
 }

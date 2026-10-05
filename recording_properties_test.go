@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d_test
 
 import (
@@ -24,6 +25,13 @@ func recordingProperties(r *oracle.Reader, world *box2d.World, prefix string) {
 }
 
 func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
+	recordingObserveWorldProperties(r, world, prefix)
+	recordingObserveBodyProperties(r, world, prefix)
+	recordingObserveShapeProperties(r, world, prefix)
+	recordingObserveJointProperties(r, world, prefix)
+}
+
+func recordingObserveWorldProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
 	r.Bool(prefix+"/IsSleepingEnabled", world.SleepingEnabled())
 	r.Bool(prefix+"/IsContinuousEnabled", world.ContinuousEnabled())
 	r.Bool(prefix+"/IsWarmStartingEnabled", world.WarmStartingEnabled())
@@ -40,7 +48,9 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 	r.F32(prefix+"/contactHertz", h)
 	r.F32(prefix+"/contactDamping", d)
 	r.F32(prefix+"/contactSpeed", s)
+}
 
+func recordingObserveBodyProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
 	for _, id := range box2d.RecordingBodies(world) {
 		key := fmt.Sprintf("%s/body%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -70,7 +80,9 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 		r.Bool(key+"/lockY", locks.LinearY)
 		r.Bool(key+"/lockZ", locks.AngularZ)
 	}
+}
 
+func recordingObserveShapeProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
 	for _, id := range box2d.RecordingShapes(world) {
 		key := fmt.Sprintf("%s/shape%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -126,9 +138,12 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 				r.Vec2(fmt.Sprintf("%s/geometry/v%d", key, j), v.Vertices[j].X, v.Vertices[j].Y)
 				r.Vec2(fmt.Sprintf("%s/geometry/n%d", key, j), v.Normals[j].X, v.Normals[j].Y)
 			}
+		case box2d.ShapeTypeCount:
 		}
 	}
+}
 
+func recordingObserveJointProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
 	for _, id := range box2d.RecordingJoints(world) {
 		key := fmt.Sprintf("%s/joint%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -229,19 +244,20 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 			r.Bool(key+"/IsSpringEnabled", v.SpringEnabled())
 			r.Bool(key+"/IsLimitEnabled", v.LimitEnabled())
 			r.Bool(key+"/IsMotorEnabled", v.MotorEnabled())
+		case box2d.FilterJointType:
 		}
 	}
 }
 
 type recordingPropertyObserver interface {
-	Bool(string, bool)
-	I32(string, int32)
-	U32(string, uint32)
-	U64(string, uint64)
-	F32(string, float32)
-	Vec2(string, float32, float32)
-	Rot(string, float32, float32)
-	Bytes(string, []byte)
+	Bool(key string, value bool)
+	I32(key string, value int32)
+	U32(key string, value uint32)
+	U64(key string, value uint64)
+	F32(key string, value float32)
+	Vec2(key string, x, y float32)
+	Rot(key string, c, s float32)
+	Bytes(key string, value []byte)
 }
 
 type recordingPropertyField struct {

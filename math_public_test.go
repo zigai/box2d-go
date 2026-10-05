@@ -46,7 +46,7 @@ func TestMathPublicSpecialAngles(t *testing.T) {
 	fb := math.Float32frombits
 	negativeZero := fb(0x80000000)
 
-	angles := []float32{
+	angleStorage := [166]float32{
 		0, negativeZero,
 		pi, -pi,
 		0.5 * pi, -0.5 * pi,
@@ -59,6 +59,8 @@ func TestMathPublicSpecialAngles(t *testing.T) {
 		0.1, -0.1, 0.5, 1, -1, 2, 3, -3, 10, -10,
 		100, -100, 1000, -1000, 9999.5, -9999.5,
 	}
+
+	angles := angleStorage[:38]
 	for i := range 128 {
 		angles = append(angles, float32(float32(i)*0.1)-6.4)
 	}

@@ -179,57 +179,6 @@ type World struct {
 	inUse                        bool
 }
 
-func getWorldLocked(w *World) *World {
-	if w.locked {
-		assert(false, "false")
-		return nil
-	}
-
-	return w
-}
-
-func defaultAddTaskFcn(task func()) func() {
-	task()
-	return nil
-}
-
-func defaultFinishTaskFcn(finish func()) {
-}
-
-func createWorkerContexts(w *World) {
-	w.taskContexts = make([]taskContext, w.workerCount)
-
-	w.sensorTaskContexts = make([]sensorTaskContext, w.workerCount)
-	for i := range w.workerCount {
-		c := &w.taskContexts[i]
-		c.sensorHits = make([]sensorHit, 0, 8)
-		c.contactStateBitSet = createBitSet(1024)
-		c.hitEventBitSet = createBitSet(1024)
-		c.jointStateBitSet = createBitSet(1024)
-		c.enlargedSimBitSet = createBitSet(256)
-		c.awakeIslandBitSet = createBitSet(256)
-		c.splitIslandID = nullIndex
-		w.sensorTaskContexts[i].eventBits = createBitSet(128)
-	}
-}
-
-func destroyWorkerContexts(w *World) {
-	for i := range w.workerCount {
-		c := &w.taskContexts[i]
-		c.sensorHits = nil
-		c.pairKeys = nil
-		destroyBitSet(&c.contactStateBitSet)
-		destroyBitSet(&c.hitEventBitSet)
-		destroyBitSet(&c.jointStateBitSet)
-		destroyBitSet(&c.enlargedSimBitSet)
-		destroyBitSet(&c.awakeIslandBitSet)
-		destroyBitSet(&w.sensorTaskContexts[i].eventBits)
-	}
-
-	w.taskContexts = nil
-	w.sensorTaskContexts = nil
-}
-
 func NewWorld(def *WorldDef) *World {
 	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
 	checkInput(def.Logger != nil, "def.Logger != nil")
@@ -331,6 +280,54 @@ func NewWorld(def *WorldDef) *World {
 	return w
 }
 
+func getWorldLocked(w *World) *World {
+	if w.locked {
+		assert(false, "false")
+		return nil
+	}
+
+	return w
+}
+
+func defaultAddTaskFcn(task func()) func() {
+	task()
+	return nil
+}
+
+func createWorkerContexts(w *World) {
+	w.taskContexts = make([]taskContext, w.workerCount)
+
+	w.sensorTaskContexts = make([]sensorTaskContext, w.workerCount)
+	for i := range w.workerCount {
+		c := &w.taskContexts[i]
+		c.sensorHits = make([]sensorHit, 0, 8)
+		c.contactStateBitSet = createBitSet(1024)
+		c.hitEventBitSet = createBitSet(1024)
+		c.jointStateBitSet = createBitSet(1024)
+		c.enlargedSimBitSet = createBitSet(256)
+		c.awakeIslandBitSet = createBitSet(256)
+		c.splitIslandID = nullIndex
+		w.sensorTaskContexts[i].eventBits = createBitSet(128)
+	}
+}
+
+func destroyWorkerContexts(w *World) {
+	for i := range w.workerCount {
+		c := &w.taskContexts[i]
+		c.sensorHits = nil
+		c.pairKeys = nil
+		destroyBitSet(&c.contactStateBitSet)
+		destroyBitSet(&c.hitEventBitSet)
+		destroyBitSet(&c.jointStateBitSet)
+		destroyBitSet(&c.enlargedSimBitSet)
+		destroyBitSet(&c.awakeIslandBitSet)
+		destroyBitSet(&w.sensorTaskContexts[i].eventBits)
+	}
+
+	w.taskContexts = nil
+	w.sensorTaskContexts = nil
+}
+
 func (w *World) Close() {
 	state := w
 	// Detach any recording before teardown. The user owns and frees the recording buffer.
@@ -416,6 +413,84 @@ func resolveContactBodySim(w *World, awakeSims, staticSims []bodySim, encodedInd
 	return getBodySim(w, &w.bodies[bodyID])
 }
 
+func tryRecycleContact(sim *contactSim, bodySimA, bodySimB *bodySim, transformA, transformB *WorldTransform, recycleDistance, recycleDistanceNonTouching float32) bool {
+	encodedA := sim.encodedBodySimA
+	encodedB := sim.encodedBodySimB
+	wasTouching := sim.simFlags&simTouchingFlag != 0
+	cachedQA := sim.cachedRotationA
+	cachedQB := sim.cachedRotationB
+	xfc := sim.cachedRelativePose
+	xf := transformA.InvMul(*transformB)
+	cosA := relativeCos(transformA.Q, cachedQA)
+	cosB := relativeCos(transformB.Q, cachedQB)
+	minCos := minFloat(cosA, cosB)
+
+	var maxExtentA, maxExtentB float32
+	if !isStaticSimIndex(encodedA) {
+		maxExtentA = bodySimA.maxExtent
+	}
+
+	if !isStaticSimIndex(encodedB) {
+		maxExtentB = bodySimB.maxExtent
+	}
+
+	maxExtent := maxFloat(maxExtentA, maxExtentB)
+	distance := xf.P.Distance(xfc.P)
+	qr := xf.Q.InvMul(xfc.Q)
+	// This metric is used for fast bodies and sleeping. It comes from conservative advancement.
+	// Note that qr.S == sin(theta) ~= theta for small angles.
+	// Need a tighter tolerance for non-touching shapes so that contacts are not missed.
+	tolerance := recycleDistanceNonTouching
+	if wasTouching {
+		tolerance = recycleDistance
+	}
+
+	if minCos > ContactRecycleCosAngle && distance+float32(maxExtent*absFloat(qr.S)) < tolerance {
+		dqA := transformA.Q.Mul(cachedQA.Invert())
+		dqB := transformB.Q.Mul(cachedQB.Invert())
+		normal := sim.manifold.Normal
+		// Minimize round-off
+		dc := bodySimB.center.Sub(bodySimA.center)
+
+		for i := range sim.manifold.PointCount {
+			// Keep anchors but update separation, same as sub-stepping. This eliminates jitter.
+			mp := &sim.manifold.Points[i]
+			rA := dqA.Rotate(mp.AnchorA)
+			rB := dqB.Rotate(mp.AnchorB)
+			dp := dc.Add(rB.Sub(rA))
+			mp.Separation = mp.BaseSeparation + dp.Dot(normal)
+			mp.NormalVelocity = 0
+			mp.Persisted = true
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func updateContactTouchingState(task *taskContext, sim *contactSim, touching, wasTouching bool) {
+	contactID := sim.contactID
+	// State changes that affect island connectivity. Also affects contact events.
+	if touching && !wasTouching {
+		sim.simFlags |= simStartedTouching
+
+		setBit(&task.contactStateBitSet, uint32(contactID))
+	} else if !touching && wasTouching {
+		sim.simFlags |= simStoppedTouching
+
+		setBit(&task.contactStateBitSet, uint32(contactID))
+	}
+
+	if touching {
+		for i := range sim.manifold.PointCount {
+			// Cache separation
+			mp := &sim.manifold.Points[i]
+			mp.BaseSeparation = mp.Separation
+		}
+	}
+}
+
 func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 	w := context.world
 	task := &w.taskContexts[workerIndex]
@@ -458,107 +533,47 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 			sim.simFlags &^= simTouchingFlag
 
 			setBit(&task.contactStateBitSet, uint32(contactID))
-		} else {
-			shapeA := &shapes[shapeIDA]
-			shapeB := &shapes[shapeIDB]
-			wasTouching := sim.simFlags&simTouchingFlag != 0
-			// Update contact respecting shape/body order (A,B)
-			encodedA := sim.encodedBodySimA
-			encodedB := sim.encodedBodySimB
-			bodySimA := resolveContactBodySim(w, awakeSims, staticSims, encodedA, shapeA.bodyID)
-			bodySimB := resolveContactBodySim(w, awakeSims, staticSims, encodedB, shapeB.bodyID)
-			transformA := bodySimA.transform
-			transformB := bodySimB.transform
-			// These may not be skipped by relative transform check below
-			sim.invMassA = bodySimA.invMass
-			sim.invIA = bodySimA.invInertia
-			sim.invMassB = bodySimB.invMass
-			sim.invIB = bodySimB.invInertia
-			fast := (bodySimA.flags|bodySimB.flags)&isFast != 0
-			// Contact recycling optimization. Please cite this code if you use this optimization.
-			// This is inspired by persistent contact manifolds used in some physics engines, such as PhysX.
-			// However, this allows larger relative motion and has fewer tuning parameters (just one).
-			if !fast && recycleDistance > 0 && sim.simFlags&simRelativeTransformValid != 0 && sim.simFlags&contactRecycleFlag != 0 {
-				cachedQA := sim.cachedRotationA
-				cachedQB := sim.cachedRotationB
-				xfc := sim.cachedRelativePose
-				xf := transformA.InvMul(transformB)
-				cosA := relativeCos(transformA.Q, cachedQA)
-				cosB := relativeCos(transformB.Q, cachedQB)
-				minCos := minFloat(cosA, cosB)
 
-				var maxExtentA, maxExtentB float32
-				if !isStaticSimIndex(encodedA) {
-					maxExtentA = bodySimA.maxExtent
-				}
+			continue
+		}
 
-				if !isStaticSimIndex(encodedB) {
-					maxExtentB = bodySimB.maxExtent
-				}
-
-				maxExtent := maxFloat(maxExtentA, maxExtentB)
-				distance := xf.P.Distance(xfc.P)
-				qr := xf.Q.InvMul(xfc.Q)
-				// This metric is used for fast bodies and sleeping. It comes from conservative advancement.
-				// Note that qr.S == sin(theta) ~= theta for small angles.
-				// Need a tighter tolerance for non-touching shapes so that contacts are not missed.
-				tolerance := recycleDistanceNonTouching
-				if wasTouching {
-					tolerance = recycleDistance
-				}
-
-				if minCos > ContactRecycleCosAngle && distance+float32(maxExtent*absFloat(qr.S)) < tolerance {
-					dqA := transformA.Q.Mul(cachedQA.Invert())
-					dqB := transformB.Q.Mul(cachedQB.Invert())
-					normal := sim.manifold.Normal
-					// Minimize round-off
-					dc := bodySimB.center.Sub(bodySimA.center)
-
-					for i := range sim.manifold.PointCount {
-						// Keep anchors but update separation, same as sub-stepping. This eliminates jitter.
-						mp := &sim.manifold.Points[i]
-						rA := dqA.Rotate(mp.AnchorA)
-						rB := dqB.Rotate(mp.AnchorB)
-						dp := dc.Add(rB.Sub(rA))
-						mp.Separation = mp.BaseSeparation + dp.Dot(normal)
-						mp.NormalVelocity = 0
-						mp.Persisted = true
-					}
-
-					task.recycledContactCount++
-					// Contact is recycled. This also skips updating other aspects of the contact
-					// such as material parameters.
-					continue
-				}
-			}
-			// Caching for contact recycling.
-			sim.cachedRotationA = transformA.Q
-			sim.cachedRotationB = transformB.Q
-			sim.cachedRelativePose = transformA.InvMul(transformB)
-			sim.simFlags |= simRelativeTransformValid
-			centerOffsetA := transformA.Q.Rotate(bodySimA.localCenter)
-			centerOffsetB := transformB.Q.Rotate(bodySimB.localCenter)
-			// This updates solid contacts
-			touching := updateContact(w, sim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB)
-			// State changes that affect island connectivity. Also affects contact events.
-			if touching && !wasTouching {
-				sim.simFlags |= simStartedTouching
-
-				setBit(&task.contactStateBitSet, uint32(contactID))
-			} else if !touching && wasTouching {
-				sim.simFlags |= simStoppedTouching
-
-				setBit(&task.contactStateBitSet, uint32(contactID))
-			}
-
-			if touching {
-				for i := range sim.manifold.PointCount {
-					// Cache separation
-					mp := &sim.manifold.Points[i]
-					mp.BaseSeparation = mp.Separation
-				}
+		shapeA := &shapes[shapeIDA]
+		shapeB := &shapes[shapeIDB]
+		wasTouching := sim.simFlags&simTouchingFlag != 0
+		// Update contact respecting shape/body order (A,B)
+		encodedA := sim.encodedBodySimA
+		encodedB := sim.encodedBodySimB
+		bodySimA := resolveContactBodySim(w, awakeSims, staticSims, encodedA, shapeA.bodyID)
+		bodySimB := resolveContactBodySim(w, awakeSims, staticSims, encodedB, shapeB.bodyID)
+		transformA := bodySimA.transform
+		transformB := bodySimB.transform
+		// These may not be skipped by relative transform check below
+		sim.invMassA = bodySimA.invMass
+		sim.invIA = bodySimA.invInertia
+		sim.invMassB = bodySimB.invMass
+		sim.invIB = bodySimB.invInertia
+		fast := (bodySimA.flags|bodySimB.flags)&isFast != 0
+		// Contact recycling optimization. Please cite this code if you use this optimization.
+		// This is inspired by persistent contact manifolds used in some physics engines, such as PhysX.
+		// However, this allows larger relative motion and has fewer tuning parameters (just one).
+		if !fast && recycleDistance > 0 && sim.simFlags&simRelativeTransformValid != 0 && sim.simFlags&contactRecycleFlag != 0 {
+			if tryRecycleContact(sim, bodySimA, bodySimB, &transformA, &transformB, recycleDistance, recycleDistanceNonTouching) {
+				task.recycledContactCount++
+				// Contact is recycled. This also skips updating other aspects of the contact
+				// such as material parameters.
+				continue
 			}
 		}
+		// Caching for contact recycling.
+		sim.cachedRotationA = transformA.Q
+		sim.cachedRotationB = transformB.Q
+		sim.cachedRelativePose = transformA.InvMul(transformB)
+		sim.simFlags |= simRelativeTransformValid
+		centerOffsetA := transformA.Q.Rotate(bodySimA.localCenter)
+		centerOffsetB := transformB.Q.Rotate(bodySimB.localCenter)
+		// This updates solid contacts
+		touching := updateContact(w, sim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB)
+		updateContactTouchingState(task, sim, touching, wasTouching)
 	}
 }
 
@@ -583,6 +598,82 @@ func removeNonTouchingContact(w *World, setIndex, localIndex int) {
 		assert(moved.localIndex == movedIndex, "movedContact->localIndex == movedIndex")
 		assert(moved.colorIndex == nullIndex, "movedContact->colorIndex == B2_NULL_INDEX")
 		moved.localIndex = localIndex
+	}
+}
+
+func processContactStateChange(w *World, contactID int, awake *solverSet, endEventArrayIndex int, shapes []shape) {
+	colors := &w.constraintGraph.colors
+	c := &w.contacts[contactID]
+	assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
+	colorIndex := c.colorIndex
+	localIndex := c.localIndex
+
+	var sim *contactSim
+
+	if colorIndex != nullIndex {
+		// contact lives in constraint graph
+		assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+		sim = &colors[colorIndex].contactSims[localIndex]
+	} else {
+		sim = &awake.contactSims[localIndex]
+	}
+
+	flags := c.flags
+
+	simFlags := sim.simFlags
+	switch {
+	case simFlags&simDisjoint != 0:
+		// Bounding boxes no longer overlap
+		destroyContact(w, c)
+	case simFlags&simStartedTouching != 0:
+		assert(c.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
+
+		if flags&contactEnableContactEvents != 0 {
+			shapeA := &shapes[c.shapeIDA]
+			shapeB := &shapes[c.shapeIDB]
+			shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
+			shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
+			fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
+			w.contactBeginEvents = arrayPush(w.contactBeginEvents, ContactBeginTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
+		}
+
+		assert(sim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
+		assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
+		// Link first because this wakes colliding bodies and ensures the body sims
+		// are in the correct place.
+		c.flags |= contactTouchingFlag
+		linkContact(w, c)
+		// Make sure these didn't change
+		assert(c.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
+		assert(c.localIndex == localIndex, "contact->localIndex == localIndex")
+		// Contact sim pointer may have become orphaned due to awake set growth,
+		// so I just need to refresh it.
+		sim = &awake.contactSims[localIndex]
+		sim.simFlags &^= simStartedTouching
+		// Add first for memcpy
+		addContactToGraph(w, sim, c)
+		// This destroys the contact sim
+		removeNonTouchingContact(w, awakeSet, localIndex)
+	case simFlags&simStoppedTouching != 0:
+		sim.simFlags &^= simStoppedTouching
+
+		c.flags &^= contactTouchingFlag
+		if c.flags&contactEnableContactEvents != 0 {
+			shapeA := &shapes[c.shapeIDA]
+			shapeB := &shapes[c.shapeIDB]
+			shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
+			shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
+			fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
+			w.contactEndEvents[endEventArrayIndex] = arrayPush(w.contactEndEvents[endEventArrayIndex], ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
+		}
+
+		assert(sim.manifold.PointCount == 0, "contactSim->manifold.pointCount == 0")
+		unlinkContact(w, c)
+		bodyIDA := c.edges[0].bodyID
+		bodyIDB := c.edges[1].bodyID
+		// Add first for memcpy
+		addNonTouchingContact(w, c, sim)
+		removeContactFromGraph(w, bodyIDA, bodyIDB, colorIndex, localIndex)
 	}
 }
 
@@ -657,77 +748,7 @@ func collide(context *stepContext) {
 		for word != 0 {
 			ctz := bits.TrailingZeros64(word)
 			contactID := int(64*k) + ctz
-			c := &w.contacts[contactID]
-			assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
-			colorIndex := c.colorIndex
-			localIndex := c.localIndex
-
-			var sim *contactSim
-
-			if colorIndex != nullIndex {
-				// contact lives in constraint graph
-				assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
-				sim = &colors[colorIndex].contactSims[localIndex]
-			} else {
-				sim = &awake.contactSims[localIndex]
-			}
-
-			flags := c.flags
-
-			simFlags := sim.simFlags
-			if simFlags&simDisjoint != 0 {
-				// Bounding boxes no longer overlap
-				destroyContact(w, c)
-			} else if simFlags&simStartedTouching != 0 {
-				assert(c.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
-
-				if flags&contactEnableContactEvents != 0 {
-					shapeA := &shapes[c.shapeIDA]
-					shapeB := &shapes[c.shapeIDB]
-					shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
-					shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
-					fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
-					w.contactBeginEvents = arrayPush(w.contactBeginEvents, ContactBeginTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
-				}
-
-				assert(sim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
-				assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
-				// Link first because this wakes colliding bodies and ensures the body sims
-				// are in the correct place.
-				c.flags |= contactTouchingFlag
-				linkContact(w, c)
-				// Make sure these didn't change
-				assert(c.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
-				assert(c.localIndex == localIndex, "contact->localIndex == localIndex")
-				// Contact sim pointer may have become orphaned due to awake set growth,
-				// so I just need to refresh it.
-				sim = &awake.contactSims[localIndex]
-				sim.simFlags &^= simStartedTouching
-				// Add first for memcpy
-				addContactToGraph(w, sim, c)
-				// This destroys the contact sim
-				removeNonTouchingContact(w, awakeSet, localIndex)
-			} else if simFlags&simStoppedTouching != 0 {
-				sim.simFlags &^= simStoppedTouching
-
-				c.flags &^= contactTouchingFlag
-				if c.flags&contactEnableContactEvents != 0 {
-					shapeA := &shapes[c.shapeIDA]
-					shapeB := &shapes[c.shapeIDB]
-					shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
-					shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
-					fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
-					w.contactEndEvents[endEventArrayIndex] = arrayPush(w.contactEndEvents[endEventArrayIndex], ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
-				}
-
-				assert(sim.manifold.PointCount == 0, "contactSim->manifold.pointCount == 0")
-				unlinkContact(w, c)
-				bodyIDA := c.edges[0].bodyID
-				bodyIDB := c.edges[1].bodyID
-				// Add first for memcpy
-				addNonTouchingContact(w, c, sim)
-				removeContactFromGraph(w, bodyIDA, bodyIDB, colorIndex, localIndex)
-			}
+			processContactStateChange(w, contactID, awake, endEventArrayIndex, shapes)
 			// Clear the smallest set bit
 			word &= word - 1
 		}
@@ -1107,11 +1128,11 @@ func (j Joint) IsValid() bool {
 	}
 
 	item := &state.joints[index]
-	if item.jointId == nullIndex {
+	if item.jointID == nullIndex {
 		return false
 	}
 
-	assert(item.jointId == index, "joint->jointId == jointId")
+	assert(item.jointID == index, "joint->jointId == jointId")
 
 	return item.generation == j.generation
 }

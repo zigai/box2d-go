@@ -4,14 +4,11 @@
 package box2d
 
 import (
+	"bytes"
 	"iter"
 	"math"
 	"strings"
 )
-
-// The body simulation type.
-// Each body is one of these three types. The type determines how the body behaves in the simulation.
-type BodyType int
 
 const (
 	// zero mass, zero velocity, may be manually moved.
@@ -23,6 +20,31 @@ const (
 	// number of body types.
 	BodyTypeCount BodyType = 3
 )
+
+const (
+	lockLinearX                uint32 = 0x00000001
+	lockLinearY                uint32 = 0x00000002
+	lockAngularZ               uint32 = 0x00000004
+	isFast                     uint32 = 0x00000008
+	isBullet                   uint32 = 0x00000010
+	isSpeedCapped              uint32 = 0x00000020
+	hadTimeOfImpact            uint32 = 0x00000040
+	allowFastRotation          uint32 = 0x00000080
+	enlargeBulletBounds        uint32 = 0x00000100
+	dynamicFlag                uint32 = 0x00000200
+	dirtyMass                  uint32 = 0x00000400
+	enableSleep                uint32 = 0x00000800
+	bodyEnableContactRecycling uint32 = 0x00001000
+	allLocks                   uint32 = lockAngularZ | lockLinearX | lockLinearY
+	fixedRotation              uint32 = lockAngularZ
+	bodyTransientFlags         uint32 = isSpeedCapped | hadTimeOfImpact
+)
+
+var identityBodyState = bodyState{deltaRotation: Rot{C: 1}}
+
+// The body simulation type.
+// Each body is one of these three types. The type determines how the body behaves in the simulation.
+type BodyType int
 
 // Motion locks to restrict the body movement.
 type MotionLocks struct {
@@ -191,29 +213,6 @@ type bodySim struct {
 	flags          uint32
 }
 
-type bodyFlags uint32
-
-const (
-	lockLinearX                uint32 = 0x00000001
-	lockLinearY                uint32 = 0x00000002
-	lockAngularZ               uint32 = 0x00000004
-	isFast                     uint32 = 0x00000008
-	isBullet                   uint32 = 0x00000010
-	isSpeedCapped              uint32 = 0x00000020
-	hadTimeOfImpact            uint32 = 0x00000040
-	allowFastRotation          uint32 = 0x00000080
-	enlargeBulletBounds        uint32 = 0x00000100
-	dynamicFlag                uint32 = 0x00000200
-	dirtyMass                  uint32 = 0x00000400
-	enableSleep                uint32 = 0x00000800
-	bodyEnableContactRecycling uint32 = 0x00001000
-	allLocks                   uint32 = lockAngularZ | lockLinearX | lockLinearY
-	fixedRotation              uint32 = lockAngularZ
-	bodyTransientFlags         uint32 = isSpeedCapped | hadTimeOfImpact
-)
-
-var identityBodyState = bodyState{deltaRotation: Rot{C: 1}}
-
 func limitVelocity(state *bodyState, maxLinearSpeed float32) {
 	v2 := state.linearVelocity.LengthSquared()
 	if v2 > maxLinearSpeed*maxLinearSpeed {
@@ -242,7 +241,7 @@ func refreshBodyContactIndices(world *World, body *body) {
 	}
 }
 
-func getBodyFullId(world *World, bodyID Body) *body {
+func getBodyFullID(world *World, bodyID Body) *body {
 	assert(bodyID.IsValid(), "b2Body_IsValid( bodyId )")
 
 	// id index starts at one so that zero can represent null
@@ -261,7 +260,7 @@ func getBodyTransform(world *World, bodyID int) WorldTransform {
 	return getBodyTransformQuick(world, body)
 }
 
-func makeBodyId(world *World, bodyID int) Body {
+func makeBodyID(world *World, bodyID int) Body {
 	body := &world.bodies[bodyID]
 	return Body{int32(bodyID + 1), world, body.generation}
 }
@@ -337,6 +336,71 @@ func destroyBodyContacts(world *World, body *body) {
 	validateSolverSets(world)
 }
 
+func createBodySolverSet(world *World, def *BodyDef) int {
+	if !def.IsEnabled {
+		// any body type can be disabled
+		return disabledSet
+	}
+
+	if def.Type == StaticBody {
+		return staticSet
+	}
+
+	if def.IsAwake || !def.EnableSleep {
+		return awakeSet
+	}
+
+	// new set for a sleeping body in its own island
+	setID := allocID(&world.solverSetIDPool)
+	if setID == len(world.solverSets) {
+		// Create a zero initialized solver set. All sub-arrays are also zero initialized.
+		world.solverSets = arrayPush(world.solverSets, solverSet{})
+	} else {
+		assert(world.solverSets[setID].setIndex == nullIndex, "world->solverSets.data[setId].setIndex == B2_NULL_INDEX")
+	}
+
+	world.solverSets[setID].setIndex = setID
+
+	return setID
+}
+
+func bodyDefFlags(def *BodyDef) uint32 {
+	var flags uint32
+	if def.MotionLocks.LinearX {
+		flags |= lockLinearX
+	}
+
+	if def.MotionLocks.LinearY {
+		flags |= lockLinearY
+	}
+
+	if def.MotionLocks.AngularZ {
+		flags |= lockAngularZ
+	}
+
+	if def.IsBullet {
+		flags |= isBullet
+	}
+
+	if def.AllowFastRotation {
+		flags |= allowFastRotation
+	}
+
+	if def.Type == DynamicBody {
+		flags |= dynamicFlag
+	}
+
+	if def.EnableSleep {
+		flags |= enableSleep
+	}
+
+	if def.EnableContactRecycling {
+		flags |= bodyEnableContactRecycling
+	}
+
+	return flags
+}
+
 // Create a rigid body given a definition. No reference to the definition is retained. So you can create the definition
 // on the stack and pass it as a pointer.
 //
@@ -363,46 +427,11 @@ func (w *World) CreateBody(def *BodyDef) Body {
 		return Body{}
 	}
 
-	isAwake := (def.IsAwake || !def.EnableSleep) && def.IsEnabled
-
-	// determine the solver set
-	var setID int
-	if !def.IsEnabled {
-		// any body type can be disabled
-		setID = disabledSet
-	} else if def.Type == StaticBody {
-		setID = staticSet
-	} else if isAwake {
-		setID = awakeSet
-	} else {
-		// new set for a sleeping body in its own island
-		setID = allocID(&world.solverSetIDPool)
-		if setID == len(world.solverSets) {
-			// Create a zero initialized solver set. All sub-arrays are also zero initialized.
-			world.solverSets = arrayPush(world.solverSets, solverSet{})
-		} else {
-			assert(world.solverSets[setID].setIndex == nullIndex, "world->solverSets.data[setId].setIndex == B2_NULL_INDEX")
-		}
-
-		world.solverSets[setID].setIndex = setID
-	}
+	setID := createBodySolverSet(world, def)
 
 	assert(0 <= setID && setID < len(world.solverSets), "0 <= setId && setId < world->solverSets.count")
 
 	bodyID := allocID(&world.bodyIDPool)
-
-	var lockFlags uint32 = 0
-	if def.MotionLocks.LinearX {
-		lockFlags |= lockLinearX
-	}
-
-	if def.MotionLocks.LinearY {
-		lockFlags |= lockLinearY
-	}
-
-	if def.MotionLocks.AngularZ {
-		lockFlags |= lockAngularZ
-	}
 
 	set := &world.solverSets[setID]
 
@@ -422,26 +451,7 @@ func (w *World) CreateBody(def *BodyDef) Body {
 	sim.gravityScale = def.GravityScale
 	sim.bodyID = bodyID
 
-	sim.flags = lockFlags
-	if def.IsBullet {
-		sim.flags |= isBullet
-	}
-
-	if def.AllowFastRotation {
-		sim.flags |= allowFastRotation
-	}
-
-	if def.Type == DynamicBody {
-		sim.flags |= dynamicFlag
-	}
-
-	if def.EnableSleep {
-		sim.flags |= enableSleep
-	}
-
-	if def.EnableContactRecycling {
-		sim.flags |= bodyEnableContactRecycling
-	}
+	sim.flags = bodyDefFlags(def)
 
 	if setID == awakeSet {
 		var state *bodyState
@@ -511,15 +521,13 @@ func (w *World) CreateBody(def *BodyDef) Body {
 	return id
 }
 
-func wakeBody(world *World, body *body) bool {
+func wakeBody(world *World, body *body) {
 	if body.setIndex >= firstSleepingSet {
 		wakeSolverSet(world, body.setIndex)
 		validateSolverSets(world)
 
-		return true
+		return
 	}
-
-	return false
 }
 
 // Destroy a rigid body given an id. This destroys all shapes and joints attached to the body.
@@ -535,7 +543,7 @@ func (b Body) Destroy() {
 		recWriteDestroyBody(world.recording, &recArgsDestroyBody{b})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	// Destroy the attached joints
 	edgeKey := body.headJointKey
@@ -622,7 +630,7 @@ func (b Body) ContactCapacity() int {
 		return 0
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	// Conservative and fast
 	return body.contactCount
@@ -636,7 +644,7 @@ func (b Body) ContactData() iter.Seq[ContactData] {
 		return func(yield func(ContactData) bool) {}
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return func(yield func(ContactData) bool) {
 		contactKey := body.headContactKey
@@ -674,7 +682,7 @@ func (b Body) ComputeAABB() AABB {
 		return AABB{}
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	if body.headShapeID == nullIndex {
 		// No shapes, bracket the body origin so the box still contains the true position far away
 		transform := getBodyTransform(world, body.id)
@@ -693,6 +701,17 @@ func (b Body) ComputeAABB() AABB {
 	}
 
 	return aabb
+}
+
+func updateBodyExtents(world *World, body *body, sim *bodySim) {
+	shapeID := body.headShapeID
+	for shapeID != nullIndex {
+		s := &world.shapes[shapeID]
+		extent := computeShapeExtent(s, sim.localCenter)
+		sim.minExtent = minFloat(sim.minExtent, extent.minExtent)
+		sim.maxExtent = maxFloat(sim.maxExtent, extent.maxExtent)
+		shapeID = s.nextShapeID
+	}
 }
 
 func updateBodyMassData(world *World, body *body) {
@@ -718,16 +737,7 @@ func updateBodyMassData(world *World, body *body) {
 
 		// Need extents for kinematic bodies for sleeping to work correctly.
 		if body.bodyType == KinematicBody {
-			shapeID := body.headShapeID
-			for shapeID != nullIndex {
-				s := &world.shapes[shapeID]
-
-				extent := computeShapeExtent(s, Vec2{})
-				bodySim.minExtent = minFloat(bodySim.minExtent, extent.minExtent)
-				bodySim.maxExtent = maxFloat(bodySim.maxExtent, extent.maxExtent)
-
-				shapeID = s.nextShapeID
-			}
+			updateBodyExtents(world, body, bodySim)
 		}
 
 		return
@@ -781,8 +791,6 @@ func updateBodyMassData(world *World, body *body) {
 		body.inertia += inertia
 	}
 
-	masses = nil
-
 	assert(body.inertia >= 0.0, "body->inertia >= 0.0f")
 
 	if body.inertia > 0.0 && (body.flags&fixedRotation) == 0 {
@@ -806,16 +814,7 @@ func updateBodyMassData(world *World, body *body) {
 	}
 
 	// Compute body extents relative to center of mass
-	shapeID = body.headShapeID
-	for shapeID != nullIndex {
-		s := &world.shapes[shapeID]
-
-		extent := computeShapeExtent(s, localCenter)
-		bodySim.minExtent = minFloat(bodySim.minExtent, extent.minExtent)
-		bodySim.maxExtent = maxFloat(bodySim.maxExtent, extent.maxExtent)
-
-		shapeID = s.nextShapeID
-	}
+	updateBodyExtents(world, body, bodySim)
 
 	// When the center of mass changes, any cached contact manifold becomes invalid.
 	edgeKey := body.headContactKey
@@ -834,7 +833,7 @@ func updateBodyMassData(world *World, body *body) {
 // Get the world position of a body. This is the location of the body origin.
 func (b Body) Position() Pos {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
 	return transform.P
@@ -843,7 +842,7 @@ func (b Body) Position() Pos {
 // Get the world rotation of a body as a cosine/sine pair (complex number).
 func (b Body) Rotation() Rot {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
 	return transform.Q
@@ -852,7 +851,7 @@ func (b Body) Rotation() Rot {
 // Get the world transform of a body.
 func (b Body) Transform() WorldTransform {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return getBodyTransformQuick(world, body)
 }
@@ -860,7 +859,7 @@ func (b Body) Transform() WorldTransform {
 // Get a local point on a body given a world point.
 func (b Body) LocalPoint(worldPoint Pos) Vec2 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
 	return transform.InvApply(worldPoint)
@@ -869,7 +868,7 @@ func (b Body) LocalPoint(worldPoint Pos) Vec2 {
 // Get a world point on a body given a local point.
 func (b Body) WorldPoint(localPoint Vec2) Pos {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
 	return transform.Apply(localPoint)
@@ -878,7 +877,7 @@ func (b Body) WorldPoint(localPoint Vec2) Pos {
 // Get a local vector on a body given a world vector.
 func (b Body) LocalVector(worldVector Vec2) Vec2 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
 	return transform.Q.InvRotate(worldVector)
@@ -887,7 +886,7 @@ func (b Body) LocalVector(worldVector Vec2) Vec2 {
 // Get a world vector on a body given a local vector.
 func (b Body) WorldVector(localVector Vec2) Vec2 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
 	return transform.Q.Rotate(localVector)
@@ -907,7 +906,7 @@ func (b Body) SetTransform(position Pos, rotation Rot) {
 		recWriteBodySetTransform(world.recording, &recArgsBodySetTransform{b, position, rotation})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	bodySim.transform.P = position
@@ -955,7 +954,7 @@ func (b Body) SetTransform(position Pos, rotation Rot) {
 // Get the linear velocity of a body's center of mass. Usually in meters per second.
 func (b Body) LinearVelocity() Vec2 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	state := getBodyState(world, body)
 	if state != nil {
@@ -968,7 +967,7 @@ func (b Body) LinearVelocity() Vec2 {
 // Get the angular velocity of a body in radians per second.
 func (b Body) AngularVelocity() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	state := getBodyState(world, body)
 	if state != nil {
@@ -988,7 +987,7 @@ func (b Body) SetLinearVelocity(linearVelocity Vec2) {
 		recWriteBodySetLinearVelocity(world.recording, &recArgsBodySetLinearVelocity{b, linearVelocity})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType == StaticBody {
 		return
@@ -1015,7 +1014,7 @@ func (b Body) SetAngularVelocity(angularVelocity float32) {
 		recWriteBodySetAngularVelocity(world.recording, &recArgsBodySetAngularVelocity{b, angularVelocity})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType == StaticBody || (body.flags&lockAngularZ) != 0 {
 		return
@@ -1051,7 +1050,7 @@ func (b Body) SetTargetTransform(target WorldTransform, timeStep float32, wake b
 		recWriteBodySetTargetTransform(world.recording, &recArgsBodySetTargetTransform{b, target, timeStep, wake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.setIndex == disabledSet {
 		return
@@ -1106,7 +1105,7 @@ func (b Body) SetTargetTransform(target WorldTransform, timeStep float32, wake b
 // Get the linear velocity of a local point attached to a body. Usually in meters per second.
 func (b Body) LocalPointVelocity(localPoint Vec2) Vec2 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	state := getBodyState(world, body)
 	if state == nil {
@@ -1125,7 +1124,7 @@ func (b Body) LocalPointVelocity(localPoint Vec2) Vec2 {
 // Get the linear velocity of a world point attached to a body. Usually in meters per second.
 func (b Body) WorldPointVelocity(worldPoint Pos) Vec2 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	state := getBodyState(world, body)
 	if state == nil {
@@ -1157,7 +1156,7 @@ func (b Body) ApplyForce(force Vec2, point Pos, wake bool) {
 		recWriteBodyApplyForce(world.recording, &recArgsBodyApplyForce{b, force, point, wake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType != DynamicBody || body.setIndex == disabledSet {
 		return
@@ -1187,7 +1186,7 @@ func (b Body) ApplyForceToCenter(force Vec2, wake bool) {
 		recWriteBodyApplyForceToCenter(world.recording, &recArgsBodyApplyForceToCenter{b, force, wake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType != DynamicBody || body.setIndex == disabledSet {
 		return
@@ -1216,7 +1215,7 @@ func (b Body) ApplyTorque(torque float32, wake bool) {
 		recWriteBodyApplyTorque(world.recording, &recArgsBodyApplyTorque{b, torque, wake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType != DynamicBody || body.setIndex == disabledSet {
 		return
@@ -1242,7 +1241,7 @@ func (b Body) ClearForces() {
 		recWriteBodyClearForces(world.recording, &recArgsBodyClearForces{b})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 	bodySim.force = Vec2{}
 	bodySim.torque = 0.0
@@ -1267,7 +1266,7 @@ func (b Body) ApplyLinearImpulse(impulse Vec2, point Pos, wake bool) {
 		recWriteBodyApplyLinearImpulse(world.recording, &recArgsBodyApplyLinearImpulse{b, impulse, point, wake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType != DynamicBody || body.setIndex == disabledSet {
 		return
@@ -1304,7 +1303,7 @@ func (b Body) ApplyLinearImpulseToCenter(impulse Vec2, wake bool) {
 		recWriteBodyApplyLinearImpulseToCenter(world.recording, &recArgsBodyApplyLinearImpulseToCenter{b, impulse, wake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType != DynamicBody || body.setIndex == disabledSet {
 		return
@@ -1341,7 +1340,7 @@ func (b Body) ApplyAngularImpulse(impulse float32, wake bool) {
 		recWriteBodyApplyAngularImpulse(world.recording, &recArgsBodyApplyAngularImpulse{b, impulse, wake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if body.bodyType != DynamicBody || body.setIndex == disabledSet {
 		return
@@ -1364,9 +1363,96 @@ func (b Body) ApplyAngularImpulse(impulse float32, wake bool) {
 // Get the body type: static, kinematic, or dynamic.
 func (b Body) Type() BodyType {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.bodyType
+}
+
+func parkBodyJoints(world *World, body *body, staticSolverSet *solverSet) {
+	jointKey := body.headJointKey
+	for jointKey != nullIndex {
+		jointID := jointKey >> 1
+		edgeIndex := jointKey & 1
+
+		joint := &world.joints[jointID]
+		jointKey = joint.edges[edgeIndex].nextKey
+
+		// Joint may be disabled by other body
+		if joint.setIndex == disabledSet {
+			continue
+		}
+
+		// Wake attached bodies. The wakeBody call above does not wake bodies
+		// attached to a static body. But it is necessary because the body may have
+		// no joints.
+		bodyA := &world.bodies[joint.edges[0].bodyID]
+		bodyB := &world.bodies[joint.edges[1].bodyID]
+		wakeBody(world, bodyA)
+		wakeBody(world, bodyB)
+
+		// Remove joint from island
+		unlinkJoint(world, joint)
+
+		// It is necessary to transfer all joints to the static set
+		// so they can be added to the constraint graph below and acquire consistent colors.
+		jointSourceSet := &world.solverSets[joint.setIndex]
+		transferJoint(world, staticSolverSet, jointSourceSet, joint)
+	}
+}
+
+func restoreBodyJoints(world *World, body *body, awakeSolverSet, staticSolverSet *solverSet) {
+	jointKey := body.headJointKey
+	for jointKey != nullIndex {
+		jointID := jointKey >> 1
+		edgeIndex := jointKey & 1
+
+		joint := &world.joints[jointID]
+
+		jointKey = joint.edges[edgeIndex].nextKey
+
+		// Joint may be disabled by other body
+		if joint.setIndex == disabledSet {
+			continue
+		}
+
+		// All joints were transferred to the static set in an earlier stage
+		assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
+
+		bodyA := &world.bodies[joint.edges[0].bodyID]
+		bodyB := &world.bodies[joint.edges[1].bodyID]
+
+		assert(bodyA.setIndex == staticSet || bodyA.setIndex == awakeSet, "bodyA->setIndex == b2_staticSet || bodyA->setIndex == b2_awakeSet")
+		assert(bodyB.setIndex == staticSet || bodyB.setIndex == awakeSet, "bodyB->setIndex == b2_staticSet || bodyB->setIndex == b2_awakeSet")
+
+		if bodyA.bodyType == DynamicBody || bodyB.bodyType == DynamicBody {
+			transferJoint(world, awakeSolverSet, staticSolverSet, joint)
+		}
+	}
+}
+
+func relinkBodyJoints(world *World, body *body) {
+	jointKey := body.headJointKey
+	for jointKey != nullIndex {
+		jointID := jointKey >> 1
+		edgeIndex := jointKey & 1
+
+		joint := &world.joints[jointID]
+		jointKey = joint.edges[edgeIndex].nextKey
+
+		otherEdgeIndex := edgeIndex ^ 1
+		otherBodyID := joint.edges[otherEdgeIndex].bodyID
+		otherBody := &world.bodies[otherBodyID]
+
+		if otherBody.setIndex == disabledSet {
+			continue
+		}
+
+		if body.bodyType != DynamicBody && otherBody.bodyType != DynamicBody {
+			continue
+		}
+
+		linkJoint(world, joint)
+	}
 }
 
 // Change the body type. This is an expensive operation. This automatically updates the mass
@@ -1377,7 +1463,7 @@ func (b Body) SetType(bodyType BodyType) {
 		recWriteBodySetType(world.recording, &recArgsBodySetType{b, int32(bodyType)})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	originalType := body.bodyType
 	if originalType == bodyType {
@@ -1412,36 +1498,7 @@ func (b Body) SetType(bodyType BodyType) {
 
 	// Stage 4: move joints to temporary storage
 	staticSolverSet := &world.solverSets[staticSet]
-
-	jointKey := body.headJointKey
-	for jointKey != nullIndex {
-		jointID := jointKey >> 1
-		edgeIndex := jointKey & 1
-
-		joint := &world.joints[jointID]
-		jointKey = joint.edges[edgeIndex].nextKey
-
-		// Joint may be disabled by other body
-		if joint.setIndex == disabledSet {
-			continue
-		}
-
-		// Wake attached bodies. The wakeBody call above does not wake bodies
-		// attached to a static body. But it is necessary because the body may have
-		// no joints.
-		bodyA := &world.bodies[joint.edges[0].bodyId]
-		bodyB := &world.bodies[joint.edges[1].bodyId]
-		wakeBody(world, bodyA)
-		wakeBody(world, bodyB)
-
-		// Remove joint from island
-		unlinkJoint(world, joint)
-
-		// It is necessary to transfer all joints to the static set
-		// so they can be added to the constraint graph below and acquire consistent colors.
-		jointSourceSet := &world.solverSets[joint.setIndex]
-		transferJoint(world, staticSolverSet, jointSourceSet, joint)
-	}
+	parkBodyJoints(world, body, staticSolverSet)
 
 	// Stage 5: change the body type and transfer body
 	body.bodyType = bodyType
@@ -1473,33 +1530,7 @@ func (b Body) SetType(bodyType BodyType) {
 	}
 
 	// Stage 7: Transfer joints to the target set
-	jointKey = body.headJointKey
-	for jointKey != nullIndex {
-		jointID := jointKey >> 1
-		edgeIndex := jointKey & 1
-
-		joint := &world.joints[jointID]
-
-		jointKey = joint.edges[edgeIndex].nextKey
-
-		// Joint may be disabled by other body
-		if joint.setIndex == disabledSet {
-			continue
-		}
-
-		// All joints were transferred to the static set in an earlier stage
-		assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
-
-		bodyA := &world.bodies[joint.edges[0].bodyId]
-		bodyB := &world.bodies[joint.edges[1].bodyId]
-
-		assert(bodyA.setIndex == staticSet || bodyA.setIndex == awakeSet, "bodyA->setIndex == b2_staticSet || bodyA->setIndex == b2_awakeSet")
-		assert(bodyB.setIndex == staticSet || bodyB.setIndex == awakeSet, "bodyB->setIndex == b2_staticSet || bodyB->setIndex == b2_awakeSet")
-
-		if bodyA.bodyType == DynamicBody || bodyB.bodyType == DynamicBody {
-			transferJoint(world, awakeSolverSet, staticSolverSet, joint)
-		}
-	}
+	restoreBodyJoints(world, body, awakeSolverSet, staticSolverSet)
 
 	// Recreate shape proxies in broadphase
 	transform := getBodyTransformQuick(world, body)
@@ -1515,28 +1546,7 @@ func (b Body) SetType(bodyType BodyType) {
 	}
 
 	// Relink all joints
-	jointKey = body.headJointKey
-	for jointKey != nullIndex {
-		jointID := jointKey >> 1
-		edgeIndex := jointKey & 1
-
-		joint := &world.joints[jointID]
-		jointKey = joint.edges[edgeIndex].nextKey
-
-		otherEdgeIndex := edgeIndex ^ 1
-		otherBodyID := joint.edges[otherEdgeIndex].bodyId
-		otherBody := &world.bodies[otherBodyID]
-
-		if otherBody.setIndex == disabledSet {
-			continue
-		}
-
-		if body.bodyType != DynamicBody && otherBody.bodyType != DynamicBody {
-			continue
-		}
-
-		linkJoint(world, joint)
-	}
+	relinkBodyJoints(world, body)
 
 	syncBodyFlags(world, body)
 
@@ -1554,7 +1564,7 @@ func (b Body) SetName(name string) {
 		recWriteBodySetName(world.recording, &recArgsBodySetName{b, name})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	clear(body.name[:])
 
@@ -1568,22 +1578,22 @@ func (b Body) SetName(name string) {
 // Get the body name.
 func (b Body) Name() string {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
-	return string(body.name[:strings.IndexByte(string(body.name[:]), 0)])
+	return string(body.name[:bytes.IndexByte(body.name[:], 0)])
 }
 
 // Set the user data for a body.
 func (b Body) SetUserData(userData any) {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	body.userData = userData
 }
 
 // Get the user data stored in a body.
 func (b Body) UserData() any {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.userData
 }
@@ -1591,7 +1601,7 @@ func (b Body) UserData() any {
 // Get the mass of the body, usually in kilograms.
 func (b Body) Mass() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.mass
 }
@@ -1599,7 +1609,7 @@ func (b Body) Mass() float32 {
 // Get the rotational inertia of the body, usually in kg*m^2.
 func (b Body) RotationalInertia() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.inertia
 }
@@ -1607,7 +1617,7 @@ func (b Body) RotationalInertia() float32 {
 // Get the center of mass position of the body in local space.
 func (b Body) LocalCenter() Vec2 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.localCenter
@@ -1616,7 +1626,7 @@ func (b Body) LocalCenter() Vec2 {
 // Get the center of mass position of the body in world space.
 func (b Body) WorldCenter() Pos {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.center
@@ -1641,7 +1651,7 @@ func (b Body) SetMassData(massData MassData) {
 		recWriteBodySetMassData(world.recording, &recArgsBodySetMassData{b, massData})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	body.mass = massData.Mass
@@ -1710,7 +1720,7 @@ func (b Body) SetMassData(massData MassData) {
 // Get the mass data for a body.
 func (b Body) MassData() MassData {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 	massData := MassData{body.mass, bodySim.localCenter, body.inertia}
 
@@ -1733,7 +1743,7 @@ func (b Body) UpdateMassFromShapes() {
 		recWriteBodyUpdateMassFromShapes(world.recording, &recArgsBodyUpdateMassFromShapes{b})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	updateBodyMassData(world, body)
 }
 
@@ -1750,7 +1760,7 @@ func (b Body) SetLinearDamping(linearDamping float32) {
 		recWriteBodySetLinearDamping(world.recording, &recArgsBodySetLinearDamping{b, linearDamping})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 	bodySim.linearDamping = linearDamping
 }
@@ -1758,7 +1768,7 @@ func (b Body) SetLinearDamping(linearDamping float32) {
 // Get the current linear damping.
 func (b Body) LinearDamping() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.linearDamping
@@ -1777,7 +1787,7 @@ func (b Body) SetAngularDamping(angularDamping float32) {
 		recWriteBodySetAngularDamping(world.recording, &recArgsBodySetAngularDamping{b, angularDamping})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 	bodySim.angularDamping = angularDamping
 }
@@ -1785,7 +1795,7 @@ func (b Body) SetAngularDamping(angularDamping float32) {
 // Get the current angular damping.
 func (b Body) AngularDamping() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.angularDamping
@@ -1806,7 +1816,7 @@ func (b Body) SetGravityScale(gravityScale float32) {
 		recWriteBodySetGravityScale(world.recording, &recArgsBodySetGravityScale{b, gravityScale})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 	bodySim.gravityScale = gravityScale
 }
@@ -1815,7 +1825,7 @@ func (b Body) SetGravityScale(gravityScale float32) {
 func (b Body) GravityScale() float32 {
 	assert(b.IsValid(), "b2Body_IsValid( bodyId )")
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.gravityScale
@@ -1824,7 +1834,7 @@ func (b Body) GravityScale() float32 {
 // Returns: true if this body is awake.
 func (b Body) Awake() bool {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.setIndex == awakeSet
 }
@@ -1842,7 +1852,7 @@ func (b Body) SetAwake(awake bool) {
 		recWriteBodySetAwake(world.recording, &recArgsBodySetAwake{b, awake})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	if awake && body.setIndex >= firstSleepingSet {
 		wakeBody(world, body)
@@ -1868,7 +1878,7 @@ func (b Body) WakeTouching() {
 		recWriteBodyWakeTouching(world.recording, &recArgsBodyWakeTouching{b})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	contactKey := body.headContactKey
 	for contactKey != nullIndex {
@@ -1894,7 +1904,7 @@ func (b Body) WakeTouching() {
 // Returns true if this body is enabled.
 func (b Body) Enabled() bool {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.setIndex != disabledSet
 }
@@ -1902,7 +1912,7 @@ func (b Body) Enabled() bool {
 // Returns true if sleeping is enabled for this body.
 func (b Body) SleepEnabled() bool {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return (body.flags & enableSleep) == enableSleep
 }
@@ -1920,14 +1930,14 @@ func (b Body) SetSleepThreshold(sleepThreshold float32) {
 		recWriteBodySetSleepThreshold(world.recording, &recArgsBodySetSleepThreshold{b, sleepThreshold})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	body.sleepThreshold = sleepThreshold
 }
 
 // Get the sleep threshold, usually in meters per second.
 func (b Body) SleepThreshold() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.sleepThreshold
 }
@@ -1945,14 +1955,14 @@ func (b Body) SetSafetyFactor(safetyFactor float32) {
 		recWriteBodySetSafetyFactor(world.recording, &recArgsBodySetSafetyFactor{b, safetyFactor})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	body.safetyFactor = safetyFactor
 }
 
 // Get the continuous collision safety factor. Non-dimensional.
 func (b Body) SafetyFactor() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.safetyFactor
 }
@@ -1968,7 +1978,7 @@ func (b Body) SetSleepEnabled(enable bool) {
 		recWriteBodyEnableSleep(world.recording, &recArgsBodyEnableSleep{b, enable})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	flag := (body.flags & enableSleep) == enableSleep
 	if enable == flag {
@@ -1976,9 +1986,9 @@ func (b Body) SetSleepEnabled(enable bool) {
 	}
 
 	if enable {
-		body.flags = body.flags | enableSleep
+		body.flags |= enableSleep
 	} else {
-		body.flags = body.flags & ^enableSleep
+		body.flags &= ^enableSleep
 	}
 
 	syncBodyFlags(world, body)
@@ -1999,7 +2009,7 @@ func (b Body) Disable() {
 		recWriteBodyDisable(world.recording, &recArgsBodyDisable{b})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	if body.setIndex == disabledSet {
 		return
 	}
@@ -2056,6 +2066,48 @@ func (b Body) Disable() {
 	validateSolverSets(world)
 }
 
+func enableBodyJoints(world *World, body *body, disabledSolverSet *solverSet) {
+	// Transfer joints. If the other body is disabled, don't transfer.
+	// If the other body is sleeping, wake it.
+	jointKey := body.headJointKey
+	for jointKey != nullIndex {
+		jointID := jointKey >> 1
+		edgeIndex := jointKey & 1
+
+		joint := &world.joints[jointID]
+		assert(joint.setIndex == disabledSet, "joint->setIndex == b2_disabledSet")
+		assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
+
+		jointKey = joint.edges[edgeIndex].nextKey
+
+		bodyA := &world.bodies[joint.edges[0].bodyID]
+		bodyB := &world.bodies[joint.edges[1].bodyID]
+
+		if bodyA.setIndex == disabledSet || bodyB.setIndex == disabledSet {
+			// one body is still disabled
+			continue
+		}
+
+		// Transfer joint first
+		var jointSetID int
+		if bodyA.bodyType != DynamicBody && bodyB.bodyType != DynamicBody {
+			jointSetID = staticSet
+		} else if bodyA.setIndex == staticSet {
+			jointSetID = bodyB.setIndex
+		} else {
+			jointSetID = bodyA.setIndex
+		}
+
+		jointSet := &world.solverSets[jointSetID]
+		transferJoint(world, jointSet, disabledSolverSet, joint)
+
+		// Now that the joint is in the correct set, I can link the joint in the island.
+		if jointSetID != staticSet {
+			linkJoint(world, joint)
+		}
+	}
+}
+
 // Enable a body by adding it to the simulation. This is expensive.
 func (b Body) Enable() {
 	world := getWorldLocked(b.world)
@@ -2067,7 +2119,7 @@ func (b Body) Enable() {
 		recWriteBodyEnable(world.recording, &recArgsBodyEnable{b})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	if body.setIndex != disabledSet {
 		return
 	}
@@ -2101,45 +2153,7 @@ func (b Body) Enable() {
 		createIslandForBody(world, setID, body)
 	}
 
-	// Transfer joints. If the other body is disabled, don't transfer.
-	// If the other body is sleeping, wake it.
-	jointKey := body.headJointKey
-	for jointKey != nullIndex {
-		jointID := jointKey >> 1
-		edgeIndex := jointKey & 1
-
-		joint := &world.joints[jointID]
-		assert(joint.setIndex == disabledSet, "joint->setIndex == b2_disabledSet")
-		assert(joint.islandId == nullIndex, "joint->islandId == B2_NULL_INDEX")
-
-		jointKey = joint.edges[edgeIndex].nextKey
-
-		bodyA := &world.bodies[joint.edges[0].bodyId]
-		bodyB := &world.bodies[joint.edges[1].bodyId]
-
-		if bodyA.setIndex == disabledSet || bodyB.setIndex == disabledSet {
-			// one body is still disabled
-			continue
-		}
-
-		// Transfer joint first
-		var jointSetID int
-		if bodyA.bodyType != DynamicBody && bodyB.bodyType != DynamicBody {
-			jointSetID = staticSet
-		} else if bodyA.setIndex == staticSet {
-			jointSetID = bodyB.setIndex
-		} else {
-			jointSetID = bodyA.setIndex
-		}
-
-		jointSet := &world.solverSets[jointSetID]
-		transferJoint(world, jointSet, disabledSolverSet, joint)
-
-		// Now that the joint is in the correct set, I can link the joint in the island.
-		if jointSetID != staticSet {
-			linkJoint(world, joint)
-		}
-	}
+	enableBodyJoints(world, body, disabledSolverSet)
 
 	validateSolverSets(world)
 }
@@ -2169,38 +2183,40 @@ func (b Body) SetMotionLocks(locks MotionLocks) {
 		newFlags |= lockAngularZ
 	}
 
-	body := getBodyFullId(world, b)
-	if (body.flags & allLocks) != newFlags {
-		body.flags &= ^allLocks
-		body.flags |= newFlags
+	body := getBodyFullID(world, b)
+	if (body.flags & allLocks) == newFlags {
+		return
+	}
 
-		syncBodyFlags(world, body)
+	body.flags &= ^allLocks
+	body.flags |= newFlags
 
-		state := getBodyState(world, body)
+	syncBodyFlags(world, body)
 
-		if state != nil {
-			if locks.LinearX {
-				state.linearVelocity.X = 0.0
-			}
+	state := getBodyState(world, body)
 
-			if locks.LinearY {
-				state.linearVelocity.Y = 0.0
-			}
-
-			if locks.AngularZ {
-				state.angularVelocity = 0.0
-			}
+	if state != nil {
+		if locks.LinearX {
+			state.linearVelocity.X = 0.0
 		}
 
-		// Motion locks can affect mass properties.
-		updateBodyMassData(world, body)
+		if locks.LinearY {
+			state.linearVelocity.Y = 0.0
+		}
+
+		if locks.AngularZ {
+			state.angularVelocity = 0.0
+		}
 	}
+
+	// Motion locks can affect mass properties.
+	updateBodyMassData(world, body)
 }
 
 // Get the motion locks for this body.
 func (b Body) MotionLocks() MotionLocks {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	var locks MotionLocks
 
@@ -2230,7 +2246,7 @@ func (b Body) SetBullet(flag bool) {
 		newFlag = 0
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	if (body.flags & isBullet) == newFlag {
 		return
 	}
@@ -2244,7 +2260,7 @@ func (b Body) SetBullet(flag bool) {
 // Is this body a bullet?
 func (b Body) IsBullet() bool {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return (bodySim.flags & isBullet) != 0
@@ -2272,7 +2288,7 @@ func (b Body) SetContactRecyclingEnabled(flag bool) {
 		newFlag = 0
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	if (body.flags & bodyEnableContactRecycling) == newFlag {
 		return
 	}
@@ -2286,7 +2302,7 @@ func (b Body) SetContactRecyclingEnabled(flag bool) {
 // Is contact recycling enabled on this body?
 func (b Body) ContactRecyclingEnabled() bool {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return (body.flags & bodyEnableContactRecycling) != 0
 }
@@ -2300,7 +2316,7 @@ func (b Body) SetContactEventsEnabled(flag bool) {
 		recWriteBodyEnableContactEvents(world.recording, &recArgsBodyEnableContactEvents{b, flag})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	shapeID := body.headShapeID
 	for shapeID != nullIndex {
@@ -2318,7 +2334,7 @@ func (b Body) SetHitEventsEnabled(flag bool) {
 		recWriteBodyEnableHitEvents(world.recording, &recArgsBodyEnableHitEvents{b, flag})
 	}
 
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	shapeID := body.headShapeID
 	for shapeID != nullIndex {
@@ -2336,7 +2352,7 @@ func (b Body) World() *World {
 // Get the number of shapes on this body.
 func (b Body) ShapeCount() int {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.shapeCount
 }
@@ -2344,7 +2360,7 @@ func (b Body) ShapeCount() int {
 // Get the shape ids for all shapes on this body.
 func (b Body) Shapes() iter.Seq[Shape] {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return func(yield func(Shape) bool) {
 		shapeID := body.headShapeID
@@ -2364,7 +2380,7 @@ func (b Body) Shapes() iter.Seq[Shape] {
 // Get the number of joints on this body.
 func (b Body) JointCount() int {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return body.jointCount
 }
@@ -2372,7 +2388,7 @@ func (b Body) JointCount() int {
 // Get the joint ids for all joints on this body.
 func (b Body) Joints() iter.Seq[Joint] {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 
 	return func(yield func(Joint) bool) {
 		jointKey := body.headJointKey
@@ -2415,7 +2431,7 @@ func shouldBodiesCollide(world *World, bodyA *body, bodyB *body) bool {
 		otherEdgeIndex := edgeIndex ^ 1
 
 		joint := &world.joints[jointID]
-		if !joint.collideConnected && joint.edges[otherEdgeIndex].bodyId == otherBodyID {
+		if !joint.collideConnected && joint.edges[otherEdgeIndex].bodyID == otherBodyID {
 			return false
 		}
 
@@ -2428,7 +2444,7 @@ func shouldBodiesCollide(world *World, bodyA *body, bodyB *body) bool {
 // The minimum distance from any point on the body shapes to the center of mass.
 func (b Body) MinExtent() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.minExtent
@@ -2437,7 +2453,7 @@ func (b Body) MinExtent() float32 {
 // The maximum distance from any point on the body shapes to the center of mass.
 func (b Body) MaxExtent() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.maxExtent
@@ -2446,7 +2462,7 @@ func (b Body) MaxExtent() float32 {
 // The maximum distance from any point on the body shapes to the body origin. Conservative.
 func (b Body) MaxExtentOrigin() float32 {
 	world := b.world
-	body := getBodyFullId(world, b)
+	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
 
 	return bodySim.maxExtent + bodySim.localCenter.Length()

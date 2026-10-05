@@ -16,14 +16,14 @@ import (
 // Native Go format validation is supplemental, not interchange with C's native image.
 // Only known-good serialized state is truncated; arbitrary ids/physics payloads are
 // never dispatched into APIs whose preconditions require valid objects.
-func malformedInputSource(t testing.TB) (*box2d.World, []byte, []byte) {
-	t.Helper()
+func malformedInputSource(tb testing.TB) (*box2d.World, []byte, []byte) {
+	tb.Helper()
 
 	def := box2d.DefaultWorldDef()
 	def.WorkerCount = 4
 	world := box2d.NewWorld(&def)
 
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		if world.IsValid() {
 			world.Close()
 		}
@@ -47,22 +47,22 @@ func malformedInputSource(t testing.TB) (*box2d.World, []byte, []byte) {
 	return world, image, data
 }
 
-func requireSnapshotCategory(t testing.TB, err error, category error) {
-	t.Helper()
+func requireSnapshotCategory(tb testing.TB, err error, category error) {
+	tb.Helper()
 
 	var snapshotError *box2d.SnapshotError
 	if !errors.As(err, &snapshotError) || snapshotError.Err == nil {
-		t.Fatalf("expected typed snapshot error, got %T: %v", err, err)
+		tb.Fatalf("expected typed snapshot error, got %T: %v", err, err)
 	}
 
 	if category != nil && !errors.Is(err, category) {
-		t.Fatalf("snapshot category: got %v, want %v", err, category)
+		tb.Fatalf("snapshot category: got %v, want %v", err, category)
 	}
 }
 
-func checkMalformedSnapshotHeader(t testing.TB, selector uint8, delta uint32) {
-	t.Helper()
-	world, image, _ := malformedInputSource(t)
+func checkMalformedSnapshotHeader(tb testing.TB, selector uint8, delta uint32) {
+	tb.Helper()
+	world, image, _ := malformedInputSource(tb)
 	before := world.StateHash()
 	bad := bytes.Clone(image)
 	offset := int(selector%3) * 4
@@ -70,27 +70,27 @@ func checkMalformedSnapshotHeader(t testing.TB, selector uint8, delta uint32) {
 	original := bytes.Clone(bad)
 	category := []error{box2d.ErrBadMagic, box2d.ErrVersion, box2d.ErrLayout}[selector%3]
 	err := world.UnmarshalBinary(bad)
-	requireSnapshotCategory(t, err, category)
+	requireSnapshotCategory(tb, err, category)
 
 	if world.StateHash() != before {
-		t.Fatal("header rejection changed populated world")
+		tb.Fatal("header rejection changed populated world")
 	}
 
 	failed, err := box2d.NewWorldFromSnapshot(bad, 4)
 	if failed.IsValid() {
 		failed.Close()
-		t.Fatal("bad header returned valid world")
+		tb.Fatal("bad header returned valid world")
 	}
 
-	requireSnapshotCategory(t, err, category)
+	requireSnapshotCategory(tb, err, category)
 
 	if !bytes.Equal(bad, original) {
-		t.Fatal("snapshot rejection mutated input bytes")
+		tb.Fatal("snapshot rejection mutated input bytes")
 	}
 
 	clone, err := box2d.NewWorldFromSnapshot(image, 4)
 	if err != nil {
-		t.Fatalf("independent valid construction after rejection: %v", err)
+		tb.Fatalf("independent valid construction after rejection: %v", err)
 	}
 	defer clone.Close()
 
@@ -98,13 +98,13 @@ func checkMalformedSnapshotHeader(t testing.TB, selector uint8, delta uint32) {
 	clone.Step(1.0/60.0, 4)
 
 	if clone.StateHash() != world.StateHash() {
-		t.Fatal("rejection poisoned subsequent native simulation")
+		tb.Fatal("rejection poisoned subsequent native simulation")
 	}
 }
 
-func checkMalformedSavedPayload(t testing.TB, cut uint32) {
-	t.Helper()
-	world, image, recording := malformedInputSource(t)
+func checkMalformedSavedPayload(tb testing.TB, cut uint32) {
+	tb.Helper()
+	world, image, recording := malformedInputSource(tb)
 	before := world.StateHash()
 	// Every generated input retains its native header but ends before the complete
 	// payload. This bounds allocations by the one-body image and exercises all
@@ -116,85 +116,39 @@ func checkMalformedSavedPayload(t testing.TB, cut uint32) {
 	failed, err := box2d.NewWorldFromSnapshot(bad, 4)
 	if failed.IsValid() {
 		failed.Close()
-		t.Fatalf("truncated payload accepted at byte %d/%d", end, len(image))
+		tb.Fatalf("truncated payload accepted at byte %d/%d", end, len(image))
 	}
 
-	requireSnapshotCategory(t, err, nil)
+	requireSnapshotCategory(tb, err, nil)
 
 	if !bytes.Equal(bad, original) {
-		t.Fatal("constructor changed malformed input bytes")
+		tb.Fatal("constructor changed malformed input bytes")
 	}
 
 	// In-place rebuilds retain their original world until the caller destroys it.
 	// Teardown must also tolerate a partially replaced id pool or solver-set array.
 	restored, err := box2d.NewWorldFromSnapshot(image, 4)
 	if err != nil {
-		t.Fatalf("valid restore target construction: %v", err)
+		tb.Fatalf("valid restore target construction: %v", err)
 	}
 
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		if restored.IsValid() {
 			restored.Close()
 		}
 	})
-	requireSnapshotCategory(t, restored.UnmarshalBinary(bad), nil)
+	requireSnapshotCategory(tb, restored.UnmarshalBinary(bad), nil)
 	restored.Close()
 
 	if restored.IsValid() {
-		t.Fatal("failed restore cleanup left world valid")
+		tb.Fatal("failed restore cleanup left world valid")
 	}
 
 	if !bytes.Equal(bad, original) {
-		t.Fatal("restore changed malformed input bytes")
+		tb.Fatal("restore changed malformed input bytes")
 	}
 
-	// Replay has no dedicated typed header error, but embedded snapshot failure
-	// must preserve the SnapshotError cause and restore its global length scale.
-	data := append(bytes.Clone(recording[:32]), bad...)
-	binary.LittleEndian.PutUint64(data[24:], uint64(len(bad)))
-
-	scale := box2d.LengthUnitsPerMeter()
-	binary.LittleEndian.PutUint32(data[12:], math.Float32bits(scale*2))
-	originalReplay := bytes.Clone(data)
-
-	player, err := box2d.NewReplay(data, 4)
-	if player != nil {
-		player.Close()
-		t.Fatal("truncated embedded snapshot returned usable player")
-	}
-
-	requireSnapshotCategory(t, err, nil)
-
-	if box2d.LengthUnitsPerMeter() != scale {
-		t.Fatal("failed replay leaked recording length scale")
-	}
-
-	if !bytes.Equal(data, originalReplay) {
-		t.Fatal("failed replay changed input bytes")
-	}
-
-	if world.StateHash() != before {
-		t.Fatal("failed constructors changed independent live world")
-	}
-
-	valid, err := box2d.NewReplay(recording, 4)
-	if err != nil {
-		t.Fatalf("valid replay after failure: %v", err)
-	}
-
-	valid.World().Step(1.0/60.0, 4)
-	world.Step(1.0/60.0, 4)
-
-	if valid.World().StateHash() != world.StateHash() {
-		valid.Close()
-		t.Fatal("failed replay poisoned independent simulation")
-	}
-
-	valid.Close()
-
-	if box2d.LengthUnitsPerMeter() != scale {
-		t.Fatal("valid replay cleanup changed length scale")
-	}
+	checkMalformedReplayPayload(tb, world, before, recording, bad)
 }
 
 func TestMalformedSavedInputCorpus(t *testing.T) {
@@ -295,5 +249,56 @@ func TestInputGuardAssertionErrorNative(t *testing.T) {
 
 	if world.StateHash() == before {
 		t.Fatal("valid step did not advance populated world after guard failures")
+	}
+}
+
+func checkMalformedReplayPayload(tb testing.TB, world *box2d.World, before uint64, recording, bad []byte) {
+	tb.Helper()
+	// Replay has no dedicated typed header error, but embedded snapshot failure
+	// must preserve the SnapshotError cause and restore its global length scale.
+	data := append(bytes.Clone(recording[:32]), bad...)
+	binary.LittleEndian.PutUint64(data[24:], uint64(len(bad)))
+
+	scale := box2d.LengthUnitsPerMeter()
+	binary.LittleEndian.PutUint32(data[12:], math.Float32bits(scale*2))
+	originalReplay := bytes.Clone(data)
+
+	player, err := box2d.NewReplay(data, 4)
+	if player != nil {
+		player.Close()
+		tb.Fatal("truncated embedded snapshot returned usable player")
+	}
+
+	requireSnapshotCategory(tb, err, nil)
+
+	if box2d.LengthUnitsPerMeter() != scale {
+		tb.Fatal("failed replay leaked recording length scale")
+	}
+
+	if !bytes.Equal(data, originalReplay) {
+		tb.Fatal("failed replay changed input bytes")
+	}
+
+	if world.StateHash() != before {
+		tb.Fatal("failed constructors changed independent live world")
+	}
+
+	valid, err := box2d.NewReplay(recording, 4)
+	if err != nil {
+		tb.Fatalf("valid replay after failure: %v", err)
+	}
+
+	valid.World().Step(1.0/60.0, 4)
+	world.Step(1.0/60.0, 4)
+
+	if valid.World().StateHash() != world.StateHash() {
+		valid.Close()
+		tb.Fatal("failed replay poisoned independent simulation")
+	}
+
+	valid.Close()
+
+	if box2d.LengthUnitsPerMeter() != scale {
+		tb.Fatal("valid replay cleanup changed length scale")
 	}
 }

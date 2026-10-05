@@ -1,5 +1,8 @@
+//go:build box2d_stress
+
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
+
 package scenes
 
 import (
@@ -88,25 +91,7 @@ func observeQueriesPayload(r *oracle.Reader, world *box2d.World, step int) {
 		}
 
 		for kind, name := range []string{"ray", "circle", "overlap"} {
-			input := newQueryDigest()
-			input.u(uint32(filter.MaskBits))
-			input.u(uint32(filter.MaskBits >> 32))
-
-			for i := range queryCount {
-				input.u(uint32(i))
-				input.pos(gQueryBenchmark.origins[i])
-
-				if kind != 2 {
-					input.vec(gQueryBenchmark.translations[i])
-				} else {
-					input.vec(box2d.Vec2{X: -5, Y: -5})
-					input.vec(box2d.Vec2{X: 5, Y: 5})
-				}
-
-				if kind == 1 {
-					input.f(.1)
-				}
-			}
+			input := digestQueryInputs(filter, kind)
 
 			queryObserve(r, step, f, name, "inputs", input)
 
@@ -173,43 +158,7 @@ func observeTreePayload(r *oracle.Reader, step int) {
 			d := newQueryDigest()
 
 			for i := range treeCastRayCount {
-				context := treeCastContext{tightBoxes: gTreeCast.tightBoxes, fraction: 1}
-				proxy := -1
-				identity := uint64(math.MaxUint64)
-
-				var stats box2d.TreeStats
-
-				if kind < 2 {
-					input := box2d.RayCastInput{Origin: gTreeCast.origins[i], Translation: gTreeCast.translations[k][i], MaxFraction: 1}
-					stats = gTreeCast.tree.CastRay(&input, mask, func(in *box2d.RayCastInput, id int, value uint64) float32 {
-						f := treeCastRayCallback(in, id, value, &context)
-						if f >= 0 {
-							proxy = id
-							identity = value
-						}
-
-						return f
-					})
-				} else {
-					o := gTreeCast.origins[i]
-					input := box2d.BoxCastInput{Box: box2d.AABB{LowerBound: box2d.Vec2{X: o.X - treeCastBoxExtent, Y: o.Y - treeCastBoxExtent}, UpperBound: box2d.Vec2{X: o.X + treeCastBoxExtent, Y: o.Y + treeCastBoxExtent}}, Translation: gTreeCast.translations[k][i], MaxFraction: 1}
-					stats = gTreeCast.tree.CastBox(&input, mask, func(in *box2d.BoxCastInput, id int, value uint64) float32 {
-						f := treeCastBoxCallback(in, id, value, &context)
-						if f >= 0 {
-							proxy = id
-							identity = value
-						}
-
-						return f
-					})
-				}
-
-				d.u(uint32(i))
-				d.u(uint32(proxy))
-				d.u(uint32(identity))
-				d.u(uint32(identity >> 32))
-				d.f(context.fraction)
-				d.stats(stats)
+				d.treeCast(k, kind, i, mask)
 			}
 
 			queryObserve(r, step, k, name, "payload", d)
@@ -309,4 +258,68 @@ func TestScenePerQueryInputsAndPayloads(t *testing.T) {
 			})
 		}
 	}
+}
+
+func digestQueryInputs(filter box2d.QueryFilter, kind int) queryDigest {
+	input := newQueryDigest()
+	input.u(uint32(filter.MaskBits))
+	input.u(uint32(filter.MaskBits >> 32))
+
+	for i := range queryCount {
+		input.u(uint32(i))
+		input.pos(gQueryBenchmark.origins[i])
+
+		if kind != 2 {
+			input.vec(gQueryBenchmark.translations[i])
+		} else {
+			input.vec(box2d.Vec2{X: -5, Y: -5})
+			input.vec(box2d.Vec2{X: 5, Y: 5})
+		}
+
+		if kind == 1 {
+			input.f(.1)
+		}
+	}
+
+	return input
+}
+
+func (d *queryDigest) treeCast(k, kind, i int, mask uint64) {
+	context := treeCastContext{tightBoxes: gTreeCast.tightBoxes, fraction: 1}
+	proxy := -1
+	identity := uint64(math.MaxUint64)
+
+	var stats box2d.TreeStats
+
+	if kind < 2 {
+		input := box2d.RayCastInput{Origin: gTreeCast.origins[i], Translation: gTreeCast.translations[k][i], MaxFraction: 1}
+		stats = gTreeCast.tree.CastRay(&input, mask, func(in *box2d.RayCastInput, id int, value uint64) float32 {
+			f := treeCastRayCallback(in, value, &context)
+			if f >= 0 {
+				proxy = id
+				identity = value
+			}
+
+			return f
+		})
+	} else {
+		o := gTreeCast.origins[i]
+		input := box2d.BoxCastInput{Box: box2d.AABB{LowerBound: box2d.Vec2{X: o.X - treeCastBoxExtent, Y: o.Y - treeCastBoxExtent}, UpperBound: box2d.Vec2{X: o.X + treeCastBoxExtent, Y: o.Y + treeCastBoxExtent}}, Translation: gTreeCast.translations[k][i], MaxFraction: 1}
+		stats = gTreeCast.tree.CastBox(&input, mask, func(in *box2d.BoxCastInput, id int, value uint64) float32 {
+			f := treeCastBoxCallback(in, value, &context)
+			if f >= 0 {
+				proxy = id
+				identity = value
+			}
+
+			return f
+		})
+	}
+
+	d.u(uint32(i))
+	d.u(uint32(proxy))
+	d.u(uint32(identity))
+	d.u(uint32(identity >> 32))
+	d.f(context.fraction)
+	d.stats(stats)
 }

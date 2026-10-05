@@ -103,7 +103,7 @@ func SceneStateForTest(w *World) [3]SceneObservationForTest {
 			continue
 		}
 
-		id := makeBodyId(world, i)
+		id := makeBodyID(world, i)
 		d.id(id.ID())
 		d.u32(uint32(id.Type()))
 		d.vec(id.LinearVelocity())
@@ -255,6 +255,10 @@ func SceneEventsForTest(w *World) [7]SceneObservationForTest {
 		lanes[6] = append(lanes[6], u(p, v))
 	}
 
+	return sceneEventDigests(&lanes)
+}
+
+func sceneEventDigests(lanes *[7][][]byte) [7]SceneObservationForTest {
 	var result [7]SceneObservationForTest
 
 	for i, records := range lanes {

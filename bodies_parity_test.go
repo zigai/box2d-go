@@ -59,7 +59,7 @@ func apiBody(r *oracle.Reader, key string, b box2d.Body) {
 	n := 0
 	for s := range b.Shapes() {
 		p := fmt.Sprintf("%s/shape/%d", key, n)
-		r.I32(p+"/tag", int32(s.UserData().(int)))
+		r.I32(p+"/tag", apiTag(s))
 		r.Bool(p+"/owner", s.Body() == b)
 
 		n++
@@ -71,7 +71,7 @@ func apiBody(r *oracle.Reader, key string, b box2d.Body) {
 
 func apiShape(r *oracle.Reader, key string, s box2d.Shape, b box2d.Body) {
 	r.I32(key+"/type", int32(s.Type()))
-	r.I32(key+"/user", int32(s.UserData().(int)))
+	r.I32(key+"/user", apiTag(s))
 	r.Bool(key+"/body", s.Body() == b)
 	r.Bool(key+"/world", s.World() == b.World())
 	r.Bool(key+"/orphan", s.ParentChain() == (box2d.Chain{}))
@@ -106,6 +106,8 @@ func apiShape(r *oracle.Reader, key string, s box2d.Shape, b box2d.Body) {
 		apiVec(r, key+"/chain/a", c.Segment.Point1)
 		apiVec(r, key+"/chain/b", c.Segment.Point2)
 		apiVec(r, key+"/chain/ghost2", c.Ghost2)
+	case box2d.ShapeTypeCount:
+		// The shape count sentinel has no geometry payload.
 	}
 
 	apiMaterial(r, key+"/material", s.SurfaceMaterial())
@@ -142,7 +144,12 @@ func apiTag(s box2d.Shape) int32 {
 		return -1
 	}
 
-	return int32(s.UserData().(int))
+	tag, ok := s.UserData().(int)
+	if !ok {
+		panic("body parity fixture shape user data must be an int tag")
+	}
+
+	return int32(tag)
 }
 
 func apiContacts(r *oracle.Reader, key string, w *box2d.World, b box2d.Body) {
@@ -262,22 +269,22 @@ func apiBase(distant bool) box2d.Pos {
 	return box2d.Pos{X: 7, Y: -3}
 }
 
-func apiCreateGeometry(b box2d.Body, sd *box2d.ShapeDef, family int, y float32) box2d.Shape {
+func apiCreateGeometry(b box2d.Body, sd *box2d.ShapeDef, family int) box2d.Shape {
 	switch family {
 	case 0:
-		g := box2d.Circle{Center: box2d.Vec2{Y: y}, Radius: 1}
+		g := box2d.Circle{Center: box2d.Vec2{}, Radius: 1}
 		return b.CreateCircleShape(sd, &g)
 	case 1:
-		g := box2d.Capsule{Center1: box2d.Vec2{X: -1, Y: y}, Center2: box2d.Vec2{X: 1, Y: y}, Radius: .5}
+		g := box2d.Capsule{Center1: box2d.Vec2{X: -1}, Center2: box2d.Vec2{X: 1}, Radius: .5}
 		return b.CreateCapsuleShape(sd, &g)
 	case 2:
-		g := box2d.Segment{Point1: box2d.Vec2{X: -2, Y: y}, Point2: box2d.Vec2{X: 2, Y: y}}
+		g := box2d.Segment{Point1: box2d.Vec2{X: -2}, Point2: box2d.Vec2{X: 2}}
 		return b.CreateSegmentShape(sd, &g)
 	case 3:
-		g := box2d.MakeOffsetBox(2, .5, box2d.Vec2{Y: y}, box2d.Rot{C: 1})
+		g := box2d.MakeOffsetBox(2, .5, box2d.Vec2{}, box2d.Rot{C: 1})
 		return b.CreatePolygonShape(sd, &g)
 	default:
-		g := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -4, Y: y}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -2, Y: y}, Point2: box2d.Vec2{X: 2, Y: y}}, Ghost2: box2d.Vec2{X: 4, Y: y}}
+		g := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -4}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -2}, Point2: box2d.Vec2{X: 2}}, Ghost2: box2d.Vec2{X: 4}}
 		return b.CreateChainSegmentShape(sd, &g)
 	}
 }
@@ -371,12 +378,22 @@ func TestBodiesConstructionCopiesCallerInputs(t *testing.T) {
 				bd.UserData = 99
 				other := w.CreateBody(&bd)
 
-				r.I32("bodyUser", int32(b.UserData().(int)))
-				r.I32("reusedUser", int32(other.UserData().(int)))
+				bodyUser, ok := b.UserData().(int)
+				if !ok {
+					t.Fatalf("body user data has type %T, want int", b.UserData())
+				}
+
+				reusedUser, ok := other.UserData().(int)
+				if !ok {
+					t.Fatalf("reused body user data has type %T, want int", other.UserData())
+				}
+
+				r.I32("bodyUser", int32(bodyUser))
+				r.I32("reusedUser", int32(reusedUser))
 				apiShape(r, "copied", s, b)
 				apiBody(r, "constructed", b)
 
-				reused := apiCreateGeometry(other, &sd, family, 0)
+				reused := apiCreateGeometry(other, &sd, family)
 				apiShape(r, "reusedShape", reused, other)
 				// Give line families positive body mass before simulating them.
 				ballastDef := box2d.DefaultShapeDef()
@@ -396,6 +413,80 @@ func TestBodiesConstructionCopiesCallerInputs(t *testing.T) {
 }
 
 func TestBodiesMotionOperationsAndWake(t *testing.T) {
+	apiMotionOperationCases(t)
+	apiMotionLockCases(t)
+	apiTargetTransformCases(t)
+}
+
+func apiMotionOperationCase(t *testing.T, name string, kind, distant, sleeping, action, wake int) {
+	t.Helper()
+	r := oracle.Open(t, "api/bodies/motion/"+name)
+	base := apiBase(distant == 1)
+	w := apiWorld(t, box2d.Vec2{X: 1, Y: -4})
+	bd := box2d.DefaultBodyDef()
+	bd.Type = box2d.BodyType(kind)
+	bd.Position = base
+	bd.Rotation = box2d.Rot{C: .6, S: .8}
+	bd.UserData = 11
+	b := w.CreateBody(&bd)
+	sd := box2d.DefaultShapeDef()
+	sd.UserData = 7
+	sd.Density = 2
+	g := box2d.Circle{Center: box2d.Vec2{X: 1, Y: .5}, Radius: .75}
+	b.CreateCircleShape(&sd, &g)
+	b.SetLinearVelocity(box2d.Vec2{X: 2, Y: -1})
+	b.SetAngularVelocity(.75)
+	apiVec(r, "localPoint", b.LocalPoint(box2d.Pos{X: base.X + 3, Y: base.Y - 2}))
+	apiPos(r, "worldPoint", b.WorldPoint(box2d.Vec2{X: 1.25, Y: -.75}))
+	apiVec(r, "localVector", b.LocalVector(box2d.Vec2{X: 3, Y: -2}))
+	apiVec(r, "worldVector", b.WorldVector(box2d.Vec2{X: 1.25, Y: -.75}))
+	apiVec(r, "localVelocity", b.LocalPointVelocity(box2d.Vec2{X: 1.25, Y: -.75}))
+	apiVec(r, "worldVelocity", b.WorldPointVelocity(box2d.Pos{X: base.X + 3, Y: base.Y - 2}))
+	b.SetLinearDamping(.4)
+	b.SetAngularDamping(.7)
+	b.SetGravityScale(.3)
+
+	if sleeping == 1 {
+		b.SetAwake(false)
+	}
+
+	point := box2d.Pos{X: base.X + 2, Y: base.Y + 1}
+	flag := wake == 1
+
+	switch action {
+	case 0:
+		b.ApplyForce(box2d.Vec2{X: 5, Y: 9}, point, flag)
+	case 1:
+		b.ApplyForceToCenter(box2d.Vec2{X: 5, Y: 9}, flag)
+	case 2:
+		b.ApplyTorque(7, flag)
+	case 3:
+		b.ApplyLinearImpulse(box2d.Vec2{X: 3, Y: 4}, point, flag)
+	case 4:
+		b.ApplyLinearImpulseToCenter(box2d.Vec2{X: 3, Y: 4}, flag)
+	case 5:
+		b.ApplyAngularImpulse(2, flag)
+	case 6:
+		b.SetTargetTransform(box2d.WorldTransform{P: point, Q: box2d.Rot{C: 0, S: 1}}, 1.0/60, flag)
+	case 7:
+		b.SetTargetTransform(box2d.WorldTransform{P: box2d.Pos{X: base.X + .0001, Y: base.Y}, Q: box2d.Rot{C: .6, S: .8}}, 1.0/60, flag)
+	case 8:
+		b.ApplyForce(box2d.Vec2{X: 5, Y: 9}, point, flag)
+		b.ApplyTorque(7, flag)
+		b.ClearForces()
+	}
+
+	apiBody(r, "immediate", b)
+
+	for step := range 3 {
+		w.Step(1.0/60, 4)
+		apiBody(r, fmt.Sprintf("step/%d", step), b)
+	}
+}
+
+func apiMotionOperationCases(t *testing.T) {
+	t.Helper()
+
 	for distant := range 2 {
 		if distant == 1 && !box2d.IsDoublePrecision() {
 			continue
@@ -407,74 +498,17 @@ func TestBodiesMotionOperationsAndWake(t *testing.T) {
 					for wake := range 2 {
 						name := fmt.Sprintf("type%d_base%d_sleep%d_action%d_wake%d", kind, distant, sleeping, action, wake)
 						t.Run(name, func(t *testing.T) {
-							r := oracle.Open(t, "api/bodies/motion/"+name)
-							base := apiBase(distant == 1)
-							w := apiWorld(t, box2d.Vec2{X: 1, Y: -4})
-							bd := box2d.DefaultBodyDef()
-							bd.Type = box2d.BodyType(kind)
-							bd.Position = base
-							bd.Rotation = box2d.Rot{C: .6, S: .8}
-							bd.UserData = 11
-							b := w.CreateBody(&bd)
-							sd := box2d.DefaultShapeDef()
-							sd.UserData = 7
-							sd.Density = 2
-							g := box2d.Circle{Center: box2d.Vec2{X: 1, Y: .5}, Radius: .75}
-							b.CreateCircleShape(&sd, &g)
-							b.SetLinearVelocity(box2d.Vec2{X: 2, Y: -1})
-							b.SetAngularVelocity(.75)
-							apiVec(r, "localPoint", b.LocalPoint(box2d.Pos{X: base.X + 3, Y: base.Y - 2}))
-							apiPos(r, "worldPoint", b.WorldPoint(box2d.Vec2{X: 1.25, Y: -.75}))
-							apiVec(r, "localVector", b.LocalVector(box2d.Vec2{X: 3, Y: -2}))
-							apiVec(r, "worldVector", b.WorldVector(box2d.Vec2{X: 1.25, Y: -.75}))
-							apiVec(r, "localVelocity", b.LocalPointVelocity(box2d.Vec2{X: 1.25, Y: -.75}))
-							apiVec(r, "worldVelocity", b.WorldPointVelocity(box2d.Pos{X: base.X + 3, Y: base.Y - 2}))
-							b.SetLinearDamping(.4)
-							b.SetAngularDamping(.7)
-							b.SetGravityScale(.3)
-
-							if sleeping == 1 {
-								b.SetAwake(false)
-							}
-
-							point := box2d.Pos{X: base.X + 2, Y: base.Y + 1}
-							flag := wake == 1
-
-							switch action {
-							case 0:
-								b.ApplyForce(box2d.Vec2{X: 5, Y: 9}, point, flag)
-							case 1:
-								b.ApplyForceToCenter(box2d.Vec2{X: 5, Y: 9}, flag)
-							case 2:
-								b.ApplyTorque(7, flag)
-							case 3:
-								b.ApplyLinearImpulse(box2d.Vec2{X: 3, Y: 4}, point, flag)
-							case 4:
-								b.ApplyLinearImpulseToCenter(box2d.Vec2{X: 3, Y: 4}, flag)
-							case 5:
-								b.ApplyAngularImpulse(2, flag)
-							case 6:
-								b.SetTargetTransform(box2d.WorldTransform{P: point, Q: box2d.Rot{C: 0, S: 1}}, 1.0/60, flag)
-							case 7:
-								b.SetTargetTransform(box2d.WorldTransform{P: box2d.Pos{X: base.X + .0001, Y: base.Y}, Q: box2d.Rot{C: .6, S: .8}}, 1.0/60, flag)
-							case 8:
-								b.ApplyForce(box2d.Vec2{X: 5, Y: 9}, point, flag)
-								b.ApplyTorque(7, flag)
-								b.ClearForces()
-							}
-
-							apiBody(r, "immediate", b)
-
-							for step := range 3 {
-								w.Step(1.0/60, 4)
-								apiBody(r, fmt.Sprintf("step/%d", step), b)
-							}
+							apiMotionOperationCase(t, name, kind, distant, sleeping, action, wake)
 						})
 					}
 				}
 			}
 		}
 	}
+}
+
+func apiMotionLockCases(t *testing.T) {
+	t.Helper()
 
 	for locks := range 8 {
 		for runtime := range 2 {
@@ -496,7 +530,7 @@ func TestBodiesMotionOperationsAndWake(t *testing.T) {
 				b := w.CreateBody(&bd)
 				sd := box2d.DefaultShapeDef()
 				sd.UserData = 7
-				apiCreateGeometry(b, &sd, 3, 0)
+				apiCreateGeometry(b, &sd, 3)
 
 				if runtime == 1 {
 					b.SetMotionLocks(m)
@@ -524,6 +558,10 @@ func TestBodiesMotionOperationsAndWake(t *testing.T) {
 			})
 		}
 	}
+}
+
+func apiTargetTransformCases(t *testing.T) {
+	t.Helper()
 
 	for kind := range 3 {
 		name := fmt.Sprintf("target_type%d", kind)
@@ -537,7 +575,7 @@ func TestBodiesMotionOperationsAndWake(t *testing.T) {
 			b := w.CreateBody(&bd)
 			sd := box2d.DefaultShapeDef()
 			sd.UserData = 7
-			apiCreateGeometry(b, &sd, 0, 0)
+			apiCreateGeometry(b, &sd, 0)
 			b.SetTransform(box2d.Pos{X: 8, Y: -2}, box2d.Rot{C: .6, S: .8})
 			apiBody(r, "teleport", b)
 			b.SetTargetTransform(box2d.WorldTransform{P: box2d.Pos{X: 9, Y: -1}, Q: box2d.Rot{C: 0, S: 1}}, .25, true)
@@ -674,7 +712,7 @@ func TestShapesMutationBoundsQueriesAndCollisions(t *testing.T) {
 			sd.EnableContactEvents = true
 			sd.EnableHitEvents = true
 			sd.Material.Friction = .3
-			s := apiCreateGeometry(ground, &sd, family, 0)
+			s := apiCreateGeometry(ground, &sd, family)
 			bd.Type = box2d.DynamicBody
 			bd.Position.Y -= oracle.Real(float32(.3))
 			bd.EnableSleep = false
@@ -771,6 +809,112 @@ func TestShapesMutationBoundsQueriesAndCollisions(t *testing.T) {
 	}
 }
 
+func apiEnvironmentalForceCase(r *oracle.Reader, w *box2d.World, b box2d.Body, s box2d.Shape, base box2d.Pos, mode, wake int) {
+	key := fmt.Sprintf("force/%d/wake/%d", mode, wake)
+
+	b.SetTransform(base, box2d.Rot{S: 1})
+	b.SetLinearVelocity(box2d.Vec2{X: 1, Y: -.5})
+	b.SetAngularVelocity(.3)
+	b.SetAwake(false)
+
+	if mode == 1 {
+		b.SetAwake(true)
+		b.SetLinearVelocity(box2d.Vec2{X: 1, Y: -.5})
+		b.SetAngularVelocity(.3)
+	}
+
+	if mode < 2 {
+		s.ApplyWind(box2d.Vec2{X: 5, Y: 2}, .4, .2, wake == 1)
+	} else {
+		if wake == 1 {
+			b.SetAwake(true)
+		}
+
+		def := box2d.DefaultExplosionDef()
+		def.MaskBits = 1
+		def.Position = box2d.Pos{X: base.X - 2, Y: base.Y - 1}
+		def.Radius = 1
+		def.Falloff = 5
+
+		def.ImpulsePerLength = 3
+		if mode == 3 {
+			def.ImpulsePerLength = -3
+		}
+
+		w.Explode(&def)
+	}
+
+	apiBody(r, key+"/immediate", b)
+
+	for step := range 3 {
+		w.Step(1.0/60, 4)
+		apiBody(r, fmt.Sprintf("%s/step/%d", key, step), b)
+	}
+}
+
+func apiShapeQueryCase(t *testing.T, name string, distant, family int) {
+	t.Helper()
+	r := oracle.Open(t, "api/shapes/queries/"+name)
+
+	base := apiBase(distant == 1)
+	if distant == 2 {
+		base = box2d.Pos{}
+	}
+
+	w := apiWorld(t, box2d.Vec2{})
+	bd := box2d.DefaultBodyDef()
+	bd.Type = box2d.DynamicBody
+	bd.Position = base
+	bd.Rotation = box2d.Rot{S: 1}
+	b := w.CreateBody(&bd)
+	sd := box2d.DefaultShapeDef()
+	sd.UserData = 7
+	s := apiCreateGeometry(b, &sd, family)
+	ballastDef := box2d.DefaultShapeDef()
+	ballastDef.UserData = 8
+	ballastDef.Filter.CategoryBits = 2
+	ballast := box2d.Circle{Center: box2d.Vec2{X: -10}, Radius: .5}
+	b.CreateCircleShape(&ballastDef, &ballast)
+	apiShape(r, "shape", s, b)
+
+	if family == 0 || family == 1 || family == 3 {
+		boundary := box2d.Pos{X: base.X + .5, Y: base.Y}
+		if family == 0 {
+			boundary.X = base.X + 1
+		}
+
+		for i, p := range []box2d.Pos{{X: base.X, Y: base.Y}, {X: base.X + .5, Y: base.Y + .25}, {X: base.X + 4, Y: base.Y + 4}, boundary} {
+			r.Bool(fmt.Sprintf("point/%d", i), s.TestPoint(p))
+		}
+	}
+
+	rays := [7]struct {
+		p box2d.Pos
+		v box2d.Vec2
+	}{
+		{box2d.Pos{X: base.X, Y: base.Y - 4}, box2d.Vec2{Y: 8}},
+		{box2d.Pos{X: base.X, Y: base.Y + 4}, box2d.Vec2{Y: -8}},
+		{box2d.Pos{X: base.X + 4, Y: base.Y - 4}, box2d.Vec2{Y: 8}},
+		{base, box2d.Vec2{Y: 8}},
+		{box2d.Pos{X: base.X - 4, Y: base.Y}, box2d.Vec2{X: 8}},
+		{box2d.Pos{X: base.X, Y: base.Y - 4}, box2d.Vec2{Y: 1}},
+		{box2d.Pos{X: base.X + .5, Y: base.Y - 4}, box2d.Vec2{Y: 8}},
+	}
+	for i, ray := range rays {
+		apiCast(r, fmt.Sprintf("ray/%d", i), s.RayCast(ray.p, ray.v))
+	}
+
+	for i, p := range []box2d.Pos{{X: base.X + 3, Y: base.Y + 5}, base, {X: base.X - 4, Y: base.Y - 2}} {
+		apiPos(r, fmt.Sprintf("closest/%d", i), s.ClosestPoint(p))
+	}
+	// Sleeping and already-moving wind cases distinguish wake from relative drag.
+	for mode := range 4 {
+		for wake := range 2 {
+			apiEnvironmentalForceCase(r, w, b, s, base, mode, wake)
+		}
+	}
+}
+
 func TestShapesTransformedQueriesAndEnvironmentalForces(t *testing.T) {
 	for distant := range 3 {
 		if distant == 1 && !box2d.IsDoublePrecision() {
@@ -780,107 +924,214 @@ func TestShapesTransformedQueriesAndEnvironmentalForces(t *testing.T) {
 		for family := range 5 {
 			name := fmt.Sprintf("base%d_shape%d", distant, family)
 			t.Run(name, func(t *testing.T) {
-				r := oracle.Open(t, "api/shapes/queries/"+name)
-
-				base := apiBase(distant == 1)
-				if distant == 2 {
-					base = box2d.Pos{}
-				}
-
-				w := apiWorld(t, box2d.Vec2{})
-				bd := box2d.DefaultBodyDef()
-				bd.Type = box2d.DynamicBody
-				bd.Position = base
-				bd.Rotation = box2d.Rot{S: 1}
-				b := w.CreateBody(&bd)
-				sd := box2d.DefaultShapeDef()
-				sd.UserData = 7
-				s := apiCreateGeometry(b, &sd, family, 0)
-				ballastDef := box2d.DefaultShapeDef()
-				ballastDef.UserData = 8
-				ballastDef.Filter.CategoryBits = 2
-				ballast := box2d.Circle{Center: box2d.Vec2{X: -10}, Radius: .5}
-				b.CreateCircleShape(&ballastDef, &ballast)
-				apiShape(r, "shape", s, b)
-
-				if family == 0 || family == 1 || family == 3 {
-					boundary := box2d.Pos{X: base.X + .5, Y: base.Y}
-					if family == 0 {
-						boundary.X = base.X + 1
-					}
-
-					for i, p := range []box2d.Pos{{X: base.X, Y: base.Y}, {X: base.X + .5, Y: base.Y + .25}, {X: base.X + 4, Y: base.Y + 4}, boundary} {
-						r.Bool(fmt.Sprintf("point/%d", i), s.TestPoint(p))
-					}
-				}
-
-				rays := [7]struct {
-					p box2d.Pos
-					v box2d.Vec2
-				}{
-					{box2d.Pos{X: base.X, Y: base.Y - 4}, box2d.Vec2{Y: 8}},
-					{box2d.Pos{X: base.X, Y: base.Y + 4}, box2d.Vec2{Y: -8}},
-					{box2d.Pos{X: base.X + 4, Y: base.Y - 4}, box2d.Vec2{Y: 8}},
-					{base, box2d.Vec2{Y: 8}},
-					{box2d.Pos{X: base.X - 4, Y: base.Y}, box2d.Vec2{X: 8}},
-					{box2d.Pos{X: base.X, Y: base.Y - 4}, box2d.Vec2{Y: 1}},
-					{box2d.Pos{X: base.X + .5, Y: base.Y - 4}, box2d.Vec2{Y: 8}},
-				}
-				for i, ray := range rays {
-					apiCast(r, fmt.Sprintf("ray/%d", i), s.RayCast(ray.p, ray.v))
-				}
-
-				for i, p := range []box2d.Pos{{X: base.X + 3, Y: base.Y + 5}, base, {X: base.X - 4, Y: base.Y - 2}} {
-					apiPos(r, fmt.Sprintf("closest/%d", i), s.ClosestPoint(p))
-				}
-				// Sleeping and already-moving wind cases distinguish wake from relative drag.
-				for mode := range 4 {
-					for wake := range 2 {
-						key := fmt.Sprintf("force/%d/wake/%d", mode, wake)
-
-						b.SetTransform(base, box2d.Rot{S: 1})
-						b.SetLinearVelocity(box2d.Vec2{X: 1, Y: -.5})
-						b.SetAngularVelocity(.3)
-						b.SetAwake(false)
-
-						if mode == 1 {
-							b.SetAwake(true)
-							b.SetLinearVelocity(box2d.Vec2{X: 1, Y: -.5})
-							b.SetAngularVelocity(.3)
-						}
-
-						if mode < 2 {
-							s.ApplyWind(box2d.Vec2{X: 5, Y: 2}, .4, .2, wake == 1)
-						} else {
-							if wake == 1 {
-								b.SetAwake(true)
-							}
-
-							def := box2d.DefaultExplosionDef()
-							def.MaskBits = 1
-							def.Position = box2d.Pos{X: base.X - 2, Y: base.Y - 1}
-							def.Radius = 1
-							def.Falloff = 5
-
-							def.ImpulsePerLength = 3
-							if mode == 3 {
-								def.ImpulsePerLength = -3
-							}
-
-							w.Explode(&def)
-						}
-
-						apiBody(r, key+"/immediate", b)
-
-						for step := range 3 {
-							w.Step(1.0/60, 4)
-							apiBody(r, fmt.Sprintf("%s/step/%d", key, step), b)
-						}
-					}
-				}
+				apiShapeQueryCase(t, name, distant, family)
 			})
 		}
 	}
+}
+
+func apiChainTopology(topology, reverse int) ([]box2d.Vec2, bool) {
+	points := []box2d.Vec2{{X: -2}, {X: 2}}
+	loop := false
+
+	switch topology {
+	case 1:
+		points = []box2d.Vec2{{X: -2}, {}, {X: 2}, {X: 3, Y: 1}}
+	case 2:
+		points = []box2d.Vec2{{X: -2}, {X: 2}, {X: 0, Y: 3}}
+		loop = true
+	case 3:
+		points = []box2d.Vec2{{X: -2}, {X: 2}, {X: 2, Y: 3}, {X: -2, Y: 3}}
+		loop = true
+	case 4:
+		points = []box2d.Vec2{{X: -.02}, {}, {X: .02}}
+	}
+
+	if reverse == 1 {
+		for i := range len(points) / 2 {
+			j := len(points) - 1 - i
+			points[i], points[j] = points[j], points[i]
+		}
+	}
+
+	return points, loop
+}
+
+func apiChainMaterialImpact(r *oracle.Reader, key string, segment box2d.Shape, ground, visitor box2d.Body, w *box2d.World) {
+	edge := segment.ChainSegment().Segment
+	tangent := edge.Point2.Sub(edge.Point1).Normalize()
+	normal := tangent.RightPerp()
+	start := edge.Point1.Lerp(edge.Point2, .5).Add(normal.Scale(.3))
+	visitor.SetTransform(ground.WorldPoint(start), box2d.Rot{C: 1})
+	visitor.SetLinearVelocity(normal.Scale(-2).Add(tangent.Scale(.5)))
+	visitor.SetAngularVelocity(.5)
+
+	for step := range 8 {
+		w.Step(1.0/60, 4)
+
+		p := fmt.Sprintf("%s/%d", key, step)
+		apiBody(r, p+"/body", visitor)
+		apiContacts(r, p+"/effects", w, visitor)
+	}
+}
+
+func apiChainCase(t *testing.T, name string, topology, reverse int) {
+	t.Helper()
+	r := oracle.Open(t, "api/chains/"+name)
+	base := apiBase(false)
+	w := apiWorld(t, box2d.Vec2{})
+	bd := box2d.DefaultBodyDef()
+	bd.Position = base
+	ground := w.CreateBody(&bd)
+	points, loop := apiChainTopology(topology, reverse)
+
+	materials := make([]box2d.SurfaceMaterial, len(points))
+	for i := range materials {
+		materials[i] = box2d.DefaultSurfaceMaterial()
+		materials[i].Friction = .2
+		materials[i].UserMaterialID = uint64(20 + i)
+	}
+
+	cd := box2d.DefaultChainDef()
+	cd.Points = points
+
+	cd.Materials = materials
+	if !loop {
+		cd.Materials = materials[:len(points)-1]
+	}
+
+	cd.IsLoop = loop
+	cd.Ghost1 = box2d.Vec2{X: -4}
+
+	cd.Ghost2 = box2d.Vec2{X: 4, Y: 2}
+	if reverse == 1 {
+		cd.Ghost1, cd.Ghost2 = cd.Ghost2, cd.Ghost1
+	}
+
+	cd.UserData = 7
+	cd.Filter.CategoryBits = 4
+	chain := ground.CreateChain(&cd)
+
+	for i := range points {
+		points[i] = box2d.Vec2{X: 100, Y: 100}
+		materials[i].Friction = .9
+		materials[i].UserMaterialID = 99
+	}
+
+	cd.Ghost1.X = 100
+	cd.Ghost2.Y = 100
+	cd.Filter.MaskBits = 0
+	cd.UserData = 99
+
+	segments := make([]box2d.Shape, 0, chain.SegmentCount())
+	for s := range chain.Segments() {
+		r.I32(fmt.Sprintf("copiedUser/%d", len(segments)), apiTag(s))
+		s.SetUserData(100 + len(segments))
+		segments = append(segments, s)
+	}
+
+	observe := func(key string) {
+		r.I32(key+"/count", int32(chain.SegmentCount()))
+
+		n := 0
+		for s := range chain.Segments() {
+			p := fmt.Sprintf("%s/segment/%d", key, n)
+			r.Bool(p+"/identity", s == segments[n])
+			r.Bool(p+"/parent", s.ParentChain() == chain)
+			r.Bool(p+"/valid", s.IsValid())
+			apiShape(r, p, s, ground)
+			apiMaterial(r, p+"/reported", chain.SurfaceMaterial(n))
+			n++
+		}
+
+		r.I32(key+"/enumerated", int32(n))
+		r.Bool(key+"/world", chain.World() == w)
+		apiBody(r, key+"/ground", ground)
+		apiQuery(r, key+"/query", w, base, 0, 4)
+	}
+	observe("copied")
+
+	bd.Type = box2d.DynamicBody
+	bd.EnableSleep = false
+	bd.Position = box2d.Pos{X: base.X, Y: base.Y - 1}
+	visitor := w.CreateBody(&bd)
+	sd := box2d.DefaultShapeDef()
+	sd.UserData = 9
+	sd.Filter.CategoryBits = 2
+	sd.EnableContactEvents = true
+	sd.EnableHitEvents = true
+	g := box2d.Circle{Radius: .25}
+	visitor.CreateCircleShape(&sd, &g)
+
+	materialImpact := func(key string) {
+		apiChainMaterialImpact(r, key, segments[0], ground, visitor, w)
+	}
+	materialImpact("originalMaterialImpact")
+
+	m := box2d.SurfaceMaterial{Friction: .7, Restitution: .4, TangentSpeed: 1.5, RollingResistance: .1, UserMaterialID: 91, CustomColor: 0xabcdef}
+	chain.SetSurfaceMaterial(&m, 0)
+	m.Friction = .9
+
+	observe("oneMaterial")
+	materialImpact("oneMaterialImpact")
+
+	m.UserMaterialID = 92
+	chain.SetAllSurfaceMaterials(&m)
+	m.TangentSpeed = 99
+
+	observe("allMaterials")
+	materialImpact("allMaterialImpact")
+
+	for side := range 2 {
+		y := float32(-1)
+		speed := float32(2)
+
+		if side == 1 {
+			y = 1
+			speed = -2
+		}
+
+		visitor.SetTransform(box2d.Pos{X: base.X, Y: base.Y + oracle.Real(y)}, box2d.Rot{C: 1})
+		visitor.SetLinearVelocity(box2d.Vec2{Y: speed})
+		visitor.SetAngularVelocity(0)
+
+		for step := range 60 {
+			w.Step(1.0/60, 4)
+
+			key := fmt.Sprintf("side/%d/step/%d", side, step)
+			apiBody(r, key+"/body", visitor)
+			apiContacts(r, key+"/effects", w, visitor)
+		}
+	}
+
+	apiQuery(r, "beforeDestroy", w, base, 0, 4)
+	chain.Destroy()
+	r.Bool("chainValid", chain.IsValid())
+
+	for i, s := range segments {
+		r.Bool(fmt.Sprintf("segmentValid/%d", i), s.IsValid())
+	}
+
+	apiBody(r, "afterDestroy", ground)
+	w.Step(1.0/60, 4)
+	apiQuery(r, "afterDestroyQuery", w, base, 0, 4)
+	apiContacts(r, "afterDestroyEffects", w, visitor)
+	// Reallocated objects cannot resurrect saved full chain/segment handles.
+	cd = box2d.DefaultChainDef()
+	cd.Points = []box2d.Vec2{{X: -2}, {X: 2}}
+	cd.Ghost1 = box2d.Vec2{X: -4}
+	cd.Ghost2 = box2d.Vec2{X: 4}
+	cd.Materials = []box2d.SurfaceMaterial{box2d.DefaultSurfaceMaterial()}
+	replacement := ground.CreateChain(&cd)
+	r.Bool("replacementDifferent", replacement != chain)
+	r.Bool("oldChainStillInvalid", chain.IsValid())
+
+	for i, s := range segments {
+		r.Bool(fmt.Sprintf("oldSegmentStillInvalid/%d", i), s.IsValid())
+	}
+
+	ground.Destroy()
+	r.Bool("replacementDestroyedWithBody", replacement.IsValid())
 }
 
 func TestChainsOwnershipMaterialsWindingAndDestruction(t *testing.T) {
@@ -888,196 +1139,7 @@ func TestChainsOwnershipMaterialsWindingAndDestruction(t *testing.T) {
 		for reverse := range 2 {
 			name := fmt.Sprintf("topology%d_reverse%d", topology, reverse)
 			t.Run(name, func(t *testing.T) {
-				r := oracle.Open(t, "api/chains/"+name)
-				base := apiBase(false)
-				w := apiWorld(t, box2d.Vec2{})
-				bd := box2d.DefaultBodyDef()
-				bd.Position = base
-				ground := w.CreateBody(&bd)
-				points := []box2d.Vec2{{X: -2}, {X: 2}}
-				loop := false
-
-				switch topology {
-				case 1:
-					points = []box2d.Vec2{{X: -2}, {}, {X: 2}, {X: 3, Y: 1}}
-				case 2:
-					points = []box2d.Vec2{{X: -2}, {X: 2}, {X: 0, Y: 3}}
-					loop = true
-				case 3:
-					points = []box2d.Vec2{{X: -2}, {X: 2}, {X: 2, Y: 3}, {X: -2, Y: 3}}
-					loop = true
-				case 4:
-					points = []box2d.Vec2{{X: -.02}, {}, {X: .02}}
-				}
-
-				if reverse == 1 {
-					for i := range len(points) / 2 {
-						j := len(points) - 1 - i
-						points[i], points[j] = points[j], points[i]
-					}
-				}
-
-				materials := make([]box2d.SurfaceMaterial, len(points))
-				for i := range materials {
-					materials[i] = box2d.DefaultSurfaceMaterial()
-					materials[i].Friction = .2
-					materials[i].UserMaterialID = uint64(20 + i)
-				}
-
-				cd := box2d.DefaultChainDef()
-				cd.Points = points
-
-				cd.Materials = materials
-				if !loop {
-					cd.Materials = materials[:len(points)-1]
-				}
-
-				cd.IsLoop = loop
-				cd.Ghost1 = box2d.Vec2{X: -4}
-
-				cd.Ghost2 = box2d.Vec2{X: 4, Y: 2}
-				if reverse == 1 {
-					cd.Ghost1, cd.Ghost2 = cd.Ghost2, cd.Ghost1
-				}
-
-				cd.UserData = 7
-				cd.Filter.CategoryBits = 4
-				chain := ground.CreateChain(&cd)
-
-				for i := range points {
-					points[i] = box2d.Vec2{X: 100, Y: 100}
-					materials[i].Friction = .9
-					materials[i].UserMaterialID = 99
-				}
-
-				cd.Ghost1.X = 100
-				cd.Ghost2.Y = 100
-				cd.Filter.MaskBits = 0
-				cd.UserData = 99
-
-				segments := make([]box2d.Shape, 0, chain.SegmentCount())
-				for s := range chain.Segments() {
-					r.I32(fmt.Sprintf("copiedUser/%d", len(segments)), apiTag(s))
-					s.SetUserData(100 + len(segments))
-					segments = append(segments, s)
-				}
-
-				observe := func(key string) {
-					r.I32(key+"/count", int32(chain.SegmentCount()))
-
-					n := 0
-					for s := range chain.Segments() {
-						p := fmt.Sprintf("%s/segment/%d", key, n)
-						r.Bool(p+"/identity", s == segments[n])
-						r.Bool(p+"/parent", s.ParentChain() == chain)
-						r.Bool(p+"/valid", s.IsValid())
-						apiShape(r, p, s, ground)
-						apiMaterial(r, p+"/reported", chain.SurfaceMaterial(n))
-						n++
-					}
-
-					r.I32(key+"/enumerated", int32(n))
-					r.Bool(key+"/world", chain.World() == w)
-					apiBody(r, key+"/ground", ground)
-					apiQuery(r, key+"/query", w, base, 0, 4)
-				}
-				observe("copied")
-
-				bd.Type = box2d.DynamicBody
-				bd.EnableSleep = false
-				bd.Position = box2d.Pos{X: base.X, Y: base.Y - 1}
-				visitor := w.CreateBody(&bd)
-				sd := box2d.DefaultShapeDef()
-				sd.UserData = 9
-				sd.Filter.CategoryBits = 2
-				sd.EnableContactEvents = true
-				sd.EnableHitEvents = true
-				g := box2d.Circle{Radius: .25}
-				visitor.CreateCircleShape(&sd, &g)
-
-				materialImpact := func(key string) {
-					edge := segments[0].ChainSegment().Segment
-					tangent := edge.Point2.Sub(edge.Point1).Normalize()
-					normal := tangent.RightPerp()
-					start := edge.Point1.Lerp(edge.Point2, .5).Add(normal.Scale(.3))
-					visitor.SetTransform(ground.WorldPoint(start), box2d.Rot{C: 1})
-					visitor.SetLinearVelocity(normal.Scale(-2).Add(tangent.Scale(.5)))
-					visitor.SetAngularVelocity(.5)
-
-					for step := range 8 {
-						w.Step(1.0/60, 4)
-
-						p := fmt.Sprintf("%s/%d", key, step)
-						apiBody(r, p+"/body", visitor)
-						apiContacts(r, p+"/effects", w, visitor)
-					}
-				}
-				materialImpact("originalMaterialImpact")
-
-				m := box2d.SurfaceMaterial{Friction: .7, Restitution: .4, TangentSpeed: 1.5, RollingResistance: .1, UserMaterialID: 91, CustomColor: 0xabcdef}
-				chain.SetSurfaceMaterial(&m, 0)
-				m.Friction = .9
-
-				observe("oneMaterial")
-				materialImpact("oneMaterialImpact")
-
-				m.UserMaterialID = 92
-				chain.SetAllSurfaceMaterials(&m)
-				m.TangentSpeed = 99
-
-				observe("allMaterials")
-				materialImpact("allMaterialImpact")
-
-				for side := range 2 {
-					y := float32(-1)
-					speed := float32(2)
-
-					if side == 1 {
-						y = 1
-						speed = -2
-					}
-
-					visitor.SetTransform(box2d.Pos{X: base.X, Y: base.Y + oracle.Real(y)}, box2d.Rot{C: 1})
-					visitor.SetLinearVelocity(box2d.Vec2{Y: speed})
-					visitor.SetAngularVelocity(0)
-
-					for step := range 60 {
-						w.Step(1.0/60, 4)
-
-						key := fmt.Sprintf("side/%d/step/%d", side, step)
-						apiBody(r, key+"/body", visitor)
-						apiContacts(r, key+"/effects", w, visitor)
-					}
-				}
-
-				apiQuery(r, "beforeDestroy", w, base, 0, 4)
-				chain.Destroy()
-				r.Bool("chainValid", chain.IsValid())
-
-				for i, s := range segments {
-					r.Bool(fmt.Sprintf("segmentValid/%d", i), s.IsValid())
-				}
-
-				apiBody(r, "afterDestroy", ground)
-				w.Step(1.0/60, 4)
-				apiQuery(r, "afterDestroyQuery", w, base, 0, 4)
-				apiContacts(r, "afterDestroyEffects", w, visitor)
-				// Reallocated objects cannot resurrect saved full chain/segment handles.
-				cd = box2d.DefaultChainDef()
-				cd.Points = []box2d.Vec2{{X: -2}, {X: 2}}
-				cd.Ghost1 = box2d.Vec2{X: -4}
-				cd.Ghost2 = box2d.Vec2{X: 4}
-				cd.Materials = []box2d.SurfaceMaterial{box2d.DefaultSurfaceMaterial()}
-				replacement := ground.CreateChain(&cd)
-				r.Bool("replacementDifferent", replacement != chain)
-				r.Bool("oldChainStillInvalid", chain.IsValid())
-
-				for i, s := range segments {
-					r.Bool(fmt.Sprintf("oldSegmentStillInvalid/%d", i), s.IsValid())
-				}
-
-				ground.Destroy()
-				r.Bool("replacementDestroyedWithBody", replacement.IsValid())
+				apiChainCase(t, name, topology, reverse)
 			})
 		}
 	}

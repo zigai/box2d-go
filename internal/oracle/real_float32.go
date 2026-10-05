@@ -4,8 +4,6 @@ package oracle
 
 import "math"
 
-type Real = float32
-
 const (
 	DoublePrecision = false
 
@@ -13,5 +11,7 @@ const (
 
 	realWidth = 32
 )
+
+type Real = float32
 
 func realBits(v Real) uint64 { return uint64(math.Float32bits(v)) }

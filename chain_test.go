@@ -56,463 +56,483 @@ func inputSamePoint(a, b box2d.Vec2) bool {
 }
 
 func TestChain(t *testing.T) {
-	t.Run("SegmentCountTest", func(t *testing.T) {
-		r := oracle.Open(t, "input/chain/SegmentCountTest")
-		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.NewWorld(&worldDef)
-		box2d.BTWorldCleanup(t, worldID)
+	t.Run("SegmentCountTest", inputTestSegmentCount)
+	t.Run("SegmentGeometryTest", inputTestSegmentGeometry)
+	t.Run("LoopMaterialTest", inputTestLoopMaterial)
+	t.Run("OpenMaterialTest", inputTestOpenMaterial)
+	t.Run("SingleMaterialTest", inputTestSingleMaterial)
+}
 
-		bodyDef := box2d.DefaultBodyDef()
-		bodyID := worldID.CreateBody(&bodyDef)
+func inputTestSegmentCount(t *testing.T) {
+	r := oracle.Open(t, "input/chain/SegmentCountTest")
+	worldDef := box2d.DefaultWorldDef()
+	worldID := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
 
-		triangle := inputCreateTaggedChain(bodyID, inputLoopTriangle, 3, 1, true).SegmentCount()
-		square := inputCreateTaggedChain(bodyID, inputLoopSquare, 4, 1, true).SegmentCount()
-		pair := inputCreateTaggedChain(bodyID, inputOpenPair, 2, 1, false).SegmentCount()
-		line := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 1, false).SegmentCount()
+	bodyDef := box2d.DefaultBodyDef()
+	bodyID := worldID.CreateBody(&bodyDef)
 
-		worldID.Close()
+	triangle := inputCreateTaggedChain(bodyID, inputLoopTriangle, 3, 1, true).SegmentCount()
+	square := inputCreateTaggedChain(bodyID, inputLoopSquare, 4, 1, true).SegmentCount()
+	pair := inputCreateTaggedChain(bodyID, inputOpenPair, 2, 1, false).SegmentCount()
+	line := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 1, false).SegmentCount()
 
+	worldID.Close()
+
+	{
+		ok := triangle == 3
+		r.Bool("check.120", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+	{
+		ok := square == 4
+		r.Bool("check.121", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+	{
+		ok := pair == 1
+		r.Bool("check.122", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+	{
+		ok := line == 5
+		r.Bool("check.123", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+}
+
+func inputTestSegmentGeometry(t *testing.T) {
+	r := oracle.Open(t, "input/chain/SegmentGeometryTest")
+	worldDef := box2d.DefaultWorldDef()
+	worldID := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
+
+	bodyDef := box2d.DefaultBodyDef()
+	bodyID := worldID.CreateBody(&bodyDef)
+
+	loopID := inputCreateTaggedChain(bodyID, inputLoopSquare, 4, 1, true)
+	openID := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 1, false)
+
+	var (
+		loopSegments [4]box2d.Shape
+		openSegments [5]box2d.Shape
+	)
+
+	loopCount := 0
+	for segment := range loopID.Segments() {
+		if loopCount == len(loopSegments) {
+			break
+		}
+
+		loopSegments[loopCount] = segment
+		loopCount++
+	}
+
+	openCount := 0
+	for segment := range openID.Segments() {
+		if openCount == len(openSegments) {
+			break
+		}
+
+		openSegments[openCount] = segment
+		openCount++
+	}
+
+	var (
+		loop [4]box2d.ChainSegment
+		open [5]box2d.ChainSegment
+	)
+
+	for i := range 4 {
+		loop[i] = loopSegments[i].ChainSegment()
+	}
+
+	for i := range 5 {
+		open[i] = openSegments[i].ChainSegment()
+	}
+
+	worldID.Close()
+
+	{
+		ok := loopCount == 4
+		r.Bool("check.159", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+	{
+		ok := openCount == 5
+		r.Bool("check.160", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+
+	inputCheckLoopGeometry(t, r, &loop)
+	inputCheckOpenGeometry(t, r, &open)
+}
+
+func inputCheckLoopGeometry(t *testing.T, r *oracle.Reader, loop *[4]box2d.ChainSegment) {
+	t.Helper()
+	// ENSURE stringizes into a format string, so keep a percent out of the condition
+	for i := range 4 {
+		next := (i + 1) % 4
+		after := (i + 2) % 4
+		prev := (i + 3) % 4
 		{
-			ok := triangle == 3
-			r.Bool("check.120", ok)
+			ok := inputSamePoint(loop[i].Segment.Point1, inputLoopSquare[i])
+			r.Bool("check.168", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
 		{
-			ok := square == 4
-			r.Bool("check.121", ok)
+			ok := inputSamePoint(loop[i].Segment.Point2, inputLoopSquare[next])
+			r.Bool("check.169", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
 		{
-			ok := pair == 1
-			r.Bool("check.122", ok)
+			ok := inputSamePoint(loop[i].Ghost1, inputLoopSquare[prev])
+			r.Bool("check.170", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
 		{
-			ok := line == 5
-			r.Bool("check.123", ok)
+			ok := inputSamePoint(loop[i].Ghost2, inputLoopSquare[after])
+			r.Bool("check.171", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
-	})
-	t.Run("SegmentGeometryTest", func(t *testing.T) {
-		r := oracle.Open(t, "input/chain/SegmentGeometryTest")
-		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.NewWorld(&worldDef)
-		box2d.BTWorldCleanup(t, worldID)
+	}
+}
 
-		bodyDef := box2d.DefaultBodyDef()
-		bodyID := worldID.CreateBody(&bodyDef)
+func inputCheckOpenGeometry(t *testing.T, r *oracle.Reader, open *[5]box2d.ChainSegment) {
+	t.Helper()
 
-		loopID := inputCreateTaggedChain(bodyID, inputLoopSquare, 4, 1, true)
-		openID := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 1, false)
-
-		var (
-			loopSegments [4]box2d.Shape
-			openSegments [5]box2d.Shape
-		)
-
-		loopCount := 0
-		for segment := range loopID.Segments() {
-			if loopCount == len(loopSegments) {
-				break
-			}
-
-			loopSegments[loopCount] = segment
-			loopCount++
-		}
-
-		openCount := 0
-		for segment := range openID.Segments() {
-			if openCount == len(openSegments) {
-				break
-			}
-
-			openSegments[openCount] = segment
-			openCount++
-		}
-
-		var (
-			loop [4]box2d.ChainSegment
-			open [5]box2d.ChainSegment
-		)
-
-		for i := range 4 {
-			loop[i] = loopSegments[i].ChainSegment()
-		}
-
-		for i := range 5 {
-			open[i] = openSegments[i].ChainSegment()
-		}
-
-		worldID.Close()
-
+	for i := range 5 {
 		{
-			ok := loopCount == 4
-			r.Bool("check.159", ok)
+			ok := inputSamePoint(open[i].Segment.Point1, inputOpenLine[i])
+			r.Bool("check.176", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
 		{
-			ok := openCount == 5
-			r.Bool("check.160", ok)
+			ok := inputSamePoint(open[i].Segment.Point2, inputOpenLine[i+1])
+			r.Bool("check.177", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
+	}
 
-		// ENSURE stringizes into a format string, so keep a percent out of the condition
-		for i := range 4 {
-			next := (i + 1) % 4
-			after := (i + 2) % 4
-			prev := (i + 3) % 4
-			{
-				ok := inputSamePoint(loop[i].Segment.Point1, inputLoopSquare[i])
-				r.Bool("check.168", ok)
+	// The def ghosts extend the chain past its ends without consuming a point or a segment
+	{
+		ok := inputSamePoint(open[0].Ghost1, inputGhostBegin)
+		r.Bool("check.181", ok)
 
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := inputSamePoint(loop[i].Segment.Point2, inputLoopSquare[next])
-				r.Bool("check.169", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := inputSamePoint(loop[i].Ghost1, inputLoopSquare[prev])
-				r.Bool("check.170", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := inputSamePoint(loop[i].Ghost2, inputLoopSquare[after])
-				r.Bool("check.171", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
+		if !ok {
+			t.Fatal("condition false")
 		}
+	}
+	{
+		ok := inputSamePoint(open[4].Ghost2, inputGhostEnd)
+		r.Bool("check.182", ok)
 
-		for i := range 5 {
-			{
-				ok := inputSamePoint(open[i].Segment.Point1, inputOpenLine[i])
-				r.Bool("check.176", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := inputSamePoint(open[i].Segment.Point2, inputOpenLine[i+1])
-				r.Bool("check.177", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
+		if !ok {
+			t.Fatal("condition false")
 		}
+	}
 
-		// The def ghosts extend the chain past its ends without consuming a point or a segment
+	for i := 1; i < 5; i++ {
 		{
-			ok := inputSamePoint(open[0].Ghost1, inputGhostBegin)
-			r.Bool("check.181", ok)
+			ok := inputSamePoint(open[i].Ghost1, inputOpenLine[i-1])
+			r.Bool("check.186", ok)
+
+			if !ok {
+				t.Fatal("condition false")
+			}
+		}
+	}
+
+	for i := range 4 {
+		{
+			ok := inputSamePoint(open[i].Ghost2, inputOpenLine[i+2])
+			r.Bool("check.190", ok)
+
+			if !ok {
+				t.Fatal("condition false")
+			}
+		}
+	}
+}
+
+func inputTestLoopMaterial(t *testing.T) {
+	r := oracle.Open(t, "input/chain/LoopMaterialTest")
+	worldDef := box2d.DefaultWorldDef()
+	worldID := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
+
+	bodyDef := box2d.DefaultBodyDef()
+	bodyID := worldID.CreateBody(&bodyDef)
+	chainID := inputCreateTaggedChain(bodyID, inputLoopSquare, 4, 4, true)
+
+	var created [4]uint64
+	inputReadSegmentTags(chainID, created[:], 4)
+
+	material := box2d.DefaultSurfaceMaterial()
+	material.UserMaterialID = 99
+
+	assertsTripped := 0
+	inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 1) })
+
+	var (
+		updated  [4]uint64
+		reported [4]uint64
+	)
+
+	inputReadSegmentTags(chainID, updated[:], 4)
+
+	for i := range 4 {
+		reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
+	}
+
+	worldID.Close()
+
+	{
+		ok := assertsTripped == 0
+		r.Bool("check.225", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+
+	for i := range 4 {
+		expected := uint64(i + 1)
+		if i == 1 {
+			expected = 99
+		}
+		{
+			ok := created[i] == uint64(i+1)
+			r.Bool("check.230", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
 		{
-			ok := inputSamePoint(open[4].Ghost2, inputGhostEnd)
-			r.Bool("check.182", ok)
+			ok := updated[i] == expected
+			r.Bool("check.231", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
 
-		for i := 1; i < 5; i++ {
-			{
-				ok := inputSamePoint(open[i].Ghost1, inputOpenLine[i-1])
-				r.Bool("check.186", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-		}
-
-		for i := range 4 {
-			{
-				ok := inputSamePoint(open[i].Ghost2, inputOpenLine[i+2])
-				r.Bool("check.190", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-		}
-	})
-	t.Run("LoopMaterialTest", func(t *testing.T) {
-		r := oracle.Open(t, "input/chain/LoopMaterialTest")
-		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.NewWorld(&worldDef)
-		box2d.BTWorldCleanup(t, worldID)
-
-		bodyDef := box2d.DefaultBodyDef()
-		bodyID := worldID.CreateBody(&bodyDef)
-		chainID := inputCreateTaggedChain(bodyID, inputLoopSquare, 4, 4, true)
-
-		var created [4]uint64
-		inputReadSegmentTags(chainID, created[:], 4)
-
-		material := box2d.DefaultSurfaceMaterial()
-		material.UserMaterialID = 99
-
-		assertsTripped := 0
-		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 1) })
-
-		var (
-			updated  [4]uint64
-			reported [4]uint64
-		)
-
-		inputReadSegmentTags(chainID, updated[:], 4)
-
-		for i := range 4 {
-			reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
-		}
-
-		worldID.Close()
-
+		// The getter and the segment shape cannot disagree, there is one copy
 		{
-			ok := assertsTripped == 0
-			r.Bool("check.225", ok)
+			ok := reported[i] == expected
+			r.Bool("check.234", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
+	}
+}
 
-		for i := range 4 {
-			expected := uint64(i + 1)
-			if i == 1 {
-				expected = 99
-			}
-			{
-				ok := created[i] == uint64(i+1)
-				r.Bool("check.230", ok)
+func inputTestOpenMaterial(t *testing.T) {
+	r := oracle.Open(t, "input/chain/OpenMaterialTest")
+	worldDef := box2d.DefaultWorldDef()
+	worldID := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
 
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := updated[i] == expected
-				r.Bool("check.231", ok)
+	bodyDef := box2d.DefaultBodyDef()
+	bodyID := worldID.CreateBody(&bodyDef)
+	chainID := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 5, false)
 
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
+	var created [5]uint64
+	inputReadSegmentTags(chainID, created[:], 5)
 
-			// The getter and the segment shape cannot disagree, there is one copy
-			{
-				ok := reported[i] == expected
-				r.Bool("check.234", ok)
+	material := box2d.DefaultSurfaceMaterial()
+	material.UserMaterialID = 99
 
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
+	assertsTripped := 0
+	inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 0) })
+
+	material.UserMaterialID = 98
+
+	inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 4) })
+
+	var (
+		updated  [5]uint64
+		reported [5]uint64
+	)
+
+	inputReadSegmentTags(chainID, updated[:], 5)
+
+	for i := range 5 {
+		reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
+	}
+
+	worldID.Close()
+
+	{
+		ok := assertsTripped == 0
+		r.Bool("check.273", ok)
+
+		if !ok {
+			t.Fatal("condition false")
 		}
-	})
-	t.Run("OpenMaterialTest", func(t *testing.T) {
-		r := oracle.Open(t, "input/chain/OpenMaterialTest")
-		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.NewWorld(&worldDef)
-		box2d.BTWorldCleanup(t, worldID)
+	}
 
-		bodyDef := box2d.DefaultBodyDef()
-		bodyID := worldID.CreateBody(&bodyDef)
-		chainID := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 5, false)
-
-		var created [5]uint64
-		inputReadSegmentTags(chainID, created[:], 5)
-
-		material := box2d.DefaultSurfaceMaterial()
-		material.UserMaterialID = 99
-
-		assertsTripped := 0
-		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 0) })
-
-		material.UserMaterialID = 98
-
-		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 4) })
-
-		var (
-			updated  [5]uint64
-			reported [5]uint64
-		)
-
-		inputReadSegmentTags(chainID, updated[:], 5)
-
-		for i := range 5 {
-			reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
+	for i := range 5 {
+		expected := uint64(i + 1)
+		switch i {
+		case 0:
+			expected = 99
+		case 4:
+			expected = 98
 		}
-
-		worldID.Close()
 
 		{
-			ok := assertsTripped == 0
-			r.Bool("check.273", ok)
+			ok := created[i] == uint64(i+1)
+			r.Bool("check.287", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
-
-		for i := range 5 {
-			expected := uint64(i + 1)
-			switch i {
-			case 0:
-				expected = 99
-			case 4:
-				expected = 98
-			}
-
-			{
-				ok := created[i] == uint64(i+1)
-				r.Bool("check.287", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := updated[i] == expected
-				r.Bool("check.288", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := reported[i] == expected
-				r.Bool("check.289", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-		}
-	})
-	t.Run("SingleMaterialTest", func(t *testing.T) {
-		r := oracle.Open(t, "input/chain/SingleMaterialTest")
-		worldDef := box2d.DefaultWorldDef()
-		worldID := box2d.NewWorld(&worldDef)
-		box2d.BTWorldCleanup(t, worldID)
-
-		bodyDef := box2d.DefaultBodyDef()
-		bodyID := worldID.CreateBody(&bodyDef)
-		chainID := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 1, false)
-
-		var created [5]uint64
-		inputReadSegmentTags(chainID, created[:], 5)
-
-		material := box2d.DefaultSurfaceMaterial()
-		material.UserMaterialID = 99
-
-		assertsTripped := 0
-		inputRejected(&assertsTripped, func() { chainID.SetAllSurfaceMaterials(&material) })
-
-		var broadcast [5]uint64
-		inputReadSegmentTags(chainID, broadcast[:], 5)
-
-		// One material at creation must not narrow the segment index, which is what the old count
-		// bound would have rejected here
-		material.UserMaterialID = 98
-
-		inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 2) })
-
-		var (
-			single   [5]uint64
-			reported [5]uint64
-		)
-
-		inputReadSegmentTags(chainID, single[:], 5)
-
-		for i := range 5 {
-			reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
-		}
-
-		worldID.Close()
-
 		{
-			ok := assertsTripped == 0
-			r.Bool("check.336", ok)
+			ok := updated[i] == expected
+			r.Bool("check.288", ok)
 
 			if !ok {
 				t.Fatal("condition false")
 			}
 		}
+		{
+			ok := reported[i] == expected
+			r.Bool("check.289", ok)
 
-		for i := range 5 {
-			expected := uint64(99)
-			if i == 2 {
-				expected = 98
-			}
-			{
-				ok := created[i] == 1
-				r.Bool("check.341", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := broadcast[i] == 99
-				r.Bool("check.342", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := single[i] == expected
-				r.Bool("check.343", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
-			}
-			{
-				ok := reported[i] == expected
-				r.Bool("check.344", ok)
-
-				if !ok {
-					t.Fatal("condition false")
-				}
+			if !ok {
+				t.Fatal("condition false")
 			}
 		}
-	})
+	}
+}
+
+func inputTestSingleMaterial(t *testing.T) {
+	r := oracle.Open(t, "input/chain/SingleMaterialTest")
+	worldDef := box2d.DefaultWorldDef()
+	worldID := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, worldID)
+
+	bodyDef := box2d.DefaultBodyDef()
+	bodyID := worldID.CreateBody(&bodyDef)
+	chainID := inputCreateTaggedChain(bodyID, inputOpenLine, 6, 1, false)
+
+	var created [5]uint64
+	inputReadSegmentTags(chainID, created[:], 5)
+
+	material := box2d.DefaultSurfaceMaterial()
+	material.UserMaterialID = 99
+
+	assertsTripped := 0
+	inputRejected(&assertsTripped, func() { chainID.SetAllSurfaceMaterials(&material) })
+
+	var broadcast [5]uint64
+	inputReadSegmentTags(chainID, broadcast[:], 5)
+
+	// One material at creation must not narrow the segment index, which is what the old count
+	// bound would have rejected here
+	material.UserMaterialID = 98
+
+	inputRejected(&assertsTripped, func() { chainID.SetSurfaceMaterial(&material, 2) })
+
+	var (
+		single   [5]uint64
+		reported [5]uint64
+	)
+
+	inputReadSegmentTags(chainID, single[:], 5)
+
+	for i := range 5 {
+		reported[i] = chainID.SurfaceMaterial(i).UserMaterialID
+	}
+
+	worldID.Close()
+
+	{
+		ok := assertsTripped == 0
+		r.Bool("check.336", ok)
+
+		if !ok {
+			t.Fatal("condition false")
+		}
+	}
+
+	for i := range 5 {
+		expected := uint64(99)
+		if i == 2 {
+			expected = 98
+		}
+		{
+			ok := created[i] == 1
+			r.Bool("check.341", ok)
+
+			if !ok {
+				t.Fatal("condition false")
+			}
+		}
+		{
+			ok := broadcast[i] == 99
+			r.Bool("check.342", ok)
+
+			if !ok {
+				t.Fatal("condition false")
+			}
+		}
+		{
+			ok := single[i] == expected
+			r.Bool("check.343", ok)
+
+			if !ok {
+				t.Fatal("condition false")
+			}
+		}
+		{
+			ok := reported[i] == expected
+			r.Bool("check.344", ok)
+
+			if !ok {
+				t.Fatal("condition false")
+			}
+		}
+	}
 }

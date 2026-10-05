@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d_test
 
 import (
@@ -38,29 +39,7 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 		recordingObserveShapeID(r, key+"/shape", q.Shape, p.World())
 		r.I32(key+"/hits", int32(q.HitCount))
 
-		for ordinal := range q.HitCount + 2 {
-			j := ordinal - 1
-			hk := fmt.Sprintf("%s/h%d", key, j)
-			h := p.FrameQueryHit(i, j)
-			recordingObserveShapeID(r, hk+"/shape", h.Shape, p.World())
-
-			validHit := i >= 0 && i < count && j >= 0 && j < q.HitCount
-
-			identityOnly := validHit && (q.Type == box2d.ReplayQueryOverlapAABB || q.Type == box2d.ReplayQueryOverlapShape || q.Type == box2d.ReplayQueryCollideMover)
-			if !identityOnly {
-				r.Pos(hk+"/point", oracle.Real(h.Point.X), oracle.Real(h.Point.Y))
-				r.Vec2(hk+"/normal", h.Normal.X, h.Normal.Y)
-				r.F32(hk+"/fraction", h.Fraction)
-			}
-
-			if validHit && q.Type == box2d.ReplayQueryCollideMover {
-				plane := box2d.RecordingQueryPlane(p, i, j)
-				r.Vec2(hk+"/planeNormal", plane.Plane.Normal.X, plane.Plane.Normal.Y)
-				r.F32(hk+"/planeOffset", plane.Plane.Offset)
-				r.Vec2(hk+"/planePoint", plane.Point.X, plane.Point.Y)
-				r.Bool(hk+"/planeHit", plane.Hit)
-			}
-		}
+		recordingObserveQueryHits(r, p, key, i, count, q)
 
 		if i >= 0 && i < count {
 			b, fraction, out := box2d.RecordingQueryResults(p, i)
@@ -128,6 +107,32 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 		p.DrawFrameQueries(&draw, selected)
 		r.I32(fmt.Sprintf("%s/draw%d/count", prefix, selected), int32(calls))
 		r.U64(fmt.Sprintf("%s/draw%d/hash", prefix, selected), hash)
+	}
+}
+
+func recordingObserveQueryHits(r *oracle.Reader, p *box2d.Replay, key string, i, count int, q box2d.ReplayQueryInfo) {
+	for ordinal := range q.HitCount + 2 {
+		j := ordinal - 1
+		hk := fmt.Sprintf("%s/h%d", key, j)
+		h := p.FrameQueryHit(i, j)
+		recordingObserveShapeID(r, hk+"/shape", h.Shape, p.World())
+
+		validHit := i >= 0 && i < count && j >= 0 && j < q.HitCount
+
+		identityOnly := validHit && (q.Type == box2d.ReplayQueryOverlapAABB || q.Type == box2d.ReplayQueryOverlapShape || q.Type == box2d.ReplayQueryCollideMover)
+		if !identityOnly {
+			r.Pos(hk+"/point", oracle.Real(h.Point.X), oracle.Real(h.Point.Y))
+			r.Vec2(hk+"/normal", h.Normal.X, h.Normal.Y)
+			r.F32(hk+"/fraction", h.Fraction)
+		}
+
+		if validHit && q.Type == box2d.ReplayQueryCollideMover {
+			plane := box2d.RecordingQueryPlane(p, i, j)
+			r.Vec2(hk+"/planeNormal", plane.Plane.Normal.X, plane.Plane.Normal.Y)
+			r.F32(hk+"/planeOffset", plane.Plane.Offset)
+			r.Vec2(hk+"/planePoint", plane.Point.X, plane.Point.Y)
+			r.Bool(hk+"/planeHit", plane.Hit)
+		}
 	}
 }
 

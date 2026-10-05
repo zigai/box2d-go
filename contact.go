@@ -5,6 +5,54 @@ package box2d
 
 import "math"
 
+const (
+	contactTouchingFlag        uint32 = 0x00000001
+	contactHitEventFlag        uint32 = 0x00000002
+	contactEnableContactEvents uint32 = 0x00000004
+	contactRecycleFlag         uint32 = 0x00000008
+	simTouchingFlag            uint32 = 0x00010000
+	simDisjoint                uint32 = 0x00020000
+	simStartedTouching         uint32 = 0x00040000
+	simStoppedTouching         uint32 = 0x00080000
+	simEnableHitEvent          uint32 = 0x00100000
+	simEnablePreSolveEvents    uint32 = 0x00200000
+	simRelativeTransformValid  uint32 = 0x00400000
+)
+
+var contactRegistry = [ShapeTypeCount][ShapeTypeCount]contactRegister{
+	CircleShape: {
+		CircleShape:       {fcn: circleManifold, primary: true},
+		CapsuleShape:      {fcn: capsuleAndCircleManifold, primary: false},
+		SegmentShape:      {fcn: segmentAndCircleManifold, primary: false},
+		PolygonShape:      {fcn: polygonAndCircleManifold, primary: false},
+		ChainSegmentShape: {fcn: chainSegmentAndCircleManifold, primary: false},
+	},
+	CapsuleShape: {
+		CircleShape:       {fcn: capsuleAndCircleManifold, primary: true},
+		CapsuleShape:      {fcn: capsuleManifold, primary: true},
+		SegmentShape:      {fcn: segmentAndCapsuleManifold, primary: false},
+		PolygonShape:      {fcn: polygonAndCapsuleManifold, primary: false},
+		ChainSegmentShape: {fcn: chainSegmentAndCapsuleManifold, primary: false},
+	},
+	SegmentShape: {
+		CircleShape:  {fcn: segmentAndCircleManifold, primary: true},
+		CapsuleShape: {fcn: segmentAndCapsuleManifold, primary: true},
+		PolygonShape: {fcn: segmentAndPolygonManifold, primary: true},
+	},
+	PolygonShape: {
+		CircleShape:       {fcn: polygonAndCircleManifold, primary: true},
+		CapsuleShape:      {fcn: polygonAndCapsuleManifold, primary: true},
+		SegmentShape:      {fcn: segmentAndPolygonManifold, primary: false},
+		PolygonShape:      {fcn: polygonManifold, primary: true},
+		ChainSegmentShape: {fcn: chainSegmentAndPolygonManifold, primary: false},
+	},
+	ChainSegmentShape: {
+		CircleShape:  {fcn: chainSegmentAndCircleManifold, primary: true},
+		CapsuleShape: {fcn: chainSegmentAndCapsuleManifold, primary: true},
+		PolygonShape: {fcn: chainSegmentAndPolygonManifold, primary: true},
+	},
+}
+
 // A begin touch event is generated when two shapes begin touching.
 type ContactBeginTouchEvent struct {
 	// Id of the first shape
@@ -140,57 +188,7 @@ type contactRegister struct {
 	primary bool
 }
 
-type contactFlags uint32
-
-const (
-	contactTouchingFlag        uint32 = 0x00000001
-	contactHitEventFlag        uint32 = 0x00000002
-	contactEnableContactEvents uint32 = 0x00000004
-	contactRecycleFlag         uint32 = 0x00000008
-	simTouchingFlag            uint32 = 0x00010000
-	simDisjoint                uint32 = 0x00020000
-	simStartedTouching         uint32 = 0x00040000
-	simStoppedTouching         uint32 = 0x00080000
-	simEnableHitEvent          uint32 = 0x00100000
-	simEnablePreSolveEvents    uint32 = 0x00200000
-	simRelativeTransformValid  uint32 = 0x00400000
-)
-
 type manifoldFunc func(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold
-
-var contactRegistry = [ShapeTypeCount][ShapeTypeCount]contactRegister{
-	CircleShape: {
-		CircleShape:       {fcn: circleManifold, primary: true},
-		CapsuleShape:      {fcn: capsuleAndCircleManifold, primary: false},
-		SegmentShape:      {fcn: segmentAndCircleManifold, primary: false},
-		PolygonShape:      {fcn: polygonAndCircleManifold, primary: false},
-		ChainSegmentShape: {fcn: chainSegmentAndCircleManifold, primary: false},
-	},
-	CapsuleShape: {
-		CircleShape:       {fcn: capsuleAndCircleManifold, primary: true},
-		CapsuleShape:      {fcn: capsuleManifold, primary: true},
-		SegmentShape:      {fcn: segmentAndCapsuleManifold, primary: false},
-		PolygonShape:      {fcn: polygonAndCapsuleManifold, primary: false},
-		ChainSegmentShape: {fcn: chainSegmentAndCapsuleManifold, primary: false},
-	},
-	SegmentShape: {
-		CircleShape:  {fcn: segmentAndCircleManifold, primary: true},
-		CapsuleShape: {fcn: segmentAndCapsuleManifold, primary: true},
-		PolygonShape: {fcn: segmentAndPolygonManifold, primary: true},
-	},
-	PolygonShape: {
-		CircleShape:       {fcn: polygonAndCircleManifold, primary: true},
-		CapsuleShape:      {fcn: polygonAndCapsuleManifold, primary: true},
-		SegmentShape:      {fcn: segmentAndPolygonManifold, primary: false},
-		PolygonShape:      {fcn: polygonManifold, primary: true},
-		ChainSegmentShape: {fcn: chainSegmentAndPolygonManifold, primary: false},
-	},
-	ChainSegmentShape: {
-		CircleShape:  {fcn: chainSegmentAndCircleManifold, primary: true},
-		CapsuleShape: {fcn: chainSegmentAndCapsuleManifold, primary: true},
-		PolygonShape: {fcn: chainSegmentAndPolygonManifold, primary: true},
-	},
-}
 
 func circleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
 	_ = cache
@@ -250,7 +248,7 @@ func chainSegmentAndPolygonManifold(shapeA, shapeB *shape, xf Transform, cache *
 	return CollideChainSegmentAndPolygon(&shapeA.chainSegment, &shapeB.polygon, xf, cache)
 }
 
-func getContactFullId(world *World, contactID Contact) *contact {
+func getContactFullID(world *World, contactID Contact) *contact {
 	id := int(contactID.index1) - 1
 	contact := &world.contacts[id]
 	assert(contact.contactID == id && contact.generation == contactID.generation, "contact.contactID == id && contact.generation == contactID.generation")
@@ -266,7 +264,7 @@ func (c Contact) World() *World {
 // Get the data for a contact. The manifold may have no points if the contact is not touching.
 func (c Contact) Data() ContactData {
 	world := c.world
-	contact := getContactFullId(world, c)
+	contact := getContactFullID(world, c)
 	contactSim := getContactSim(world, contact)
 	shapeA := &world.shapes[contact.shapeIDA]
 	shapeB := &world.shapes[contact.shapeIDB]
@@ -281,6 +279,86 @@ func (c Contact) Data() ContactData {
 
 func canCollide(typeA ShapeType, typeB ShapeType) bool {
 	return contactRegistry[typeA][typeB].fcn != nil
+}
+
+func initializeContactFlags(contact *contact, bodyA, bodyB *body, shapeA, shapeB *shape) {
+	contact.flags = 0
+
+	// Both bodies must enable recycling
+	if (bodyA.flags&bodyEnableContactRecycling) != 0 && (bodyB.flags&bodyEnableContactRecycling) != 0 {
+		contact.flags |= contactRecycleFlag
+	}
+
+	assert(shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex, "shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex")
+
+	if shapeA.enableContactEvents || shapeB.enableContactEvents {
+		contact.flags |= contactEnableContactEvents
+	}
+}
+
+func mixContactMaterials(world *World, contactSim *contactSim, shapeA, shapeB *shape) {
+	if world.frictionCallback == nil {
+		contactSim.friction = mixFriction(shapeA.material.Friction, shapeB.material.Friction)
+	} else {
+		contactSim.friction = world.frictionCallback(shapeA.material.Friction, shapeA.material.UserMaterialID,
+			shapeB.material.Friction, shapeB.material.UserMaterialID)
+	}
+
+	if world.restitutionCallback == nil {
+		contactSim.restitution = mixRestitution(shapeA.material.Restitution, shapeB.material.Restitution)
+	} else {
+		contactSim.restitution = world.restitutionCallback(shapeA.material.Restitution, shapeA.material.UserMaterialID,
+			shapeB.material.Restitution, shapeB.material.UserMaterialID)
+	}
+}
+
+func connectContactToBody(world *World, contact *contact, body *body, bodyID, edgeIndex int) {
+	contact.edges[edgeIndex].bodyID = bodyID
+	contact.edges[edgeIndex].prevKey = nullIndex
+	contact.edges[edgeIndex].nextKey = body.headContactKey
+	key := (contact.contactID << 1) | edgeIndex
+
+	headContactKey := body.headContactKey
+	if headContactKey != nullIndex {
+		headContact := &world.contacts[headContactKey>>1]
+		headContact.edges[headContactKey&1].prevKey = key
+	}
+
+	body.headContactKey = key
+	body.contactCount += 1
+}
+
+func initializeContactSim(world *World, contactSim *contactSim, contact *contact, shapeA, shapeB *shape) {
+	bodyA := &world.bodies[shapeA.bodyID]
+	bodyB := &world.bodies[shapeB.bodyID]
+	shapeIDA := shapeA.id
+	shapeIDB := shapeB.id
+
+	if validationEnabled {
+		contactSim.bodyIDA = shapeA.bodyID
+		contactSim.bodyIDB = shapeB.bodyID
+	}
+
+	contactSim.encodedBodySimA = encodeBodySimIndex(bodyA)
+	contactSim.encodedBodySimB = encodeBodySimIndex(bodyB)
+	contactSim.invMassA = 0.0
+	contactSim.invIA = 0.0
+	contactSim.invMassB = 0.0
+	contactSim.invIB = 0.0
+	contactSim.shapeIDA = shapeIDA
+	contactSim.shapeIDB = shapeIDB
+	contactSim.cache = SimplexCache{}
+	contactSim.manifold = Manifold{}
+
+	// These get updated in the narrow phase, but these are needed for first touch
+	mixContactMaterials(world, contactSim, shapeA, shapeB)
+
+	contactSim.tangentSpeed = 0.0
+	contactSim.simFlags = contact.flags
+
+	if shapeA.enablePreSolveEvents || shapeB.enablePreSolveEvents {
+		contactSim.simFlags |= simEnablePreSolveEvents
+	}
 }
 
 func createContact(world *World, shapeA *shape, shapeB *shape) {
@@ -338,54 +416,12 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	contact.islandIndex = nullIndex
 	contact.shapeIDA = shapeIDA
 	contact.shapeIDB = shapeIDB
-	contact.flags = 0
-
-	// Both bodies must enable recycling
-	if (bodyA.flags&bodyEnableContactRecycling) != 0 && (bodyB.flags&bodyEnableContactRecycling) != 0 {
-		contact.flags |= contactRecycleFlag
-	}
-
-	assert(shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex, "shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex")
-
-	if shapeA.enableContactEvents || shapeB.enableContactEvents {
-		contact.flags |= contactEnableContactEvents
-	}
+	initializeContactFlags(contact, bodyA, bodyB, shapeA, shapeB)
 
 	// Connect to body A
-	{
-		contact.edges[0].bodyID = shapeA.bodyID
-		contact.edges[0].prevKey = nullIndex
-		contact.edges[0].nextKey = bodyA.headContactKey
-
-		keyA := (contactID << 1) | 0
-
-		headContactKey := bodyA.headContactKey
-		if headContactKey != nullIndex {
-			headContact := &world.contacts[headContactKey>>1]
-			headContact.edges[headContactKey&1].prevKey = keyA
-		}
-
-		bodyA.headContactKey = keyA
-		bodyA.contactCount += 1
-	}
-
+	connectContactToBody(world, contact, bodyA, shapeA.bodyID, 0)
 	// Connect to body B
-	{
-		contact.edges[1].bodyID = shapeB.bodyID
-		contact.edges[1].prevKey = nullIndex
-		contact.edges[1].nextKey = bodyB.headContactKey
-
-		keyB := (contactID << 1) | 1
-
-		headContactKey := bodyB.headContactKey
-		if bodyB.headContactKey != nullIndex {
-			headContact := &world.contacts[headContactKey>>1]
-			headContact.edges[headContactKey&1].prevKey = keyB
-		}
-
-		bodyB.headContactKey = keyB
-		bodyB.contactCount += 1
-	}
+	connectContactToBody(world, contact, bodyB, shapeB.bodyID, 1)
 
 	// Add to pair set for fast lookup.
 	pairKey := shapePairKey(shapeIDA, shapeIDB)
@@ -397,43 +433,73 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 
 	set.contactSims, contactSim = arrayEmplace(set.contactSims)
 	contactSim.contactID = contactID
+	initializeContactSim(world, contactSim, contact, shapeA, shapeB)
+}
 
-	if validationEnabled {
-		contactSim.bodyIDA = shapeA.bodyID
-		contactSim.bodyIDB = shapeB.bodyID
+func disconnectContactFromBody(world *World, contact *contact, body *body, edgeIndex int) {
+	edge := &contact.edges[edgeIndex]
+	if edge.prevKey != nullIndex {
+		prevContact := &world.contacts[edge.prevKey>>1]
+		prevEdge := &prevContact.edges[edge.prevKey&1]
+		prevEdge.nextKey = edge.nextKey
 	}
 
-	contactSim.encodedBodySimA = encodeBodySimIndex(bodyA)
-	contactSim.encodedBodySimB = encodeBodySimIndex(bodyB)
-	contactSim.invMassA = 0.0
-	contactSim.invIA = 0.0
-	contactSim.invMassB = 0.0
-	contactSim.invIB = 0.0
-	contactSim.shapeIDA = shapeIDA
-	contactSim.shapeIDB = shapeIDB
-	contactSim.cache = SimplexCache{}
-	contactSim.manifold = Manifold{}
-
-	// These get updated in the narrow phase, but these are needed for first touch
-	if world.frictionCallback == nil {
-		contactSim.friction = mixFriction(shapeA.material.Friction, shapeB.material.Friction)
-	} else {
-		contactSim.friction = world.frictionCallback(shapeA.material.Friction, shapeA.material.UserMaterialID,
-			shapeB.material.Friction, shapeB.material.UserMaterialID)
+	if edge.nextKey != nullIndex {
+		nextContact := &world.contacts[edge.nextKey>>1]
+		nextEdge := &nextContact.edges[edge.nextKey&1]
+		nextEdge.prevKey = edge.prevKey
 	}
 
-	if world.restitutionCallback == nil {
-		contactSim.restitution = mixRestitution(shapeA.material.Restitution, shapeB.material.Restitution)
-	} else {
-		contactSim.restitution = world.restitutionCallback(shapeA.material.Restitution, shapeA.material.UserMaterialID,
-			shapeB.material.Restitution, shapeB.material.UserMaterialID)
+	edgeKey := (contact.contactID << 1) | edgeIndex
+	if body.headContactKey == edgeKey {
+		body.headContactKey = edge.nextKey
 	}
 
-	contactSim.tangentSpeed = 0.0
-	contactSim.simFlags = contact.flags
+	body.contactCount -= 1
+}
 
-	if shapeA.enablePreSolveEvents || shapeB.enablePreSolveEvents {
-		contactSim.simFlags |= simEnablePreSolveEvents
+func warmStartContactManifold(contactSim *contactSim, oldManifold *Manifold, centerOffsetA, centerOffsetB Vec2) {
+	pointCount := contactSim.manifold.PointCount
+	if pointCount > 0 {
+		contactSim.manifold.RollingImpulse = oldManifold.RollingImpulse
+
+		// Match old contact ids to new contact ids and copy the
+		// stored impulses to warm start the solver.
+		unmatchedCount := 0
+
+		for i := range pointCount {
+			mp2 := &contactSim.manifold.Points[i]
+
+			// shift anchors to be center of mass relative
+			mp2.AnchorA = mp2.AnchorA.Sub(centerOffsetA)
+			mp2.AnchorB = mp2.AnchorB.Sub(centerOffsetB)
+
+			mp2.NormalImpulse = 0.0
+			mp2.TangentImpulse = 0.0
+			mp2.TotalNormalImpulse = 0.0
+			mp2.NormalVelocity = 0.0
+			mp2.Persisted = false
+
+			id2 := mp2.ID
+
+			for j := range oldManifold.PointCount {
+				mp1 := &oldManifold.Points[j]
+
+				if mp1.ID == id2 {
+					mp2.NormalImpulse = mp1.NormalImpulse
+					mp2.TangentImpulse = mp1.TangentImpulse
+					mp2.Persisted = true
+
+					break
+				}
+			}
+
+			if !mp2.Persisted {
+				unmatchedCount++
+			}
+		}
+
+		_ = unmatchedCount
 	}
 }
 
@@ -467,47 +533,11 @@ func destroyContact(world *World, contact *contact) {
 		world.contactEndEvents[world.endEventArrayIndex] = arrayPush(world.contactEndEvents[world.endEventArrayIndex], event)
 	}
 
-	// Remove from body A
-	if edgeA.prevKey != nullIndex {
-		prevContact := &world.contacts[edgeA.prevKey>>1]
-		prevEdge := &prevContact.edges[(edgeA.prevKey & 1)]
-		prevEdge.nextKey = edgeA.nextKey
-	}
-
-	if edgeA.nextKey != nullIndex {
-		nextContact := &world.contacts[edgeA.nextKey>>1]
-		nextEdge := &nextContact.edges[(edgeA.nextKey & 1)]
-		nextEdge.prevKey = edgeA.prevKey
-	}
-
 	contactID := contact.contactID
-
-	edgeKeyA := (contactID << 1) | 0
-	if bodyA.headContactKey == edgeKeyA {
-		bodyA.headContactKey = edgeA.nextKey
-	}
-
-	bodyA.contactCount -= 1
-
+	// Remove from body A
+	disconnectContactFromBody(world, contact, bodyA, 0)
 	// Remove from body B
-	if edgeB.prevKey != nullIndex {
-		prevContact := &world.contacts[edgeB.prevKey>>1]
-		prevEdge := &prevContact.edges[(edgeB.prevKey & 1)]
-		prevEdge.nextKey = edgeB.nextKey
-	}
-
-	if edgeB.nextKey != nullIndex {
-		nextContact := &world.contacts[edgeB.nextKey>>1]
-		nextEdge := &nextContact.edges[(edgeB.nextKey & 1)]
-		nextEdge.prevKey = edgeB.prevKey
-	}
-
-	edgeKeyB := (contactID << 1) | 1
-	if bodyB.headContactKey == edgeKeyB {
-		bodyB.headContactKey = edgeB.nextKey
-	}
-
-	bodyB.contactCount -= 1
+	disconnectContactFromBody(world, contact, bodyB, 1)
 
 	// Remove contact from island.
 	if contact.islandID != nullIndex {
@@ -588,19 +618,7 @@ func updateContact(world *World, contactSim *contactSim, shapeA *shape, transfor
 	}
 
 	// Keep these updated in case the values on the shapes are modified
-	if world.frictionCallback == nil {
-		contactSim.friction = mixFriction(shapeA.material.Friction, shapeB.material.Friction)
-	} else {
-		contactSim.friction = world.frictionCallback(shapeA.material.Friction, shapeA.material.UserMaterialID,
-			shapeB.material.Friction, shapeB.material.UserMaterialID)
-	}
-
-	if world.restitutionCallback == nil {
-		contactSim.restitution = mixRestitution(shapeA.material.Restitution, shapeB.material.Restitution)
-	} else {
-		contactSim.restitution = world.restitutionCallback(shapeA.material.Restitution, shapeA.material.UserMaterialID,
-			shapeB.material.Restitution, shapeB.material.UserMaterialID)
-	}
+	mixContactMaterials(world, contactSim, shapeA, shapeB)
 
 	if shapeA.material.RollingResistance > 0.0 || shapeB.material.RollingResistance > 0.0 {
 		radiusA := getShapeRadius(shapeA)
@@ -635,47 +653,7 @@ func updateContact(world *World, contactSim *contactSim, shapeA *shape, transfor
 		contactSim.simFlags &= ^simEnableHitEvent
 	}
 
-	if pointCount > 0 {
-		contactSim.manifold.RollingImpulse = oldManifold.RollingImpulse
-
-		// Match old contact ids to new contact ids and copy the
-		// stored impulses to warm start the solver.
-		unmatchedCount := 0
-
-		for i := range pointCount {
-			mp2 := &contactSim.manifold.Points[i]
-
-			// shift anchors to be center of mass relative
-			mp2.AnchorA = mp2.AnchorA.Sub(centerOffsetA)
-			mp2.AnchorB = mp2.AnchorB.Sub(centerOffsetB)
-
-			mp2.NormalImpulse = 0.0
-			mp2.TangentImpulse = 0.0
-			mp2.TotalNormalImpulse = 0.0
-			mp2.NormalVelocity = 0.0
-			mp2.Persisted = false
-
-			id2 := mp2.ID
-
-			for j := range oldManifold.PointCount {
-				mp1 := &oldManifold.Points[j]
-
-				if mp1.ID == id2 {
-					mp2.NormalImpulse = mp1.NormalImpulse
-					mp2.TangentImpulse = mp1.TangentImpulse
-					mp2.Persisted = true
-
-					break
-				}
-			}
-
-			if !mp2.Persisted {
-				unmatchedCount++
-			}
-		}
-
-		_ = unmatchedCount
-	}
+	warmStartContactManifold(contactSim, &oldManifold, centerOffsetA, centerOffsetB)
 
 	if touching {
 		contactSim.simFlags |= simTouchingFlag

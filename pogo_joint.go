@@ -3,6 +3,8 @@
 
 package box2d
 
+var pogoAxis = Vec2{X: 0.0, Y: 1.0}
+
 type PogoJoint struct {
 	Joint
 }
@@ -32,8 +34,6 @@ type PogoJointDef struct {
 	// Used internally to detect a valid definition. DO NOT SET.
 	internalValue int32
 }
-
-var pogoAxis = Vec2{X: 0.0, Y: 1.0}
 
 // Set the rest length of a pogo joint.
 func (p PogoJoint) SetRestLength(length float32) {
@@ -98,9 +98,9 @@ func (p PogoJoint) Length() float32 {
 	jointSim := getJointSimCheckType(p.Joint, PogoJointType)
 
 	// Relative to body A so the difference stays in float precision far from the origin
-	wxfA := getBodyTransform(world, jointSim.bodyIdA)
+	wxfA := getBodyTransform(world, jointSim.bodyIDA)
 	transformA := wxfA.Relative(wxfA.P)
-	transformB := getBodyTransform(world, jointSim.bodyIdB).Relative(wxfA.P)
+	transformB := getBodyTransform(world, jointSim.bodyIDB).Relative(wxfA.P)
 
 	axis := jointSim.localFrameB.Q.Rotate(pogoAxis)
 	axis = transformB.Q.Rotate(axis)
@@ -135,8 +135,8 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 	world := context.world
 
 	// chase body id to the solver set where the body lives
-	idA := base.bodyIdA
-	idB := base.bodyIdB
+	idA := base.bodyIDA
+	idB := base.bodyIDB
 
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
@@ -321,11 +321,11 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 	joint.impulse = clampFloat(joint.impulse+impulse, -maxTensionImpulse, maxCompressionImpulse)
 	impulse = joint.impulse - oldImpulse
 
-	P := Vec2{X: float32(impulse * joint.normal.X), Y: float32(impulse * joint.normal.Y)}
-	vA = vA.MulSub(mA, P)
-	wA -= float32(iA * rA.Cross(P))
-	vB = vB.MulAdd(mB, P)
-	wB += float32(iB * rB.Cross(P))
+	impulseVector := Vec2{X: float32(impulse * joint.normal.X), Y: float32(impulse * joint.normal.Y)}
+	vA = vA.MulSub(mA, impulseVector)
+	wA -= float32(iA * rA.Cross(impulseVector))
+	vB = vB.MulAdd(mB, impulseVector)
+	wB += float32(iB * rB.Cross(impulseVector))
 
 	if stateA.flags&dynamicFlag != 0 {
 		stateA.linearVelocity = vA

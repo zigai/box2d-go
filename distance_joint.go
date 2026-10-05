@@ -148,9 +148,9 @@ func (d DistanceJoint) CurrentLength() float32 {
 
 	// Relative to body A so the difference stays in float32 precision far from the origin
 	var (
-		wxfA       = getBodyTransform(world, base.bodyIdA)
+		wxfA       = getBodyTransform(world, base.bodyIDA)
 		transformA = wxfA.Relative(wxfA.P)
-		transformB = getBodyTransform(world, base.bodyIdB).Relative(wxfA.P)
+		transformB = getBodyTransform(world, base.bodyIDB).Relative(wxfA.P)
 	)
 
 	var (
@@ -200,11 +200,11 @@ func (d DistanceJoint) SetSpringForceRange(lowerForce float32, upperForce float3
 }
 
 // Get the force range for the spring.
-func (d DistanceJoint) SpringForceRange() (lowerForce float32, upperForce float32) {
+func (d DistanceJoint) SpringForceRange() (float32, float32) {
 	base := getJointSimCheckType(d.Joint, DistanceJointType)
 
-	lowerForce = base.distanceJoint.lowerSpringForce
-	upperForce = base.distanceJoint.upperSpringForce
+	lowerForce := base.distanceJoint.lowerSpringForce
+	upperForce := base.distanceJoint.upperSpringForce
 
 	return lowerForce, upperForce
 }
@@ -345,9 +345,9 @@ func getDistanceJointForce(world *World, base *jointSim) Vec2 {
 	jnt := &base.distanceJoint
 
 	var (
-		worldTransformA = getBodyTransform(world, base.bodyIdA)
+		worldTransformA = getBodyTransform(world, base.bodyIDA)
 		transformA      = worldTransformA.Relative(worldTransformA.P)
-		worldTransformB = getBodyTransform(world, base.bodyIdB)
+		worldTransformB = getBodyTransform(world, base.bodyIDB)
 		transformB      = worldTransformB.Relative(worldTransformA.P)
 	)
 
@@ -367,8 +367,8 @@ func prepareDistanceJoint(base *jointSim, context *stepContext) {
 
 	// chase body id to the solver set where the body lives
 	var (
-		idA = base.bodyIdA
-		idB = base.bodyIdB
+		idA = base.bodyIDA
+		idB = base.bodyIDB
 	)
 
 	var (
@@ -469,20 +469,10 @@ func warmStartDistanceJoint(base *jointSim, context *stepContext) {
 
 	var (
 		jnt    = &base.distanceJoint
-		stateA *bodyState
+		stateA = jointSolverBodyState(context, jnt.indexA, &dummyState)
 	)
-	if jnt.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[jnt.indexA]
-	}
 
-	var stateB *bodyState
-	if jnt.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[jnt.indexB]
-	}
+	stateB := jointSolverBodyState(context, jnt.indexB, &dummyState)
 
 	var (
 		rA = stateA.deltaRotation.Rotate(jnt.anchorA)
@@ -496,18 +486,18 @@ func warmStartDistanceJoint(base *jointSim, context *stepContext) {
 	)
 
 	var (
-		axialImpulse = jnt.impulse + jnt.lowerImpulse - jnt.upperImpulse + jnt.motorImpulse
-		P            = axis.Scale(axialImpulse)
+		axialImpulse  = jnt.impulse + jnt.lowerImpulse - jnt.upperImpulse + jnt.motorImpulse
+		impulseVector = axis.Scale(axialImpulse)
 	)
 
 	if stateA.flags&dynamicFlag != 0 {
-		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, P)
-		stateA.angularVelocity -= float32(iA * rA.Cross(P))
+		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, impulseVector)
+		stateA.angularVelocity -= float32(iA * rA.Cross(impulseVector))
 	}
 
 	if stateB.flags&dynamicFlag != 0 {
-		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, P)
-		stateB.angularVelocity += float32(iB * rB.Cross(P))
+		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, impulseVector)
+		stateB.angularVelocity += float32(iB * rB.Cross(impulseVector))
 	}
 }
 
@@ -526,20 +516,10 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 
 	var (
 		jnt    = &base.distanceJoint
-		stateA *bodyState
+		stateA = jointSolverBodyState(context, jnt.indexA, &dummyState)
 	)
-	if jnt.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[jnt.indexA]
-	}
 
-	var stateB *bodyState
-	if jnt.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[jnt.indexB]
-	}
+	stateB := jointSolverBodyState(context, jnt.indexB, &dummyState)
 
 	var (
 		vA = stateA.linearVelocity
@@ -590,32 +570,32 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 			jnt.impulse = clampFloat(jnt.impulse+impulse, float32(jnt.lowerSpringForce*h), float32(jnt.upperSpringForce*h))
 			impulse = jnt.impulse - oldImpulse
 
-			P := axis.Scale(impulse)
+			impulseVector := axis.Scale(impulse)
 
-			vA = vA.MulSub(mA, P)
-			wA -= float32(iA * rA.Cross(P))
-			vB = vB.MulAdd(mB, P)
-			wB += float32(iB * rB.Cross(P))
+			vA = vA.MulSub(mA, impulseVector)
+			wA -= float32(iA * rA.Cross(impulseVector))
+			vB = vB.MulAdd(mB, impulseVector)
+			wB += float32(iB * rB.Cross(impulseVector))
 		}
 
 		if jnt.enableMotor {
 			var (
-				vr         = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
-				Cdot       = axis.Dot(vr)
-				impulse    = float32(jnt.axialMass * (jnt.motorSpeed - Cdot))
-				oldImpulse = jnt.motorImpulse
-				maxImpulse = float32(context.h * jnt.maxMotorForce)
+				vr            = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
+				velocityError = axis.Dot(vr)
+				impulse       = float32(jnt.axialMass * (jnt.motorSpeed - velocityError))
+				oldImpulse    = jnt.motorImpulse
+				maxImpulse    = float32(context.h * jnt.maxMotorForce)
 			)
 
 			jnt.motorImpulse = clampFloat(jnt.motorImpulse+impulse, -maxImpulse, maxImpulse)
 			impulse = jnt.motorImpulse - oldImpulse
 
-			P := axis.Scale(impulse)
+			impulseVector := axis.Scale(impulse)
 
-			vA = vA.MulSub(mA, P)
-			wA -= float32(iA * rA.Cross(P))
-			vB = vB.MulAdd(mB, P)
-			wB += float32(iB * rB.Cross(P))
+			vA = vA.MulSub(mA, impulseVector)
+			wA -= float32(iA * rA.Cross(impulseVector))
+			vB = vB.MulAdd(mB, impulseVector)
+			wB += float32(iB * rB.Cross(impulseVector))
 		}
 
 		if jnt.enableLimit {
@@ -628,20 +608,7 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 
 				c := length - jnt.minLength
 
-				var (
-					bias         float32 = 0.0
-					massScale    float32 = 1.0
-					impulseScale float32 = 0.0
-				)
-
-				if c > 0.0 {
-					// speculative
-					bias = float32(c * context.invH)
-				} else if useBias {
-					bias = float32(base.constraintSoftness.biasRate * c)
-					massScale = base.constraintSoftness.massScale
-					impulseScale = base.constraintSoftness.impulseScale
-				}
+				bias, massScale, impulseScale := jointLimitBias(c, context.invH, useBias, base.constraintSoftness)
 
 				var (
 					impulse    = float32(float32(-massScale*jnt.axialMass)*(cdot+bias)) - float32(impulseScale*jnt.lowerImpulse)
@@ -651,62 +618,49 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 				impulse = newImpulse - jnt.lowerImpulse
 				jnt.lowerImpulse = newImpulse
 
-				P := axis.Scale(impulse)
+				impulseVector := axis.Scale(impulse)
 
-				vA = vA.MulSub(mA, P)
-				wA -= float32(iA * rA.Cross(P))
-				vB = vB.MulAdd(mB, P)
-				wB += float32(iB * rB.Cross(P))
+				vA = vA.MulSub(mA, impulseVector)
+				wA -= float32(iA * rA.Cross(impulseVector))
+				vB = vB.MulAdd(mB, impulseVector)
+				wB += float32(iB * rB.Cross(impulseVector))
 			}
 
 			// upper
 			{
 				var (
-					vr   = vA.Sub(vB).Add(rA.ScalarCross(wA).Sub(rB.ScalarCross(wB)))
-					Cdot = axis.Dot(vr)
+					vr            = vA.Sub(vB).Add(rA.ScalarCross(wA).Sub(rB.ScalarCross(wB)))
+					velocityError = axis.Dot(vr)
 				)
 
-				C := jnt.maxLength - length
+				separation := jnt.maxLength - length
+
+				bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
 
 				var (
-					bias         float32 = 0.0
-					massScale    float32 = 1.0
-					impulseScale float32 = 0.0
-				)
-
-				if C > 0.0 {
-					// speculative
-					bias = float32(C * context.invH)
-				} else if useBias {
-					bias = float32(base.constraintSoftness.biasRate * C)
-					massScale = base.constraintSoftness.massScale
-					impulseScale = base.constraintSoftness.impulseScale
-				}
-
-				var (
-					impulse    = float32(float32(-massScale*jnt.axialMass)*(Cdot+bias)) - float32(impulseScale*jnt.upperImpulse)
+					impulse    = float32(float32(-massScale*jnt.axialMass)*(velocityError+bias)) - float32(impulseScale*jnt.upperImpulse)
 					newImpulse = maxFloat(0.0, jnt.upperImpulse+impulse)
 				)
 
 				impulse = newImpulse - jnt.upperImpulse
 				jnt.upperImpulse = newImpulse
 
-				P := axis.Scale(-impulse)
+				impulseVector := axis.Scale(-impulse)
 
-				vA = vA.MulSub(mA, P)
-				wA -= float32(iA * rA.Cross(P))
-				vB = vB.MulAdd(mB, P)
-				wB += float32(iB * rB.Cross(P))
+				vA = vA.MulSub(mA, impulseVector)
+				wA -= float32(iA * rA.Cross(impulseVector))
+				vB = vB.MulAdd(mB, impulseVector)
+				wB += float32(iB * rB.Cross(impulseVector))
 			}
 		}
 	} else {
 		// rigid constraint
 		var (
-			vr   = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
-			Cdot = axis.Dot(vr)
+			vr            = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
+			velocityError = axis.Dot(vr)
 		)
 
-		C := length - jnt.length
+		separation := length - jnt.length
 
 		var (
 			bias         float32 = 0.0
@@ -715,21 +669,21 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 		)
 
 		if useBias {
-			bias = float32(base.constraintSoftness.biasRate * C)
+			bias = float32(base.constraintSoftness.biasRate * separation)
 			massScale = base.constraintSoftness.massScale
 			impulseScale = base.constraintSoftness.impulseScale
 		}
 
-		impulse := float32(float32(-massScale*jnt.axialMass)*(Cdot+bias)) - float32(impulseScale*jnt.impulse)
+		impulse := float32(float32(-massScale*jnt.axialMass)*(velocityError+bias)) - float32(impulseScale*jnt.impulse)
 
 		jnt.impulse += impulse
 
-		P := axis.Scale(impulse)
+		impulseVector := axis.Scale(impulse)
 
-		vA = vA.MulSub(mA, P)
-		wA -= float32(iA * rA.Cross(P))
-		vB = vB.MulAdd(mB, P)
-		wB += float32(iB * rB.Cross(P))
+		vA = vA.MulSub(mA, impulseVector)
+		wA -= float32(iA * rA.Cross(impulseVector))
+		vB = vB.MulAdd(mB, impulseVector)
+		wB += float32(iB * rB.Cross(impulseVector))
 	}
 
 	if stateA.flags&dynamicFlag != 0 {
@@ -783,4 +737,17 @@ func drawDistanceJoint(draw *DebugDraw, base *jointSim, transformA WorldTransfor
 		pRest := pA.Add(axis.Scale(jnt.length))
 		draw.DrawPoint(pRest, 4.0, ColorBlue)
 	}
+}
+
+func jointLimitBias(separation, invH float32, useBias bool, constraintSoftness softness) (float32, float32, float32) {
+	if separation > 0.0 {
+		// speculative
+		return float32(separation * invH), 1.0, 0.0
+	}
+
+	if useBias {
+		return float32(constraintSoftness.biasRate * separation), constraintSoftness.massScale, constraintSoftness.impulseScale
+	}
+
+	return 0.0, 1.0, 0.0
 }

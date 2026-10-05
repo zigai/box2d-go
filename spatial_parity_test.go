@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d
 
 import (
@@ -17,6 +18,36 @@ func spatialBox(r *oracle.Reader, key string, a AABB) {
 func spatialStats(r *oracle.Reader, s TreeStats) {
 	r.I32("nodes", int32(s.NodeVisits))
 	r.I32("leaves", int32(s.LeafVisits))
+}
+
+func observeTreeQuery(r *oracle.Reader, tree *DynamicTree, a AABB, mask uint64, all, stop bool) {
+	type hit struct {
+		id   int
+		data uint64
+	}
+
+	var hits []hit
+
+	callback := func(id int, data uint64) bool { hits = append(hits, hit{id, data}); return !stop }
+
+	var s TreeStats
+	if all {
+		s = tree.QueryAll(a, callback)
+	} else {
+		s = tree.Query(a, mask, callback)
+	}
+
+	if !stop {
+		slices.SortStableFunc(hits, func(a, b hit) int { return a.id - b.id })
+	}
+
+	spatialStats(r, s)
+	r.I32("count", int32(len(hits)))
+
+	for _, h := range hits {
+		r.I32("id", int32(h.id))
+		r.U64("data", h.data)
+	}
 }
 
 func TestPublicTreeHistory(t *testing.T) {
@@ -47,33 +78,7 @@ func TestPublicTreeHistory(t *testing.T) {
 		masks := []uint64{math.MaxUint64, 1, 2, 1 << 63}
 
 		query := func(a AABB, mask uint64, all, stop bool) {
-			type hit struct {
-				id   int
-				data uint64
-			}
-
-			var hits []hit
-
-			callback := func(id int, data uint64) bool { hits = append(hits, hit{id, data}); return !stop }
-
-			var s TreeStats
-			if all {
-				s = tree.QueryAll(a, callback)
-			} else {
-				s = tree.Query(a, mask, callback)
-			}
-
-			if !stop {
-				slices.SortStableFunc(hits, func(a, b hit) int { return a.id - b.id })
-			}
-
-			spatialStats(r, s)
-			r.I32("count", int32(len(hits)))
-
-			for _, h := range hits {
-				r.I32("id", int32(h.id))
-				r.U64("data", h.data)
-			}
+			observeTreeQuery(r, &tree, a, mask, all, stop)
 		}
 		for _, a := range queries {
 			for _, mask := range masks {
@@ -261,6 +266,200 @@ func spatialInspect(r *oracle.Reader, w *World) {
 	spatialBox(r, "bounds", w.Bounds())
 }
 
+func populateSpatialWorld(r *oracle.Reader, w *World, base Pos, bodies *[5]Body, shapes *[8]Shape) {
+	for i := range 5 {
+		bd := DefaultBodyDef()
+
+		bd.Position = base.Add(Vec2{3 * float32(i), 0})
+		if i < 3 {
+			bd.Type = BodyType(i)
+		}
+
+		bodies[i] = w.CreateBody(&bd)
+		sd := DefaultShapeDef()
+		sd.Filter.CategoryBits = uint64(1) << i
+
+		sd.Filter.MaskBits = 1
+		if i%2 != 0 {
+			sd.Filter.MaskBits = 2
+		}
+
+		switch i {
+		case 0:
+			c := Circle{Vec2{}, .75}
+			shapes[i] = bodies[i].CreateCircleShape(&sd, &c)
+		case 1:
+			c := Capsule{Vec2{0, -.5}, Vec2{0, .5}, .5}
+			shapes[i] = bodies[i].CreateCapsuleShape(&sd, &c)
+		case 2:
+			p := MakeBox(.5, .75)
+			shapes[i] = bodies[i].CreatePolygonShape(&sd, &p)
+		case 3:
+			s := Segment{Vec2{0, 1}, Vec2{0, -1}}
+			shapes[i] = bodies[i].CreateSegmentShape(&sd, &s)
+		case 4:
+			cd := DefaultChainDef()
+			cd.Points = []Vec2{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}
+			cd.IsLoop = true
+			cd.Filter = sd.Filter
+			chain := bodies[i].CreateChain(&cd)
+
+			count := 0
+			for segment := range chain.Segments() {
+				shapes[4+count] = segment
+				count++
+			}
+
+			r.I32("segments", int32(count))
+		}
+	}
+}
+
+func observeFilteredSpatialCasts(r *oracle.Reader, w *World, base Pos, filter QueryFilter, proxy *ShapeProxy) {
+	var h spatialHits
+
+	for start := range 3 {
+		offset := Vec2{}
+		if start == 0 {
+			offset.X = -2
+		}
+
+		if start == 2 {
+			offset.Y = 4
+		}
+
+		origin := base.Add(offset)
+
+		for policy := range 4 {
+			h = spatialHits{world: w, policy: policy}
+			spatialStats(r, w.CastRay(origin, Vec2{18, 0}, filter, h.cast))
+			h.observe(r, 1)
+			h = spatialHits{world: w, policy: policy}
+			spatialStats(r, w.CastShape(origin, proxy, Vec2{18, 0}, filter, h.cast))
+			h.observe(r, 1)
+		}
+
+		rr := w.CastRayClosest(origin, Vec2{18, 0}, filter)
+		r.Bool("closest/hit", rr.Hit)
+		spatialStats(r, TreeStats{rr.NodeVisits, rr.LeafVisits})
+
+		if rr.Hit {
+			spatialIdentity(r, rr.Shape, w)
+			r.Pos("point", rr.Point.X, rr.Point.Y)
+			r.Vec2("normal", rr.Normal.X, rr.Normal.Y)
+			r.F32("fraction", rr.Fraction)
+		}
+	}
+}
+
+func observeFilteredSpatialQueries(r *oracle.Reader, w *World, base Pos, all QueryFilter, proxy *ShapeProxy) {
+	var h spatialHits
+
+	for _, filter := range []QueryFilter{all, {1, 31}, {2, 31}, {1, 2}} {
+		for stop := range 2 {
+			policy := 0
+			if stop != 0 {
+				policy = 2
+			}
+
+			h = spatialHits{world: w, policy: policy}
+			spatialStats(r, w.OverlapAABB(base, AABB{Vec2{-2, -2}, Vec2{16, 2}}, filter, h.overlap))
+			h.observe(r, 0)
+		}
+
+		for i := range 5 {
+			origin := base.Add(Vec2{3 * float32(i), 0})
+			h = spatialHits{world: w}
+			spatialStats(r, w.OverlapShape(origin, proxy, filter, h.overlap))
+			h.observe(r, 0)
+		}
+
+		observeFilteredSpatialCasts(r, w, base, filter, proxy)
+	}
+}
+
+func observeShapeSpatialQueries(r *oracle.Reader, w *World, base Pos, shapes *[8]Shape) {
+	for i := range 8 {
+		x := 3 * float32(min(i, 4))
+		spatialIdentity(r, shapes[i], w)
+		r.Bool("inside", shapes[i].TestPoint(base.Add(Vec2{x, 0})))
+		r.Bool("outside", shapes[i].TestPoint(base.Add(Vec2{x, 4})))
+		origins := []Vec2{{x - 2, 0}, {x + 2, 0}, {x, -2}, {x, 2}}
+
+		translations := []Vec2{{4, 0}, {-4, 0}, {0, 4}, {0, -4}}
+		for direction := range 4 {
+			out := shapes[i].RayCast(base.Add(origins[direction]), translations[direction])
+			r.Bool("local/hit", out.Hit)
+
+			if out.Hit {
+				r.Pos("point", out.Point.X, out.Point.Y)
+				r.Vec2("normal", out.Normal.X, out.Normal.Y)
+				r.F32("fraction", out.Fraction)
+				r.I32("iterations", int32(out.Iterations))
+			}
+		}
+	}
+}
+
+func observeMoverSpatialQueries(r *oracle.Reader, w *World, base Pos, all QueryFilter) {
+	var h spatialHits
+
+	for i := range 5 {
+		mover := Capsule{Vec2{0, -.25}, Vec2{0, .25}, .4}
+		origin := base.Add(Vec2{float32(3*float32(i)) + .7, 0})
+
+		for stop := range 2 {
+			policy := 0
+			if stop != 0 {
+				policy = 2
+			}
+
+			h = spatialHits{world: w, policy: policy}
+			w.CollideMover(origin, &mover, all, h.plane)
+			h.observe(r, 2)
+		}
+
+		h = spatialHits{world: w}
+		w.CollideMover(origin, &mover, all, h.plane)
+		slices.SortStableFunc(h.hits, func(a, b spatialHit) int { return int(a.id.index1 - b.id.index1) })
+		observeSpatialPlaneLimits(r, h.hits, Vec2{-1, .2}, Vec2{-2, .3})
+
+		r.F32("mover/fraction", w.CastMover(base.Add(Vec2{float32(3*float32(i)) - 2, 0}), &mover, Vec2{4, 0}, all))
+	}
+}
+
+func observeSpatialPlaneLimits(r *oracle.Reader, hits []spatialHit, translation, velocity Vec2) {
+	for limit := range 3 {
+		pushLimit := float32(math.MaxFloat32)
+		if limit == 0 {
+			pushLimit = 0
+		}
+
+		if limit == 1 {
+			pushLimit = .1
+		}
+
+		var planes []CollisionPlane
+
+		for _, hit := range hits {
+			if hit.plane.Hit {
+				planes = append(planes, CollisionPlane{Plane: hit.plane.Plane, PushLimit: pushLimit, ClipVelocity: limit != 1})
+			}
+		}
+
+		result := SolvePlanes(translation, planes)
+		r.Vec2("delta", result.Delta.X, result.Delta.Y)
+		r.I32("iterations", int32(result.IterationCount))
+
+		for _, p := range planes {
+			r.F32("push", p.Push)
+		}
+
+		clip := ClipVector(velocity, planes)
+		r.Vec2("clip", clip.X, clip.Y)
+	}
+}
+
 func TestWorldSpatialParity(t *testing.T) {
 	frames := []struct {
 		name string
@@ -304,180 +503,15 @@ func TestWorldSpatialParity(t *testing.T) {
 				shapes [8]Shape
 			)
 
-			for i := range 5 {
-				bd := DefaultBodyDef()
-
-				bd.Position = base.Add(Vec2{3 * float32(i), 0})
-				if i < 3 {
-					bd.Type = BodyType(i)
-				}
-
-				bodies[i] = w.CreateBody(&bd)
-				sd := DefaultShapeDef()
-				sd.Filter.CategoryBits = uint64(1) << i
-
-				sd.Filter.MaskBits = 1
-				if i%2 != 0 {
-					sd.Filter.MaskBits = 2
-				}
-
-				switch i {
-				case 0:
-					c := Circle{Vec2{}, .75}
-					shapes[i] = bodies[i].CreateCircleShape(&sd, &c)
-				case 1:
-					c := Capsule{Vec2{0, -.5}, Vec2{0, .5}, .5}
-					shapes[i] = bodies[i].CreateCapsuleShape(&sd, &c)
-				case 2:
-					p := MakeBox(.5, .75)
-					shapes[i] = bodies[i].CreatePolygonShape(&sd, &p)
-				case 3:
-					s := Segment{Vec2{0, 1}, Vec2{0, -1}}
-					shapes[i] = bodies[i].CreateSegmentShape(&sd, &s)
-				case 4:
-					cd := DefaultChainDef()
-					cd.Points = []Vec2{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}
-					cd.IsLoop = true
-					cd.Filter = sd.Filter
-					chain := bodies[i].CreateChain(&cd)
-
-					count := 0
-					for segment := range chain.Segments() {
-						shapes[4+count] = segment
-						count++
-					}
-
-					r.I32("segments", int32(count))
-				}
-			}
+			populateSpatialWorld(r, w, base, &bodies, &shapes)
 
 			spatialInspect(r, w)
 
-			for _, filter := range []QueryFilter{all, {1, 31}, {2, 31}, {1, 2}} {
-				for stop := range 2 {
-					policy := 0
-					if stop != 0 {
-						policy = 2
-					}
+			observeFilteredSpatialQueries(r, w, base, all, &proxy)
 
-					h = spatialHits{world: w, policy: policy}
-					spatialStats(r, w.OverlapAABB(base, AABB{Vec2{-2, -2}, Vec2{16, 2}}, filter, h.overlap))
-					h.observe(r, 0)
-				}
+			observeShapeSpatialQueries(r, w, base, &shapes)
 
-				for i := range 5 {
-					origin := base.Add(Vec2{3 * float32(i), 0})
-					h = spatialHits{world: w}
-					spatialStats(r, w.OverlapShape(origin, &proxy, filter, h.overlap))
-					h.observe(r, 0)
-				}
-
-				for start := range 3 {
-					offset := Vec2{}
-					if start == 0 {
-						offset.X = -2
-					}
-
-					if start == 2 {
-						offset.Y = 4
-					}
-
-					origin := base.Add(offset)
-
-					for policy := range 4 {
-						h = spatialHits{world: w, policy: policy}
-						spatialStats(r, w.CastRay(origin, Vec2{18, 0}, filter, h.cast))
-						h.observe(r, 1)
-						h = spatialHits{world: w, policy: policy}
-						spatialStats(r, w.CastShape(origin, &proxy, Vec2{18, 0}, filter, h.cast))
-						h.observe(r, 1)
-					}
-
-					rr := w.CastRayClosest(origin, Vec2{18, 0}, filter)
-					r.Bool("closest/hit", rr.Hit)
-					spatialStats(r, TreeStats{rr.NodeVisits, rr.LeafVisits})
-
-					if rr.Hit {
-						spatialIdentity(r, rr.Shape, w)
-						r.Pos("point", rr.Point.X, rr.Point.Y)
-						r.Vec2("normal", rr.Normal.X, rr.Normal.Y)
-						r.F32("fraction", rr.Fraction)
-					}
-				}
-			}
-
-			for i := range 8 {
-				x := 3 * float32(min(i, 4))
-				spatialIdentity(r, shapes[i], w)
-				r.Bool("inside", shapes[i].TestPoint(base.Add(Vec2{x, 0})))
-				r.Bool("outside", shapes[i].TestPoint(base.Add(Vec2{x, 4})))
-				origins := []Vec2{{x - 2, 0}, {x + 2, 0}, {x, -2}, {x, 2}}
-
-				translations := []Vec2{{4, 0}, {-4, 0}, {0, 4}, {0, -4}}
-				for direction := range 4 {
-					out := shapes[i].RayCast(base.Add(origins[direction]), translations[direction])
-					r.Bool("local/hit", out.Hit)
-
-					if out.Hit {
-						r.Pos("point", out.Point.X, out.Point.Y)
-						r.Vec2("normal", out.Normal.X, out.Normal.Y)
-						r.F32("fraction", out.Fraction)
-						r.I32("iterations", int32(out.Iterations))
-					}
-				}
-			}
-
-			for i := range 5 {
-				mover := Capsule{Vec2{0, -.25}, Vec2{0, .25}, .4}
-				origin := base.Add(Vec2{float32(3*float32(i)) + .7, 0})
-
-				for stop := range 2 {
-					policy := 0
-					if stop != 0 {
-						policy = 2
-					}
-
-					h = spatialHits{world: w, policy: policy}
-					w.CollideMover(origin, &mover, all, h.plane)
-					h.observe(r, 2)
-				}
-
-				h = spatialHits{world: w}
-				w.CollideMover(origin, &mover, all, h.plane)
-				slices.SortStableFunc(h.hits, func(a, b spatialHit) int { return int(a.id.index1 - b.id.index1) })
-
-				for limit := range 3 {
-					pushLimit := float32(math.MaxFloat32)
-					if limit == 0 {
-						pushLimit = 0
-					}
-
-					if limit == 1 {
-						pushLimit = .1
-					}
-
-					var planes []CollisionPlane
-
-					for _, hit := range h.hits {
-						if hit.plane.Hit {
-							planes = append(planes, CollisionPlane{Plane: hit.plane.Plane, PushLimit: pushLimit, ClipVelocity: limit != 1})
-						}
-					}
-
-					result := SolvePlanes(Vec2{-1, .2}, planes)
-					r.Vec2("delta", result.Delta.X, result.Delta.Y)
-					r.I32("iterations", int32(result.IterationCount))
-
-					for _, p := range planes {
-						r.F32("push", p.Push)
-					}
-
-					clip := ClipVector(Vec2{-2, .3}, planes)
-					r.Vec2("clip", clip.X, clip.Y)
-				}
-
-				r.F32("mover/fraction", w.CastMover(base.Add(Vec2{float32(3*float32(i)) - 2, 0}), &mover, Vec2{4, 0}, all))
-			}
+			observeMoverSpatialQueries(r, w, base, all)
 
 			bodies[2].SetTransform(base.Add(Vec2{6, 2}), MakeRot(.25))
 			spatialInspect(r, w)
@@ -490,6 +524,65 @@ func TestWorldSpatialParity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func observeMoverPlaneScenario(t *testing.T, r *oracle.Reader, base Pos, scenario int) {
+	t.Helper()
+
+	wd := DefaultWorldDef()
+	wd.Gravity = Vec2{}
+	wd.WorkerCount = 1
+	w := NewWorld(&wd)
+	BTWorldCleanup(t, w)
+
+	filter := QueryFilter{2, 1 << 63}
+
+	if scenario != 0 {
+		bd := DefaultBodyDef()
+		bd.Position = base
+		body := w.CreateBody(&bd)
+		sd := DefaultShapeDef()
+		sd.Filter.CategoryBits = 1 << 63
+		sd.Filter.MaskBits = 2
+
+		wall := MakeOffsetBox(.5, 3, Vec2{1, 0}, RotIdentity)
+		if scenario == 4 {
+			wall = MakeOffsetBox(3, .5, Vec2{0, -1}, MakeRot(.25))
+		}
+
+		body.CreatePolygonShape(&sd, &wall)
+
+		if scenario == 3 {
+			floor := MakeOffsetBox(3, .5, Vec2{0, -1}, RotIdentity)
+			body.CreatePolygonShape(&sd, &floor)
+		}
+	}
+
+	mover := Capsule{Vec2{0, -.25}, Vec2{0, .25}, .5}
+
+	offset := Vec2{}
+	if scenario == 2 {
+		offset.X = .3
+	}
+
+	if scenario == 5 {
+		offset.X = -.5
+	}
+
+	if scenario == 3 {
+		offset.Y = -.25
+	}
+
+	origin := base.Add(offset)
+	h := spatialHits{world: w}
+	w.CollideMover(origin, &mover, filter, h.plane)
+	h.observe(r, 2)
+
+	observeSpatialPlaneLimits(r, h.hits, Vec2{1, -1}, Vec2{2, -3})
+
+	r.F32("cast", w.CastMover(origin, &mover, Vec2{2, -1}, filter))
+	r.F32("filteredCast", w.CastMover(origin, &mover, Vec2{2, -1}, QueryFilter{1, 1 << 63}))
+	w.Close()
 }
 
 func TestWorldMoverPlanesResolveAndClip(t *testing.T) {
@@ -510,88 +603,7 @@ func TestWorldMoverPlanesResolveAndClip(t *testing.T) {
 			base := frame.base
 
 			for scenario := range 6 {
-				wd := DefaultWorldDef()
-				wd.Gravity = Vec2{}
-				wd.WorkerCount = 1
-				w := NewWorld(&wd)
-				BTWorldCleanup(t, w)
-
-				filter := QueryFilter{2, 1 << 63}
-
-				if scenario != 0 {
-					bd := DefaultBodyDef()
-					bd.Position = base
-					body := w.CreateBody(&bd)
-					sd := DefaultShapeDef()
-					sd.Filter.CategoryBits = 1 << 63
-					sd.Filter.MaskBits = 2
-
-					wall := MakeOffsetBox(.5, 3, Vec2{1, 0}, RotIdentity)
-					if scenario == 4 {
-						wall = MakeOffsetBox(3, .5, Vec2{0, -1}, MakeRot(.25))
-					}
-
-					body.CreatePolygonShape(&sd, &wall)
-
-					if scenario == 3 {
-						floor := MakeOffsetBox(3, .5, Vec2{0, -1}, RotIdentity)
-						body.CreatePolygonShape(&sd, &floor)
-					}
-				}
-
-				mover := Capsule{Vec2{0, -.25}, Vec2{0, .25}, .5}
-
-				offset := Vec2{}
-				if scenario == 2 {
-					offset.X = .3
-				}
-
-				if scenario == 5 {
-					offset.X = -.5
-				}
-
-				if scenario == 3 {
-					offset.Y = -.25
-				}
-
-				origin := base.Add(offset)
-				h := spatialHits{world: w}
-				w.CollideMover(origin, &mover, filter, h.plane)
-				h.observe(r, 2)
-
-				for limit := range 3 {
-					pushLimit := float32(math.MaxFloat32)
-					if limit == 0 {
-						pushLimit = 0
-					}
-
-					if limit == 1 {
-						pushLimit = .1
-					}
-
-					var planes []CollisionPlane
-
-					for _, hit := range h.hits {
-						if hit.plane.Hit {
-							planes = append(planes, CollisionPlane{Plane: hit.plane.Plane, PushLimit: pushLimit, ClipVelocity: limit != 1})
-						}
-					}
-
-					result := SolvePlanes(Vec2{1, -1}, planes)
-					r.Vec2("delta", result.Delta.X, result.Delta.Y)
-					r.I32("iterations", int32(result.IterationCount))
-
-					for _, p := range planes {
-						r.F32("push", p.Push)
-					}
-
-					clip := ClipVector(Vec2{2, -3}, planes)
-					r.Vec2("clip", clip.X, clip.Y)
-				}
-
-				r.F32("cast", w.CastMover(origin, &mover, Vec2{2, -1}, filter))
-				r.F32("filteredCast", w.CastMover(origin, &mover, Vec2{2, -1}, QueryFilter{1, 1 << 63}))
-				w.Close()
+				observeMoverPlaneScenario(t, r, base, scenario)
 			}
 		})
 	}

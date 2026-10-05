@@ -1,5 +1,8 @@
+//go:build box2d_stress
+
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
+
 package scenes
 
 import (
@@ -67,6 +70,8 @@ func observeHumanHelper(r *oracle.Reader, h *Human, op int) {
 						r.Vec2(key("vertex"), p.Vertices[v].X, p.Vertices[v].Y)
 						r.Vec2(key("normal"), p.Normals[v].X, p.Normals[v].Y)
 					}
+				case box2d.CircleShape, box2d.SegmentShape, box2d.ChainSegmentShape, box2d.ShapeTypeCount:
+					// Human fixtures contain only capsules and polygons.
 				}
 			}
 		}

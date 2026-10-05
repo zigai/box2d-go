@@ -158,7 +158,7 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 		for i := range len(smallIsland.joints) {
 			link := &smallIsland.joints[i]
 			joint := &world.joints[link.jointID]
-			joint.islandId = bigIslandID
+			joint.islandID = bigIslandID
 			joint.islandIndex = len(bigIsland.joints)
 			bigIsland.joints = arrayPush(bigIsland.joints, *link)
 		}
@@ -260,27 +260,27 @@ func unlinkContact(world *World, contact *contact) {
 }
 
 func addJointToIsland(world *World, islandID int, joint *joint) {
-	assert(joint.islandId == nullIndex, "joint->islandId == B2_NULL_INDEX")
+	assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
 	assert(joint.islandIndex == nullIndex, "joint->islandIndex == B2_NULL_INDEX")
 
 	island := &world.islands[islandID]
 
-	joint.islandId = islandID
+	joint.islandID = islandID
 	joint.islandIndex = len(island.joints)
 
 	var link jointLink
 
-	link.jointID = joint.jointId
-	link.bodyIDA = joint.edges[0].bodyId
-	link.bodyIDB = joint.edges[1].bodyId
+	link.jointID = joint.jointID
+	link.bodyIDA = joint.edges[0].bodyID
+	link.bodyIDB = joint.edges[1].bodyID
 	island.joints = arrayPush(island.joints, link)
 
 	validateIsland(world, islandID)
 }
 
 func linkJoint(world *World, joint *joint) {
-	bodyA := &world.bodies[joint.edges[0].bodyId]
-	bodyB := &world.bodies[joint.edges[1].bodyId]
+	bodyA := &world.bodies[joint.edges[0].bodyID]
+	bodyB := &world.bodies[joint.edges[1].bodyID]
 
 	assert(bodyA.bodyType == DynamicBody || bodyB.bodyType == DynamicBody, "bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody")
 
@@ -303,17 +303,17 @@ func linkJoint(world *World, joint *joint) {
 }
 
 func unlinkJoint(world *World, joint *joint) {
-	if joint.islandId == nullIndex {
+	if joint.islandID == nullIndex {
 		return
 	}
 
 	// remove from island
-	islandID := joint.islandId
+	islandID := joint.islandID
 	island := &world.islands[islandID]
 
 	removeIndex := joint.islandIndex
 	assert(0 <= removeIndex && removeIndex < len(island.joints), "0 <= removeIndex && removeIndex < island->joints.count")
-	assert(island.joints[removeIndex].jointID == joint.jointId, "island->joints.data[removeIndex].jointId == joint->jointId")
+	assert(island.joints[removeIndex].jointID == joint.jointID, "island->joints.data[removeIndex].jointId == joint->jointId")
 
 	var movedIndex int
 
@@ -326,7 +326,7 @@ func unlinkJoint(world *World, joint *joint) {
 		movedJoint.islandIndex = removeIndex
 	}
 
-	joint.islandId = nullIndex
+	joint.islandID = nullIndex
 	joint.islandIndex = nullIndex
 	island.constraintRemoveCount += 1
 
@@ -349,15 +349,16 @@ func islandUnion(parents []int, ranks []int, node1 int, node2 int, contactCounts
 
 	root2 := islandFindParent(parents, node2)
 	if root1 != root2 {
-		if ranks[root1] < ranks[root2] {
+		switch {
+		case ranks[root1] < ranks[root2]:
 			parents[root1] = root2
 			contactCounts[root2] += contactCounts[root1]
 			jointCounts[root2] += jointCounts[root1]
-		} else if ranks[root1] > ranks[root2] {
+		case ranks[root1] > ranks[root2]:
 			parents[root2] = root1
 			contactCounts[root1] += contactCounts[root2]
 			jointCounts[root1] += jointCounts[root2]
-		} else {
+		default:
 			parents[root2] = root1
 			ranks[root1] += 1
 			contactCounts[root1] += contactCounts[root2]
@@ -396,36 +397,13 @@ func splitIsland(world *World, baseID int) {
 		jointCounts[i] = 0
 	}
 
-	bodies := world.bodies
-
 	// Union over contacts, tracking per-component contact counts
 	for i := range baseContactCount {
 		bodyIDA := baseContacts[i].bodyIDA
 		bodyIDB := baseContacts[i].bodyIDB
 
-		validate(0 <= bodyIDA && bodyIDA < len(world.bodies), "0 <= bodyIdA && bodyIdA < world->bodies.count")
-		validate(0 <= bodyIDB && bodyIDB < len(world.bodies), "0 <= bodyIdB && bodyIdB < world->bodies.count")
-		bodyA := &bodies[bodyIDA]
-		bodyB := &bodies[bodyIDB]
-		islandIndexA := bodyA.islandIndex
-		islandIndexB := bodyB.islandIndex
-
-		// Only connect non-static bodies
-		if islandIndexA != nullIndex && islandIndexB != nullIndex {
-			validate(0 <= islandIndexA && islandIndexA < baseBodyCount, "0 <= islandIndexA && islandIndexA < baseBodyCount")
-			validate(0 <= islandIndexB && islandIndexB < baseBodyCount, "0 <= islandIndexB && islandIndexB < baseBodyCount")
-			islandUnion(parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts)
-			root := islandFindParent(parents, islandIndexA)
-			contactCounts[root] += 1
-		} else {
-			islandIndex := islandIndexB
-			if islandIndexA != nullIndex {
-				islandIndex = islandIndexA
-			}
-
-			root := islandFindParent(parents, islandIndex)
-			contactCounts[root] += 1
-		}
+		root := unionIslandBodies(world, parents, ranks, contactCounts, jointCounts, bodyIDA, bodyIDB)
+		contactCounts[root] += 1
 	}
 
 	// Union over joints, tracking per-component joint counts
@@ -433,33 +411,9 @@ func splitIsland(world *World, baseID int) {
 		bodyIDA := baseJoints[i].bodyIDA
 		bodyIDB := baseJoints[i].bodyIDB
 
-		validate(0 <= bodyIDA && bodyIDA < len(world.bodies), "0 <= bodyIdA && bodyIdA < world->bodies.count")
-		validate(0 <= bodyIDB && bodyIDB < len(world.bodies), "0 <= bodyIdB && bodyIdB < world->bodies.count")
-		bodyA := &bodies[bodyIDA]
-		bodyB := &bodies[bodyIDB]
-		islandIndexA := bodyA.islandIndex
-		islandIndexB := bodyB.islandIndex
-
-		// Only connect non-static bodies
-		if islandIndexA != nullIndex && islandIndexB != nullIndex {
-			validate(0 <= islandIndexA && islandIndexA < baseBodyCount, "0 <= islandIndexA && islandIndexA < baseBodyCount")
-			validate(0 <= islandIndexB && islandIndexB < baseBodyCount, "0 <= islandIndexB && islandIndexB < baseBodyCount")
-			islandUnion(parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts)
-			root := islandFindParent(parents, islandIndexA)
-			jointCounts[root] += 1
-		} else {
-			islandIndex := islandIndexB
-			if islandIndexA != nullIndex {
-				islandIndex = islandIndexA
-			}
-
-			root := islandFindParent(parents, islandIndex)
-			jointCounts[root] += 1
-		}
+		root := unionIslandBodies(world, parents, ranks, contactCounts, jointCounts, bodyIDA, bodyIDB)
+		jointCounts[root] += 1
 	}
-
-	// Done with ranks
-	ranks = nil
 
 	// Flatten all parent indices and count connected components.
 	componentCount := 0
@@ -483,9 +437,6 @@ func splitIsland(world *World, baseID int) {
 	baseIsland.contacts = nil
 
 	baseIsland.joints = nil
-
-	// Null so code below doesn't accidentally use this.
-	baseIsland = nil
 
 	// Map from body index to new island index. Only set for root bodies.
 	rootMap := make([]int, baseBodyCount)
@@ -547,54 +498,39 @@ func splitIsland(world *World, baseID int) {
 		newIsland.bodies = arrayPush(newIsland.bodies, bodyID)
 	}
 
-	// Assign contacts to the island of their bodies
-	for i := range baseContactCount {
-		link := &baseContacts[i]
-		contact := &world.contacts[link.contactID]
+	reassignSplitIslandContacts(world, baseContacts)
 
-		// Static bodies don't have an island id.
-		bodyA := &world.bodies[link.bodyIDA]
-		bodyB := &world.bodies[link.bodyIDB]
-
-		targetIslandID := bodyB.islandID
-		if bodyA.islandID != nullIndex {
-			targetIslandID = bodyA.islandID
-		}
-
-		targetIsland := &world.islands[targetIslandID]
-		contact.islandID = targetIslandID
-		contact.islandIndex = len(targetIsland.contacts)
-
-		// Ensure the array has the correct capacity
-		validate(len(targetIsland.contacts) < cap(targetIsland.contacts), "targetIsland->contacts.count < targetIsland->contacts.capacity")
-		targetIsland.contacts = arrayPush(targetIsland.contacts, *link)
-	}
-
-	// Assign joints to the island of their bodies
-	for i := range baseJointCount {
-		link := &baseJoints[i]
-		joint := &world.joints[link.jointID]
-
-		// Static bodies don't have an island id.
-		bodyA := &world.bodies[link.bodyIDA]
-		bodyB := &world.bodies[link.bodyIDB]
-
-		targetIslandID := bodyB.islandID
-		if bodyA.islandID != nullIndex {
-			targetIslandID = bodyA.islandID
-		}
-
-		targetIsland := &world.islands[targetIslandID]
-		joint.islandId = targetIslandID
-		joint.islandIndex = len(targetIsland.joints)
-
-		// Ensure the array has the correct capacity
-		validate(len(targetIsland.joints) < cap(targetIsland.joints), "targetIsland->joints.count < targetIsland->joints.capacity")
-		targetIsland.joints = arrayPush(targetIsland.joints, *link)
-	}
+	reassignSplitIslandJoints(world, baseJoints)
 
 	// Destroy the base island
 	destroyIsland(world, baseID)
+}
+
+func unionIslandBodies(world *World, parents, ranks, contactCounts, jointCounts []int, bodyIDA, bodyIDB int) int {
+	baseBodyCount := len(parents)
+	bodies := world.bodies
+	validate(0 <= bodyIDA && bodyIDA < len(world.bodies), "0 <= bodyIdA && bodyIdA < world->bodies.count")
+	validate(0 <= bodyIDB && bodyIDB < len(world.bodies), "0 <= bodyIdB && bodyIdB < world->bodies.count")
+	bodyA := &bodies[bodyIDA]
+	bodyB := &bodies[bodyIDB]
+	islandIndexA := bodyA.islandIndex
+	islandIndexB := bodyB.islandIndex
+
+	// Only connect non-static bodies
+	if islandIndexA != nullIndex && islandIndexB != nullIndex {
+		validate(0 <= islandIndexA && islandIndexA < baseBodyCount, "0 <= islandIndexA && islandIndexA < baseBodyCount")
+		validate(0 <= islandIndexB && islandIndexB < baseBodyCount, "0 <= islandIndexB && islandIndexB < baseBodyCount")
+		islandUnion(parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts)
+
+		return islandFindParent(parents, islandIndexA)
+	}
+
+	islandIndex := islandIndexB
+	if islandIndexA != nullIndex {
+		islandIndex = islandIndexA
+	}
+
+	return islandFindParent(parents, islandIndex)
 }
 
 func splitIslandTask(context *World) {
@@ -653,8 +589,60 @@ func validateIsland(world *World, islandID int) {
 			link := &island.joints[i]
 			joint := &world.joints[link.jointID]
 			assert(joint.setIndex == island.setIndex, "joint->setIndex == island->setIndex")
-			assert(joint.islandId == islandID, "joint->islandId == islandId")
+			assert(joint.islandID == islandID, "joint->islandId == islandId")
 			assert(joint.islandIndex == i, "joint->islandIndex == i")
 		}
+	}
+}
+
+func reassignSplitIslandContacts(world *World, baseContacts []contactLink) {
+	baseContactCount := len(baseContacts)
+	// Assign contacts to the island of their bodies
+	for i := range baseContactCount {
+		link := &baseContacts[i]
+		contact := &world.contacts[link.contactID]
+
+		// Static bodies don't have an island id.
+		bodyA := &world.bodies[link.bodyIDA]
+		bodyB := &world.bodies[link.bodyIDB]
+
+		targetIslandID := bodyB.islandID
+		if bodyA.islandID != nullIndex {
+			targetIslandID = bodyA.islandID
+		}
+
+		targetIsland := &world.islands[targetIslandID]
+		contact.islandID = targetIslandID
+		contact.islandIndex = len(targetIsland.contacts)
+
+		// Ensure the array has the correct capacity
+		validate(len(targetIsland.contacts) < cap(targetIsland.contacts), "targetIsland->contacts.count < targetIsland->contacts.capacity")
+		targetIsland.contacts = arrayPush(targetIsland.contacts, *link)
+	}
+}
+
+func reassignSplitIslandJoints(world *World, baseJoints []jointLink) {
+	baseJointCount := len(baseJoints)
+	// Assign joints to the island of their bodies
+	for i := range baseJointCount {
+		link := &baseJoints[i]
+		joint := &world.joints[link.jointID]
+
+		// Static bodies don't have an island id.
+		bodyA := &world.bodies[link.bodyIDA]
+		bodyB := &world.bodies[link.bodyIDB]
+
+		targetIslandID := bodyB.islandID
+		if bodyA.islandID != nullIndex {
+			targetIslandID = bodyA.islandID
+		}
+
+		targetIsland := &world.islands[targetIslandID]
+		joint.islandID = targetIslandID
+		joint.islandIndex = len(targetIsland.joints)
+
+		// Ensure the array has the correct capacity
+		validate(len(targetIsland.joints) < cap(targetIsland.joints), "targetIsland->joints.count < targetIsland->joints.capacity")
+		targetIsland.joints = arrayPush(targetIsland.joints, *link)
 	}
 }

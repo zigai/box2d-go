@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 // Package sequence executes the bounded oracle operation histories shared by
 // offline corpus comparisons and native fresh-C differential fuzzing.
 package sequence
@@ -7,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	box2d "github.com/zigai/box2d"
+	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/oracle"
 )
 
@@ -18,14 +19,6 @@ const InputLimit = 256
 type Seed struct {
 	Name  string
 	Input []byte
-}
-
-// Execute compares a Go history against the supplied C observations. Inputs
-// beyond InputLimit use the bounded prefix; the C stdin runner uses that prefix.
-func Execute(t *testing.T, r *oracle.Reader, input []byte) {
-	t.Helper()
-	s := differentialSequence{t: t, r: r}
-	s.execute(input[:min(len(input), InputLimit)])
 }
 
 // The protocol has 21 four-byte operations, not a simulation language. Every
@@ -47,6 +40,38 @@ type differentialSequence struct {
 	oldJoints   []box2d.Joint
 	image       []byte
 	epoch       uint32
+}
+
+// Execute compares a Go history against the supplied C observations. Inputs
+// beyond InputLimit use the bounded prefix; the C stdin runner uses that prefix.
+func Execute(t *testing.T, r *oracle.Reader, input []byte) {
+	t.Helper()
+	s := differentialSequence{t: t, r: r}
+	s.execute(input[:min(len(input), InputLimit)])
+}
+
+// Corpus returns the eight deterministic histories also authored in the C
+// differential_corpus runner. Each call returns newly owned input slices.
+func Corpus() []Seed {
+	maximum := make([]byte, InputLimit)
+	for i := range 64 {
+		copy(maximum[4*i:], []byte{byte(i % 21), 255, 255, 255})
+	}
+
+	for i := range 4 {
+		copy(maximum[8*i:], []byte{0, byte(i), 255, 255, 2, byte(i), 255, 255})
+	}
+
+	return []Seed{
+		{"empty", nil},
+		{"zero_partial", []byte{0}},
+		{"maximum_operands", maximum},
+		{"lifecycle_reuse", []byte{0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 24, 0, 2, 1, 2, 0, 14, 0, 1, 3, 15, 0, 0, 0, 14, 0, 1, 3, 3, 0, 0, 0, 2, 0, 3, 0, 1, 1, 0, 0, 0, 1, 24, 0, 2, 1, 2, 0, 14, 1, 0, 3, 12, 0, 0, 3, 13, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0}},
+		{"contact_transitions", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 12, 0, 0, 3, 12, 0, 0, 3, 8, 1, 1, 0, 12, 0, 0, 3, 8, 1, 0, 15, 12, 0, 0, 3, 10, 1, 0, 0, 12, 0, 0, 3, 11, 1, 0, 0, 4, 1, 12, 0, 12, 0, 0, 3, 9, 1, 1, 0, 12, 0, 0, 3, 9, 1, 2, 0, 12, 0, 0, 3, 1, 0, 0, 0, 12, 0, 0, 3}},
+		{"snapshot_continuation", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 12, 0, 0, 3, 16, 0, 0, 0, 10, 1, 0, 0, 0, 2, 32, 32, 2, 2, 2, 0, 14, 1, 2, 3, 12, 0, 0, 3, 17, 0, 0, 0, 12, 0, 0, 3, 4, 1, 48, 0, 13, 0, 0, 0, 12, 0, 0, 3}},
+		{"replay_seek_restep", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 0, 2, 24, 24, 2, 2, 2, 0, 14, 1, 2, 3, 12, 0, 0, 3, 19, 0, 16, 240, 13, 0, 0, 0, 12, 0, 0, 3}},
+		{"force_velocity_zero_step", []byte{0, 0, 128, 127, 2, 0, 4, 0, 5, 0, 255, 127, 6, 0, 128, 0, 7, 0, 127, 128, 12, 0, 1, 3, 18, 0, 127, 128, 12, 0, 0, 3, 13, 0, 128, 127}},
+	}
 }
 
 func differentialScalar(x byte) float32 { return float32(int8(x)) / 16 }
@@ -364,7 +389,10 @@ func (s *differentialSequence) recording(x, y byte) {
 	}
 
 	s.world.StopRecording()
+	s.replayRecording(r, x, y)
+}
 
+func (s *differentialSequence) replayRecording(r *box2d.Recording, x, y byte) {
 	p, err := box2d.NewReplay(r.Data(), 0)
 	s.r.Bool("replay.created", err == nil && p != nil)
 
@@ -442,162 +470,13 @@ func (s *differentialSequence) execute(input []byte) {
 	for offset := 0; offset < len(input); offset += 4 {
 		var op [4]byte
 		copy(op[:], input[offset:min(offset+4, len(input))])
-		code, slot, joint := op[0]%21, int(op[1]%4), int(op[1]%2)
+		code, slot := op[0]%21, int(op[1]%4)
 		s.t.Logf("operation %d: opcode=%d slot=%d operands=%02x,%02x", offset/4, code, slot, op[2], op[3])
-		b, sh := s.bodies[slot], s.shapes[slot]
-		bv, sv, acted := b.IsValid(), sh.IsValid(), false
 
 		s.r.U32("operation.index", uint32(offset/4))
 		s.r.U32("operation.code", uint32(code))
 
-		switch code {
-		case 0:
-			if !bv {
-				d := box2d.DefaultBodyDef()
-				d.Type, d.Position = box2d.DynamicBody, differentialPosition(op[2], op[3])
-				s.bodies[slot] = s.world.CreateBody(&d)
-				s.oldBodies = append(s.oldBodies, s.bodies[slot])
-				acted = true
-			}
-		case 1:
-			if bv {
-				b.Destroy()
-
-				acted = true
-			}
-		case 2:
-			if bv && !sv {
-				d := box2d.DefaultShapeDef()
-				d.EnableContactEvents, d.EnableHitEvents = true, true
-				c := box2d.Circle{Radius: 0.25 + float32(float32(op[2]%5)*0.125)}
-				s.shapes[slot] = b.CreateCircleShape(&d, &c)
-				s.oldShapes = append(s.oldShapes, s.shapes[slot])
-				acted = true
-			}
-		case 3:
-			if sv {
-				sh.Destroy(true)
-
-				acted = true
-			}
-		case 4:
-			if bv {
-				b.SetTransform(differentialPosition(op[2], op[3]), box2d.MakeRot(float32(op[2]%9)*0.125))
-
-				acted = true
-			}
-		case 5:
-			if bv {
-				b.SetLinearVelocity(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])})
-
-				acted = true
-			}
-		case 6:
-			if bv {
-				b.SetAngularVelocity(differentialScalar(op[2]))
-
-				acted = true
-			}
-		case 7:
-			if bv {
-				b.ApplyForceToCenter(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])}, true)
-
-				acted = true
-			}
-		case 8:
-			if sv {
-				f := box2d.DefaultFilter()
-				f.CategoryBits, f.MaskBits = uint64(1)<<(op[2]%4), uint64(op[3]&15)
-				sh.SetFilter(f)
-
-				acted = true
-			}
-		case 9:
-			if bv {
-				b.SetType(box2d.BodyType(op[2] % 3))
-
-				acted = true
-			}
-		case 10:
-			if bv {
-				b.Disable()
-
-				acted = true
-			}
-		case 11:
-			if bv {
-				b.Enable()
-
-				acted = true
-			}
-		case 12:
-			dt := float32(1.0 / 60.0)
-			if op[2]&1 != 0 {
-				dt = 0
-			}
-
-			s.world.Step(dt, 1+int(op[3]%4))
-
-			acted = true
-		case 13:
-			s.query(s.world, op[2], op[3])
-
-			acted = true
-		case 14:
-			other := int(op[2] % 4)
-			if !s.joints[joint].IsValid() && bv && other != slot && s.bodies[other].IsValid() &&
-				(b.Type() == box2d.DynamicBody || s.bodies[other].Type() == box2d.DynamicBody) {
-				d := box2d.DefaultDistanceJointDef()
-				d.Base.BodyA, d.Base.BodyB = b, s.bodies[other]
-				d.Length, d.Base.CollideConnected = 0.5+float32(float32(op[3]%8)*0.25), true
-				s.joints[joint] = s.world.CreateDistanceJoint(&d).Joint
-				s.oldJoints = append(s.oldJoints, s.joints[joint])
-				acted = true
-			}
-		case 15:
-			if s.joints[joint].IsValid() {
-				s.joints[joint].Destroy()
-
-				acted = true
-			}
-		case 16:
-			s.image = s.snapshot(s.world)
-			s.savedBodies, s.savedShapes, s.savedJoints = s.bodies, s.shapes, s.joints
-			acted = true
-		case 17:
-			if s.image != nil {
-				err := s.world.UnmarshalBinary(s.image)
-				s.r.Bool("snapshot.restore", err == nil)
-
-				if err != nil {
-					s.t.Fatalf("restoring native Go snapshot: %v", err)
-				}
-
-				s.bodies, s.shapes, s.joints = s.savedBodies, s.savedShapes, s.savedJoints
-				acted = true
-			}
-		case 18:
-			if bv {
-				b.ApplyLinearImpulseToCenter(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])}, true)
-
-				acted = true
-			}
-		case 19:
-			s.recording(op[2], op[3])
-
-			acted = true
-		case 20:
-			old := s.world
-			old.Close()
-			s.r.Bool("world.destroyed", !old.IsValid())
-			s.world = differentialWorld()
-			s.r.Bool("world.old.valid", old.IsValid())
-			s.epoch++
-			s.image = nil
-			s.bodies, s.shapes, s.joints = [4]box2d.Body{}, [4]box2d.Shape{}, [2]box2d.Joint{}
-			s.oldBodies, s.oldShapes, s.oldJoints = nil, nil, nil
-			acted = true
-		}
+		acted := s.applyOperation(op)
 
 		s.r.Bool("operation.acted", acted)
 		s.observe()
@@ -608,26 +487,181 @@ func (s *differentialSequence) execute(input []byte) {
 	s.r.Bool("world.final.invalid", !s.world.IsValid())
 }
 
-// Corpus returns the eight deterministic histories also authored in the C
-// differential_corpus runner. Each call returns newly owned input slices.
-func Corpus() []Seed {
-	maximum := make([]byte, InputLimit)
-	for i := range 64 {
-		copy(maximum[4*i:], []byte{byte(i % 21), 255, 255, 255})
+func (s *differentialSequence) applyOperation(op [4]byte) bool {
+	switch op[0] % 21 {
+	case 0:
+		return s.createBody(op)
+	case 1, 4, 5, 6, 7, 9, 10, 11, 18:
+		return s.bodyOperation(op)
+	case 2, 3, 8:
+		return s.shapeOperation(op)
+	case 14, 15:
+		return s.jointOperation(op)
+	default:
+		return s.worldOperation(op)
+	}
+}
+
+func (s *differentialSequence) bodyOperation(op [4]byte) bool {
+	b := s.bodies[int(op[1]%4)]
+	if !b.IsValid() {
+		return false
 	}
 
-	for i := range 4 {
-		copy(maximum[8*i:], []byte{0, byte(i), 255, 255, 2, byte(i), 255, 255})
+	switch op[0] % 21 {
+	case 1:
+		b.Destroy()
+	case 4:
+		b.SetTransform(differentialPosition(op[2], op[3]), box2d.MakeRot(float32(op[2]%9)*0.125))
+	case 5:
+		b.SetLinearVelocity(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])})
+	case 6:
+		b.SetAngularVelocity(differentialScalar(op[2]))
+	case 7:
+		b.ApplyForceToCenter(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])}, true)
+	case 9:
+		b.SetType(box2d.BodyType(op[2] % 3))
+	case 10:
+		b.Disable()
+	case 11:
+		b.Enable()
+	case 18:
+		b.ApplyLinearImpulseToCenter(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])}, true)
+	default:
+		return false
 	}
 
-	return []Seed{
-		{"empty", nil},
-		{"zero_partial", []byte{0}},
-		{"maximum_operands", maximum},
-		{"lifecycle_reuse", []byte{0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 24, 0, 2, 1, 2, 0, 14, 0, 1, 3, 15, 0, 0, 0, 14, 0, 1, 3, 3, 0, 0, 0, 2, 0, 3, 0, 1, 1, 0, 0, 0, 1, 24, 0, 2, 1, 2, 0, 14, 1, 0, 3, 12, 0, 0, 3, 13, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0}},
-		{"contact_transitions", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 12, 0, 0, 3, 12, 0, 0, 3, 8, 1, 1, 0, 12, 0, 0, 3, 8, 1, 0, 15, 12, 0, 0, 3, 10, 1, 0, 0, 12, 0, 0, 3, 11, 1, 0, 0, 4, 1, 12, 0, 12, 0, 0, 3, 9, 1, 1, 0, 12, 0, 0, 3, 9, 1, 2, 0, 12, 0, 0, 3, 1, 0, 0, 0, 12, 0, 0, 3}},
-		{"snapshot_continuation", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 12, 0, 0, 3, 16, 0, 0, 0, 10, 1, 0, 0, 0, 2, 32, 32, 2, 2, 2, 0, 14, 1, 2, 3, 12, 0, 0, 3, 17, 0, 0, 0, 12, 0, 0, 3, 4, 1, 48, 0, 13, 0, 0, 0, 12, 0, 0, 3}},
-		{"replay_seek_restep", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 0, 2, 24, 24, 2, 2, 2, 0, 14, 1, 2, 3, 12, 0, 0, 3, 19, 0, 16, 240, 13, 0, 0, 0, 12, 0, 0, 3}},
-		{"force_velocity_zero_step", []byte{0, 0, 128, 127, 2, 0, 4, 0, 5, 0, 255, 127, 6, 0, 128, 0, 7, 0, 127, 128, 12, 0, 1, 3, 18, 0, 127, 128, 12, 0, 0, 3, 13, 0, 128, 127}},
+	return true
+}
+
+func (s *differentialSequence) shapeOperation(op [4]byte) bool {
+	slot := int(op[1] % 4)
+	b, sh := s.bodies[slot], s.shapes[slot]
+	bv, sv := b.IsValid(), sh.IsValid()
+	acted := false
+
+	switch op[0] % 21 {
+	case 2:
+		if bv && !sv {
+			d := box2d.DefaultShapeDef()
+			d.EnableContactEvents, d.EnableHitEvents = true, true
+			c := box2d.Circle{Radius: 0.25 + float32(float32(op[2]%5)*0.125)}
+			s.shapes[slot] = b.CreateCircleShape(&d, &c)
+			s.oldShapes = append(s.oldShapes, s.shapes[slot])
+			acted = true
+		}
+	case 3:
+		if sv {
+			sh.Destroy(true)
+
+			acted = true
+		}
+	case 8:
+		if sv {
+			f := box2d.DefaultFilter()
+			f.CategoryBits, f.MaskBits = uint64(1)<<(op[2]%4), uint64(op[3]&15)
+			sh.SetFilter(f)
+
+			acted = true
+		}
 	}
+
+	return acted
+}
+
+func (s *differentialSequence) jointOperation(op [4]byte) bool {
+	slot, joint := int(op[1]%4), int(op[1]%2)
+	b := s.bodies[slot]
+	bv := b.IsValid()
+	acted := false
+
+	switch op[0] % 21 {
+	case 14:
+		other := int(op[2] % 4)
+		if !s.joints[joint].IsValid() && bv && other != slot && s.bodies[other].IsValid() &&
+			(b.Type() == box2d.DynamicBody || s.bodies[other].Type() == box2d.DynamicBody) {
+			d := box2d.DefaultDistanceJointDef()
+			d.Base.BodyA, d.Base.BodyB = b, s.bodies[other]
+			d.Length, d.Base.CollideConnected = 0.5+float32(float32(op[3]%8)*0.25), true
+			s.joints[joint] = s.world.CreateDistanceJoint(&d).Joint
+			s.oldJoints = append(s.oldJoints, s.joints[joint])
+			acted = true
+		}
+	case 15:
+		if s.joints[joint].IsValid() {
+			s.joints[joint].Destroy()
+
+			acted = true
+		}
+	}
+
+	return acted
+}
+
+func (s *differentialSequence) worldOperation(op [4]byte) bool {
+	acted := false
+
+	switch op[0] % 21 {
+	case 12:
+		dt := float32(1.0 / 60.0)
+		if op[2]&1 != 0 {
+			dt = 0
+		}
+
+		s.world.Step(dt, 1+int(op[3]%4))
+
+		acted = true
+	case 13:
+		s.query(s.world, op[2], op[3])
+
+		acted = true
+	case 16:
+		s.image = s.snapshot(s.world)
+		s.savedBodies, s.savedShapes, s.savedJoints = s.bodies, s.shapes, s.joints
+		acted = true
+	case 17:
+		if s.image != nil {
+			err := s.world.UnmarshalBinary(s.image)
+			s.r.Bool("snapshot.restore", err == nil)
+
+			if err != nil {
+				s.t.Fatalf("restoring native Go snapshot: %v", err)
+			}
+
+			s.bodies, s.shapes, s.joints = s.savedBodies, s.savedShapes, s.savedJoints
+			acted = true
+		}
+	case 19:
+		s.recording(op[2], op[3])
+
+		acted = true
+	case 20:
+		old := s.world
+		old.Close()
+		s.r.Bool("world.destroyed", !old.IsValid())
+		s.world = differentialWorld()
+		s.r.Bool("world.old.valid", old.IsValid())
+		s.epoch++
+		s.image = nil
+		s.bodies, s.shapes, s.joints = [4]box2d.Body{}, [4]box2d.Shape{}, [2]box2d.Joint{}
+		s.oldBodies, s.oldShapes, s.oldJoints = nil, nil, nil
+		acted = true
+	}
+
+	return acted
+}
+
+func (s *differentialSequence) createBody(op [4]byte) bool {
+	slot := int(op[1] % 4)
+	acted := false
+
+	if !s.bodies[slot].IsValid() {
+		d := box2d.DefaultBodyDef()
+		d.Type, d.Position = box2d.DynamicBody, differentialPosition(op[2], op[3])
+		s.bodies[slot] = s.world.CreateBody(&d)
+		s.oldBodies = append(s.oldBodies, s.bodies[slot])
+		acted = true
+	}
+
+	return acted
 }

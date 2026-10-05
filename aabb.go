@@ -5,6 +5,11 @@ package box2d
 
 import "math"
 
+type aabbRayInterval struct {
+	minimum float32
+	maximum float32
+}
+
 // Is this a valid bounding box? Not Nan or infinity. Upper bound greater than or equal to lower bound.
 func (a AABB) IsValid() bool {
 	d := a.UpperBound.Sub(a.LowerBound)
@@ -18,67 +23,32 @@ func (a AABB) IsValid() bool {
 func aabbRayCast(a AABB, p1 Vec2, p2 Vec2) CastOutput {
 	var output CastOutput
 
-	tMin := float32(-math.MaxFloat32)
-	tMax := float32(math.MaxFloat32)
-	p := p1
+	interval := aabbRayInterval{-math.MaxFloat32, math.MaxFloat32}
 	d := p2.Sub(p1)
-	absD := d.Abs()
 
 	var normal Vec2
 
-	if absD.X < float32(0x1p-23) {
-		if p.X < a.LowerBound.X || a.UpperBound.X < p.X {
-			return output
-		}
-	} else {
-		invD := 1 / d.X
-		t1 := (a.LowerBound.X - p.X) * invD
-		t2 := (a.UpperBound.X - p.X) * invD
-		s := float32(-1)
-
-		if t1 > t2 {
-			t1, t2 = t2, t1
-			s = 1
-		}
-
-		if t1 > tMin {
-			normal.Y = 0
-			normal.X = s
-			tMin = t1
-		}
-
-		tMax = minFloat(tMax, t2)
-		if tMin > tMax {
-			return output
-		}
+	sign, changed, hit := interval.clip(a.LowerBound.X, a.UpperBound.X, p1.X, d.X)
+	if !hit {
+		return output
 	}
 
-	if absD.Y < float32(0x1p-23) {
-		if p.Y < a.LowerBound.Y || a.UpperBound.Y < p.Y {
-			return output
-		}
-	} else {
-		invD := 1 / d.Y
-		t1 := (a.LowerBound.Y - p.Y) * invD
-		t2 := (a.UpperBound.Y - p.Y) * invD
-		s := float32(-1)
-
-		if t1 > t2 {
-			t1, t2 = t2, t1
-			s = 1
-		}
-
-		if t1 > tMin {
-			normal.X = 0
-			normal.Y = s
-			tMin = t1
-		}
-
-		tMax = minFloat(tMax, t2)
-		if tMin > tMax {
-			return output
-		}
+	if changed {
+		normal.Y = 0
+		normal.X = sign
 	}
+
+	sign, changed, hit = interval.clip(a.LowerBound.Y, a.UpperBound.Y, p1.Y, d.Y)
+	if !hit {
+		return output
+	}
+
+	if changed {
+		normal.X = 0
+		normal.Y = sign
+	}
+
+	tMin := interval.minimum
 
 	if tMin < 0 {
 		return output
@@ -94,6 +64,33 @@ func aabbRayCast(a AABB, p1 Vec2, p2 Vec2) CastOutput {
 	output.Hit = true
 
 	return output
+}
+
+func (interval *aabbRayInterval) clip(lower, upper, origin, direction float32) (float32, bool, bool) {
+	var changed bool
+
+	if absFloat(direction) < float32(0x1p-23) {
+		return 0, false, !(origin < lower || upper < origin)
+	}
+
+	invD := 1 / direction
+	t1 := (lower - origin) * invD
+	t2 := (upper - origin) * invD
+	sign := float32(-1)
+
+	if t1 > t2 {
+		t1, t2 = t2, t1
+		sign = 1
+	}
+
+	if t1 > interval.minimum {
+		interval.minimum = t1
+		changed = true
+	}
+
+	interval.maximum = minFloat(interval.maximum, t2)
+
+	return sign, changed, !(interval.minimum > interval.maximum)
 }
 
 // Get surface area of an AABB (the perimeter length).

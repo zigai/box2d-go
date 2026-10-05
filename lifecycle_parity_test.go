@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package box2d_test
 
 import (
@@ -170,37 +171,7 @@ func TestLifecycleReuseAndDestruction(t *testing.T) {
 		r.U64("contact.direct.b", lifecycleShapeKey(direct.ShapeB))
 		r.Vec2("contact.normal", direct.Manifold.Normal.X, direct.Manifold.Normal.Y)
 		r.I32("contact.direct.points", int32(direct.Manifold.PointCount))
-		// Body and shape contact views must contain the same live contact exactly once.
-		bodyData := slices.Collect(b.ContactData())
-		r.I32("body.contact.count", int32(len(bodyData)))
-
-		matches := 0
-
-		for _, d := range bodyData {
-			if d.Contact == contact {
-				matches++
-			}
-		}
-
-		r.I32("body.contact.multiplicity", int32(matches))
-
-		if matches != 1 {
-			t.Fatalf("body contact multiplicity=%d", matches)
-		}
-
-		before := w.StateHash()
-
-		for range s.ContactData() {
-			break
-		}
-
-		for range b.ContactData() {
-			break
-		}
-
-		if w.StateHash() != before {
-			t.Fatal("early-stop contacts mutated state")
-		}
+		lifecycleCheckContactViews(t, r, w, b, s, contact)
 
 		b.SetTransform(box2d.Pos{X: 30}, box2d.Rot{C: 1})
 		w.Step(1.0/60, 4)
@@ -443,4 +414,39 @@ func TestLifecycleCollectionTransitions(t *testing.T) {
 	}
 
 	w.Close()
+}
+
+func lifecycleCheckContactViews(t *testing.T, r *oracle.Reader, w *box2d.World, b box2d.Body, s box2d.Shape, contact box2d.Contact) {
+	t.Helper()
+	// Body and shape contact views must contain the same live contact exactly once.
+	bodyData := slices.Collect(b.ContactData())
+	r.I32("body.contact.count", int32(len(bodyData)))
+
+	matches := 0
+
+	for _, d := range bodyData {
+		if d.Contact == contact {
+			matches++
+		}
+	}
+
+	r.I32("body.contact.multiplicity", int32(matches))
+
+	if matches != 1 {
+		t.Fatalf("body contact multiplicity=%d", matches)
+	}
+
+	before := w.StateHash()
+
+	for range s.ContactData() {
+		break
+	}
+
+	for range b.ContactData() {
+		break
+	}
+
+	if w.StateHash() != before {
+		t.Fatal("early-stop contacts mutated state")
+	}
 }

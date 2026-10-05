@@ -563,7 +563,7 @@ func TestReadComparisonLeavesRealBaselineUnchanged(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "baseline.jsonl")
-			if err := os.WriteFile(path, baseline, 0o444); err != nil {
+			if err := os.WriteFile(path, baseline, 0o400); err != nil {
 				t.Fatal(err)
 			}
 
@@ -589,23 +589,29 @@ func TestReadComparisonLeavesRealBaselineUnchanged(t *testing.T) {
 				mustContain(t, f.fatal, path, "record 1", `"sample"`, "type:     u32")
 			}
 
-			afterData, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			after, err := os.Stat(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if !bytes.Equal(afterData, baseline) || !bytes.Equal(data, inputCopy) {
-				t.Fatal("comparison rewrote the baseline or modified caller-owned capture bytes")
-			}
-
-			if !os.SameFile(before, after) || before.Mode() != after.Mode() || !before.ModTime().Equal(after.ModTime()) {
-				t.Fatal("comparison replaced or modified the read-only baseline")
-			}
+			checkComparisonInputsUnchanged(t, path, before, baseline, data, inputCopy)
 		})
+	}
+}
+
+func checkComparisonInputsUnchanged(t *testing.T, path string, before os.FileInfo, baseline, data, inputCopy []byte) {
+	t.Helper()
+
+	afterData, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(afterData, baseline) || !bytes.Equal(data, inputCopy) {
+		t.Fatal("comparison rewrote the baseline or modified caller-owned capture bytes")
+	}
+
+	if !os.SameFile(before, after) || before.Mode() != after.Mode() || !before.ModTime().Equal(after.ModTime()) {
+		t.Fatal("comparison replaced or modified the read-only baseline")
 	}
 }

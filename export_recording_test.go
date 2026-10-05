@@ -5,6 +5,8 @@ package box2d
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"os"
 )
 
@@ -62,39 +64,8 @@ func RecordingMismatch(source []byte, kind string) []byte {
 		}
 
 		if frame == 7 || frame == 12 {
-			rdr := recReader{data: data, size: start + size, cursor: start, ok: true}
-			if kind == "state" && op == 0xf1 {
-				at := rdr.cursor
-
-				hash := recRU64(&rdr)
-				if !rdr.ok {
-					panic("invalid test hash")
-				}
-
-				binary.LittleEndian.PutUint64(data[at:], hash^1)
-
+			if recordingMutateRecord(data, start, size, kind, op) {
 				changed++
-			}
-
-			if kind == "query" && op == 0xe0 {
-				_ = recRPOSITION(&rdr)
-				_ = recRAABB(&rdr)
-				_ = recRQUERYFILTER(&rdr)
-
-				n := recRU32(&rdr)
-				if n > 0 {
-					at := rdr.cursor
-
-					id := recRSHAPEID(&rdr)
-					if !rdr.ok {
-						panic("invalid test hit")
-					}
-
-					id.generation ^= 1
-					binary.LittleEndian.PutUint64(data[at:], id.ID())
-
-					changed++
-				}
 			}
 		}
 
@@ -108,15 +79,74 @@ func RecordingMismatch(source []byte, kind string) []byte {
 	return data
 }
 
+func recordingMutateRecord(data []byte, start, size int, kind string, op byte) bool {
+	rdr := recReader{data: data, size: start + size, cursor: start, ok: true}
+	if kind == "state" && op == 0xf1 {
+		at := rdr.cursor
+
+		hash := recRU64(&rdr)
+		if !rdr.ok {
+			panic("invalid test hash")
+		}
+
+		binary.LittleEndian.PutUint64(data[at:], hash^1)
+
+		return true
+	}
+
+	if kind != "query" || op != 0xe0 {
+		return false
+	}
+
+	_ = recRPOSITION(&rdr)
+	_ = recRAABB(&rdr)
+
+	_ = recRQUERYFILTER(&rdr)
+	if recRU32(&rdr) == 0 {
+		return false
+	}
+
+	at := rdr.cursor
+
+	id := recRSHAPEID(&rdr)
+	if !rdr.ok {
+		panic("invalid test hit")
+	}
+
+	id.generation ^= 1
+	binary.LittleEndian.PutUint64(data[at:], id.ID())
+
+	return true
+}
+
 func RecordingMalformed(source []byte, name string) []byte {
 	data := append([]byte(nil), source...)
+
 	end := 32 + int(binary.LittleEndian.Uint64(data[24:]))
+	if recordingMalformHeader(data, name) {
+		return data
+	}
 
 	switch name {
 	case "empty":
 		return nil
 	case "short":
 		return data[:31]
+	case "incompleteFrame":
+		return append(data[:end], 0xf1, 12)
+	case "truncatedHash":
+		return append(data[:end], 0xf1, 12, 0, 0, 0)
+	case "unknown":
+		return append(data[:end], 0xff, 1, 0, 0, 0x55)
+	case "unknownOverflow":
+		return append(data[:end], 0xff, 2, 0, 0, 0x55)
+	default:
+		panic("unknown malformed test case")
+	}
+}
+
+func recordingMalformHeader(data []byte, name string) bool {
+	switch name {
 	case "magic":
 		data[0] ^= 1
 	case "major":
@@ -129,19 +159,11 @@ func RecordingMalformed(source []byte, name string) []byte {
 		binary.LittleEndian.PutUint64(data[24:], 0)
 	case "snapshotOversize":
 		binary.LittleEndian.PutUint64(data[24:], uint64(len(data)))
-	case "incompleteFrame":
-		return append(data[:end], 0xf1, 12)
-	case "truncatedHash":
-		return append(data[:end], 0xf1, 12, 0, 0, 0)
-	case "unknown":
-		return append(data[:end], 0xff, 1, 0, 0, 0x55)
-	case "unknownOverflow":
-		return append(data[:end], 0xff, 2, 0, 0, 0x55)
 	default:
-		panic("unknown malformed test case")
+		return false
 	}
 
-	return data
+	return true
 }
 
 func RecordingBodies(id *World) []Body {
@@ -151,7 +173,7 @@ func RecordingBodies(id *World) []Body {
 
 	for i := range w.bodies {
 		if w.bodies[i].id == i {
-			ids = append(ids, makeBodyId(w, i))
+			ids = append(ids, makeBodyID(w, i))
 		}
 	}
 
@@ -178,7 +200,7 @@ func RecordingJoints(id *World) []Joint {
 	var ids []Joint
 
 	for i := range w.joints {
-		if w.joints[i].jointId == i {
+		if w.joints[i].jointID == i {
 			ids = append(ids, Joint{index1: int32(i + 1), world: id, generation: w.joints[i].generation})
 		}
 	}
@@ -194,23 +216,30 @@ func RecordingContactTuning(id *World) (float32, float32, float32) {
 func RecordingSaveFile(rec *Recording, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("create recording file: %w", err)
 	}
 
 	if _, err := rec.WriteTo(f); err != nil {
-		f.Close()
-		return err
+		return errors.Join(err, f.Close())
 	}
 
-	return f.Close()
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close recording file: %w", err)
+	}
+
+	return nil
 }
 
 func RecordingLoadFile(path string) (*Recording, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open recording file: %w", err)
 	}
-	defer f.Close()
 
-	return ReadRecording(f)
+	rec, readErr := ReadRecording(f)
+	if err := f.Close(); err != nil {
+		return rec, errors.Join(readErr, fmt.Errorf("close recording file: %w", err))
+	}
+
+	return rec, readErr
 }

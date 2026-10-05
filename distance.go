@@ -3,6 +3,20 @@
 
 package box2d
 
+const (
+	TOIStateUnknown TOIState = iota
+	TOIStateFailed
+	TOIStateOverlapped
+	TOIStateHit
+	TOIStateSeparated
+)
+
+const (
+	pointsType separationType = iota
+	faceAType
+	faceBType
+)
+
 // Result of computing the distance between two line segments.
 type SegmentDistanceResult struct {
 	// The closest point on the first segment
@@ -136,14 +150,6 @@ type TOIInput struct {
 // Describes the TOI output.
 type TOIState int32
 
-const (
-	TOIStateUnknown TOIState = iota
-	TOIStateFailed
-	TOIStateOverlapped
-	TOIStateHit
-	TOIStateSeparated
-)
-
 // Time of impact output.
 type TOIOutput struct {
 	// The type of result
@@ -156,27 +162,7 @@ type TOIOutput struct {
 	Fraction float32
 }
 
-var (
-	toiTime                  float32
-	toiMaxTime               float32
-	toiCalls                 int
-	toiDistanceIterations    int
-	toiMaxDistanceIterations int
-	toiRootIterations        int
-	toiMaxRootIterations     int
-	toiFailedCount           int
-	toiOverlappedCount       int
-	toiHitCount              int
-	toiSeparatedCount        int
-)
-
 type separationType int32
-
-const (
-	pointsType separationType = iota
-	faceAType
-	faceBType
-)
 
 type separationFunction struct {
 	proxyA     *ShapeProxy
@@ -185,7 +171,12 @@ type separationFunction struct {
 	sweepB     Sweep
 	localPoint Vec2
 	axis       Vec2
-	type_      separationType
+	kind       separationType
+}
+
+type separationRootBracket struct {
+	lower, upper                     float32
+	lowerSeparation, upperSeparation float32
 }
 
 // Evaluate the transform sweep at a specific time.
@@ -225,18 +216,7 @@ func SegmentDistance(p1, q1, p2, q2 Vec2) SegmentDistanceResult {
 
 	if dd1 < epsSqr || dd2 < epsSqr {
 		// Handle all degeneracies
-		if dd1 >= epsSqr {
-			// Segment 2 is degenerate
-			result.Fraction1 = clampFloat(-rd1/dd1, 0.0, 1.0)
-			result.Fraction2 = 0.0
-		} else if dd2 >= epsSqr {
-			// Segment 1 is degenerate
-			result.Fraction1 = 0.0
-			result.Fraction2 = clampFloat(rd2/dd2, 0.0, 1.0)
-		} else {
-			result.Fraction1 = 0.0
-			result.Fraction2 = 0.0
-		}
+		result.Fraction1, result.Fraction2 = degenerateSegmentFractions(dd1, dd2, rd1, rd2)
 	} else {
 		// Non-degenerate segments
 		d12 := d1.Dot(d2)
@@ -305,6 +285,312 @@ func MakeOffsetProxy(points []Vec2, radius float32, position Vec2, rotation Rot)
 	proxy.Radius = radius
 
 	return proxy
+}
+
+// Compute the closest points between two shapes represented as point clouds.
+// SimplexCache cache is input/output. On the first call set SimplexCache.Count to zero.
+// Passing a simplex buffer records the initial, reduced iteration, and final simplexes
+// up to its length. Pass nil to skip the debug history.
+func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simplex) DistanceOutput {
+	assert(input.ProxyA.Count > 0 && input.ProxyB.Count > 0, "input->proxyA.count > 0 && input->proxyB.count > 0")
+	assert(input.ProxyA.Radius >= 0.0, "input->proxyA.radius >= 0.0f")
+	assert(input.ProxyB.Radius >= 0.0, "input->proxyB.radius >= 0.0f")
+
+	var output DistanceOutput
+
+	proxyA := &input.ProxyA
+
+	// Get proxyB in frame A to avoid further transforms in the main loop.
+	// This is still a performance gain at 8 points.
+	var localProxyB ShapeProxy
+	{
+		localProxyB.Count = input.ProxyB.Count
+
+		localProxyB.Radius = input.ProxyB.Radius
+		for i := range localProxyB.Count {
+			localProxyB.Points[i] = input.Transform.Apply(input.ProxyB.Points[i])
+		}
+	}
+
+	// Initialize the simplex.
+	simplex := makeSimplexFromCache(*cache, proxyA, &localProxyB)
+
+	simplexIndex := 0
+	if simplexes != nil && simplexIndex < len(simplexes) {
+		simplexes[simplexIndex] = simplex
+		simplexIndex += 1
+	}
+
+	nonUnitNormal, iteration, overlap := runGJK(&simplex, proxyA, &localProxyB, simplexes, &simplexIndex)
+	if overlap {
+		*cache = makeSimplexCache(&simplex)
+
+		var localPointA, localPointB Vec2
+		computeWitnessPoints(&simplex, &localPointA, &localPointB)
+
+		output.Distance = 0.0
+		output.PointA = localPointA
+		output.PointB = localPointB
+
+		return output
+	}
+
+	if simplexIndex < len(simplexes) {
+		simplexes[simplexIndex] = simplex
+		simplexIndex++
+	}
+
+	// Prepare output in frame A
+	normal := nonUnitNormal.Normalize()
+	assert(normal.IsNormalized(), "b2IsNormalized( normal )")
+
+	var localPointA, localPointB Vec2
+	computeWitnessPoints(&simplex, &localPointA, &localPointB)
+
+	output.Normal = normal
+	output.Distance = localPointA.Distance(localPointB)
+	output.PointA = localPointA
+	output.PointB = localPointB
+	output.Iterations = iteration
+	output.SimplexCount = simplexIndex
+	// Cache the simplex
+	*cache = makeSimplexCache(&simplex)
+	// Apply radii if requested
+	if input.UseRadii {
+		var (
+			radiusA = input.ProxyA.Radius
+			radiusB = input.ProxyB.Radius
+		)
+
+		output.Distance = maxFloat(0.0, output.Distance-radiusA-radiusB)
+		// Keep closest points on perimeter even if overlapped, this way the points move smoothly.
+		output.PointA = output.PointA.MulAdd(radiusA, normal)
+		output.PointB = output.PointB.MulSub(radiusB, normal)
+	}
+
+	return output
+}
+
+// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
+// The query runs in frame A, so the hit point and normal are returned in frame A. Initially touching shapes are a miss.
+func ShapeCast(input *ShapeCastPairInput) CastOutput {
+	// Compute tolerance
+	var (
+		linearSlop  = LinearSlop()
+		totalRadius = input.ProxyA.Radius + input.ProxyB.Radius
+		target      = maxFloat(linearSlop, totalRadius-linearSlop)
+		tolerance   = float32(0.25 * linearSlop)
+	)
+
+	assert(target > tolerance, "target > tolerance")
+	// Prepare input for distance query
+	var cache SimplexCache
+
+	var fraction float32 = 0.0
+
+	var distanceInput DistanceInput
+
+	distanceInput.ProxyA = input.ProxyA
+	distanceInput.ProxyB = input.ProxyB
+	distanceInput.UseRadii = false
+	// The whole cast runs in frame A. Advance the relative pose of B in float each iteration,
+	// which keeps the math near the local origin and avoids re-relativizing world poses.
+	distanceInput.Transform = input.Transform
+	delta2 := input.TranslationB
+
+	var output CastOutput
+
+	iteration := 0
+	maxIterations := 20
+
+	for ; iteration < maxIterations; iteration++ {
+		output.Iterations += 1
+		distanceOutput := ShapeDistance(&distanceInput, &cache, nil)
+
+		if distanceOutput.Distance < target+tolerance {
+			if iteration != 0 {
+				// Regular hit
+				assert(distanceOutput.Distance > 0.0 && distanceOutput.Normal.IsNormalized(), "distanceOutput.distance > 0.0f && b2IsNormalized( distanceOutput.normal )")
+
+				output.Fraction = fraction
+				output.Point = distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
+				output.Normal = distanceOutput.Normal
+				output.Hit = true
+
+				return output
+			}
+
+			if !(input.CanEncroach && distanceOutput.Distance > 2.0*linearSlop) {
+				// Initial overlap
+				output.Hit = true
+				// Compute a common point
+				c1 := distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
+				c2 := distanceOutput.PointB.MulAdd(-input.ProxyB.Radius, distanceOutput.Normal)
+				output.Point = c1.Lerp(c2, 0.5)
+
+				return output
+			}
+
+			target = distanceOutput.Distance - linearSlop
+		}
+
+		assert(distanceOutput.Distance > 0.0, "distanceOutput.distance > 0.0f")
+		assert(distanceOutput.Normal.IsNormalized(), "b2IsNormalized( distanceOutput.normal )")
+		// Check if shapes are approaching each other
+		denominator := delta2.Dot(distanceOutput.Normal)
+		if denominator >= 0.0 {
+			// Miss
+			return output
+		}
+
+		// Advance sweep
+		fraction += (target - distanceOutput.Distance) / denominator
+		if fraction >= input.MaxFraction {
+			// Miss
+			return output
+		}
+
+		distanceInput.Transform.P = input.Transform.P.MulAdd(fraction, delta2)
+	}
+
+	// Failure!
+	return output
+}
+
+// Compute the upper bound on time before two shapes penetrate. Time is represented as
+// a fraction between [0,tMax]. This uses a swept separating axis and may miss some intermediate,
+// non-tunneling collisions. If you change the time interval, you should call this function
+// again.
+func TimeOfImpact(input *TOIInput) TOIOutput {
+	var output TOIOutput
+
+	output.State = TOIStateUnknown
+	output.Fraction = input.MaxFraction
+	sweepA := input.SweepA
+	sweepB := input.SweepB
+
+	assert(sweepA.Q1.IsNormalized() && sweepA.Q2.IsNormalized(), "b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 )")
+	assert(sweepB.Q1.IsNormalized() && sweepB.Q2.IsNormalized(), "b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 )")
+	// todo_erin
+	// c1 can be at the origin yet the points are far away
+	// Vec2 origin = Add(sweepA.C1, input.ProxyA.Points[0])
+	proxyA := &input.ProxyA
+	proxyB := &input.ProxyB
+
+	tMax := input.MaxFraction
+
+	// Setup target distance and tolerance
+	var (
+		totalRadius = proxyA.Radius + proxyB.Radius
+		target      = maxFloat(LinearSlop(), totalRadius-LinearSlop())
+		tolerance   = float32(0.25 * LinearSlop())
+	)
+	assert(target > tolerance, "target > tolerance")
+
+	var t1 float32 = 0.0
+
+	kMaxIterations := 20
+	distanceIterations := 0
+
+	// Prepare input for distance query.
+	var (
+		cache         SimplexCache
+		distanceInput DistanceInput
+	)
+
+	distanceInput.ProxyA = input.ProxyA
+	distanceInput.ProxyB = input.ProxyB
+	distanceInput.UseRadii = false
+	// The outer loop progressively attempts to compute new separating axes.
+	// This loop terminates when an axis is repeated (no progress is made).
+	for {
+		// Get the distance between shapes. We can also use the results to get a separating axis.
+		xfA := sweepA.Transform(t1)
+		xfB := sweepB.Transform(t1)
+		distanceInput.Transform = xfA.InvMul(xfB)
+		distanceOutput := ShapeDistance(&distanceInput, &cache, nil)
+
+		// The distance query runs in frame A, project the witness data back to world
+		worldNormal := xfA.Q.Rotate(distanceOutput.Normal)
+		worldPointA := xfA.Apply(distanceOutput.PointA)
+		worldPointB := xfA.Apply(distanceOutput.PointB)
+
+		// Progressive time of impact. This handles slender geometry well but introduces
+		// significant time loss.
+		// if (distanceIterations == 0)
+		//{
+		//	if ( distanceOutput.Distance > totalRadius + B2_SPECULATIVE_DISTANCE )
+		//	{
+		//		target = totalRadius + B2_SPECULATIVE_DISTANCE - tolerance
+		//	}
+		//	else
+		//	{
+		//		target = distanceOutput.Distance - 1.5 * tolerance
+		//		target = MaxFloat( target, 2.0 * tolerance )
+		//	}
+		//}
+
+		distanceIterations += 1
+		// If the shapes are overlapped, we give up on continuous collision.
+		if distanceOutput.Distance <= 0.0 {
+			// Failure!
+			output.State = TOIStateOverlapped
+			output.Fraction = 0.0
+
+			break
+		}
+
+		if distanceOutput.Distance <= target+tolerance {
+			// Success!
+			output.State = TOIStateHit
+			// Averaged hit point
+			pA := worldPointA.MulAdd(proxyA.Radius, worldNormal)
+			pB := worldPointB.MulAdd(-proxyB.Radius, worldNormal)
+			output.Point = pA.Lerp(pB, 0.5)
+			output.Normal = worldNormal
+			output.Fraction = t1
+
+			break
+		}
+
+		// Initialize the separating axis.
+		fcn := makeSeparationFunction(cache, proxyA, &sweepA, proxyB, &sweepB, t1)
+
+		// Compute the TOI on the separating axis. We do this by successively
+		// resolving the deepest point. This loop is bounded by the number of vertices.
+		state, fraction := advanceSeparationAxis(&fcn, t1, tMax, target, tolerance)
+		t1 = fraction
+
+		if state != TOIStateUnknown {
+			output.State = state
+			output.Fraction = fraction
+
+			if state == TOIStateHit {
+				// Averaged hit point
+				pA := worldPointA.MulAdd(proxyA.Radius, worldNormal)
+				pB := worldPointB.MulAdd(-proxyB.Radius, worldNormal)
+				output.Point = pA.Lerp(pB, 0.5)
+				output.Normal = worldNormal
+			}
+
+			break
+		}
+
+		if distanceIterations == kMaxIterations {
+			// Root finder got stuck. Semi-victory.
+			output.State = TOIStateFailed
+			// Averaged hit point
+			pA := worldPointA.MulAdd(proxyA.Radius, worldNormal)
+			pB := worldPointB.MulAdd(-proxyB.Radius, worldNormal)
+			output.Point = pA.Lerp(pB, 0.5)
+			output.Normal = worldNormal
+			output.Fraction = t1
+
+			break
+		}
+	}
+
+	return output
 }
 
 func weight2(a1 float32, w1 Vec2, a2 float32, w2 Vec2) Vec2 {
@@ -433,10 +719,10 @@ func solveSimplex2(s *Simplex) Vec2 {
 	}
 
 	// Must be in e12 region.
-	inv_d12 := 1.0 / (d12_1 + d12_2)
+	invD12 := 1.0 / (d12_1 + d12_2)
 
-	s.V1.A = d12_1 * inv_d12
-	s.V2.A = d12_2 * inv_d12
+	s.V1.A = d12_1 * invD12
+	s.V2.A = d12_2 * invD12
 	s.Count = 2
 
 	return e12.ScalarCross(w1.Add(w2).Cross(e12))
@@ -496,7 +782,7 @@ func solveSimplex3(s *Simplex) Vec2 {
 	)
 
 	// w1 region
-	if d12_2 <= 0.0 && d13_2 <= 0.0 {
+	if simplexVertexRegionContainsOrigin(d12_2, d13_2) {
 		s.V1.A = 1.0
 		s.Count = 1
 
@@ -504,22 +790,22 @@ func solveSimplex3(s *Simplex) Vec2 {
 	}
 
 	// e12
-	if d12_1 > 0.0 && d12_2 > 0.0 && d123_3 <= 0.0 {
-		inv_d12 := 1.0 / (d12_1 + d12_2)
+	if simplexEdgeRegionContainsOrigin(d12_1, d12_2, d123_3) {
+		invD12 := 1.0 / (d12_1 + d12_2)
 
-		s.V1.A = d12_1 * inv_d12
-		s.V2.A = d12_2 * inv_d12
+		s.V1.A = d12_1 * invD12
+		s.V2.A = d12_2 * invD12
 		s.Count = 2
 
 		return e12.ScalarCross(w1.Add(w2).Cross(e12))
 	}
 
 	// e13
-	if d13_1 > 0.0 && d13_2 > 0.0 && d123_2 <= 0.0 {
-		inv_d13 := 1.0 / (d13_1 + d13_2)
+	if simplexEdgeRegionContainsOrigin(d13_1, d13_2, d123_2) {
+		invD13 := 1.0 / (d13_1 + d13_2)
 
-		s.V1.A = d13_1 * inv_d13
-		s.V3.A = d13_2 * inv_d13
+		s.V1.A = d13_1 * invD13
+		s.V3.A = d13_2 * invD13
 		s.Count = 2
 		s.V2 = s.V3
 
@@ -527,7 +813,7 @@ func solveSimplex3(s *Simplex) Vec2 {
 	}
 
 	// w2 region
-	if d12_1 <= 0.0 && d23_2 <= 0.0 {
+	if simplexVertexRegionContainsOrigin(d12_1, d23_2) {
 		s.V2.A = 1.0
 		s.Count = 1
 		s.V1 = s.V2
@@ -536,7 +822,7 @@ func solveSimplex3(s *Simplex) Vec2 {
 	}
 
 	// w3 region
-	if d13_1 <= 0.0 && d23_1 <= 0.0 {
+	if simplexVertexRegionContainsOrigin(d13_1, d23_1) {
 		s.V3.A = 1.0
 		s.Count = 1
 		s.V1 = s.V3
@@ -545,11 +831,11 @@ func solveSimplex3(s *Simplex) Vec2 {
 	}
 
 	// e23
-	if d23_1 > 0.0 && d23_2 > 0.0 && d123_1 <= 0.0 {
-		inv_d23 := 1.0 / (d23_1 + d23_2)
+	if simplexEdgeRegionContainsOrigin(d23_1, d23_2, d123_1) {
+		invD23 := 1.0 / (d23_1 + d23_2)
 
-		s.V2.A = d23_1 * inv_d23
-		s.V3.A = d23_2 * inv_d23
+		s.V2.A = d23_1 * invD23
+		s.V3.A = d23_2 * invD23
 		s.Count = 2
 		s.V1 = s.V3
 
@@ -557,276 +843,22 @@ func solveSimplex3(s *Simplex) Vec2 {
 	}
 
 	// Must be in triangle123
-	inv_d123 := 1.0 / (d123_1 + d123_2 + d123_3)
+	invD123 := 1.0 / (d123_1 + d123_2 + d123_3)
 
-	s.V1.A = d123_1 * inv_d123
-	s.V2.A = d123_2 * inv_d123
-	s.V3.A = d123_3 * inv_d123
+	s.V1.A = d123_1 * invD123
+	s.V2.A = d123_2 * invD123
+	s.V3.A = d123_3 * invD123
 	s.Count = 3
 	// No search direction
 	return Vec2Zero
 }
 
-// Compute the closest points between two shapes represented as point clouds.
-// SimplexCache cache is input/output. On the first call set SimplexCache.Count to zero.
-// Passing a simplex buffer records the initial, reduced iteration, and final simplexes
-// up to its length. Pass nil to skip the debug history.
-func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simplex) DistanceOutput {
-	assert(input.ProxyA.Count > 0 && input.ProxyB.Count > 0, "input->proxyA.count > 0 && input->proxyB.count > 0")
-	assert(input.ProxyA.Radius >= 0.0, "input->proxyA.radius >= 0.0f")
-	assert(input.ProxyB.Radius >= 0.0, "input->proxyB.radius >= 0.0f")
-
-	var output DistanceOutput
-
-	proxyA := &input.ProxyA
-
-	// Get proxyB in frame A to avoid further transforms in the main loop.
-	// This is still a performance gain at 8 points.
-	var localProxyB ShapeProxy
-	{
-		localProxyB.Count = input.ProxyB.Count
-
-		localProxyB.Radius = input.ProxyB.Radius
-		for i := range localProxyB.Count {
-			localProxyB.Points[i] = input.Transform.Apply(input.ProxyB.Points[i])
-		}
-	}
-
-	// Initialize the simplex.
-	simplex := makeSimplexFromCache(*cache, proxyA, &localProxyB)
-
-	simplexIndex := 0
-	if simplexes != nil && simplexIndex < len(simplexes) {
-		simplexes[simplexIndex] = simplex
-		simplexIndex += 1
-	}
-
-	// Get simplex vertices as an array.
-	vertices := [3]*SimplexVertex{&simplex.V1, &simplex.V2, &simplex.V3}
-
-	nonUnitNormal := Vec2Zero
-
-	// These store the vertices of the last simplex so that we can check for duplicates and prevent cycling.
-	var saveA, saveB [3]int
-	// Main iteration loop. All computations are done in frame A.
-	maxIterations := 20
-
-	iteration := 0
-	for iteration < maxIterations {
-		// Copy simplex so we can identify duplicates.
-		saveCount := simplex.Count
-		for i := range saveCount {
-			saveA[i] = vertices[i].IndexA
-			saveB[i] = vertices[i].IndexB
-		}
-
-		var d Vec2
-
-		switch simplex.Count {
-		case 1:
-			d = simplex.V1.W.Neg()
-
-		case 2:
-			d = solveSimplex2(&simplex)
-
-		case 3:
-			d = solveSimplex3(&simplex)
-
-		default:
-			assert(false, "false")
-		}
-
-		// If we have 3 points, then the origin is in the corresponding triangle.
-		if simplex.Count == 3 {
-			// Overlap
-			*cache = makeSimplexCache(&simplex)
-
-			var localPointA, localPointB Vec2
-			computeWitnessPoints(&simplex, &localPointA, &localPointB)
-
-			output.Distance = 0.0
-			output.PointA = localPointA
-			output.PointB = localPointB
-
-			return output
-		}
-
-		if simplexIndex < len(simplexes) {
-			simplexes[simplexIndex] = simplex
-			simplexIndex++
-		}
-
-		// Ensure the search direction is numerically fit.
-		if d.Dot(d) < 1000.0*float32(0x1p-126) {
-			// This is unlikely but could lead to bad cycling.
-			// The branch predictor seems to make this check have low cost.
-
-			// The origin is probably contained by a line segment
-			// or triangle. Thus the shapes are overlapped.
-			*cache = makeSimplexCache(&simplex)
-			// Must return overlap due to invalid normal.
-			var localPointA, localPointB Vec2
-			computeWitnessPoints(&simplex, &localPointA, &localPointB)
-
-			output.Distance = 0.0
-			output.PointA = localPointA
-			output.PointB = localPointB
-
-			return output
-		}
-
-		// Save the normal
-		nonUnitNormal = d
-		// Compute a tentative new simplex vertex using support points.
-		// support = support(a, d) - support(b, -d)
-		vertex := vertices[simplex.Count]
-		vertex.IndexA = findSupport(proxyA, d)
-		vertex.WA = proxyA.Points[vertex.IndexA]
-		vertex.IndexB = findSupport(&localProxyB, d.Neg())
-		vertex.WB = localProxyB.Points[vertex.IndexB]
-		vertex.W = vertex.WA.Sub(vertex.WB)
-		// Iteration count is equated to the number of support point calls.
-		iteration++
-
-		// Check for duplicate support points. This is the main termination criteria.
-		duplicate := false
-
-		for i := range saveCount {
-			if vertex.IndexA == saveA[i] && vertex.IndexB == saveB[i] {
-				duplicate = true
-				break
-			}
-		}
-
-		// If we found a duplicate support point we must exit to avoid cycling.
-		if duplicate {
-			break
-		}
-
-		// New vertex is valid and needed.
-		simplex.Count += 1
-	}
-
-	if simplexIndex < len(simplexes) {
-		simplexes[simplexIndex] = simplex
-		simplexIndex++
-	}
-
-	// Prepare output in frame A
-	normal := nonUnitNormal.Normalize()
-	assert(normal.IsNormalized(), "b2IsNormalized( normal )")
-
-	var localPointA, localPointB Vec2
-	computeWitnessPoints(&simplex, &localPointA, &localPointB)
-
-	output.Normal = normal
-	output.Distance = localPointA.Distance(localPointB)
-	output.PointA = localPointA
-	output.PointB = localPointB
-	output.Iterations = iteration
-	output.SimplexCount = simplexIndex
-	// Cache the simplex
-	*cache = makeSimplexCache(&simplex)
-	// Apply radii if requested
-	if input.UseRadii {
-		var (
-			radiusA = input.ProxyA.Radius
-			radiusB = input.ProxyB.Radius
-		)
-
-		output.Distance = maxFloat(0.0, output.Distance-radiusA-radiusB)
-		// Keep closest points on perimeter even if overlapped, this way the points move smoothly.
-		output.PointA = output.PointA.MulAdd(radiusA, normal)
-		output.PointB = output.PointB.MulSub(radiusB, normal)
-	}
-
-	return output
+func simplexVertexRegionContainsOrigin(edgeWeightA, edgeWeightB float32) bool {
+	return edgeWeightA <= 0 && edgeWeightB <= 0
 }
 
-// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
-// The query runs in frame A, so the hit point and normal are returned in frame A. Initially touching shapes are a miss.
-func ShapeCast(input *ShapeCastPairInput) CastOutput {
-	// Compute tolerance
-	var (
-		linearSlop  = LinearSlop()
-		totalRadius = input.ProxyA.Radius + input.ProxyB.Radius
-		target      = maxFloat(linearSlop, totalRadius-linearSlop)
-		tolerance   = float32(0.25 * linearSlop)
-	)
-
-	assert(target > tolerance, "target > tolerance")
-	// Prepare input for distance query
-	var cache SimplexCache
-
-	var fraction float32 = 0.0
-
-	var distanceInput DistanceInput
-
-	distanceInput.ProxyA = input.ProxyA
-	distanceInput.ProxyB = input.ProxyB
-	distanceInput.UseRadii = false
-	// The whole cast runs in frame A. Advance the relative pose of B in float each iteration,
-	// which keeps the math near the local origin and avoids re-relativizing world poses.
-	distanceInput.Transform = input.Transform
-	delta2 := input.TranslationB
-
-	var output CastOutput
-
-	iteration := 0
-	maxIterations := 20
-
-	for ; iteration < maxIterations; iteration++ {
-		output.Iterations += 1
-		distanceOutput := ShapeDistance(&distanceInput, &cache, nil)
-
-		if distanceOutput.Distance < target+tolerance {
-			if iteration == 0 {
-				if input.CanEncroach && distanceOutput.Distance > 2.0*linearSlop {
-					target = distanceOutput.Distance - linearSlop
-				} else {
-					// Initial overlap
-					output.Hit = true
-					// Compute a common point
-					c1 := distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
-					c2 := distanceOutput.PointB.MulAdd(-input.ProxyB.Radius, distanceOutput.Normal)
-					output.Point = c1.Lerp(c2, 0.5)
-
-					return output
-				}
-			} else {
-				// Regular hit
-				assert(distanceOutput.Distance > 0.0 && distanceOutput.Normal.IsNormalized(), "distanceOutput.distance > 0.0f && b2IsNormalized( distanceOutput.normal )")
-
-				output.Fraction = fraction
-				output.Point = distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
-				output.Normal = distanceOutput.Normal
-				output.Hit = true
-
-				return output
-			}
-		}
-
-		assert(distanceOutput.Distance > 0.0, "distanceOutput.distance > 0.0f")
-		assert(distanceOutput.Normal.IsNormalized(), "b2IsNormalized( distanceOutput.normal )")
-		// Check if shapes are approaching each other
-		denominator := delta2.Dot(distanceOutput.Normal)
-		if denominator >= 0.0 {
-			// Miss
-			return output
-		}
-
-		// Advance sweep
-		fraction += (target - distanceOutput.Distance) / denominator
-		if fraction >= input.MaxFraction {
-			// Miss
-			return output
-		}
-
-		distanceInput.Transform.P = input.Transform.P.MulAdd(fraction, delta2)
-	}
-
-	// Failure!
-	return output
+func simplexEdgeRegionContainsOrigin(edgeWeightA, edgeWeightB, triangleWeight float32) bool {
+	return edgeWeightA > 0 && edgeWeightB > 0 && triangleWeight <= 0
 }
 
 func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Sweep, proxyB *ShapeProxy, sweepB *Sweep, t1 float32) separationFunction {
@@ -843,7 +875,7 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 	xfB := sweepB.Transform(t1)
 
 	if count == 1 {
-		f.type_ = pointsType
+		f.kind = pointsType
 		localPointA := proxyA.Points[cache.IndexA[0]]
 		localPointB := proxyB.Points[cache.IndexB[0]]
 		pointA := xfA.Apply(localPointA)
@@ -856,7 +888,7 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 
 	if cache.IndexA[0] == cache.IndexA[1] {
 		// Two points on B and one on A.
-		f.type_ = faceBType
+		f.kind = faceBType
 		localPointB1 := proxyB.Points[cache.IndexB[0]]
 		localPointB2 := proxyB.Points[cache.IndexB[1]]
 
@@ -879,7 +911,7 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 	}
 
 	// Two points on A and one or two points on B.
-	f.type_ = faceAType
+	f.kind = faceAType
 	localPointA1 := proxyA.Points[cache.IndexA[0]]
 	localPointA2 := proxyA.Points[cache.IndexA[1]]
 
@@ -905,7 +937,7 @@ func findMinSeparation(f *separationFunction, indexA, indexB *int, t float32) fl
 	xfA := f.sweepA.Transform(t)
 	xfB := f.sweepB.Transform(t)
 
-	switch f.type_ {
+	switch f.kind {
 	case pointsType:
 		{
 			axisA := xfA.Q.InvRotate(f.axis)
@@ -972,7 +1004,7 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 	xfA := f.sweepA.Transform(t)
 	xfB := f.sweepB.Transform(t)
 
-	switch f.type_ {
+	switch f.kind {
 	case pointsType:
 		{
 			localPointA := f.proxyA.Points[indexA]
@@ -1018,227 +1050,187 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 	}
 }
 
-// Compute the upper bound on time before two shapes penetrate. Time is represented as
-// a fraction between [0,tMax]. This uses a swept separating axis and may miss some intermediate,
-// non-tunneling collisions. If you change the time interval, you should call this function
-// again.
-func TimeOfImpact(input *TOIInput) TOIOutput {
-	var output TOIOutput
+func (bracket *separationRootBracket) refine(fcn *separationFunction, indexA, indexB int, target, tolerance float32) float32 {
+	rootIterationCount := 0
+	rootTime := bracket.upper
 
-	output.State = TOIStateUnknown
-	output.Fraction = input.MaxFraction
-	sweepA := input.SweepA
-	sweepB := input.SweepB
-
-	assert(sweepA.Q1.IsNormalized() && sweepA.Q2.IsNormalized(), "b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 )")
-	assert(sweepB.Q1.IsNormalized() && sweepB.Q2.IsNormalized(), "b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 )")
-	// todo_erin
-	// c1 can be at the origin yet the points are far away
-	// Vec2 origin = Add(sweepA.C1, input.ProxyA.Points[0])
-	proxyA := &input.ProxyA
-	proxyB := &input.ProxyB
-
-	tMax := input.MaxFraction
-
-	// Setup target distance and tolerance
-	var (
-		totalRadius = proxyA.Radius + proxyB.Radius
-		target      = maxFloat(LinearSlop(), totalRadius-LinearSlop())
-		tolerance   = float32(0.25 * LinearSlop())
-	)
-	assert(target > tolerance, "target > tolerance")
-
-	var t1 float32 = 0.0
-
-	k_maxIterations := 20
-	distanceIterations := 0
-
-	// Prepare input for distance query.
-	var (
-		cache         SimplexCache
-		distanceInput DistanceInput
-	)
-
-	distanceInput.ProxyA = input.ProxyA
-	distanceInput.ProxyB = input.ProxyB
-	distanceInput.UseRadii = false
-	// The outer loop progressively attempts to compute new separating axes.
-	// This loop terminates when an axis is repeated (no progress is made).
 	for {
-		// Get the distance between shapes. We can also use the results to get a separating axis.
-		xfA := sweepA.Transform(t1)
-		xfB := sweepB.Transform(t1)
-		distanceInput.Transform = xfA.InvMul(xfB)
-		distanceOutput := ShapeDistance(&distanceInput, &cache, nil)
+		// Use a mix of false position and bisection.
+		var t float32
+		if rootIterationCount&1 != 0 {
+			// False position to improve convergence.
+			t = bracket.lower + float32((target-bracket.lowerSeparation)*(bracket.upper-bracket.lower))/(bracket.upperSeparation-bracket.lowerSeparation)
+		} else {
+			// Bisection to guarantee progress.
+			t = 0.5 * (bracket.lower + bracket.upper)
+		}
 
-		// The distance query runs in frame A, project the witness data back to world
-		worldNormal := xfA.Q.Rotate(distanceOutput.Normal)
-		worldPointA := xfA.Apply(distanceOutput.PointA)
-		worldPointB := xfA.Apply(distanceOutput.PointB)
+		rootIterationCount += 1
 
-		// Progressive time of impact. This handles slender geometry well but introduces
-		// significant time loss.
-		// if (distanceIterations == 0)
-		//{
-		//	if ( distanceOutput.Distance > totalRadius + B2_SPECULATIVE_DISTANCE )
-		//	{
-		//		target = totalRadius + B2_SPECULATIVE_DISTANCE - tolerance
-		//	}
-		//	else
-		//	{
-		//		target = distanceOutput.Distance - 1.5 * tolerance
-		//		target = MaxFloat( target, 2.0 * tolerance )
-		//	}
-		//}
-
-		distanceIterations += 1
-		// If the shapes are overlapped, we give up on continuous collision.
-		if distanceOutput.Distance <= 0.0 {
-			// Failure!
-			output.State = TOIStateOverlapped
-			output.Fraction = 0.0
-
+		s := evaluateSeparation(fcn, indexA, indexB, t)
+		if absFloat(s-target) < tolerance {
+			rootTime = t
 			break
 		}
 
-		if distanceOutput.Distance <= target+tolerance {
-			// Success!
-			output.State = TOIStateHit
-			// Averaged hit point
-			pA := worldPointA.MulAdd(proxyA.Radius, worldNormal)
-			pB := worldPointB.MulAdd(-proxyB.Radius, worldNormal)
-			output.Point = pA.Lerp(pB, 0.5)
-			output.Normal = worldNormal
-			output.Fraction = t1
-
-			break
+		if s > target {
+			bracket.lower = t
+			bracket.lowerSeparation = s
+		} else {
+			bracket.upper = t
+			bracket.upperSeparation = s
 		}
 
-		// Initialize the separating axis.
-		fcn := makeSeparationFunction(cache, proxyA, &sweepA, proxyB, &sweepB, t1)
-
-		// Compute the TOI on the separating axis. We do this by successively
-		// resolving the deepest point. This loop is bounded by the number of vertices.
-		done := false
-
-		t2 := tMax
-
-		pushBackIterations := 0
-
-		for {
-			// Find the deepest point at t2. Store the witness point indices.
-			var (
-				indexA, indexB int
-				s2             = findMinSeparation(&fcn, &indexA, &indexB, t2)
-			)
-
-			// Is the final configuration separated?
-			if s2 > target+tolerance {
-				// Victory!
-				output.State = TOIStateSeparated
-				output.Fraction = tMax
-				done = true
-
-				break
-			}
-
-			// Has the separation reached tolerance?
-			if s2 > target-tolerance {
-				// Advance the sweeps
-				t1 = t2
-				break
-			}
-
-			// Compute the initial separation of the witness points.
-			s1 := evaluateSeparation(&fcn, indexA, indexB, t1)
-
-			// Check for initial overlap. This might happen if the root finder runs out of iterations.
-			if s1 < target-tolerance {
-				output.State = TOIStateFailed
-				output.Fraction = t1
-				done = true
-
-				break
-			}
-
-			// Check for touching
-			if s1 <= target+tolerance {
-				// Success! t1 should hold the TOI (could be 0.0).
-				output.State = TOIStateHit
-				// Averaged hit point
-				pA := worldPointA.MulAdd(proxyA.Radius, worldNormal)
-				pB := worldPointB.MulAdd(-proxyB.Radius, worldNormal)
-				output.Point = pA.Lerp(pB, 0.5)
-				output.Normal = worldNormal
-				output.Fraction = t1
-				done = true
-
-				break
-			}
-
-			// Compute 1D root of: f(x) - target = 0
-			rootIterationCount := 0
-			a1, a2 := t1, t2
-
-			for {
-				// Use a mix of false position and bisection.
-				var t float32
-				if rootIterationCount&1 != 0 {
-					// False position to improve convergence.
-					t = a1 + float32((target-s1)*(a2-a1))/(s2-s1)
-				} else {
-					// Bisection to guarantee progress.
-					t = 0.5 * (a1 + a2)
-				}
-
-				rootIterationCount += 1
-
-				s := evaluateSeparation(&fcn, indexA, indexB, t)
-
-				// Has the separation reached tolerance?
-				if absFloat(s-target) < tolerance {
-					// t2 holds a tentative value for t1
-					t2 = t
-					break
-				}
-
-				// Ensure we continue to bracket the root.
-				if s > target {
-					a1 = t
-					s1 = s
-				} else {
-					a2 = t
-					s2 = s
-				}
-
-				if rootIterationCount == 50 {
-					break
-				}
-			}
-
-			pushBackIterations += 1
-			if pushBackIterations == MaxPolygonVertices {
-				break
-			}
-		}
-
-		if done {
-			break
-		}
-
-		if distanceIterations == k_maxIterations {
-			// Root finder got stuck. Semi-victory.
-			output.State = TOIStateFailed
-			// Averaged hit point
-			pA := worldPointA.MulAdd(proxyA.Radius, worldNormal)
-			pB := worldPointB.MulAdd(-proxyB.Radius, worldNormal)
-			output.Point = pA.Lerp(pB, 0.5)
-			output.Normal = worldNormal
-			output.Fraction = t1
-
+		if rootIterationCount == 50 {
 			break
 		}
 	}
 
-	return output
+	return rootTime
+}
+
+func advanceSeparationAxis(fcn *separationFunction, t1, tMax, target, tolerance float32) (TOIState, float32) {
+	t2 := tMax
+	pushBackIterations := 0
+
+	for {
+		// Find the deepest point at t2. Store the witness point indices.
+		var (
+			indexA, indexB int
+			s2             = findMinSeparation(fcn, &indexA, &indexB, t2)
+		)
+		// Is the final configuration separated?
+		if s2 > target+tolerance {
+			return TOIStateSeparated, tMax
+		}
+		// Has the separation reached tolerance?
+		if s2 > target-tolerance {
+			return TOIStateUnknown, t2
+		}
+		// Compute the initial separation of the witness points.
+		s1 := evaluateSeparation(fcn, indexA, indexB, t1)
+		// Check for initial overlap. This might happen if the root finder runs out of iterations.
+		if s1 < target-tolerance {
+			return TOIStateFailed, t1
+		}
+		// Check for touching
+		if s1 <= target+tolerance {
+			return TOIStateHit, t1
+		}
+		// Compute 1D root of: f(x) - target = 0
+		bracket := separationRootBracket{t1, t2, s1, s2}
+		t2 = bracket.refine(fcn, indexA, indexB, target, tolerance)
+
+		pushBackIterations += 1
+		if pushBackIterations == MaxPolygonVertices {
+			return TOIStateUnknown, t1
+		}
+	}
+}
+
+func runGJK(simplex *Simplex, proxyA, proxyB *ShapeProxy, simplexes []Simplex, simplexIndex *int) (Vec2, int, bool) {
+	// Get simplex vertices as an array.
+	vertices := [3]*SimplexVertex{&simplex.V1, &simplex.V2, &simplex.V3}
+
+	nonUnitNormal := Vec2Zero
+
+	// These store the vertices of the last simplex so that we can check for duplicates and prevent cycling.
+	var saveA, saveB [3]int
+	// Main iteration loop. All computations are done in frame A.
+	maxIterations := 20
+
+	iteration := 0
+	for iteration < maxIterations {
+		// Copy simplex so we can identify duplicates.
+		saveCount := simplex.Count
+		for i := range saveCount {
+			saveA[i] = vertices[i].IndexA
+			saveB[i] = vertices[i].IndexB
+		}
+
+		d := simplex.searchDirection()
+
+		// If we have 3 points, then the origin is in the corresponding triangle.
+		if simplex.Count == 3 {
+			return nonUnitNormal, iteration, true
+		}
+
+		if *simplexIndex < len(simplexes) {
+			simplexes[*simplexIndex] = *simplex
+			*simplexIndex++
+		}
+
+		// Ensure the search direction is numerically fit.
+		if d.Dot(d) < 1000.0*float32(0x1p-126) {
+			// This is unlikely but could lead to bad cycling.
+			// The branch predictor seems to make this check have low cost.
+
+			// The origin is probably contained by a line segment
+			// or triangle. Thus the shapes are overlapped.
+			// Must return overlap due to invalid normal.
+			return nonUnitNormal, iteration, true
+		}
+
+		// Save the normal
+		nonUnitNormal = d
+		// Compute a tentative new simplex vertex using support points.
+		// support = support(a, d) - support(b, -d)
+		vertex := vertices[simplex.Count]
+		vertex.IndexA = findSupport(proxyA, d)
+		vertex.WA = proxyA.Points[vertex.IndexA]
+		vertex.IndexB = findSupport(proxyB, d.Neg())
+		vertex.WB = proxyB.Points[vertex.IndexB]
+		vertex.W = vertex.WA.Sub(vertex.WB)
+		// Iteration count is equated to the number of support point calls.
+		iteration++
+
+		// Check for duplicate support points. This is the main termination criteria.
+		duplicate := false
+
+		for i := range saveCount {
+			if vertex.IndexA == saveA[i] && vertex.IndexB == saveB[i] {
+				duplicate = true
+				break
+			}
+		}
+
+		// If we found a duplicate support point we must exit to avoid cycling.
+		if duplicate {
+			break
+		}
+
+		// New vertex is valid and needed.
+		simplex.Count += 1
+	}
+
+	return nonUnitNormal, iteration, false
+}
+
+func (simplex *Simplex) searchDirection() Vec2 {
+	switch simplex.Count {
+	case 1:
+		return simplex.V1.W.Neg()
+	case 2:
+		return solveSimplex2(simplex)
+	case 3:
+		return solveSimplex3(simplex)
+	default:
+		assert(false, "false")
+		return Vec2{}
+	}
+}
+
+func degenerateSegmentFractions(dd1, dd2, rd1, rd2 float32) (float32, float32) {
+	const epsSqr = float32(0x1p-23) * float32(0x1p-23)
+	if dd1 >= epsSqr {
+		// Segment 2 is degenerate
+		return clampFloat(-rd1/dd1, 0.0, 1.0), 0.0
+	}
+
+	if dd2 >= epsSqr {
+		// Segment 1 is degenerate
+		return 0.0, clampFloat(rd2/dd2, 0.0, 1.0)
+	}
+
+	return 0.0, 0.0
 }

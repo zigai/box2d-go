@@ -211,7 +211,7 @@ func (w WheelJoint) MaxMotorTorque() float32 {
 }
 
 func getWheelJointForce(world *World, base *jointSim) Vec2 {
-	qA := getBodyTransform(world, base.bodyIdA).Q
+	qA := getBodyTransform(world, base.bodyIDA).Q
 
 	localAxisA := base.localFrameA.Q.Rotate(Vec2{X: float32(1.0), Y: float32(0.0)})
 	axisA := qA.Rotate(localAxisA)
@@ -248,8 +248,8 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 	assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
 
 	// chase body id to the solver set where the body lives
-	idA := base.bodyIdA
-	idB := base.bodyIdB
+	idA := base.bodyIDA
+	idB := base.bodyIDB
 
 	world := context.world
 
@@ -359,19 +359,9 @@ func warmStartWheelJoint(base *jointSim, context *stepContext) {
 
 	joint := &base.wheelJoint
 
-	var stateA *bodyState
-	if joint.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[joint.indexA]
-	}
+	stateA := jointSolverBodyState(context, joint.indexA, &dummyState)
 
-	var stateB *bodyState
-	if joint.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[joint.indexB]
-	}
+	stateB := jointSolverBodyState(context, joint.indexB, &dummyState)
 
 	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
 	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
@@ -388,18 +378,18 @@ func warmStartWheelJoint(base *jointSim, context *stepContext) {
 
 	axialImpulse := joint.springImpulse + joint.lowerImpulse - joint.upperImpulse
 
-	P := Vec2{X: float32(axialImpulse * axisA.X), Y: float32(axialImpulse * axisA.Y)}.Add(Vec2{X: float32(joint.perpImpulse * perpA.X), Y: float32(joint.perpImpulse * perpA.Y)})
-	LA := float32(axialImpulse*a1) + float32(joint.perpImpulse*s1) + joint.motorImpulse
-	LB := float32(axialImpulse*a2) + float32(joint.perpImpulse*s2) + joint.motorImpulse
+	impulseVector := Vec2{X: float32(axialImpulse * axisA.X), Y: float32(axialImpulse * axisA.Y)}.Add(Vec2{X: float32(joint.perpImpulse * perpA.X), Y: float32(joint.perpImpulse * perpA.Y)})
+	angularImpulseA := float32(axialImpulse*a1) + float32(joint.perpImpulse*s1) + joint.motorImpulse
+	angularImpulseB := float32(axialImpulse*a2) + float32(joint.perpImpulse*s2) + joint.motorImpulse
 
 	if stateA.flags&dynamicFlag != 0 {
-		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, P)
-		stateA.angularVelocity -= float32(iA * LA)
+		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, impulseVector)
+		stateA.angularVelocity -= float32(iA * angularImpulseA)
 	}
 
 	if stateB.flags&dynamicFlag != 0 {
-		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, P)
-		stateB.angularVelocity += float32(iB * LB)
+		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, impulseVector)
+		stateB.angularVelocity += float32(iB * angularImpulseB)
 	}
 }
 
@@ -416,19 +406,9 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 
 	joint := &base.wheelJoint
 
-	var stateA *bodyState
-	if joint.indexA == nullIndex {
-		stateA = &dummyState
-	} else {
-		stateA = &context.states[joint.indexA]
-	}
+	stateA := jointSolverBodyState(context, joint.indexA, &dummyState)
 
-	var stateB *bodyState
-	if joint.indexB == nullIndex {
-		stateB = &dummyState
-	} else {
-		stateB = &context.states[joint.indexB]
-	}
+	stateB := jointSolverBodyState(context, joint.indexB, &dummyState)
 
 	vA := stateA.linearVelocity
 	wA := stateA.angularVelocity
@@ -451,8 +431,8 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 
 	// motor constraint
 	if joint.enableMotor && !fixedRotation {
-		Cdot := wB - wA - joint.motorSpeed
-		impulse := float32(-joint.motorMass * Cdot)
+		velocityError := wB - wA - joint.motorSpeed
+		impulse := float32(-joint.motorMass * velocityError)
 		oldImpulse := joint.motorImpulse
 		maxImpulse := float32(context.h * joint.maxMotorTorque)
 		joint.motorImpulse = clampFloat(joint.motorImpulse+impulse, -maxImpulse, maxImpulse)
@@ -465,56 +445,45 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 	// spring constraint
 	if joint.enableSpring {
 		// This is a real spring and should be applied even during relax
-		C := translation
-		bias := float32(joint.springSoftness.biasRate * C)
+		separation := translation
+		bias := float32(joint.springSoftness.biasRate * separation)
 		massScale := joint.springSoftness.massScale
 		impulseScale := joint.springSoftness.impulseScale
 
-		Cdot := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
-		impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*joint.springImpulse)
+		velocityError := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
+		impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.springImpulse)
 		joint.springImpulse += impulse
 
-		P := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
-		LA := float32(impulse * a1)
-		LB := float32(impulse * a2)
+		impulseVector := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
+		angularImpulseA := float32(impulse * a1)
+		angularImpulseB := float32(impulse * a2)
 
-		vA = vA.MulSub(mA, P)
-		wA -= float32(iA * LA)
-		vB = vB.MulAdd(mB, P)
-		wB += float32(iB * LB)
+		vA = vA.MulSub(mA, impulseVector)
+		wA -= float32(iA * angularImpulseA)
+		vB = vB.MulAdd(mB, impulseVector)
+		wB += float32(iB * angularImpulseB)
 	}
 
 	if joint.enableLimit {
 		// Lower limit
 		{
-			C := translation - joint.lowerTranslation
-			bias := float32(0.0)
-			massScale := float32(1.0)
-			impulseScale := float32(0.0)
+			separation := translation - joint.lowerTranslation
+			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
 
-			if C > float32(0.0) {
-				// speculation
-				bias = float32(C * context.invH)
-			} else if useBias {
-				bias = float32(base.constraintSoftness.biasRate * C)
-				massScale = base.constraintSoftness.massScale
-				impulseScale = base.constraintSoftness.impulseScale
-			}
-
-			Cdot := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
-			impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*joint.lowerImpulse)
+			velocityError := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
+			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.lowerImpulse)
 			oldImpulse := joint.lowerImpulse
 			joint.lowerImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.lowerImpulse - oldImpulse
 
-			P := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
-			LA := float32(impulse * a1)
-			LB := float32(impulse * a2)
+			impulseVector := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
+			angularImpulseA := float32(impulse * a1)
+			angularImpulseB := float32(impulse * a2)
 
-			vA = vA.MulSub(mA, P)
-			wA -= float32(iA * LA)
-			vB = vB.MulAdd(mB, P)
-			wB += float32(iB * LB)
+			vA = vA.MulSub(mA, impulseVector)
+			wA -= float32(iA * angularImpulseA)
+			vB = vB.MulAdd(mB, impulseVector)
+			wB += float32(iB * angularImpulseB)
 		}
 
 		// Upper limit
@@ -522,36 +491,25 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		// This also keeps the impulse positive when the limit is active.
 		{
 			// sign flipped
-			C := joint.upperTranslation - translation
-			bias := float32(0.0)
-			massScale := float32(1.0)
-			impulseScale := float32(0.0)
+			separation := joint.upperTranslation - translation
+			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
 
-			if C > float32(0.0) {
-				// speculation
-				bias = float32(C * context.invH)
-			} else if useBias {
-				bias = float32(base.constraintSoftness.biasRate * C)
-				massScale = base.constraintSoftness.massScale
-				impulseScale = base.constraintSoftness.impulseScale
-			}
-
-			// sign flipped on Cdot
-			Cdot := axisA.Dot(vA.Sub(vB)) + float32(a1*wA) - float32(a2*wB)
-			impulse := float32(float32(-massScale*joint.axialMass)*(Cdot+bias)) - float32(impulseScale*joint.upperImpulse)
+			// sign flipped on velocityError
+			velocityError := axisA.Dot(vA.Sub(vB)) + float32(a1*wA) - float32(a2*wB)
+			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.upperImpulse)
 			oldImpulse := joint.upperImpulse
 			joint.upperImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.upperImpulse - oldImpulse
 
-			P := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
-			LA := float32(impulse * a1)
-			LB := float32(impulse * a2)
+			impulseVector := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
+			angularImpulseA := float32(impulse * a1)
+			angularImpulseB := float32(impulse * a2)
 
 			// sign flipped on applied impulse
-			vA = vA.MulAdd(mA, P)
-			wA += float32(iA * LA)
-			vB = vB.MulSub(mB, P)
-			wB -= float32(iB * LB)
+			vA = vA.MulAdd(mA, impulseVector)
+			wA += float32(iA * angularImpulseA)
+			vB = vB.MulSub(mB, impulseVector)
+			wB -= float32(iB * angularImpulseB)
 		}
 	}
 
@@ -564,27 +522,27 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulseScale := float32(0.0)
 
 		if useBias {
-			C := perpA.Dot(d)
-			bias = float32(base.constraintSoftness.biasRate * C)
+			separation := perpA.Dot(d)
+			bias = float32(base.constraintSoftness.biasRate * separation)
 			massScale = base.constraintSoftness.massScale
 			impulseScale = base.constraintSoftness.impulseScale
 		}
 
 		s1 := d.Add(rA).Cross(perpA)
 		s2 := rB.Cross(perpA)
-		Cdot := perpA.Dot(vB.Sub(vA)) + float32(s2*wB) - float32(s1*wA)
+		velocityError := perpA.Dot(vB.Sub(vA)) + float32(s2*wB) - float32(s1*wA)
 
-		impulse := float32(float32(-massScale*joint.perpMass)*(Cdot+bias)) - float32(impulseScale*joint.perpImpulse)
+		impulse := float32(float32(-massScale*joint.perpMass)*(velocityError+bias)) - float32(impulseScale*joint.perpImpulse)
 		joint.perpImpulse += impulse
 
-		P := Vec2{X: float32(impulse * perpA.X), Y: float32(impulse * perpA.Y)}
-		LA := float32(impulse * s1)
-		LB := float32(impulse * s2)
+		impulseVector := Vec2{X: float32(impulse * perpA.X), Y: float32(impulse * perpA.Y)}
+		angularImpulseA := float32(impulse * s1)
+		angularImpulseB := float32(impulse * s2)
 
-		vA = vA.MulSub(mA, P)
-		wA -= float32(iA * LA)
-		vB = vB.MulAdd(mB, P)
-		wB += float32(iB * LB)
+		vA = vA.MulSub(mA, impulseVector)
+		wA -= float32(iA * angularImpulseA)
+		vB = vB.MulAdd(mB, impulseVector)
+		wB += float32(iB * angularImpulseB)
 	}
 
 	if stateA.flags&dynamicFlag != 0 {

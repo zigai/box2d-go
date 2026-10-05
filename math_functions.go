@@ -5,61 +5,6 @@ package box2d
 
 import "math"
 
-// @return the absolute value of an integer.
-func absInt(a int) int {
-	if a < 0 {
-		return -a
-	}
-
-	return a
-}
-
-// https://en.wikipedia.org/wiki/Floor_and_ceiling_functions
-func ceilingInt(numerator int, denominator int) int {
-	validate(denominator > 0 && numerator >= 0, "denominator > 0 && numerator >= 0")
-	return (numerator + denominator - 1) / denominator
-}
-
-// @return the minimum of two floats.
-func minFloat(a float32, b float32) float32 {
-	if a < b {
-		return a
-	}
-
-	return b
-}
-
-// @return the maximum of two floats.
-func maxFloat(a float32, b float32) float32 {
-	if a > b {
-		return a
-	}
-
-	return b
-}
-
-// @return the absolute value of a float.
-func absFloat(a float32) float32 {
-	if a < 0 {
-		return -a
-	}
-
-	return a
-}
-
-// @return a float clamped between a lower and upper bound.
-func clampFloat(a float32, lower float32, upper float32) float32 {
-	if a < lower {
-		return lower
-	}
-
-	if a > upper {
-		return upper
-	}
-
-	return a
-}
-
 // Vector dot product.
 func (a Vec2) Dot(b Vec2) float32 {
 	return float32(a.X*b.X) + float32(a.Y*b.Y)
@@ -71,23 +16,23 @@ func (a Vec2) Cross(b Vec2) float32 {
 }
 
 // Perform the cross product on a vector and a scalar. In 2D this produces a vector.
-func (v Vec2) CrossScalar(s float32) Vec2 {
-	return Vec2{s * v.Y, -s * v.X}
+func (a Vec2) CrossScalar(s float32) Vec2 {
+	return Vec2{s * a.Y, -s * a.X}
 }
 
 // Perform the cross product on a scalar and a vector. In 2D this produces a vector.
-func (v Vec2) ScalarCross(s float32) Vec2 {
-	return Vec2{float32(-s * v.Y), float32(s * v.X)}
+func (a Vec2) ScalarCross(s float32) Vec2 {
+	return Vec2{float32(-s * a.Y), float32(s * a.X)}
 }
 
 // Get a left pointing perpendicular vector. Equivalent to CrossSV(1.0f, v).
-func (v Vec2) LeftPerp() Vec2 {
-	return Vec2{-v.Y, v.X}
+func (a Vec2) LeftPerp() Vec2 {
+	return Vec2{-a.Y, a.X}
 }
 
 // Get a right pointing perpendicular vector. Equivalent to CrossVS(v, 1.0f).
-func (v Vec2) RightPerp() Vec2 {
-	return Vec2{v.Y, -v.X}
+func (a Vec2) RightPerp() Vec2 {
+	return Vec2{a.Y, -a.X}
 }
 
 // Vector addition.
@@ -117,8 +62,8 @@ func (a Vec2) Mul(b Vec2) Vec2 {
 }
 
 // Multiply a scalar and vector.
-func (v Vec2) Scale(s float32) Vec2 {
-	return Vec2{float32(s * v.X), float32(s * v.Y)}
+func (a Vec2) Scale(s float32) Vec2 {
+	return Vec2{float32(s * a.X), float32(s * a.Y)}
 }
 
 // a + s * b.
@@ -147,13 +92,13 @@ func (a Vec2) Max(b Vec2) Vec2 {
 }
 
 // Component-wise clamp vector v into the range [a, b].
-func (v Vec2) Clamp(a Vec2, b Vec2) Vec2 {
-	return Vec2{clampFloat(v.X, a.X, b.X), clampFloat(v.Y, a.Y, b.Y)}
+func (a Vec2) Clamp(lower Vec2, b Vec2) Vec2 {
+	return Vec2{clampFloat(a.X, lower.X, b.X), clampFloat(a.Y, lower.Y, b.Y)}
 }
 
 // Get the length of this vector (the norm).
-func (v Vec2) Length() float32 {
-	return float32(math.Sqrt(float64(float32(v.X*v.X) + float32(v.Y*v.Y))))
+func (a Vec2) Length() float32 {
+	return float32(math.Sqrt(float64(float32(a.X*a.X) + float32(a.Y*a.Y))))
 }
 
 // Get the distance between two points.
@@ -211,8 +156,8 @@ func (q Rot) Normalize() Rot {
 // Integrate rotation from angular velocity
 // @param q1 initial rotation
 // @param deltaAngle the angular displacement in radians.
-func (q1 Rot) Integrate(deltaAngle float32) Rot {
-	q2 := Rot{q1.C - float32(deltaAngle*q1.S), q1.S + float32(deltaAngle*q1.C)}
+func (q Rot) Integrate(deltaAngle float32) Rot {
+	q2 := Rot{q.C - float32(deltaAngle*q.S), q.S + float32(deltaAngle*q.C)}
 	mag := float32(math.Sqrt(float64(float32(q2.S*q2.S) + float32(q2.C*q2.C))))
 
 	var invMag float32
@@ -224,8 +169,8 @@ func (q1 Rot) Integrate(deltaAngle float32) Rot {
 }
 
 // Get the length squared of this vector.
-func (v Vec2) LengthSquared() float32 {
-	return float32(v.X*v.X) + float32(v.Y*v.Y)
+func (a Vec2) LengthSquared() float32 {
+	return float32(a.X*a.X) + float32(a.Y*a.Y)
 }
 
 // Get the distance squared between points.
@@ -253,32 +198,32 @@ func (q Rot) IsNormalized() bool {
 }
 
 // Get the inverse of a rotation.
-func (a Rot) Invert() Rot {
-	return Rot{a.C, -a.S}
+func (q Rot) Invert() Rot {
+	return Rot{q.C, -q.S}
 }
 
 // Normalized linear interpolation
 // https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
 // https://web.archive.org/web/20170825184056/http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
-func (q1 Rot) NLerp(q2 Rot, t float32) Rot {
+func (q Rot) NLerp(q2 Rot, t float32) Rot {
 	omt := 1 - t
-	q := Rot{float32(omt*q1.C) + float32(t*q2.C), float32(omt*q1.S) + float32(t*q2.S)}
-	mag := float32(math.Sqrt(float64(float32(q.S*q.S) + float32(q.C*q.C))))
+	interpolated := Rot{float32(omt*q.C) + float32(t*q2.C), float32(omt*q.S) + float32(t*q2.S)}
+	mag := float32(math.Sqrt(float64(float32(interpolated.S*interpolated.S) + float32(interpolated.C*interpolated.C))))
 
 	var invMag float32
 	if mag > 0 {
 		invMag = 1 / mag
 	}
 
-	return Rot{q.C * invMag, q.S * invMag}
+	return Rot{interpolated.C * invMag, interpolated.S * invMag}
 }
 
 // Compute the angular velocity necessary to rotate between two rotations over a give time
 // @param q1 initial rotation
 // @param q2 final rotation
 // @param invH inverse time step.
-func (q1 Rot) AngularVelocity(q2 Rot, invH float32) float32 {
-	omega := invH * (float32(q2.S*q1.C) - float32(q2.C*q1.S))
+func (q Rot) AngularVelocity(q2 Rot, invH float32) float32 {
+	omega := invH * (float32(q2.S*q.C) - float32(q2.C*q.S))
 	return omega
 }
 
@@ -309,19 +254,19 @@ func (q Rot) Mul(r Rot) Rot {
 
 // Transpose multiply two rotations: inv(a) * b
 // This rotates a vector local in frame b into a vector local in frame a.
-func (a Rot) InvMul(b Rot) Rot {
+func (q Rot) InvMul(b Rot) Rot {
 	var r Rot
 
-	r.S = float32(a.C*b.S) - float32(a.S*b.C)
-	r.C = float32(a.C*b.C) + float32(a.S*b.S)
+	r.S = float32(q.C*b.S) - float32(q.S*b.C)
+	r.C = float32(q.C*b.C) + float32(q.S*b.S)
 
 	return r
 }
 
 // Relative angle between a and b.
-func (a Rot) RelativeAngle(b Rot) float32 {
-	s := float32(a.C*b.S) - float32(a.S*b.C)
-	c := float32(a.C*b.C) + float32(a.S*b.S)
+func (q Rot) RelativeAngle(b Rot) float32 {
+	s := float32(q.C*b.S) - float32(q.S*b.C)
+	c := float32(q.C*b.C) + float32(q.S*b.S)
 
 	return Atan2(s, c)
 }
@@ -372,11 +317,11 @@ func (t Transform) InvApply(p Vec2) Vec2 {
 // v2 = a.Q.Rot(b.Q.Rot(v1) + b.P) + a.P
 //
 //	= (a.Q * b.Q).Rot(v1) + a.Q.Rot(b.P) + a.P
-func (a Transform) Mul(b Transform) Transform {
+func (t Transform) Mul(b Transform) Transform {
 	var c Transform
 
-	c.Q = a.Q.Mul(b.Q)
-	c.P = a.Q.Rotate(b.P).Add(a.P)
+	c.Q = t.Q.Mul(b.Q)
+	c.P = t.Q.Rotate(b.P).Add(t.P)
 
 	return c
 }
@@ -385,11 +330,11 @@ func (a Transform) Mul(b Transform) Transform {
 // v2 = a.Q' * (b.Q * v1 + b.P - a.P)
 //
 //	= a.Q' * b.Q * v1 + a.Q' * (b.P - a.P)
-func (a Transform) InvMul(b Transform) Transform {
+func (t Transform) InvMul(b Transform) Transform {
 	var c Transform
 
-	c.Q = a.Q.InvMul(b.Q)
-	c.P = a.Q.InvRotate(b.P.Sub(a.P))
+	c.Q = t.Q.InvMul(b.Q)
+	c.P = t.Q.InvRotate(b.P.Sub(t.P))
 
 	return c
 }
@@ -424,8 +369,8 @@ func RoundUpFloat(x float64) float32 {
 }
 
 // a - b, demoted to float. The primary precision boundary operation.
-func (a Pos) Sub(b Pos) Vec2 {
-	return Vec2{float32(a.X - b.X), float32(a.Y - b.Y)}
+func (p Pos) Sub(b Pos) Vec2 {
+	return Vec2{float32(p.X - b.X), float32(p.Y - b.Y)}
 }
 
 // Transform a local point to a world position. Rotation in float, translation in double.
@@ -445,22 +390,22 @@ func (t WorldTransform) InvApply(p Pos) Vec2 {
 }
 
 // Relative transform of frame B in frame A.
-func (a WorldTransform) InvMul(b WorldTransform) Transform {
+func (t WorldTransform) InvMul(b WorldTransform) Transform {
 	var c Transform
 
-	c.Q = a.Q.InvMul(b.Q)
-	d := Vec2{float32(b.P.X - a.P.X), float32(b.P.Y - a.P.Y)}
-	c.P = a.Q.InvRotate(d)
+	c.Q = t.Q.InvMul(b.Q)
+	d := Vec2{float32(b.P.X - t.P.X), float32(b.P.Y - t.P.Y)}
+	c.P = t.Q.InvRotate(d)
 
 	return c
 }
 
 // Convert a local transform B into world space using world transform A.
-func (a WorldTransform) Mul(b Transform) WorldTransform {
+func (t WorldTransform) Mul(b Transform) WorldTransform {
 	var c WorldTransform
 
-	c.Q = a.Q.Mul(b.Q)
-	c.P = a.P.Add(a.Q.Rotate(b.P))
+	c.Q = t.Q.Mul(b.Q)
+	c.P = t.P.Add(t.Q.Rotate(b.P))
 
 	return c
 }
@@ -594,12 +539,12 @@ func IsValidFloat(a float32) bool {
 }
 
 // Is this a valid vector? Not NaN or infinity.
-func (v Vec2) IsValid() bool {
-	if math.IsNaN(float64(v.X)) || math.IsNaN(float64(v.Y)) {
+func (a Vec2) IsValid() bool {
+	if math.IsNaN(float64(a.X)) || math.IsNaN(float64(a.Y)) {
 		return false
 	}
 
-	if math.IsInf(float64(v.X), 0) || math.IsInf(float64(v.Y), 0) {
+	if math.IsInf(float64(a.X), 0) || math.IsInf(float64(a.Y), 0) {
 		return false
 	}
 
@@ -629,8 +574,8 @@ func (t Transform) IsValid() bool {
 }
 
 // Is this a valid plane? Normal is a unit vector. Not Nan or infinity.
-func (a Plane) IsValid() bool {
-	return a.Normal.IsValid() && a.Normal.IsNormalized() && IsValidFloat(a.Offset)
+func (plane Plane) IsValid() bool {
+	return plane.Normal.IsValid() && plane.Normal.IsNormalized() && IsValidFloat(plane.Offset)
 }
 
 // Is this a valid world position? Not NaN or infinity.
@@ -700,15 +645,16 @@ func ComputeCosSin(radians float32) CosSin {
 
 	var c float32
 
-	if x < -0.5*Pi {
+	switch {
+	case x < -0.5*Pi:
 		y := x + Pi
 		y2 := float32(y * y)
 		c = -(pi2 - float32(4*y2)) / (pi2 + y2)
-	} else if x > 0.5*Pi {
+	case x > 0.5*Pi:
 		y := x - Pi
 		y2 := float32(y * y)
 		c = -(pi2 - float32(4*y2)) / (pi2 + y2)
-	} else {
+	default:
 		y2 := float32(x * x)
 		c = (pi2 - float32(4*y2)) / (pi2 + y2)
 	}
@@ -746,8 +692,8 @@ func ComputeRotationBetweenUnitVectors(v1 Vec2, v2 Vec2) Rot {
 }
 
 // Convert a vector to a world position. no-op in single precision.
-func (v Vec2) Pos() Pos {
-	return Pos{posScalar(v.X), posScalar(v.Y)}
+func (a Vec2) Pos() Pos {
+	return Pos{posScalar(a.X), posScalar(a.Y)}
 }
 
 // p + d.
@@ -756,6 +702,61 @@ func (p Pos) Add(d Vec2) Pos {
 }
 
 // World position interpolation for sweeps and sampling.
-func (a Pos) Lerp(b Pos, t float32) Pos {
-	return Pos{posScalar(posScalar(1-t)*a.X) + posScalar(posScalar(t)*b.X), posScalar(posScalar(1-t)*a.Y) + posScalar(posScalar(t)*b.Y)}
+func (p Pos) Lerp(b Pos, t float32) Pos {
+	return Pos{posScalar(posScalar(1-t)*p.X) + posScalar(posScalar(t)*b.X), posScalar(posScalar(1-t)*p.Y) + posScalar(posScalar(t)*b.Y)}
+}
+
+// @return the absolute value of an integer.
+func absInt(a int) int {
+	if a < 0 {
+		return -a
+	}
+
+	return a
+}
+
+// https://en.wikipedia.org/wiki/Floor_and_ceiling_functions
+func ceilingInt(numerator int, denominator int) int {
+	validate(denominator > 0 && numerator >= 0, "denominator > 0 && numerator >= 0")
+	return (numerator + denominator - 1) / denominator
+}
+
+// @return the minimum of two floats.
+func minFloat(a float32, b float32) float32 {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+// @return the maximum of two floats.
+func maxFloat(a float32, b float32) float32 {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+// @return the absolute value of a float.
+func absFloat(a float32) float32 {
+	if a < 0 {
+		return -a
+	}
+
+	return a
+}
+
+// @return a float clamped between a lower and upper bound.
+func clampFloat(a float32, lower float32, upper float32) float32 {
+	if a < lower {
+		return lower
+	}
+
+	if a > upper {
+		return upper
+	}
+
+	return a
 }

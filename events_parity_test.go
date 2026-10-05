@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
+
 package box2d_test
 
 import (
 	"cmp"
 	"fmt"
+	"iter"
 	"math"
 	"reflect"
 	"slices"
@@ -24,6 +26,8 @@ type evOracle struct {
 }
 
 func evStart(t *testing.T, name string, gravity box2d.Vec2, sleep bool) *evOracle {
+	t.Helper()
+
 	d := box2d.DefaultWorldDef()
 	d.Gravity = gravity
 	d.EnableSleep = sleep
@@ -173,77 +177,9 @@ func (e *evOracle) observe(bodies ...box2d.Body) {
 		e.shape(s.VisitorShape)
 	}
 
-	r.I32("move.count", int32(len(bm)))
+	e.observeOwnedEvents(bm, je)
 
-	for _, m := range bm {
-		e.bodyID(m.Body)
-		r.I32("move.tag", int32(m.UserData.(int)))
-		r.Pos("move.position", oracle.Real(m.Transform.P.X), oracle.Real(m.Transform.P.Y))
-		r.Rot("move.rotation", m.Transform.Q.C, m.Transform.Q.S)
-		r.Bool("move.sleep", m.FellAsleep)
-	}
-
-	r.I32("joint.count", int32(len(je)))
-
-	for _, j := range je {
-		id := j.Joint.ID()
-		r.I32("joint.index", int32(id>>32))
-		r.U32("joint.generation", uint32(uint16(id)))
-		r.Bool("joint.world", j.Joint.World() == e.w)
-		r.Bool("joint.valid", j.Joint.IsValid())
-		r.I32("joint.tag", int32(j.UserData.(int)))
-	}
-
-	r.I32("state.count", int32(len(bodies)))
-
-	for _, b := range bodies {
-		e.bodyID(b)
-
-		if !b.IsValid() {
-			continue
-		}
-
-		position, rotation, velocity := b.Position(), b.Rotation(), b.LinearVelocity()
-		r.Pos("state.position", position.X, position.Y)
-		r.Rot("state.rotation", rotation.C, rotation.S)
-		r.Vec2("state.velocity", velocity.X, velocity.Y)
-		r.F32("state.spin", b.AngularVelocity())
-		r.Bool("state.awake", b.Awake())
-		r.Bool("state.enabled", b.Enabled())
-		data := slices.Collect(b.ContactData())
-		slices.SortFunc(data, func(a, b box2d.ContactData) int { return evPairCompare(a.ShapeA, a.ShapeB, b.ShapeA, b.ShapeB) })
-		r.I32("state.contacts", int32(len(data)))
-
-		for _, c := range data {
-			e.shape(c.ShapeA)
-			e.shape(c.ShapeB)
-			e.contact(c.Contact)
-			m := c.Manifold
-			r.Vec2("manifold.normal", m.Normal.X, m.Normal.Y)
-			r.F32("manifold.rollingImpulse", m.RollingImpulse)
-			r.I32("manifold.count", int32(m.PointCount))
-
-			hit := c.ShapeA.HitEventsEnabled() || c.ShapeB.HitEventsEnabled()
-			r.Bool("manifold.hitEnabled", hit)
-
-			for p := range m.PointCount {
-				mp := m.Points[p]
-				r.Vec2("manifold.anchorA", mp.AnchorA.X, mp.AnchorA.Y)
-				r.Vec2("manifold.anchorB", mp.AnchorB.X, mp.AnchorB.Y)
-				r.F32("manifold.separation", mp.Separation)
-				r.F32("manifold.normalImpulse", mp.NormalImpulse)
-				r.F32("manifold.tangentImpulse", mp.TangentImpulse)
-				r.F32("manifold.totalImpulse", mp.TotalNormalImpulse)
-
-				if hit {
-					r.F32("manifold.normalVelocity", mp.NormalVelocity)
-				}
-
-				r.U32("manifold.id", uint32(mp.ID))
-				r.Bool("manifold.persisted", mp.Persisted)
-			}
-		}
-	}
+	e.observeBodyStates(bodies)
 }
 func (e *evOracle) step(b ...box2d.Body) { e.w.Step(1.0/60.0, 4); e.observe(b...) }
 
@@ -377,32 +313,7 @@ func TestEventsHitThresholdParity(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					e := evStart(t, name, box2d.Vec2{}, false)
 
-					threshold := float32(2)
-					if thresholdCase != 0 {
-						threshold = 5
-					}
-
-					e.w.SetHitEventThreshold(threshold)
-					e.w.SetContinuousEnabled(false)
-					a := e.body(1, box2d.StaticBody, box2d.Pos{})
-					b := e.body(2, box2d.DynamicBody, box2d.Pos{Y: 1.001})
-					d := box2d.DefaultShapeDef()
-					d.EnableHitEvents = flags&1 != 0
-					d.EnableContactEvents = true
-					e.circle(a, 10, .5, &d)
-					d.Density = 1
-					d.EnableHitEvents = flags&2 != 0
-					e.circle(b, 20, .5, &d)
-
-					speed := threshold
-					if side < 0 {
-						speed = math.Nextafter32(threshold, 0)
-					} else if side > 0 {
-						speed = math.Nextafter32(threshold, float32(math.Inf(1)))
-					}
-
-					e.r.F32("input.speed", speed)
-					b.SetLinearVelocity(box2d.Vec2{Y: -speed})
+					b := e.hitThresholdScene(flags, thresholdCase, side)
 
 					for range 10 {
 						e.step(b)
@@ -598,39 +509,7 @@ func TestEventsFilterEligibilityParity(t *testing.T) {
 						e.w.SetCustomFilterCallback(e.filter)
 						a := e.body(1, box2d.StaticBody, box2d.Pos{})
 						b := e.body(2, box2d.DynamicBody, box2d.Pos{Y: .8})
-						da, db := box2d.DefaultShapeDef(), box2d.DefaultShapeDef()
-						da.IsSensor = sensor != 0
-						da.EnableSensorEvents = true
-						db.EnableSensorEvents = true
-						da.EnableContactEvents = true
-						db.EnableContactEvents = true
-						da.EnableCustomFiltering = eligible&1 != 0
-						db.EnableCustomFiltering = eligible&2 != 0
-						da.Filter.CategoryBits = 1
-						db.Filter.CategoryBits = 2
-						da.Filter.MaskBits = 2
-						db.Filter.MaskBits = 1
-
-						switch row {
-						case 1:
-							da.Filter.MaskBits = 0
-						case 2:
-							db.Filter.MaskBits = 0
-						case 3:
-							da.Filter.MaskBits = 0
-							db.Filter.MaskBits = 0
-							da.Filter.GroupIndex = 7
-							db.Filter.GroupIndex = 7
-						case 4:
-							da.Filter.GroupIndex = -7
-							db.Filter.GroupIndex = -7
-						case 5:
-							da.Filter.MaskBits = 4
-							db.Filter.MaskBits = 4
-						}
-
-						db.Density = 1
-
+						da, db := evFilterDefinitions(row, eligible, sensor)
 						e.circle(a, 10, .5, &da)
 						e.circle(b, 20, .5, &db)
 
@@ -703,76 +582,9 @@ func TestEventsCallbackPolicyParity(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					e := evStart(t, name, box2d.Vec2{Y: -10}, true)
 
-					e.reject = mode == 1
-					if kind == 0 {
-						e.w.SetPreSolveCallback(e.pre, nil)
-					}
+					e.installCallbackPolicy(kind, mode)
 
-					if kind == 1 {
-						e.w.SetPreSolveCallback(nil, e.continuous)
-					}
-
-					if kind == 2 && mode != 0 {
-						e.w.SetFrictionCallback(e.friction)
-					}
-
-					if kind == 3 && mode != 0 {
-						e.w.SetRestitutionCallback(e.restitution)
-					}
-
-					if mode == 2 {
-						e.w.SetPreSolveCallback(nil, nil)
-						e.w.SetFrictionCallback(nil)
-						e.w.SetRestitutionCallback(nil)
-					}
-
-					a := e.body(1, box2d.StaticBody, box2d.Pos{})
-
-					position := box2d.Pos{Y: 1.2}
-					if kind == 1 {
-						position = box2d.Pos{X: -2}
-					}
-
-					b := e.body(2, box2d.DynamicBody, position)
-					d := box2d.DefaultShapeDef()
-					d.Material.Friction = .8
-					d.Material.Restitution = .2
-					d.Material.UserMaterialID = 11
-					d.EnablePreSolveEvents = domain != 3
-					d.EnableContactEvents = true
-					d.EnableSensorEvents = true
-
-					d.IsSensor = domain == 1
-					if kind == 1 {
-						e.circle(a, 10, .2, &d)
-					} else {
-						polygon := box2d.MakeBox(10, .5)
-						s := a.CreatePolygonShape(&d, &polygon)
-						e.tags[s] = 10
-					}
-
-					d.IsSensor = false
-					d.Density = 1
-					d.Material.Friction = .2
-					d.Material.Restitution = .8
-					d.Material.UserMaterialID = 22
-					e.circle(b, 20, .5, &d)
-
-					steps := 30
-
-					if kind == 1 {
-						b.SetBullet(true)
-						b.SetGravityScale(0)
-						b.SetLinearVelocity(box2d.Vec2{X: 150})
-
-						steps = 3
-					} else {
-						b.SetLinearVelocity(box2d.Vec2{X: 4, Y: -4})
-					}
-
-					if domain == 2 {
-						b.SetAwake(false)
-					}
+					b, steps := e.callbackPolicyScene(kind, domain)
 
 					for range steps {
 						e.step(b)
@@ -790,56 +602,8 @@ func TestEventsCallbackPolicyParity(t *testing.T) {
 func TestEventsEarlyStopNativeSupplemental(t *testing.T) {
 	for _, family := range []string{"contact", "sensor", "hit", "move", "joint"} {
 		t.Run(family, func(t *testing.T) {
-			create := func() (*box2d.World, []box2d.Body) {
-				wd := box2d.DefaultWorldDef()
-				wd.Gravity = box2d.Vec2{}
-				wd.EnableSleep = false
-				w := box2d.NewWorld(&wd)
-				box2d.BTWorldCleanup(t, w)
-
-				var bodies []box2d.Body
-
-				for i := range 2 {
-					bd := box2d.DefaultBodyDef()
-					if i != 0 {
-						bd.Position.X = 3
-					}
-
-					a := w.CreateBody(&bd)
-					bd.Type = box2d.DynamicBody
-					bd.Position.Y = .99
-					b := w.CreateBody(&bd)
-					bodies = append(bodies, b)
-					sd := box2d.DefaultShapeDef()
-					sd.EnableContactEvents = true
-					sd.EnableSensorEvents = true
-					sd.EnableHitEvents = true
-					sd.IsSensor = family == "sensor"
-					circle := box2d.Circle{Radius: .5}
-					a.CreateCircleShape(&sd, &circle)
-					sd.IsSensor = false
-					sd.Density = 1
-					b.CreateCircleShape(&sd, &circle)
-
-					if family == "joint" {
-						jd := box2d.DefaultWeldJointDef()
-						jd.Base.BodyA = a
-						jd.Base.BodyB = b
-						jd.Base.ForceThreshold = 0
-						w.CreateWeldJoint(&jd)
-					}
-
-					if family == "hit" {
-						b.SetLinearVelocity(box2d.Vec2{Y: -5})
-					}
-				}
-
-				w.Step(1.0/60, 4)
-
-				return w, bodies
-			}
-			w, bodies := create()
-			twin, twinBodies := create()
+			w, bodies := evEarlyStopWorld(t, family)
+			twin, twinBodies := evEarlyStopWorld(t, family)
 			check := func(before, after any) {
 				t.Helper()
 
@@ -847,113 +611,23 @@ func TestEventsEarlyStopNativeSupplemental(t *testing.T) {
 					t.Fatal("early stop changed subsequent full collection")
 				}
 			}
-			// A populated contact iterator is checked before any removal mutation.
-			contacts := slices.Collect(bodies[0].ContactData())
-			for range bodies[0].ContactData() {
-				break
-			}
 
-			check(contacts, slices.Collect(bodies[0].ContactData()))
-
-			if family == "contact" || family == "hit" {
-				if len(contacts) != 1 {
-					t.Fatalf("contact setup: got %d, want 1", len(contacts))
-				}
-			}
+			evCheckContactDataEarlyStop(t, family, bodies)
 
 			switch family {
 			case "contact":
-				full := slices.Collect(w.ContactBeginEvents())
-				if len(full) != 2 {
-					t.Fatalf("begin setup: got %d, want 2", len(full))
-				}
-
-				for range w.ContactBeginEvents() {
-					break
-				}
-
-				check(full, slices.Collect(w.ContactBeginEvents()))
+				evCheckEventEarlyStop(t, w.ContactBeginEvents, "begin")
 			case "sensor":
-				full := slices.Collect(w.SensorBeginEvents())
-				if len(full) != 2 {
-					t.Fatalf("sensor setup: got %d, want 2", len(full))
-				}
-
-				for range w.SensorBeginEvents() {
-					break
-				}
-
-				check(full, slices.Collect(w.SensorBeginEvents()))
+				evCheckEventEarlyStop(t, w.SensorBeginEvents, "sensor")
 			case "hit":
-				full := slices.Collect(w.ContactHitEvents())
-				if len(full) != 2 {
-					t.Fatalf("hit setup: got %d, want 2", len(full))
-				}
-
-				for range w.ContactHitEvents() {
-					break
-				}
-
-				check(full, slices.Collect(w.ContactHitEvents()))
+				evCheckEventEarlyStop(t, w.ContactHitEvents, "hit")
 			case "move":
-				full := slices.Collect(w.BodyMoveEvents())
-				if len(full) != 2 {
-					t.Fatalf("move setup: got %d, want 2", len(full))
-				}
-
-				for range w.BodyMoveEvents() {
-					break
-				}
-
-				check(full, slices.Collect(w.BodyMoveEvents()))
+				evCheckEventEarlyStop(t, w.BodyMoveEvents, "move")
 			case "joint":
-				full := slices.Collect(w.JointEvents())
-				if len(full) != 2 {
-					t.Fatalf("joint setup: got %d, want 2", len(full))
-				}
-
-				for range w.JointEvents() {
-					break
-				}
-
-				check(full, slices.Collect(w.JointEvents()))
+				evCheckEventEarlyStop(t, w.JointEvents, "joint")
 			}
 
-			if family == "contact" || family == "sensor" {
-				for i, b := range bodies {
-					p := b.Position()
-					p.Y = 5
-					b.SetTransform(p, box2d.Rot{C: 1})
-					twinBodies[i].SetTransform(p, box2d.Rot{C: 1})
-				}
-
-				w.Step(1.0/60, 4)
-				twin.Step(1.0/60, 4)
-
-				if family == "contact" {
-					full := slices.Collect(w.ContactEndEvents())
-					if len(full) != 2 {
-						t.Fatalf("end setup: got %d, want 2", len(full))
-					}
-
-					for range w.ContactEndEvents() {
-						break
-					}
-
-					check(full, slices.Collect(w.ContactEndEvents()))
-				} else {
-					full := slices.Collect(w.SensorEndEvents())
-					if len(full) != 2 {
-						t.Fatalf("sensor end setup: got %d, want 2", len(full))
-					}
-
-					for range w.SensorEndEvents() {
-						break
-					}
-
-					check(full, slices.Collect(w.SensorEndEvents()))
-				}
-			}
+			evCheckEndEventEarlyStop(t, family, w, twin, bodies, twinBodies)
 
 			for range 3 {
 				w.Step(1.0/60, 4)
@@ -986,7 +660,7 @@ func TestEventsSleepingDestroyParity(t *testing.T) {
 	e.step(b)
 	visitor.Destroy(true)
 	e.step(b)
-	visitor = e.circle(b, 21, .25, &d)
+	e.circle(b, 21, .25, &d)
 	e.step(b)
 	b.SetAwake(false)
 	e.step(b)
@@ -1000,4 +674,354 @@ func TestEventsSleepingDestroyParity(t *testing.T) {
 	a.Destroy()
 	e.step(b)
 	e.step(b)
+}
+
+func evCheckEventEarlyStop[T any](t *testing.T, events func() iter.Seq[T], setup string) {
+	t.Helper()
+
+	full := slices.Collect(events())
+	if len(full) != 2 {
+		t.Fatalf("%s setup: got %d, want 2", setup, len(full))
+	}
+
+	for range events() {
+		break
+	}
+
+	if !reflect.DeepEqual(full, slices.Collect(events())) {
+		t.Fatal("early stop changed subsequent full collection")
+	}
+}
+
+func evEarlyStopWorld(t *testing.T, family string) (*box2d.World, []box2d.Body) {
+	t.Helper()
+
+	wd := box2d.DefaultWorldDef()
+	wd.Gravity = box2d.Vec2{}
+	wd.EnableSleep = false
+	w := box2d.NewWorld(&wd)
+	box2d.BTWorldCleanup(t, w)
+
+	bodies := make([]box2d.Body, 0, 2)
+
+	for i := range 2 {
+		bd := box2d.DefaultBodyDef()
+		if i != 0 {
+			bd.Position.X = 3
+		}
+
+		a := w.CreateBody(&bd)
+		bd.Type = box2d.DynamicBody
+		bd.Position.Y = .99
+		b := w.CreateBody(&bd)
+		bodies = append(bodies, b)
+		sd := box2d.DefaultShapeDef()
+		sd.EnableContactEvents = true
+		sd.EnableSensorEvents = true
+		sd.EnableHitEvents = true
+		sd.IsSensor = family == "sensor"
+		circle := box2d.Circle{Radius: .5}
+		a.CreateCircleShape(&sd, &circle)
+		sd.IsSensor = false
+		sd.Density = 1
+		b.CreateCircleShape(&sd, &circle)
+
+		if family == "joint" {
+			jd := box2d.DefaultWeldJointDef()
+			jd.Base.BodyA = a
+			jd.Base.BodyB = b
+			jd.Base.ForceThreshold = 0
+			w.CreateWeldJoint(&jd)
+		}
+
+		if family == "hit" {
+			b.SetLinearVelocity(box2d.Vec2{Y: -5})
+		}
+	}
+
+	w.Step(1.0/60, 4)
+
+	return w, bodies
+}
+
+func (e *evOracle) observeBodyStates(bodies []box2d.Body) {
+	r := e.r
+	r.I32("state.count", int32(len(bodies)))
+
+	for _, b := range bodies {
+		e.bodyID(b)
+
+		if !b.IsValid() {
+			continue
+		}
+
+		position, rotation, velocity := b.Position(), b.Rotation(), b.LinearVelocity()
+		r.Pos("state.position", position.X, position.Y)
+		r.Rot("state.rotation", rotation.C, rotation.S)
+		r.Vec2("state.velocity", velocity.X, velocity.Y)
+		r.F32("state.spin", b.AngularVelocity())
+		r.Bool("state.awake", b.Awake())
+		r.Bool("state.enabled", b.Enabled())
+		data := slices.Collect(b.ContactData())
+		slices.SortFunc(data, func(a, b box2d.ContactData) int { return evPairCompare(a.ShapeA, a.ShapeB, b.ShapeA, b.ShapeB) })
+		r.I32("state.contacts", int32(len(data)))
+
+		for _, c := range data {
+			e.shape(c.ShapeA)
+			e.shape(c.ShapeB)
+			e.contact(c.Contact)
+			m := c.Manifold
+			r.Vec2("manifold.normal", m.Normal.X, m.Normal.Y)
+			r.F32("manifold.rollingImpulse", m.RollingImpulse)
+			r.I32("manifold.count", int32(m.PointCount))
+
+			hit := c.ShapeA.HitEventsEnabled() || c.ShapeB.HitEventsEnabled()
+			r.Bool("manifold.hitEnabled", hit)
+
+			for p := range m.PointCount {
+				mp := m.Points[p]
+				r.Vec2("manifold.anchorA", mp.AnchorA.X, mp.AnchorA.Y)
+				r.Vec2("manifold.anchorB", mp.AnchorB.X, mp.AnchorB.Y)
+				r.F32("manifold.separation", mp.Separation)
+				r.F32("manifold.normalImpulse", mp.NormalImpulse)
+				r.F32("manifold.tangentImpulse", mp.TangentImpulse)
+				r.F32("manifold.totalImpulse", mp.TotalNormalImpulse)
+
+				if hit {
+					r.F32("manifold.normalVelocity", mp.NormalVelocity)
+				}
+
+				r.U32("manifold.id", uint32(mp.ID))
+				r.Bool("manifold.persisted", mp.Persisted)
+			}
+		}
+	}
+}
+
+func evCheckContactDataEarlyStop(t *testing.T, family string, bodies []box2d.Body) {
+	t.Helper()
+
+	check := func(before, after any) {
+		t.Helper()
+
+		if !reflect.DeepEqual(before, after) {
+			t.Fatal("early stop changed subsequent full collection")
+		}
+	}
+	// A populated contact iterator is checked before any removal mutation.
+	contacts := slices.Collect(bodies[0].ContactData())
+	for range bodies[0].ContactData() {
+		break
+	}
+
+	check(contacts, slices.Collect(bodies[0].ContactData()))
+
+	if family == "contact" || family == "hit" {
+		if len(contacts) != 1 {
+			t.Fatalf("contact setup: got %d, want 1", len(contacts))
+		}
+	}
+}
+
+func evCheckEndEventEarlyStop(t *testing.T, family string, w, twin *box2d.World, bodies, twinBodies []box2d.Body) {
+	t.Helper()
+
+	if family == "contact" || family == "sensor" {
+		for i, b := range bodies {
+			p := b.Position()
+			p.Y = 5
+			b.SetTransform(p, box2d.Rot{C: 1})
+			twinBodies[i].SetTransform(p, box2d.Rot{C: 1})
+		}
+
+		w.Step(1.0/60, 4)
+		twin.Step(1.0/60, 4)
+
+		if family == "contact" {
+			evCheckEventEarlyStop(t, w.ContactEndEvents, "end")
+		} else {
+			evCheckEventEarlyStop(t, w.SensorEndEvents, "sensor end")
+		}
+	}
+}
+
+func (e *evOracle) observeOwnedEvents(bm []box2d.BodyMoveEvent, je []box2d.JointEvent) {
+	r := e.r
+	r.I32("move.count", int32(len(bm)))
+
+	for _, m := range bm {
+		e.bodyID(m.Body)
+
+		tag, ok := m.UserData.(int)
+		if !ok {
+			e.t.Fatalf("move user data type = %T, want int", m.UserData)
+		}
+
+		r.I32("move.tag", int32(tag))
+		r.Pos("move.position", oracle.Real(m.Transform.P.X), oracle.Real(m.Transform.P.Y))
+		r.Rot("move.rotation", m.Transform.Q.C, m.Transform.Q.S)
+		r.Bool("move.sleep", m.FellAsleep)
+	}
+
+	r.I32("joint.count", int32(len(je)))
+
+	for _, j := range je {
+		id := j.Joint.ID()
+		r.I32("joint.index", int32(id>>32))
+		r.U32("joint.generation", uint32(uint16(id)))
+		r.Bool("joint.world", j.Joint.World() == e.w)
+		r.Bool("joint.valid", j.Joint.IsValid())
+
+		tag, ok := j.UserData.(int)
+		if !ok {
+			e.t.Fatalf("joint user data type = %T, want int", j.UserData)
+		}
+
+		r.I32("joint.tag", int32(tag))
+	}
+}
+
+func (e *evOracle) installCallbackPolicy(kind, mode int) {
+	e.reject = mode == 1
+	if kind == 0 {
+		e.w.SetPreSolveCallback(e.pre, nil)
+	}
+
+	if kind == 1 {
+		e.w.SetPreSolveCallback(nil, e.continuous)
+	}
+
+	if kind == 2 && mode != 0 {
+		e.w.SetFrictionCallback(e.friction)
+	}
+
+	if kind == 3 && mode != 0 {
+		e.w.SetRestitutionCallback(e.restitution)
+	}
+
+	if mode == 2 {
+		e.w.SetPreSolveCallback(nil, nil)
+		e.w.SetFrictionCallback(nil)
+		e.w.SetRestitutionCallback(nil)
+	}
+}
+
+func (e *evOracle) callbackPolicyScene(kind, domain int) (box2d.Body, int) {
+	a := e.body(1, box2d.StaticBody, box2d.Pos{})
+
+	position := box2d.Pos{Y: 1.2}
+	if kind == 1 {
+		position = box2d.Pos{X: -2}
+	}
+
+	b := e.body(2, box2d.DynamicBody, position)
+	d := box2d.DefaultShapeDef()
+	d.Material.Friction = .8
+	d.Material.Restitution = .2
+	d.Material.UserMaterialID = 11
+	d.EnablePreSolveEvents = domain != 3
+	d.EnableContactEvents = true
+	d.EnableSensorEvents = true
+
+	d.IsSensor = domain == 1
+	if kind == 1 {
+		e.circle(a, 10, .2, &d)
+	} else {
+		polygon := box2d.MakeBox(10, .5)
+		s := a.CreatePolygonShape(&d, &polygon)
+		e.tags[s] = 10
+	}
+
+	d.IsSensor = false
+	d.Density = 1
+	d.Material.Friction = .2
+	d.Material.Restitution = .8
+	d.Material.UserMaterialID = 22
+	e.circle(b, 20, .5, &d)
+
+	steps := 30
+
+	if kind == 1 {
+		b.SetBullet(true)
+		b.SetGravityScale(0)
+		b.SetLinearVelocity(box2d.Vec2{X: 150})
+
+		steps = 3
+	} else {
+		b.SetLinearVelocity(box2d.Vec2{X: 4, Y: -4})
+	}
+
+	if domain == 2 {
+		b.SetAwake(false)
+	}
+
+	return b, steps
+}
+
+func (e *evOracle) hitThresholdScene(flags, thresholdCase, side int) box2d.Body {
+	threshold := float32(2)
+	if thresholdCase != 0 {
+		threshold = 5
+	}
+
+	e.w.SetHitEventThreshold(threshold)
+	e.w.SetContinuousEnabled(false)
+	a := e.body(1, box2d.StaticBody, box2d.Pos{})
+	b := e.body(2, box2d.DynamicBody, box2d.Pos{Y: 1.001})
+	d := box2d.DefaultShapeDef()
+	d.EnableHitEvents = flags&1 != 0
+	d.EnableContactEvents = true
+	e.circle(a, 10, .5, &d)
+	d.Density = 1
+	d.EnableHitEvents = flags&2 != 0
+	e.circle(b, 20, .5, &d)
+
+	speed := threshold
+	if side < 0 {
+		speed = math.Nextafter32(threshold, 0)
+	} else if side > 0 {
+		speed = math.Nextafter32(threshold, float32(math.Inf(1)))
+	}
+
+	e.r.F32("input.speed", speed)
+	b.SetLinearVelocity(box2d.Vec2{Y: -speed})
+
+	return b
+}
+
+func evFilterDefinitions(row, eligible, sensor int) (box2d.ShapeDef, box2d.ShapeDef) {
+	da, db := box2d.DefaultShapeDef(), box2d.DefaultShapeDef()
+	da.IsSensor = sensor != 0
+	da.EnableSensorEvents = true
+	db.EnableSensorEvents = true
+	da.EnableContactEvents = true
+	db.EnableContactEvents = true
+	da.EnableCustomFiltering = eligible&1 != 0
+	db.EnableCustomFiltering = eligible&2 != 0
+	da.Filter.CategoryBits = 1
+	db.Filter.CategoryBits = 2
+	da.Filter.MaskBits = 2
+	db.Filter.MaskBits = 1
+
+	switch row {
+	case 1:
+		da.Filter.MaskBits = 0
+	case 2:
+		db.Filter.MaskBits = 0
+	case 3:
+		da.Filter.MaskBits = 0
+		db.Filter.MaskBits = 0
+		da.Filter.GroupIndex = 7
+		db.Filter.GroupIndex = 7
+	case 4:
+		da.Filter.GroupIndex = -7
+		db.Filter.GroupIndex = -7
+	case 5:
+		da.Filter.MaskBits = 4
+		db.Filter.MaskBits = 4
+	}
+
+	db.Density = 1
+
+	return da, db
 }

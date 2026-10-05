@@ -22,7 +22,7 @@ jobs:
       GOAMD64: ${{ matrix.goamd64 || 'v1' }}
     strategy:
       fail-fast: false
-      matrix:
+      matrix: &native-test-matrix
         include:
           - { arch: amd64, runner: ubuntu-latest, precision: float, tags: "" }
           - { arch: amd64, runner: ubuntu-latest, precision: double, tags: box2d_double }
@@ -43,7 +43,31 @@ jobs:
       - name: go test
         run: go test -timeout 60m -tags "${{ matrix.tags }}" ./...
       - name: go test -race
-        run: ./test/run.sh -race -timeout 90m -tags "${{ matrix.tags }}"
+        run: go test -race -timeout 90m -tags "${{ matrix.tags }}" ./...
+
+  stress:
+    name: stress (${{ matrix.arch }}${{ matrix.goamd64 && format(' {0}', matrix.goamd64) || '' }}, ${{ matrix.precision }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    env:
+      GOAMD64: ${{ matrix.goamd64 || 'v1' }}
+    strategy:
+      fail-fast: false
+      matrix: *native-test-matrix
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check architecture
+        run: test "$(go env GOARCH)" = "${{ matrix.arch }}"
+      - name: go vet stress
+        run: go vet -tags "box2d_stress ${{ matrix.tags }}" ./...
+      - name: go test stress
+        run: ./test/run.sh stress -timeout 60m -tags "box2d_stress ${{ matrix.tags }}"
+      - name: go test stress -race
+        run: ./test/run.sh stress -race -timeout 90m -tags "box2d_stress ${{ matrix.tags }}"
 
   test-wasm:
     name: test (wasm, ${{ matrix.precision }})
@@ -70,7 +94,7 @@ jobs:
       - name: go vet
         run: go vet -tags "${{ matrix.tags }}" ./...
       - name: go test
-        run: ./test/run.sh -timeout 60m -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" -tags "${{ matrix.tags }}"
+        run: ./test/run.sh all -timeout 60m -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" -tags "box2d_stress ${{ matrix.tags }}"
 
   lint:
     runs-on: ubuntu-latest
@@ -82,6 +106,10 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: internal/lint/go.sum
       - uses: extractions/setup-just@v4
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0
+          install-only: true
       - run: just lint
 
   skips:

@@ -59,8 +59,6 @@ func signalSemaphore(s *semaphore) {
 	s.mutex.Unlock()
 }
 
-func setCurrentThreadName(name string) {}
-
 func threadStart(t *thread) {
 	defer close(t.done)
 

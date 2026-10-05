@@ -19,6 +19,21 @@ import (
 
 func TestMath(t *testing.T) {
 	checks := collisionOpenMath(t)
+	testMathAngles(t, checks)
+	testMathAtanGrid(t, checks)
+	testMathAtanAxes(t, checks)
+	testMathVectors(t, checks)
+	testMathTransforms(t, checks)
+	testMathUnitRotations(t, checks)
+	testMathRotationInterpolation(t, checks)
+	testMathRelativeAngles(t, checks)
+	testMathWorldTransforms(t, checks)
+	testMathLargeWorldPositions(t, checks)
+	checks.close()
+}
+
+func testMathAngles(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
 
 	for angleT := float32(-10.0); angleT < 10.0; angleT += 0.01 {
 		angle := float32(box2d.Pi * angleT)
@@ -40,36 +55,46 @@ func TestMath(t *testing.T) {
 			t.Fatalf("condition false: abs(%v) < %v", v, 0.002)
 		}
 
-		xn := box2d.UnwindAngle(angle)
-		checks.f32(285, xn)
-		checks.boolean(29, -box2d.Pi <= xn && xn <= box2d.Pi)
-
-		if !(-box2d.Pi <= xn && xn <= box2d.Pi) {
-			t.Fatal("condition false")
-		}
-
-		a := box2d.Atan2(s, c)
-		checks.f32(288, a)
-		checks.boolean(32, box2d.IsValidFloat(a))
-
-		if !box2d.IsValidFloat(a) {
-			t.Fatal("condition false")
-		}
-
-		diff := float32(math.Abs(float64(a - xn)))
-
-		// The two results can be off by 360 degrees (-pi and pi)
-		if diff > box2d.Pi {
-			diff -= 2.0 * box2d.Pi
-		}
-
-		// The approximate atan2 is quite accurate
-		checks.f32(43, diff)
-
-		if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
-		}
+		checkMathUnwoundAngle(t, checks, angle, s, c)
 	}
+}
+
+func checkMathUnwoundAngle(t *testing.T, checks *collisionMathChecks, angle, s, c float32) {
+	t.Helper()
+
+	xn := box2d.UnwindAngle(angle)
+	checks.f32(285, xn)
+	checks.boolean(29, -box2d.Pi <= xn && xn <= box2d.Pi)
+
+	if !(-box2d.Pi <= xn && xn <= box2d.Pi) {
+		t.Fatal("condition false")
+	}
+
+	a := box2d.Atan2(s, c)
+	checks.f32(288, a)
+	checks.boolean(32, box2d.IsValidFloat(a))
+
+	if !box2d.IsValidFloat(a) {
+		t.Fatal("condition false")
+	}
+
+	diff := float32(math.Abs(float64(a - xn)))
+
+	// The two results can be off by 360 degrees (-pi and pi)
+	if diff > box2d.Pi {
+		diff -= 2.0 * box2d.Pi
+	}
+
+	// The approximate atan2 is quite accurate
+	checks.f32(43, diff)
+
+	if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
+	}
+}
+
+func testMathAtanGrid(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
 
 	for y := float32(-1.0); y <= 1.0; y += 0.01 {
 		for x := float32(-1.0); x <= 1.0; x += 0.01 {
@@ -90,96 +115,40 @@ func TestMath(t *testing.T) {
 			}
 		}
 	}
+}
 
-	{
-		a1 := box2d.Atan2(1.0, 0.0)
-		a2 := checks.reference(60)
-		diff := float32(math.Abs(float64(a1 - a2)))
-		checks.f32(318, a1)
-		checks.boolean(62, box2d.IsValidFloat(a1))
+func testMathAtanAxes(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
 
-		if !box2d.IsValidFloat(a1) {
-			t.Fatal("condition false")
-		}
+	checkMathAtanAxis(t, checks, 1, 0, 60, 318, 62, 63)
+	checkMathAtanAxis(t, checks, -1, 0, 68, 326, 70, 71)
+	checkMathAtanAxis(t, checks, 0, 1, 76, 334, 78, 79)
+	checkMathAtanAxis(t, checks, 0, -1, 84, 342, 86, 87)
+	checkMathAtanAxis(t, checks, 0, 0, 92, 350, 94, 95)
+}
 
-		checks.f32(63, diff)
+func checkMathAtanAxis(t *testing.T, checks *collisionMathChecks, y, x float32, referenceSite, valueSite, validSite, diffSite int) {
+	t.Helper()
 
-		if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
-		}
+	a1 := box2d.Atan2(y, x)
+	a2 := checks.reference(referenceSite)
+	diff := float32(math.Abs(float64(a1 - a2)))
+	checks.f32(valueSite, a1)
+	checks.boolean(validSite, box2d.IsValidFloat(a1))
+
+	if !box2d.IsValidFloat(a1) {
+		t.Fatal("condition false")
 	}
 
-	{
-		a1 := box2d.Atan2(-1.0, 0.0)
-		a2 := checks.reference(68)
-		diff := float32(math.Abs(float64(a1 - a2)))
-		checks.f32(326, a1)
-		checks.boolean(70, box2d.IsValidFloat(a1))
+	checks.f32(diffSite, diff)
 
-		if !box2d.IsValidFloat(a1) {
-			t.Fatal("condition false")
-		}
-
-		checks.f32(71, diff)
-
-		if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
-		}
+	if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
 	}
+}
 
-	{
-		a1 := box2d.Atan2(0.0, 1.0)
-		a2 := checks.reference(76)
-		diff := float32(math.Abs(float64(a1 - a2)))
-		checks.f32(334, a1)
-		checks.boolean(78, box2d.IsValidFloat(a1))
-
-		if !box2d.IsValidFloat(a1) {
-			t.Fatal("condition false")
-		}
-
-		checks.f32(79, diff)
-
-		if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
-		}
-	}
-
-	{
-		a1 := box2d.Atan2(0.0, -1.0)
-		a2 := checks.reference(84)
-		diff := float32(math.Abs(float64(a1 - a2)))
-		checks.f32(342, a1)
-		checks.boolean(86, box2d.IsValidFloat(a1))
-
-		if !box2d.IsValidFloat(a1) {
-			t.Fatal("condition false")
-		}
-
-		checks.f32(87, diff)
-
-		if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
-		}
-	}
-
-	{
-		a1 := box2d.Atan2(0.0, 0.0)
-		a2 := checks.reference(92)
-		diff := float32(math.Abs(float64(a1 - a2)))
-		checks.f32(350, a1)
-		checks.boolean(94, box2d.IsValidFloat(a1))
-
-		if !box2d.IsValidFloat(a1) {
-			t.Fatal("condition false")
-		}
-
-		checks.f32(95, diff)
-
-		if v := diff; v < -float32(0.00004) || float32(0.00004) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, float32(0.00004))
-		}
-	}
+func testMathVectors(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
 
 	zero := box2d.Vec2Zero
 	one := box2d.Vec2{1.0, 1.0}
@@ -211,6 +180,14 @@ func TestMath(t *testing.T) {
 	if !(v.X != 5.0 && v.Y != 5.0) {
 		t.Fatal("condition false")
 	}
+}
+
+func testMathTransforms(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
+
+	two := box2d.Vec2{2.0, 2.0}
+
+	var v box2d.Vec2
 
 	transform1 := box2d.Transform{box2d.Vec2{-2.0, 3.0}, box2d.MakeRot(1.0)}
 	transform2 := box2d.Transform{box2d.Vec2{1.0, 0.0}, box2d.MakeRot(-2.0)}
@@ -245,6 +222,12 @@ func TestMath(t *testing.T) {
 	if v := v.Y - two.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
 		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
 	}
+}
+
+func testMathUnitRotations(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
+
+	var v, u box2d.Vec2
 
 	v = box2d.Vec2{0.2, -0.5}.Normalize()
 
@@ -271,6 +254,10 @@ func TestMath(t *testing.T) {
 			}
 		}
 	}
+}
+
+func testMathRotationInterpolation(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
 
 	// NLerp of Rot has an error of over 4 degrees.
 	// 2D quaternions should have an error under 1 degree.
@@ -289,7 +276,12 @@ func TestMath(t *testing.T) {
 		}
 		// printf("angle = [%g %g %g]\n", alpha, alpha * 0.5 * box2d.Pi, angle)
 	}
+}
 
+func testMathRelativeAngles(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
+
+	var q1, q2 box2d.Rot
 	// Test relative angle
 	baseAngle := 0.75 * box2d.Pi
 	q1 = box2d.MakeRot(baseAngle)
@@ -307,6 +299,10 @@ func TestMath(t *testing.T) {
 			t.Fatalf("condition false: abs(%v) < %v", v, tolerance)
 		}
 	}
+}
+
+func testMathWorldTransforms(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
 
 	// World position boundary helpers. With large world mode off these collapse to the float
 	// ops, so the round trips hold in both builds.
@@ -353,49 +349,59 @@ func TestMath(t *testing.T) {
 		if !box2d.WorldTransformIdentity.IsValid() {
 			t.Fatal("condition false")
 		}
-
-		wt := box2d.WorldTransform{box2d.Pos{3.0, -4.0}, box2d.MakeRot(0.7)}
-		checks.boolean(195, wt.IsValid())
-
-		if !wt.IsValid() {
-			t.Fatal("condition false")
-		}
-
-		// Local to world to local round trip
-		local := box2d.Vec2{1.5, 2.5}
-		world := wt.Apply(local)
-		backLocal := wt.InvApply(world)
-		checks.f32(201, backLocal.X-local.X)
-
-		if v := backLocal.X - local.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
-		}
-
-		checks.f32(202, backLocal.Y-local.Y)
-
-		if v := backLocal.Y - local.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
-		}
-
-		// Relative transform of B in A matches a float reference at modest coordinates
-		A := box2d.WorldTransform{box2d.Pos{-2.0, 3.0}, box2d.MakeRot(1.0)}
-		B := box2d.WorldTransform{box2d.Pos{1.0, 0.0}, box2d.MakeRot(-2.0)}
-		rel := A.InvMul(B)
-		refA := box2d.Transform{A.P.Vec2(), A.Q}
-		refB := box2d.Transform{B.P.Vec2(), B.Q}
-		ref := refA.InvMul(refB)
-		checks.f32(211, rel.P.X-ref.P.X)
-
-		if v := rel.P.X - ref.P.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
-		}
-
-		checks.f32(212, rel.P.Y-ref.P.Y)
-
-		if v := rel.P.Y - ref.P.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
-			t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
-		}
 	}
+
+	testMathWorldTransformRoundTrips(t, checks)
+}
+
+func testMathWorldTransformRoundTrips(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
+
+	wt := box2d.WorldTransform{box2d.Pos{3.0, -4.0}, box2d.MakeRot(0.7)}
+	checks.boolean(195, wt.IsValid())
+
+	if !wt.IsValid() {
+		t.Fatal("condition false")
+	}
+
+	// Local to world to local round trip
+	local := box2d.Vec2{1.5, 2.5}
+	world := wt.Apply(local)
+	backLocal := wt.InvApply(world)
+	checks.f32(201, backLocal.X-local.X)
+
+	if v := backLocal.X - local.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+	}
+
+	checks.f32(202, backLocal.Y-local.Y)
+
+	if v := backLocal.Y - local.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+	}
+
+	// Relative transform of B in a matches a float reference at modest coordinates
+	a := box2d.WorldTransform{box2d.Pos{-2.0, 3.0}, box2d.MakeRot(1.0)}
+	b := box2d.WorldTransform{box2d.Pos{1.0, 0.0}, box2d.MakeRot(-2.0)}
+	rel := a.InvMul(b)
+	refA := box2d.Transform{a.P.Vec2(), a.Q}
+	refB := box2d.Transform{b.P.Vec2(), b.Q}
+	ref := refA.InvMul(refB)
+	checks.f32(211, rel.P.X-ref.P.X)
+
+	if v := rel.P.X - ref.P.X; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+	}
+
+	checks.f32(212, rel.P.Y-ref.P.Y)
+
+	if v := rel.P.Y - ref.P.Y; v < -(8.0*float32(0x1p-23)) || (8.0*float32(0x1p-23)) < v {
+		t.Fatalf("condition false: abs(%v) < %v", v, 8.0*float32(0x1p-23))
+	}
+}
+
+func testMathLargeWorldPositions(t *testing.T, checks *collisionMathChecks) {
+	t.Helper()
 
 	if unsafe.Sizeof(box2d.Pos{}.X) == 8 {
 		// Far from the origin a float vector cannot resolve sub meter motion, but a double world
@@ -418,8 +424,6 @@ func TestMath(t *testing.T) {
 			}
 		}
 	}
-
-	checks.close()
 }
 
 type collisionMathChecks struct {

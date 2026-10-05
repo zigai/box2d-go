@@ -76,7 +76,7 @@ func TestTypesRealCaptureComparisonIsReadOnly(t *testing.T) {
 	}
 
 	path := filepath.Join(t.TempDir(), "types.jsonl")
-	if err := os.WriteFile(path, capture, 0o444); err != nil {
+	if err := os.WriteFile(path, capture, 0o400); err != nil { //nolint:gosec // G703: fixed filename under t.TempDir's private test-owned tree.
 		t.Fatal(err)
 	}
 
@@ -91,6 +91,11 @@ func TestTypesRealCaptureComparisonIsReadOnly(t *testing.T) {
 	}
 
 	checkTypes(Read(t, path, data))
+	checkRealCaptureUnchanged(t, path, before, capture, data)
+}
+
+func checkRealCaptureUnchanged(t *testing.T, path string, before os.FileInfo, capture, data []byte) {
+	t.Helper()
 
 	afterData, err := os.ReadFile(path)
 	if err != nil {

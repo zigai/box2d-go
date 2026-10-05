@@ -159,11 +159,11 @@ func TestUpstreamSuite(t *testing.T) {
 	if output, err := check.CombinedOutput(); err != nil {
 		t.Fatalf("native case collection failed: %v\n%s", err, output)
 	}
-	args := []string{"test", "-json", "-count=1", "-timeout=40m", "-tags="}
+	args := []string{"test", "-json", "-count=1", "-timeout=40m", "-tags=box2d_stress"}
 	precision := "float"
 	if box2d.IsDoublePrecision() {
 		precision = "double"
-		args[4] = "-tags=box2d_double"
+		args[4] = "-tags=box2d_stress,box2d_double"
 	}
 	args = append(args, "./...")
 	command := exec.CommandContext(ctx, "go", args...)

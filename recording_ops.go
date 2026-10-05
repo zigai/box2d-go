@@ -1142,15 +1142,6 @@ func recWriteArgsCreateBody(rec *Recording, a *recArgsCreateBody) {
 	recWBODYDEF(&rec.buffer, a.def)
 }
 
-func recWriteCreateBody(rec *Recording, a *recArgsCreateBody) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x10)
-	recWriteArgsCreateBody(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateBody(rec *Recording, a *recArgsCreateBody, id Body) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -1606,15 +1597,6 @@ func recWriteArgsCreateCircleShape(rec *Recording, a *recArgsCreateCircleShape) 
 	recWCIRCLE(&rec.buffer, a.circle)
 }
 
-func recWriteCreateCircleShape(rec *Recording, a *recArgsCreateCircleShape) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x40)
-	recWriteArgsCreateCircleShape(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateCircleShape(rec *Recording, a *recArgsCreateCircleShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -1629,15 +1611,6 @@ func recWriteArgsCreateCapsuleShape(rec *Recording, a *recArgsCreateCapsuleShape
 	recWBODYID(&rec.buffer, a.body)
 	recWSHAPEDEF(&rec.buffer, a.def)
 	recWCAPSULE(&rec.buffer, a.capsule)
-}
-
-func recWriteCreateCapsuleShape(rec *Recording, a *recArgsCreateCapsuleShape) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x41)
-	recWriteArgsCreateCapsuleShape(rec, a)
-	recEndRecord(rec)
 }
 
 func recWriteRetCreateCapsuleShape(rec *Recording, a *recArgsCreateCapsuleShape, id Shape) {
@@ -1656,15 +1629,6 @@ func recWriteArgsCreateSegmentShape(rec *Recording, a *recArgsCreateSegmentShape
 	recWSEGMENT(&rec.buffer, a.segment)
 }
 
-func recWriteCreateSegmentShape(rec *Recording, a *recArgsCreateSegmentShape) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x42)
-	recWriteArgsCreateSegmentShape(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateSegmentShape(rec *Recording, a *recArgsCreateSegmentShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -1681,15 +1645,6 @@ func recWriteArgsCreatePolygonShape(rec *Recording, a *recArgsCreatePolygonShape
 	recWPOLYGON(&rec.buffer, a.polygon)
 }
 
-func recWriteCreatePolygonShape(rec *Recording, a *recArgsCreatePolygonShape) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x43)
-	recWriteArgsCreatePolygonShape(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreatePolygonShape(rec *Recording, a *recArgsCreatePolygonShape, id Shape) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -1704,15 +1659,6 @@ func recWriteArgsCreateChainSegmentShape(rec *Recording, a *recArgsCreateChainSe
 	recWBODYID(&rec.buffer, a.body)
 	recWSHAPEDEF(&rec.buffer, a.def)
 	recWCHAINSEG(&rec.buffer, a.chainSegment)
-}
-
-func recWriteCreateChainSegmentShape(rec *Recording, a *recArgsCreateChainSegmentShape) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x44)
-	recWriteArgsCreateChainSegmentShape(rec, a)
-	recEndRecord(rec)
 }
 
 func recWriteRetCreateChainSegmentShape(rec *Recording, a *recArgsCreateChainSegmentShape, id Shape) {
@@ -1972,15 +1918,6 @@ func recWriteArgsCreateChain(rec *Recording, a *recArgsCreateChain) {
 	recWCHAINDEF(&rec.buffer, a.def)
 }
 
-func recWriteCreateChain(rec *Recording, a *recArgsCreateChain) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x70)
-	recWriteArgsCreateChain(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateChain(rec *Recording, a *recArgsCreateChain, id Chain) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -2148,15 +2085,6 @@ func recWriteArgsCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoi
 	recWDISTANCEJOINTDEF(&rec.buffer, a.def)
 }
 
-func recWriteCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0x98)
-	recWriteArgsCreateDistanceJoint(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateDistanceJoint(rec *Recording, a *recArgsCreateDistanceJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -2313,15 +2241,6 @@ func recWriteArgsCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint) 
 	recWFILTERJOINTDEF(&rec.buffer, a.def)
 }
 
-func recWriteCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xA3)
-	recWriteArgsCreateFilterJoint(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -2334,15 +2253,6 @@ func recWriteRetCreateFilterJoint(rec *Recording, a *recArgsCreateFilterJoint, i
 
 func recWriteArgsCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint) {
 	recWMOTORJOINTDEF(&rec.buffer, a.def)
-}
-
-func recWriteCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xA4)
-	recWriteArgsCreateMotorJoint(rec, a)
-	recEndRecord(rec)
 }
 
 func recWriteRetCreateMotorJoint(rec *Recording, a *recArgsCreateMotorJoint, id Joint) {
@@ -2499,15 +2409,6 @@ func recWriteArgsCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint) {
 	recWMOVERJOINTDEF(&rec.buffer, a.def)
 }
 
-func recWriteCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xAF)
-	recWriteArgsCreateMoverJoint(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateMoverJoint(rec *Recording, a *recArgsCreateMoverJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -2548,15 +2449,6 @@ func recWriteMoverJointSetMaxVelocityForce(rec *Recording, a *recArgsMoverJointS
 
 func recWriteArgsCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint) {
 	recWPOGOJOINTDEF(&rec.buffer, a.def)
-}
-
-func recWriteCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xB2)
-	recWriteArgsCreatePogoJoint(rec, a)
-	recEndRecord(rec)
 }
 
 func recWriteRetCreatePogoJoint(rec *Recording, a *recArgsCreatePogoJoint, id Joint) {
@@ -2613,15 +2505,6 @@ func recWritePogoJointSetSpringDampingRatio(rec *Recording, a *recArgsPogoJointS
 
 func recWriteArgsCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJoint) {
 	recWPRISMATICJOINTDEF(&rec.buffer, a.def)
-}
-
-func recWriteCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xB6)
-	recWriteArgsCreatePrismaticJoint(rec, a)
-	recEndRecord(rec)
 }
 
 func recWriteRetCreatePrismaticJoint(rec *Recording, a *recArgsCreatePrismaticJoint, id Joint) {
@@ -2765,15 +2648,6 @@ func recWriteArgsCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoi
 	recWREVOLUTEJOINTDEF(&rec.buffer, a.def)
 }
 
-func recWriteCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xC0)
-	recWriteArgsCreateRevoluteJoint(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateRevoluteJoint(rec *Recording, a *recArgsCreateRevoluteJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -2915,15 +2789,6 @@ func recWriteArgsCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint) {
 	recWWELDJOINTDEF(&rec.buffer, a.def)
 }
 
-func recWriteCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xCA)
-	recWriteArgsCreateWeldJoint(rec, a)
-	recEndRecord(rec)
-}
-
 func recWriteRetCreateWeldJoint(rec *Recording, a *recArgsCreateWeldJoint, id Joint) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
@@ -2992,15 +2857,6 @@ func recWriteWeldJointSetAngularDampingRatio(rec *Recording, a *recArgsWeldJoint
 
 func recWriteArgsCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint) {
 	recWWHEELJOINTDEF(&rec.buffer, a.def)
-}
-
-func recWriteCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xCF)
-	recWriteArgsCreateWheelJoint(rec, a)
-	recEndRecord(rec)
 }
 
 func recWriteRetCreateWheelJoint(rec *Recording, a *recArgsCreateWheelJoint, id Joint) {
@@ -3123,142 +2979,6 @@ func recWriteWheelJointSetMaxMotorTorque(rec *Recording, a *recArgsWheelJointSet
 
 	recBeginRecord(rec, 0xD7)
 	recWriteArgsWheelJointSetMaxMotorTorque(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsQueryOverlapAABB(rec *Recording, a *recArgsQueryOverlapAABB) {
-	recWPOSITION(&rec.buffer, a.origin)
-	recWAABB(&rec.buffer, a.aabb)
-	recWQUERYFILTER(&rec.buffer, a.filter)
-}
-
-func recWriteQueryOverlapAABB(rec *Recording, a *recArgsQueryOverlapAABB) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE0)
-	recWriteArgsQueryOverlapAABB(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsQueryOverlapShape(rec *Recording, a *recArgsQueryOverlapShape) {
-	recWPOSITION(&rec.buffer, a.origin)
-	recWSHAPEPROXY(&rec.buffer, a.proxy)
-	recWQUERYFILTER(&rec.buffer, a.filter)
-}
-
-func recWriteQueryOverlapShape(rec *Recording, a *recArgsQueryOverlapShape) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE1)
-	recWriteArgsQueryOverlapShape(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsQueryCastRay(rec *Recording, a *recArgsQueryCastRay) {
-	recWPOSITION(&rec.buffer, a.origin)
-	recWVEC2(&rec.buffer, a.translation)
-	recWQUERYFILTER(&rec.buffer, a.filter)
-}
-
-func recWriteQueryCastRay(rec *Recording, a *recArgsQueryCastRay) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE2)
-	recWriteArgsQueryCastRay(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsQueryCastShape(rec *Recording, a *recArgsQueryCastShape) {
-	recWPOSITION(&rec.buffer, a.origin)
-	recWSHAPEPROXY(&rec.buffer, a.proxy)
-	recWVEC2(&rec.buffer, a.translation)
-	recWQUERYFILTER(&rec.buffer, a.filter)
-}
-
-func recWriteQueryCastShape(rec *Recording, a *recArgsQueryCastShape) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE3)
-	recWriteArgsQueryCastShape(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsQueryCollideMover(rec *Recording, a *recArgsQueryCollideMover) {
-	recWPOSITION(&rec.buffer, a.origin)
-	recWCAPSULE(&rec.buffer, a.mover)
-	recWQUERYFILTER(&rec.buffer, a.filter)
-}
-
-func recWriteQueryCollideMover(rec *Recording, a *recArgsQueryCollideMover) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE4)
-	recWriteArgsQueryCollideMover(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsQueryCastRayClosest(rec *Recording, a *recArgsQueryCastRayClosest) {
-	recWPOSITION(&rec.buffer, a.origin)
-	recWVEC2(&rec.buffer, a.translation)
-	recWQUERYFILTER(&rec.buffer, a.filter)
-}
-
-func recWriteQueryCastRayClosest(rec *Recording, a *recArgsQueryCastRayClosest) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE5)
-	recWriteArgsQueryCastRayClosest(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsQueryCastMover(rec *Recording, a *recArgsQueryCastMover) {
-	recWPOSITION(&rec.buffer, a.origin)
-	recWCAPSULE(&rec.buffer, a.mover)
-	recWVEC2(&rec.buffer, a.translation)
-	recWQUERYFILTER(&rec.buffer, a.filter)
-}
-
-func recWriteQueryCastMover(rec *Recording, a *recArgsQueryCastMover) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE6)
-	recWriteArgsQueryCastMover(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsShapeTestPoint(rec *Recording, a *recArgsShapeTestPoint) {
-	recWSHAPEID(&rec.buffer, a.shape)
-	recWPOSITION(&rec.buffer, a.point)
-}
-
-func recWriteShapeTestPoint(rec *Recording, a *recArgsShapeTestPoint) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE7)
-	recWriteArgsShapeTestPoint(rec, a)
-	recEndRecord(rec)
-}
-
-func recWriteArgsShapeRayCast(rec *Recording, a *recArgsShapeRayCast) {
-	recWSHAPEID(&rec.buffer, a.shape)
-	recWPOSITION(&rec.buffer, a.origin)
-	recWVEC2(&rec.buffer, a.translation)
-}
-
-func recWriteShapeRayCast(rec *Recording, a *recArgsShapeRayCast) {
-	rec.lock.Lock()
-	defer rec.lock.Unlock()
-
-	recBeginRecord(rec, 0xE8)
-	recWriteArgsShapeRayCast(rec, a)
 	recEndRecord(rec)
 }
 

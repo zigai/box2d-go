@@ -8,14 +8,14 @@ import (
 	"sync/atomic"
 )
 
-type schedulerTaskStatus int
-
 const (
 	schedulerFree schedulerTaskStatus = iota
 	schedulerPending
 	schedulerClaimed
 	schedulerComplete
 )
+
+type schedulerTaskStatus int
 
 type schedulerTask struct {
 	callback func()

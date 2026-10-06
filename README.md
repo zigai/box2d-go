@@ -14,6 +14,28 @@ go get github.com/zigai/box2d
 
 Requires Go 1.27 or newer.
 
+## Experimental SIMD
+
+Default builds use scalar Go and do not depend on experimental SIMD APIs. To try the optional amd64 AVX backend, set the build-time environment variable `GOEXPERIMENT=simd`:
+
+```sh
+go test ./...
+GOEXPERIMENT=simd go test ./...
+GOEXPERIMENT=simd BOX2D_SIMD=0 go test ./...
+```
+
+The second command enables SIMD; the third compiles the same experimental backend but selects its scalar fallback. `BOX2D_SIMD=0` is read once when the process starts, so it also works with an already-built experimental executable. Leaving it unset, or setting it to `1`, permits SIMD when available. Setting `BOX2D_SIMD=1` alone cannot enable SIMD in a normal build.
+
+This first backend vectorizes AABB overlap checks used by the dynamic tree and broad phase, not the contact solver. Unsupported CPUs and non-amd64 architectures retain scalar behavior; amd64 SIMD requires AVX, not AVX2. Both position precision modes are supported. Check the selected mode with `GOEXPERIMENT=simd go test -run '^TestSIMDConfiguration$' -v .`.
+
+The Go SIMD API is experimental and may change between toolchain versions. Keep this opt-in for evaluation, and benchmark your own workload rather than assuming every scene becomes faster. For example:
+
+```sh
+GOEXPERIMENT=simd BENCH_STEPS=300 GOMAXPROCS=2 go test -run '^$' -bench '^BenchmarkScenes/TreeCast/workers=1$' -benchtime=1x -count=6 -benchmem ./bench
+```
+
+Add `BOX2D_SIMD=0` to compare the same experimental build with its fallback; omit `GOEXPERIMENT` to measure a normal scalar build. See `bench/simd_optimization.md` for correctness checks, measurements, and reproduction details.
+
 ## Examples
 
 ### Step a falling body

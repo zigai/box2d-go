@@ -404,6 +404,10 @@ linters:
         linters: [gocognit]
         source: "^[\\t ]*func TestSceneFixtureInventory\\(t \\*testing\\.T\\) \\{$"
         text: "^(?:cognitive complexity 21 of func `TestSceneFixtureInventory` is high \\(> 20\\))$"
+      - path: "^simd_accel_amd64\\.go$"
+        linters: [gosec]
+        source: "unsafe\\.Pointer\\("
+        text: "^G103: Use of unsafe calls should be audited$"
       - path: "^snapshot\\.go$"
         linters: [cyclop]
         source: "^[\\t ]*func snapMinSize\\[T any\\]\\(\\) int \\{$"

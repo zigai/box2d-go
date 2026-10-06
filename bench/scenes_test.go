@@ -18,70 +18,73 @@ import (
 var randomSeed uint32
 
 func BenchmarkScenes(b *testing.B) {
-	// This deliberately matched custom workload times all 300 steps from step 0,
-	// excluding construction/destruction. It is not the pinned CLI warm-up/horizon.
+	steps, err := parseBenchmarkSteps(os.Getenv("BENCH_STEPS"))
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	precision := "float"
 	if unsafe.Sizeof(box2d.Pos{}) == 16 {
 		precision = "double"
 	}
 
-	if _, err := fmt.Fprintf(os.Stdout, "box2d-bench: precision=%s scene-config=release steps=300 timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, runtime.GOMAXPROCS(0)); err != nil {
+	if _, err := fmt.Fprintf(os.Stdout, "box2d-bench: precision=%s scene-config=release steps=%d timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, steps, runtime.GOMAXPROCS(0)); err != nil {
 		b.Fatalf("write benchmark configuration: %v", err)
 	}
 
 	for _, workers := range []int{1, 4} {
 		b.Run(fmt.Sprintf("JointGrid/workers=%d", workers), func(b *testing.B) {
-			benchmarkJointGrid(b, workers)
+			benchmarkJointGrid(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("LargePyramid/workers=%d", workers), func(b *testing.B) {
-			benchmarkLargePyramid(b, workers)
+			benchmarkLargePyramid(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("ManyPyramids/workers=%d", workers), func(b *testing.B) {
-			benchmarkManyPyramids(b, workers)
+			benchmarkManyPyramids(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Rain/workers=%d", workers), func(b *testing.B) {
-			benchmarkRain(b, workers)
+			benchmarkRain(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Spinner/workers=%d", workers), func(b *testing.B) {
-			benchmarkSpinner(b, workers)
+			benchmarkSpinner(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Smash/workers=%d", workers), func(b *testing.B) {
-			benchmarkSmash(b, workers)
+			benchmarkSmash(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Tumbler/workers=%d", workers), func(b *testing.B) {
-			benchmarkTumbler(b, workers)
+			benchmarkTumbler(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Washer/workers=%d", workers), func(b *testing.B) {
-			benchmarkWasher(b, workers)
+			benchmarkWasher(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Junkyard/workers=%d", workers), func(b *testing.B) {
-			benchmarkJunkyard(b, workers)
+			benchmarkJunkyard(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Sleep/workers=%d", workers), func(b *testing.B) {
-			benchmarkSleep(b, workers)
+			benchmarkSleep(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Compounds/workers=%d", workers), func(b *testing.B) {
-			benchmarkCompounds(b, workers)
+			benchmarkCompounds(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Queries/workers=%d", workers), func(b *testing.B) {
-			benchmarkQueries(b, workers)
+			benchmarkQueries(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("TreeCast/workers=%d", workers), func(b *testing.B) {
-			benchmarkTreeCast(b, workers)
+			benchmarkTreeCast(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("TileWorld/workers=%d", workers), func(b *testing.B) {
-			benchmarkTileWorld(b, workers)
+			benchmarkTileWorld(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("FallingHinges/workers=%d", workers), func(b *testing.B) {
-			benchmarkFallingHinges(b, workers)
+			benchmarkFallingHinges(b, workers, steps)
 		})
 		b.Run(fmt.Sprintf("Human/workers=%d", workers), func(b *testing.B) {
-			benchmarkHuman(b, workers)
+			benchmarkHuman(b, workers, steps)
 		})
 	}
 }
 
-func benchmarkJointGrid(b *testing.B, workers int) {
+func benchmarkJointGrid(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -98,7 +101,7 @@ func benchmarkJointGrid(b *testing.B, workers int) {
 		scenes.CreateJointGrid(world)
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 		}
 
@@ -108,7 +111,7 @@ func benchmarkJointGrid(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkLargePyramid(b *testing.B, workers int) {
+func benchmarkLargePyramid(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -125,7 +128,7 @@ func benchmarkLargePyramid(b *testing.B, workers int) {
 		scenes.CreateLargePyramid(world)
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 		}
 
@@ -135,7 +138,7 @@ func benchmarkLargePyramid(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkManyPyramids(b *testing.B, workers int) {
+func benchmarkManyPyramids(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -152,7 +155,7 @@ func benchmarkManyPyramids(b *testing.B, workers int) {
 		scenes.CreateManyPyramids(world)
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 		}
 
@@ -162,7 +165,7 @@ func benchmarkManyPyramids(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkRain(b *testing.B, workers int) {
+func benchmarkRain(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -179,7 +182,7 @@ func benchmarkRain(b *testing.B, workers int) {
 		scenes.CreateRain(world)
 		b.StartTimer()
 
-		for step := range 300 {
+		for step := range steps {
 			scenes.StepRain(world, step)
 			world.Step(float32(1)/float32(60), 4)
 		}
@@ -190,7 +193,7 @@ func benchmarkRain(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkSpinner(b *testing.B, workers int) {
+func benchmarkSpinner(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -207,7 +210,7 @@ func benchmarkSpinner(b *testing.B, workers int) {
 		scenes.CreateSpinner(world)
 		b.StartTimer()
 
-		for step := range 300 {
+		for step := range steps {
 			scenes.StepSpinner(world, step)
 			world.Step(float32(1)/float32(60), 4)
 		}
@@ -218,7 +221,7 @@ func benchmarkSpinner(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkSmash(b *testing.B, workers int) {
+func benchmarkSmash(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -235,7 +238,7 @@ func benchmarkSmash(b *testing.B, workers int) {
 		scenes.CreateSmash(world)
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 		}
 
@@ -245,7 +248,7 @@ func benchmarkSmash(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkTumbler(b *testing.B, workers int) {
+func benchmarkTumbler(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -262,7 +265,7 @@ func benchmarkTumbler(b *testing.B, workers int) {
 		scenes.CreateTumbler(world)
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 		}
 
@@ -272,7 +275,7 @@ func benchmarkTumbler(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkWasher(b *testing.B, workers int) {
+func benchmarkWasher(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -289,7 +292,7 @@ func benchmarkWasher(b *testing.B, workers int) {
 		scenes.CreateWasher(world)
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 		}
 
@@ -299,7 +302,7 @@ func benchmarkWasher(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkJunkyard(b *testing.B, workers int) {
+func benchmarkJunkyard(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -316,7 +319,7 @@ func benchmarkJunkyard(b *testing.B, workers int) {
 		scenes.CreateJunkyard(world)
 		b.StartTimer()
 
-		for step := range 300 {
+		for step := range steps {
 			scenes.StepJunkyard(world, step)
 			world.Step(float32(1)/float32(60), 4)
 		}
@@ -327,7 +330,7 @@ func benchmarkJunkyard(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkSleep(b *testing.B, workers int) {
+func benchmarkSleep(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -344,7 +347,7 @@ func benchmarkSleep(b *testing.B, workers int) {
 		scenes.CreateSleep(world)
 		b.StartTimer()
 
-		for step := range 300 {
+		for step := range steps {
 			scenes.StepSleep(world, step)
 			world.Step(float32(1)/float32(60), 4)
 		}
@@ -355,7 +358,7 @@ func benchmarkSleep(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkCompounds(b *testing.B, workers int) {
+func benchmarkCompounds(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -372,7 +375,7 @@ func benchmarkCompounds(b *testing.B, workers int) {
 		scenes.CreateCompounds(world)
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 		}
 
@@ -382,7 +385,7 @@ func benchmarkCompounds(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkQueries(b *testing.B, workers int) {
+func benchmarkQueries(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -399,7 +402,7 @@ func benchmarkQueries(b *testing.B, workers int) {
 		scenes.CreateQueries(world)
 		b.StartTimer()
 
-		for step := range 300 {
+		for step := range steps {
 			scenes.StepQueries(world, step)
 			world.Step(float32(1)/float32(60), 4)
 		}
@@ -410,7 +413,7 @@ func benchmarkQueries(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkTreeCast(b *testing.B, workers int) {
+func benchmarkTreeCast(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -427,7 +430,7 @@ func benchmarkTreeCast(b *testing.B, workers int) {
 		scenes.CreateTreeCast(world)
 		b.StartTimer()
 
-		for step := range 300 {
+		for step := range steps {
 			scenes.StepTreeCast(world, step)
 			world.Step(float32(1)/float32(60), 4)
 		}
@@ -439,7 +442,7 @@ func benchmarkTreeCast(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkTileWorld(b *testing.B, workers int) {
+func benchmarkTileWorld(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -456,7 +459,7 @@ func benchmarkTileWorld(b *testing.B, workers int) {
 		scenes.CreateTileWorld(world)
 		b.StartTimer()
 
-		for step := range 300 {
+		for step := range steps {
 			scenes.StepTileWorld(world, step)
 			world.Step(float32(1)/float32(60), 4)
 		}
@@ -468,7 +471,7 @@ func benchmarkTileWorld(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkFallingHinges(b *testing.B, workers int) {
+func benchmarkFallingHinges(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -486,7 +489,7 @@ func benchmarkFallingHinges(b *testing.B, workers int) {
 
 		b.StartTimer()
 
-		for range 300 {
+		for range steps {
 			world.Step(float32(1)/float32(60), 4)
 			scenes.UpdateFallingHinges(world, &data)
 		}
@@ -498,7 +501,7 @@ func benchmarkFallingHinges(b *testing.B, workers int) {
 	}
 }
 
-func benchmarkHuman(b *testing.B, workers int) {
+func benchmarkHuman(b *testing.B, workers, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -517,7 +520,7 @@ func benchmarkHuman(b *testing.B, workers int) {
 		scenes.CreateHuman(&human, world, box2d.Pos{X: 0, Y: 5}, 1, 0.05, 5, 0.5, 1, nil, true)
 		b.StartTimer()
 
-		runHumanWorkload(world, &human)
+		runHumanWorkload(world, &human, steps)
 
 		b.StopTimer()
 		scenes.DestroyHuman(&human)
@@ -526,8 +529,8 @@ func benchmarkHuman(b *testing.B, workers int) {
 	}
 }
 
-func runHumanWorkload(world *box2d.World, human *scenes.Human) {
-	for step := range 300 {
+func runHumanWorkload(world *box2d.World, human *scenes.Human, steps int) {
+	for step := range steps {
 		switch step {
 		case 0:
 			human.SetVelocity(box2d.Vec2{X: 1})

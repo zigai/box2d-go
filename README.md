@@ -59,6 +59,26 @@ Explore additional histories with `go test -tags box2d_oracle ./test/integration
 
 Snapshots and recordings are created and consumed within each engine, not treated as interchangeable C/Go memory images. Named cases and profiles establish finite agreement, not universal equivalence. The C memory-stat dump has no Go counterpart and is not claimed as parity coverage.
 
+## Benchmarks
+
+Scene benchmarks default to 300 simulation steps per workload. Set `BENCH_STEPS` to an integer from 1 to 2147483647 to change the horizon for every selected scene:
+
+```sh
+BENCH_STEPS=500 GOMAXPROCS=4 go test -run '^$' -bench '^BenchmarkScenes$' -benchtime=1x -count=6 -benchmem ./bench
+```
+
+Select a particular scene and worker count with a benchmark filter, for example `-bench '^BenchmarkScenes/JointGrid/workers=4$'`. Each reported operation is one complete workload of `BENCH_STEPS` steps, not one simulation step. Setup and teardown are excluded from the Go benchmark timer. The configuration header records the actual step count; the timestep, substep count, and seed remain unchanged.
+
+For matched Go/C measurements, first build the pinned C benchmark with `just oracle-bench`, then run:
+
+```sh
+BENCH_STEPS=500 BENCH_SAMPLES=6 GOMAXPROCS=4 ./bench/run.sh
+```
+
+The comparison script requires `benchstat`, passes the same step count to both engines, and verifies both configuration headers before comparison. `BENCH_SAMPLES` defaults to 6; `BENCH_OUT` selects the output directory. The C benchmark also accepts an optional fourth argument: `bench_scenes [samples] [workers] [cpus] [steps]`. Standalone measurement verification accepts `go run ./bench/verify -steps 500 <go-output> <c-output>`, with matching sample, CPU, and precision flags when needed.
+
+Changing the horizon alone does not reproduce the website's benchmark setup, hardware, SIMD backend, or warm-up policy.
+
 ## License
 
 [MIT](LICENSE)

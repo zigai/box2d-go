@@ -16,7 +16,7 @@ import (
 
 var families = []string{"JointGrid", "LargePyramid", "ManyPyramids", "Rain", "Spinner", "Smash", "Tumbler", "Washer", "Junkyard", "Sleep", "Compounds", "Queries", "TreeCast", "TileWorld", "FallingHinges", "Human"}
 
-func validate(path, precision string, samples, cpus int, goOutput bool) error {
+func validate(path, precision string, samples, cpus, steps int, goOutput bool) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open measurements: %w", err)
@@ -25,7 +25,7 @@ func validate(path, precision string, samples, cpus int, goOutput bool) error {
 
 	expected := expectedBenchmarks(samples, cpus)
 
-	config := fmt.Sprintf("box2d-bench: precision=%s scene-config=release steps=300 timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d", precision, cpus)
+	config := fmt.Sprintf("box2d-bench: precision=%s scene-config=release steps=%d timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d", precision, steps, cpus)
 	configurations, rows := 0, 0
 
 	scanner := bufio.NewScanner(file)
@@ -101,7 +101,7 @@ func validateBenchmarkRow(path string, line int, f []string, goOutput bool, expe
 	}
 
 	if f[1] != "1" {
-		return fmt.Errorf("%s:%d: expected exactly one complete 300-step workload, got %s iterations", path, line, f[1]) //nolint:err113 // Terminal verify CLI diagnostic; callers do not match this error programmatically.
+		return fmt.Errorf("%s:%d: expected exactly one complete workload, got %s iterations", path, line, f[1]) //nolint:err113 // Terminal verify CLI diagnostic; callers do not match this error programmatically.
 	}
 
 	if err := validateMeasurements(path, line, f, goOutput); err != nil {
@@ -151,22 +151,23 @@ func validMeasurement(text string, timing bool) bool {
 
 func main() {
 	samples := flag.Int("samples", 6, "Samples per family and worker")
+	steps := flag.Int("steps", 300, "Steps per complete workload")
 	cpus := flag.Int("cpus", 2, "Matched concurrency label")
 	precision := flag.String("precision", "float", "Precision: float or double")
 
 	flag.Parse()
 
-	if *samples < 1 || *cpus < 1 || (*precision != "float" && *precision != "double") || flag.NArg() != 2 {
-		fmt.Fprintln(os.Stderr, "usage: verify -samples <positive-count> -cpus <positive-count> -precision <float|double> <go-output> <c-output>")
+	if *samples < 1 || *cpus < 1 || *steps < 1 || *steps > math.MaxInt32 || (*precision != "float" && *precision != "double") || flag.NArg() != 2 {
+		fmt.Fprintln(os.Stderr, "usage: verify -samples <positive-count> -steps <1..2147483647> -cpus <positive-count> -precision <float|double> <go-output> <c-output>")
 		os.Exit(2)
 	}
 
 	for i, path := range flag.Args() {
-		if err := validate(path, *precision, *samples, *cpus, i == 0); err != nil {
+		if err := validate(path, *precision, *samples, *cpus, *steps, i == 0); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	}
 
-	fmt.Printf("Verified %s: %d complete matched rows per process (16 families, workers 1/4, %d samples).\n", *precision, len(families)*2**samples, *samples)
+	fmt.Printf("Verified %s: %d complete matched rows per process (16 families, workers 1/4, %d samples, %d steps).\n", *precision, len(families)*2**samples, *samples, *steps)
 }

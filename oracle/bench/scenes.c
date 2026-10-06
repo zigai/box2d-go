@@ -21,12 +21,13 @@ static int positive_integer(const char* text) {
 }
 
 int main(int argc, char** argv) {
- if (argc > 4) { fprintf(stderr, "usage: bench_scenes [samples] [workers] [cpus]\n"); return 2; }
+ if (argc > 5) { fprintf(stderr, "usage: bench_scenes [samples] [workers] [cpus] [steps]\n"); return 2; }
  int samples = argc > 1 ? positive_integer(argv[1]) : 6;
  int workers = argc > 2 ? positive_integer(argv[2]) : 1;
  int cpus = argc > 3 ? positive_integer(argv[3]) : 2;
- if (samples < 1 || workers < 1 || workers > B2_MAX_WORKERS || cpus < 1) { fprintf(stderr, "samples/cpus must be positive integers; workers must be in 1..%d\n", B2_MAX_WORKERS); return 2; }
- // Matched custom workload: all 300 steps from step zero, no timed setup/teardown.
+ int steps = argc > 4 ? positive_integer(argv[4]) : 300;
+ if (samples < 1 || workers < 1 || workers > B2_MAX_WORKERS || cpus < 1 || steps < 1) { fprintf(stderr, "samples/cpus/steps must be positive integers; workers must be in 1..%d\n", B2_MAX_WORKERS); return 2; }
+ // Matched custom workload: all requested steps from step zero, no timed setup/teardown.
 #if defined(BOX2D_DOUBLE_PRECISION)
  const char* precision = "double";
 #else
@@ -37,7 +38,7 @@ int main(int argc, char** argv) {
 #else
  const char* scene_config = "debug";
 #endif
- printf("box2d-bench: precision=%s scene-config=%s steps=300 timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, scene_config, cpus);
+ printf("box2d-bench: precision=%s scene-config=%s steps=%d timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, scene_config, steps, cpus);
  const char* names[] = {"JointGrid","LargePyramid","ManyPyramids","Rain","Spinner","Smash","Tumbler","Washer","Junkyard","Sleep","Compounds","Queries","TreeCast","TileWorld","FallingHinges","Human"};
  for (int scene = 0; scene < 16; ++scene) {
   for (int sample = 0; sample < samples; ++sample) {
@@ -66,7 +67,7 @@ case 14: hinges = CreateFallingHinges(world); break;
 case 15: CreateHuman(&human, world, (b2Pos){0,5}, 1, 0.05f, 5, 0.5f, 1, NULL, true); break;
 }
  uint64_t ticks = b2GetTicks();
- for (int step = 0; step < 300; ++step) {
+ for (int step = 0; step < steps; ++step) {
  switch (scene) {
 case 3: StepRain(world,step); break;
 case 4: StepSpinner(world,step); break;

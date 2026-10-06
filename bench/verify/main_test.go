@@ -11,6 +11,40 @@ import (
 	"testing"
 )
 
+func TestCustomMeasurementSteps(t *testing.T) {
+	for _, precision := range []string{"float", "double"} {
+		for _, goOutput := range []bool{false, true} {
+			good := strings.Replace(measurementFixture(precision, 2, goOutput), "steps=300", "steps=500", 1)
+
+			cases := []struct {
+				name  string
+				text  string
+				steps int
+				valid bool
+			}{
+				{name: "custom", text: good, steps: 500, valid: true},
+				{name: "single", text: strings.Replace(good, "steps=500", "steps=1", 1), steps: 1, valid: true},
+				{name: "wrong-expected-horizon", text: good, steps: 300},
+				{name: "wrong-recorded-horizon", text: strings.Replace(good, "steps=500", "steps=300", 1), steps: 500},
+				{name: "mixed-horizons", text: good + strings.SplitAfter(measurementFixture(precision, 2, goOutput), "\n")[0], steps: 500},
+			}
+			for _, testCase := range cases {
+				t.Run(fmt.Sprintf("%s/go=%t/%s", precision, goOutput, testCase.name), func(test *testing.T) {
+					path := filepath.Join(test.TempDir(), "measurements.txt")
+					if err := os.WriteFile(path, []byte(testCase.text), 0o600); err != nil {
+						test.Fatal(err)
+					}
+
+					err := validate(path, precision, 2, 2, testCase.steps, goOutput)
+					if (err == nil) != testCase.valid {
+						test.Fatalf("valid=%t, error=%v", testCase.valid, err)
+					}
+				})
+			}
+		}
+	}
+}
+
 func TestMeasurementRowsAreCompleteMatchedAndFinite(t *testing.T) {
 	for _, precision := range []string{"float", "double"} {
 		for _, cpus := range []int{1, 4} {
@@ -98,7 +132,7 @@ func checkMeasurementVariants(t *testing.T, precision string, cpus int, goOutput
 				t.Fatal(err)
 			}
 
-			err := validate(path, precision, 2, cpus, goOutput)
+			err := validate(path, precision, 2, cpus, 300, goOutput)
 			if (err == nil) != tc.valid {
 				t.Fatalf("valid=%t, error=%v", tc.valid, err)
 			}

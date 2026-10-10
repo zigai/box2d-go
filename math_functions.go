@@ -741,11 +741,12 @@ func maxFloat(a float32, b float32) float32 {
 
 // @return the absolute value of a float.
 func absFloat(a float32) float32 {
-	if a < 0 {
-		return -a
+	magnitude := math.Float32bits(a) & 0x7fffffff
+	if magnitude == 0 || magnitude > 0x7f800000 {
+		return a
 	}
 
-	return a
+	return math.Float32frombits(magnitude)
 }
 
 // @return a float clamped between a lower and upper bound.

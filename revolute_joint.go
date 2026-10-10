@@ -402,11 +402,15 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 	vB := stateB.linearVelocity
 	wB := stateB.angularVelocity
 
-	qA := stateA.deltaRotation.Mul(joint.frameA.Q)
-	qB := stateB.deltaRotation.Mul(joint.frameB.Q)
-	relQ := qA.InvMul(qB)
-
 	fixedRotation := (iA+iB == float32(0.0))
+
+	var relQ Rot
+
+	if joint.enableSpring || joint.enableLimit {
+		qA := stateA.deltaRotation.Mul(joint.frameA.Q)
+		qB := stateB.deltaRotation.Mul(joint.frameB.Q)
+		relQ = qA.InvMul(qB)
+	}
 
 	// Solve spring.
 	if joint.enableSpring && !fixedRotation {

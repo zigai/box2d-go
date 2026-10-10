@@ -9,6 +9,7 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/go-gl/glfw/v3.4/glfw"
+
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/scenes"
 )
@@ -1083,8 +1084,16 @@ func CreateCastWorld(context *SampleContext) Sampler {
 		b := w / (2.0 + float32(math.Sqrt(2.0)))
 		sq := float32(math.Sqrt(2.0)) * b
 
-		vertices := []box2d.Vec2{{X: 0.5 * sq, Y: 0.0}, {X: 0.5 * w, Y: b}, {X: 0.5 * w, Y: b + sq}, {X: 0.5 * sq, Y: w},
-			{X: -0.5 * sq, Y: w}, {X: -0.5 * w, Y: b + sq}, {X: -0.5 * w, Y: b}, {X: -0.5 * sq, Y: 0.0}}
+		vertices := []box2d.Vec2{
+			{X: 0.5 * sq, Y: 0.0},
+			{X: 0.5 * w, Y: b},
+			{X: 0.5 * w, Y: b + sq},
+			{X: 0.5 * sq, Y: w},
+			{X: -0.5 * sq, Y: w},
+			{X: -0.5 * w, Y: b + sq},
+			{X: -0.5 * w, Y: b},
+			{X: -0.5 * sq, Y: 0.0},
+		}
 
 		hull := box2d.ComputeHull(vertices)
 		s.polygons[1] = box2d.MakePolygon(&hull, 0.0)
@@ -1351,8 +1360,10 @@ func (s *CastWorld) Step() {
 
 		rotation := box2d.MakeRot(s.angle)
 		circle := box2d.Circle{Center: box2d.Vec2Zero, Radius: s.castRadius}
-		capsule := box2d.Capsule{Center1: rotation.Rotate(box2d.Vec2{X: -0.25, Y: 0.0}), Center2: rotation.Rotate(box2d.Vec2{X: 0.25, Y: 0.0}),
-			Radius: s.castRadius}
+		capsule := box2d.Capsule{
+			Center1: rotation.Rotate(box2d.Vec2{X: -0.25, Y: 0.0}), Center2: rotation.Rotate(box2d.Vec2{X: 0.25, Y: 0.0}),
+			Radius: s.castRadius,
+		}
 		box := box2d.MakeOffsetRoundedBox(0.125, 0.25, box2d.Vec2Zero, rotation, s.castRadius)
 		var proxy box2d.ShapeProxy
 
@@ -1493,8 +1504,16 @@ func CreateOverlapWorld(context *SampleContext) Sampler {
 		b := w / (2.0 + float32(math.Sqrt(2.0)))
 		sq := float32(math.Sqrt(2.0)) * b
 
-		vertices := []box2d.Vec2{{X: 0.5 * sq, Y: 0.0}, {X: 0.5 * w, Y: b}, {X: 0.5 * w, Y: b + sq}, {X: 0.5 * sq, Y: w},
-			{X: -0.5 * sq, Y: w}, {X: -0.5 * w, Y: b + sq}, {X: -0.5 * w, Y: b}, {X: -0.5 * sq, Y: 0.0}}
+		vertices := []box2d.Vec2{
+			{X: 0.5 * sq, Y: 0.0},
+			{X: 0.5 * w, Y: b},
+			{X: 0.5 * w, Y: b + sq},
+			{X: 0.5 * sq, Y: w},
+			{X: -0.5 * sq, Y: w},
+			{X: -0.5 * w, Y: b + sq},
+			{X: -0.5 * w, Y: b},
+			{X: -0.5 * sq, Y: 0.0},
+		}
 
 		hull := box2d.ComputeHull(vertices)
 		s.polygons[2] = box2d.MakePolygon(&hull, 0.0)
@@ -2208,8 +2227,10 @@ func (s *Manifold) Step() {
 
 	// chain-segment vs circle
 	{
-		segment := box2d.ChainSegment{Ghost1: box2d.Vec2{X: 2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 1.0, Y: 1.0}, Point2: box2d.Vec2{X: -1.0, Y: 0.0}},
-			Ghost2: box2d.Vec2{X: -2.0, Y: 0.0}, ChainID: -1}
+		segment := box2d.ChainSegment{
+			Ghost1: box2d.Vec2{X: 2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 1.0, Y: 1.0}, Point2: box2d.Vec2{X: -1.0, Y: 0.0}},
+			Ghost2: box2d.Vec2{X: -2.0, Y: 0.0}, ChainID: -1,
+		}
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 
 		transform1, transform2 := transforms()
@@ -2230,10 +2251,14 @@ func (s *Manifold) Step() {
 		offset.X += 2.0 * increment.X
 	}
 
-	segment1 := box2d.ChainSegment{Ghost1: box2d.Vec2{X: 2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 1.0, Y: 1.0}, Point2: box2d.Vec2{X: -1.0, Y: 0.0}},
-		Ghost2: box2d.Vec2{X: -2.0, Y: 0.0}, ChainID: -1}
-	segment2 := box2d.ChainSegment{Ghost1: box2d.Vec2{X: 3.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 2.0, Y: 1.0}, Point2: box2d.Vec2{X: 1.0, Y: 1.0}},
-		Ghost2: box2d.Vec2{X: -1.0, Y: 0.0}, ChainID: -1}
+	segment1 := box2d.ChainSegment{
+		Ghost1: box2d.Vec2{X: 2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 1.0, Y: 1.0}, Point2: box2d.Vec2{X: -1.0, Y: 0.0}},
+		Ghost2: box2d.Vec2{X: -2.0, Y: 0.0}, ChainID: -1,
+	}
+	segment2 := box2d.ChainSegment{
+		Ghost1: box2d.Vec2{X: 3.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 2.0, Y: 1.0}, Point2: box2d.Vec2{X: 1.0, Y: 1.0}},
+		Ghost2: box2d.Vec2{X: -1.0, Y: 0.0}, ChainID: -1,
+	}
 
 	drawChainSegments := func(transform1 box2d.WorldTransform) {
 		{

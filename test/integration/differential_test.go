@@ -85,6 +85,7 @@ func TestDifferentialCorpus(t *testing.T) {
 		t.Run(seed.Name, func(t *testing.T) { runDifferential(t, seed.Input) })
 	}
 }
+
 func FuzzDifferentialSequence(f *testing.F) {
 	for _, seed := range sequence.Corpus() {
 		f.Add(seed.Input)

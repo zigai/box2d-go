@@ -70,6 +70,42 @@ func TestContactSolverWideVectorArithmetic(t *testing.T) {
 	if dotW(v2, w2) != splatW(23) || crossW(v2, w2) != splatW(-2) || subVW(v2, w2) != (vec2W{splatW(-2), splatW(-2)}) || rightPerpW(v2) != (vec2W{splatW(3), splatW(-2)}) || rotateVectorW(rotW{zeroW(), splatW(1)}, v2) != (vec2W{splatW(-3), splatW(2)}) {
 		t.Fatal("wide vector arithmetic")
 	}
+
+	negativeZero := math.Float32frombits(0x80000000)
+	upper := math.Float32frombits(0x3f800001)
+	lower := math.Float32frombits(0x3f7ffffe)
+	subnormal := math.Float32frombits(1)
+
+	cases := []struct {
+		name string
+		got  floatW
+		want [4]uint32
+	}{
+		{
+			name: "dot rounding and signed zero",
+			got: dotW(
+				vec2W{setW(negativeZero, upper, subnormal, 2), setW(negativeZero, -1, 0, 3)},
+				vec2W{setW(1, lower, 0.5, 4), setW(1, 1, 1, 5)},
+			),
+			want: [4]uint32{0x80000000, 0, 0, 0x41b80000},
+		},
+		{
+			name: "cross rounding and signed zero",
+			got: crossW(
+				vec2W{setW(negativeZero, upper, subnormal, 2), setW(0, 1, 0, 3)},
+				vec2W{setW(1, 1, 1, 4), setW(1, lower, 0.5, 5)},
+			),
+			want: [4]uint32{0x80000000, 0, 0, 0xc0000000},
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got := [4]uint32{math.Float32bits(test.got.x), math.Float32bits(test.got.y), math.Float32bits(test.got.z), math.Float32bits(test.got.w)}
+			if got != test.want {
+				t.Fatalf("got %08x, want %08x", got, test.want)
+			}
+		})
+	}
 }
 
 func TestContactSolverWideSignedZeroAndNaN(t *testing.T) {
@@ -93,8 +129,10 @@ func TestContactSolverGatherScatter(t *testing.T) {
 	before := append([]bodyState(nil), states...)
 	indices := []int{1, 0, 2, 3}
 
-	wide := gatherBodies(states, indices)
-	if wide.v.x != (floatW{1, 0, 8, 15}) || wide.v.y != (floatW{2, 0, 9, 16}) || wide.w != (floatW{3, 0, 10, 17}) || wide.flags != (floatW{512, 0, 0, 512}) || wide.dp.x != (floatW{4, 0, 11, 0}) || wide.dp.y != (floatW{5, 0, 12, 0}) || wide.dq.c != (floatW{6, 1, 13, 0}) || wide.dq.s != (floatW{7, 0, 14, 0}) {
+	var wide bodyStateW
+	gatherBodies(states, indices, &wide, true)
+
+	if wide.v.x != (floatW{1, 0, 8, 15}) || wide.v.y != (floatW{2, 0, 9, 16}) || wide.w != (floatW{3, 0, 10, 17}) || wide.dp.x != (floatW{4, 0, 11, 0}) || wide.dp.y != (floatW{5, 0, 12, 0}) || wide.dq.c != (floatW{6, 1, 13, 0}) || wide.dq.s != (floatW{7, 0, 14, 0}) {
 		t.Fatalf("gather: %+v", wide)
 	}
 

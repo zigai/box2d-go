@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"math/bits"
 	"runtime"
+	"slices"
 	"sync/atomic"
 )
 
@@ -1890,10 +1891,10 @@ func executeGraphBlock(stageType solverStageType, blockType solverBlockType, con
 
 func reserveSolverContactScratch(world *World, colors []graphColor, wideContactCount int) []contactConstraintWide {
 	if wideContactCount > cap(world.solverWideScratch) {
-		world.solverWideScratch = make([]contactConstraintWide, wideContactCount)
-	} else {
-		clear(world.solverWideScratch[:wideContactCount])
+		world.solverWideScratch = slices.Grow(world.solverWideScratch, wideContactCount-len(world.solverWideScratch))[:wideContactCount]
 	}
+
+	clear(world.solverWideScratch[:wideContactCount])
 
 	wideContactConstraints := world.solverWideScratch[:wideContactCount]
 
@@ -1901,10 +1902,10 @@ func reserveSolverContactScratch(world *World, colors []graphColor, wideContactC
 
 	overflowCount := len(overflow.contactSims)
 	if overflowCount > cap(world.solverOverflowScratch) {
-		world.solverOverflowScratch = make([]contactConstraint, overflowCount)
-	} else {
-		clear(world.solverOverflowScratch[:overflowCount])
+		world.solverOverflowScratch = slices.Grow(world.solverOverflowScratch, overflowCount-len(world.solverOverflowScratch))[:overflowCount]
 	}
+
+	clear(world.solverOverflowScratch[:overflowCount])
 
 	overflowContacts := world.solverOverflowScratch[:overflowCount]
 	overflow.overflowConstraints = overflowContacts

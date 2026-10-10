@@ -92,11 +92,10 @@ type contactConstraintWide struct {
 }
 
 type bodyStateW struct {
-	v     vec2W
-	w     floatW
-	flags floatW
-	dp    vec2W
-	dq    rotW
+	v  vec2W
+	w  floatW
+	dp vec2W
+	dq rotW
 }
 
 // contact separation for sub-stepping
@@ -957,11 +956,11 @@ func rightPerpW(a vec2W) vec2W {
 }
 
 func dotW(a vec2W, b vec2W) floatW {
-	return addW(mulW(a.x, b.x), mulW(a.y, b.y))
+	return floatW{float32(a.x.x*b.x.x) + float32(a.y.x*b.y.x), float32(a.x.y*b.x.y) + float32(a.y.y*b.y.y), float32(a.x.z*b.x.z) + float32(a.y.z*b.y.z), float32(a.x.w*b.x.w) + float32(a.y.w*b.y.w)}
 }
 
 func crossW(a vec2W, b vec2W) floatW {
-	return subW(mulW(a.x, b.y), mulW(a.y, b.x))
+	return floatW{float32(a.x.x*b.y.x) - float32(a.y.x*b.x.x), float32(a.x.y*b.y.y) - float32(a.y.y*b.x.y), float32(a.x.z*b.y.z) - float32(a.y.z*b.x.z), float32(a.x.w*b.y.w) - float32(a.y.w*b.x.w)}
 }
 
 func rotateVectorW(q rotW, v vec2W) vec2W {
@@ -972,10 +971,8 @@ func getWideContactConstraintByteCount() int {
 	return int(unsafe.Sizeof(contactConstraintWide{}))
 }
 
-func gatherBodies(states []bodyState, indices []int) bodyStateW {
+func gatherBodies(states []bodyState, indices []int, simdBody *bodyStateW, includePosition bool) {
 	validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
-
-	identity := identityBodyState
 
 	// zero means null
 	i1 := indices[0] - 1
@@ -983,38 +980,36 @@ func gatherBodies(states []bodyState, indices []int) bodyStateW {
 	i3 := indices[2] - 1
 	i4 := indices[3] - 1
 
-	s1 := identity
+	s1 := &identityBodyState
 	if i1 != nullIndex {
-		s1 = states[i1]
+		s1 = &states[i1]
 	}
 
-	s2 := identity
+	s2 := &identityBodyState
 	if i2 != nullIndex {
-		s2 = states[i2]
+		s2 = &states[i2]
 	}
 
-	s3 := identity
+	s3 := &identityBodyState
 	if i3 != nullIndex {
-		s3 = states[i3]
+		s3 = &states[i3]
 	}
 
-	s4 := identity
+	s4 := &identityBodyState
 	if i4 != nullIndex {
-		s4 = states[i4]
+		s4 = &states[i4]
 	}
-
-	var simdBody bodyStateW
 
 	simdBody.v.x = floatW{s1.linearVelocity.X, s2.linearVelocity.X, s3.linearVelocity.X, s4.linearVelocity.X}
 	simdBody.v.y = floatW{s1.linearVelocity.Y, s2.linearVelocity.Y, s3.linearVelocity.Y, s4.linearVelocity.Y}
 	simdBody.w = floatW{s1.angularVelocity, s2.angularVelocity, s3.angularVelocity, s4.angularVelocity}
-	simdBody.flags = floatW{float32(s1.flags), float32(s2.flags), float32(s3.flags), float32(s4.flags)}
-	simdBody.dp.x = floatW{s1.deltaPosition.X, s2.deltaPosition.X, s3.deltaPosition.X, s4.deltaPosition.X}
-	simdBody.dp.y = floatW{s1.deltaPosition.Y, s2.deltaPosition.Y, s3.deltaPosition.Y, s4.deltaPosition.Y}
-	simdBody.dq.c = floatW{s1.deltaRotation.C, s2.deltaRotation.C, s3.deltaRotation.C, s4.deltaRotation.C}
-	simdBody.dq.s = floatW{s1.deltaRotation.S, s2.deltaRotation.S, s3.deltaRotation.S, s4.deltaRotation.S}
 
-	return simdBody
+	if includePosition {
+		simdBody.dp.x = floatW{s1.deltaPosition.X, s2.deltaPosition.X, s3.deltaPosition.X, s4.deltaPosition.X}
+		simdBody.dp.y = floatW{s1.deltaPosition.Y, s2.deltaPosition.Y, s3.deltaPosition.Y, s4.deltaPosition.Y}
+		simdBody.dq.c = floatW{s1.deltaRotation.C, s2.deltaRotation.C, s3.deltaRotation.C, s4.deltaRotation.C}
+		simdBody.dq.s = floatW{s1.deltaRotation.S, s2.deltaRotation.S, s3.deltaRotation.S, s4.deltaRotation.S}
+	}
 }
 
 // This writes only the velocities back to the solver bodies.
@@ -1143,14 +1138,14 @@ func warmStartContactPointWide(c *contactConstraintWide, bA, bB *bodyStateW, rA,
 	bB.v.y = mulAddW(bB.v.y, c.invMassB, p.y)
 }
 
-func applyContactImpulseWide(c *contactConstraintWide, bA, bB *bodyStateW, rA, rB vec2W, px, py floatW) {
-	bA.v.x = mulSubW(bA.v.x, c.invMassA, px)
-	bA.v.y = mulSubW(bA.v.y, c.invMassA, py)
-	bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, py), mulW(rA.y, px)))
+func applyContactImpulseWide(c *contactConstraintWide, bA, bB *bodyStateW, rA, rB *vec2W, px, py *floatW) {
+	bA.v.x = mulSubW(bA.v.x, c.invMassA, *px)
+	bA.v.y = mulSubW(bA.v.y, c.invMassA, *py)
+	bA.w = mulSubW(bA.w, c.invIA, subW(mulW(rA.x, *py), mulW(rA.y, *px)))
 
-	bB.v.x = mulAddW(bB.v.x, c.invMassB, px)
-	bB.v.y = mulAddW(bB.v.y, c.invMassB, py)
-	bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, py), mulW(rB.y, px)))
+	bB.v.x = mulAddW(bB.v.x, c.invMassB, *px)
+	bB.v.y = mulAddW(bB.v.y, c.invMassB, *py)
+	bB.w = mulAddW(bB.w, c.invIB, subW(mulW(rB.x, *py), mulW(rB.y, *px)))
 }
 
 func warmStartContactsWide(block solverBlock, context *stepContext) {
@@ -1159,8 +1154,10 @@ func warmStartContactsWide(block solverBlock, context *stepContext) {
 
 	for i := block.startIndex; i < block.startIndex+int(block.count); i++ {
 		c := &constraints[i]
-		bA := gatherBodies(states, c.indexA[:])
-		bB := gatherBodies(states, c.indexB[:])
+
+		var bA, bB bodyStateW
+		gatherBodies(states, c.indexA[:], &bA, false)
+		gatherBodies(states, c.indexB[:], &bB, false)
 
 		tangentX := c.normal.y
 		tangentY := subW(zeroW(), c.normal.x)
@@ -1199,8 +1196,9 @@ func pushContactsWide(block solverBlock, context *stepContext) {
 	for wideIndex := block.startIndex; wideIndex < block.startIndex+int(block.count); wideIndex++ {
 		c := &constraints[wideIndex]
 
-		bA := gatherBodies(states, c.indexA[:])
-		bB := gatherBodies(states, c.indexB[:])
+		var bA, bB bodyStateW
+		gatherBodies(states, c.indexA[:], &bA, true)
+		gatherBodies(states, c.indexB[:], &bB, true)
 
 		softMask := softMaskW(c.indexA[:], c.indexB[:])
 		biasRate := blendW(dynamicBiasRate, staticBiasRate, softMask)
@@ -1241,7 +1239,7 @@ func pushContactsWide(block solverBlock, context *stepContext) {
 			pointImpulseScale := blendW(impulseScale, zeroW(), separated)
 
 			// Relative velocity at contact
-			vn := contactPointVelocityWide(&bA, &bB, rA, rB, c.normal)
+			vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &c.normal)
 
 			// Compute normal impulse
 			negImpulse := addW(mulW(c.normalMass1, addW(mulW(pointMassScale, vn), velocityBias)), mulW(pointImpulseScale, c.normalImpulse1))
@@ -1289,7 +1287,7 @@ func pushContactsWide(block solverBlock, context *stepContext) {
 			rB := c.anchorB2
 
 			// Relative velocity at contact
-			vn := contactPointVelocityWide(&bA, &bB, rA, rB, c.normal)
+			vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &c.normal)
 
 			// Compute normal impulse
 			negImpulse := addW(mulW(c.normalMass2, addW(mulW(pointMassScale, vn), velocityBias)), mulW(pointImpulseScale, c.normalImpulse2))
@@ -1328,8 +1326,9 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 	for wideIndex := block.startIndex; wideIndex < block.startIndex+int(block.count); wideIndex++ {
 		c := &constraints[wideIndex]
 
-		bA := gatherBodies(states, c.indexA[:])
-		bB := gatherBodies(states, c.indexB[:])
+		var bA, bB bodyStateW
+		gatherBodies(states, c.indexA[:], &bA, true)
+		gatherBodies(states, c.indexB[:], &bB, true)
 
 		totalNormalImpulse := zeroW()
 
@@ -1367,7 +1366,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			rB := c.anchorB1
 
 			// Relative velocity at contact
-			vn := contactPointVelocityWide(&bA, &bB, rA, rB, c.normal)
+			vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &c.normal)
 
 			newImpulse, impulse := normalContactImpulseWide(c.normalMass1, c.normalImpulse1, vn, velocityBias1)
 			c.normalImpulse1 = newImpulse
@@ -1379,7 +1378,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			px := mulW(impulse, c.normal.x)
 			py := mulW(impulse, c.normal.y)
 
-			applyContactImpulseWide(c, &bA, &bB, rA, rB, px, py)
+			applyContactImpulseWide(c, &bA, &bB, &rA, &rB, &px, &py)
 		}
 
 		// second point non-penetration constraint
@@ -1389,7 +1388,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			rB := c.anchorB2
 
 			// Relative velocity at contact
-			vn := contactPointVelocityWide(&bA, &bB, rA, rB, c.normal)
+			vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &c.normal)
 
 			newImpulse, impulse := normalContactImpulseWide(c.normalMass2, c.normalImpulse2, vn, velocityBias2)
 			c.normalImpulse2 = newImpulse
@@ -1401,7 +1400,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			px := mulW(impulse, c.normal.x)
 			py := mulW(impulse, c.normal.y)
 
-			applyContactImpulseWide(c, &bA, &bB, rA, rB, px, py)
+			applyContactImpulseWide(c, &bA, &bB, &rA, &rB, &px, &py)
 		}
 
 		// Rolling resistance
@@ -1428,7 +1427,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			rB := c.anchorB1
 
 			// Relative velocity at contact
-			vt := contactPointVelocityWide(&bA, &bB, rA, rB, vec2W{tangentX, tangentY})
+			vt := contactPointVelocityWide(&bA, &bB, &rA, &rB, &vec2W{tangentX, tangentY})
 
 			// Tangent speed (conveyor belt)
 			vt = subW(vt, c.tangentSpeed)
@@ -1440,7 +1439,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			px := mulW(impulse, tangentX)
 			py := mulW(impulse, tangentY)
 
-			applyContactImpulseWide(c, &bA, &bB, rA, rB, px, py)
+			applyContactImpulseWide(c, &bA, &bB, &rA, &rB, &px, &py)
 		}
 
 		// second point friction constraint
@@ -1450,7 +1449,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			rB := c.anchorB2
 
 			// Relative velocity at contact
-			vt := contactPointVelocityWide(&bA, &bB, rA, rB, vec2W{tangentX, tangentY})
+			vt := contactPointVelocityWide(&bA, &bB, &rA, &rB, &vec2W{tangentX, tangentY})
 
 			// Tangent speed (conveyor belt)
 			vt = subW(vt, c.tangentSpeed)
@@ -1462,7 +1461,7 @@ func solveContactsWide(block solverBlock, context *stepContext) {
 			px := mulW(impulse, tangentX)
 			py := mulW(impulse, tangentY)
 
-			applyContactImpulseWide(c, &bA, &bB, rA, rB, px, py)
+			applyContactImpulseWide(c, &bA, &bB, &rA, &rB, &px, &py)
 		}
 
 		scatterBodies(states, c.indexA[:], &bA)
@@ -1485,8 +1484,9 @@ func applyRestitutionWide(block solverBlock, context *stepContext) {
 			continue
 		}
 
-		bA := gatherBodies(states, c.indexA[:])
-		bB := gatherBodies(states, c.indexB[:])
+		var bA, bB bodyStateW
+		gatherBodies(states, c.indexA[:], &bA, true)
+		gatherBodies(states, c.indexB[:], &bB, true)
 
 		restitutionMask := greaterThanW(c.restitution, zeroW)
 
@@ -1517,7 +1517,7 @@ func applyRestitutionWide(block solverBlock, context *stepContext) {
 			specBias := maxW(zeroW, mulW(s, invH))
 			velocityBias := blendW(specBias, mulW(c.restitution, c.relativeVelocity1), armed)
 
-			vn := contactPointVelocityWide(&bA, &bB, rA, rB, c.normal)
+			vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &c.normal)
 
 			impulse, approachImpulse := restitutionContactImpulseWide(normalMass1, c.normalImpulse1, vn, velocityBias, c.restitution, compressionImpulse, c.restitutionImpulse1, armed, zeroW)
 
@@ -1528,7 +1528,7 @@ func applyRestitutionWide(block solverBlock, context *stepContext) {
 			px := mulW(impulse, c.normal.x)
 			py := mulW(impulse, c.normal.y)
 
-			applyContactImpulseWide(c, &bA, &bB, rA, rB, px, py)
+			applyContactImpulseWide(c, &bA, &bB, &rA, &rB, &px, &py)
 		}
 
 		{
@@ -1546,7 +1546,7 @@ func applyRestitutionWide(block solverBlock, context *stepContext) {
 			specBias := maxW(zeroW, mulW(s, invH))
 			velocityBias := blendW(specBias, mulW(c.restitution, c.relativeVelocity2), armed)
 
-			vn := contactPointVelocityWide(&bA, &bB, rA, rB, c.normal)
+			vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &c.normal)
 
 			impulse, approachImpulse := restitutionContactImpulseWide(normalMass2, c.normalImpulse2, vn, velocityBias, c.restitution, compressionImpulse, c.restitutionImpulse2, armed, zeroW)
 
@@ -1557,7 +1557,7 @@ func applyRestitutionWide(block solverBlock, context *stepContext) {
 			px := mulW(impulse, c.normal.x)
 			py := mulW(impulse, c.normal.y)
 
-			applyContactImpulseWide(c, &bA, &bB, rA, rB, px, py)
+			applyContactImpulseWide(c, &bA, &bB, &rA, &rB, &px, &py)
 		}
 
 		scatterBodies(states, c.indexA[:], &bA)
@@ -1936,15 +1936,16 @@ func prepareWideContactGeometry(cw *contactConstraintWide, contactLanes *[simdWi
 }
 
 func sampleWideContactVelocity(cw *contactConstraintWide, contactLanes *[simdWidth]*contactSim, states []bodyState) {
-	bA := gatherBodies(states, cw.indexA[:])
-	bB := gatherBodies(states, cw.indexB[:])
+	var bA, bB bodyStateW
+	gatherBodies(states, cw.indexA[:], &bA, false)
+	gatherBodies(states, cw.indexB[:], &bB, false)
 
 	{
 		rA := cw.anchorA1
 		rB := cw.anchorB1
 
 		// Relative velocity at contact
-		vn := contactPointVelocityWide(&bA, &bB, rA, rB, cw.normal)
+		vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &cw.normal)
 		cw.relativeVelocity1 = vn
 
 		var normalVelocities [simdWidth]float32
@@ -1963,7 +1964,7 @@ func sampleWideContactVelocity(cw *contactConstraintWide, contactLanes *[simdWid
 		rB := cw.anchorB2
 
 		// Relative velocity at contact
-		vn := contactPointVelocityWide(&bA, &bB, rA, rB, cw.normal)
+		vn := contactPointVelocityWide(&bA, &bB, &rA, &rB, &cw.normal)
 		cw.relativeVelocity2 = vn
 
 		var normalVelocities [simdWidth]float32
@@ -1977,7 +1978,7 @@ func sampleWideContactVelocity(cw *contactConstraintWide, contactLanes *[simdWid
 	}
 }
 
-func contactPointVelocityWide(bA, bB *bodyStateW, rA, rB, direction vec2W) floatW {
+func contactPointVelocityWide(bA, bB *bodyStateW, rA, rB, direction *vec2W) floatW {
 	dvx := subW(subW(bB.v.x, mulW(bB.w, rB.y)), subW(bA.v.x, mulW(bA.w, rA.y)))
 	dvy := subW(addW(bB.v.y, mulW(bB.w, rB.x)), addW(bA.v.y, mulW(bA.w, rA.x)))
 

@@ -1088,7 +1088,13 @@ func (tree *DynamicTree) validateNoMoved() {
 }
 
 func orderCastHits(hit *[2]*TreeNode, leaf *[2]bool, hitCount int, origin Vec2) {
-	if hitCount == 2 && !leaf[0] && !leaf[1] {
+	if hitCount == 2 {
+		orderCastPair(hit, leaf, origin)
+	}
+}
+
+func orderCastPair(hit *[2]*TreeNode, leaf *[2]bool, origin Vec2) {
+	if !leaf[0] && !leaf[1] {
 		center1 := hit[0].AABB.Center()
 		center2 := hit[1].AABB.Center()
 		d1 := center1.DistanceSquared(origin)

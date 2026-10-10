@@ -3,6 +3,8 @@
 
 package box2d
 
+import "slices"
+
 const (
 	candidateBatch = 32
 	crossSeedCount = 64
@@ -11,6 +13,7 @@ const (
 type broadPhase struct {
 	trees         [BodyTypeCount]DynamicTree
 	movedSiblings []int
+	pairKeys      []uint64
 	pairSet       hashSet
 }
 
@@ -48,6 +51,7 @@ func createBroadPhase(bp *broadPhase, capacity *Capacity) {
 	bp.trees[KinematicBody] = NewDynamicTree(16)
 	bp.trees[DynamicBody] = NewDynamicTree(max(16, capacity.DynamicShapeCount))
 	bp.movedSiblings = nil
+	bp.pairKeys = nil
 }
 
 func destroyBroadPhase(bp *broadPhase) {
@@ -390,7 +394,7 @@ func updateBroadPhasePairs(w *World) {
 	{
 		dynamicTree := &bp.trees[DynamicBody]
 		pairCapacity := int(dynamicTree.nodeEnd) / 2
-		bp.movedSiblings = make([]int, pairCapacity)
+		bp.movedSiblings = slices.Grow(bp.movedSiblings[:0], pairCapacity)[:pairCapacity]
 		dynamicMoveCount := gatherMovedSiblings(dynamicTree, bp.movedSiblings)
 
 		var crossSeeds [2 * crossSeedCount]nodePair
@@ -413,7 +417,8 @@ func updateBroadPhasePairs(w *World) {
 		pairCount += len(w.taskContexts[i].pairKeys)
 	}
 
-	pairKeys := make([]uint64, max(pairCount, 1))
+	bp.pairKeys = slices.Grow(bp.pairKeys[:0], max(pairCount, 1))[:max(pairCount, 1)]
+	pairKeys := bp.pairKeys
 	keyCount := 0
 
 	for i := range w.workerCount {
@@ -434,7 +439,8 @@ func updateBroadPhasePairs(w *World) {
 		createContact(w, shapeA, shapeB)
 	}
 
-	bp.movedSiblings = nil
+	bp.movedSiblings = bp.movedSiblings[:0]
+	bp.pairKeys = bp.pairKeys[:0]
 
 	validateSolverSets(w)
 }

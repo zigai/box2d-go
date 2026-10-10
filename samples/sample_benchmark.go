@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
+
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/scenes"
 )

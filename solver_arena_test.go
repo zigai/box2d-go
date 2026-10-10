@@ -40,8 +40,8 @@ func checkSolverArenaCapacity(t *testing.T, state *World) {
 	}
 
 	overflowCount := len(state.constraintGraph.colors[overflowIndex].contactSims)
-	if cap(state.solverWideScratch) != wideCount || cap(state.solverOverflowScratch) != overflowCount {
-		t.Fatalf("scratch capacity differs from maximum need: wide=%d want=%d overflow=%d want=%d",
+	if cap(state.solverWideScratch) < wideCount || cap(state.solverOverflowScratch) < overflowCount {
+		t.Fatalf("scratch capacity is below active need: wide=%d want>=%d overflow=%d want>=%d",
 			cap(state.solverWideScratch), wideCount, cap(state.solverOverflowScratch), overflowCount)
 	}
 }

@@ -15,7 +15,25 @@ func loadAABBV(aabb *AABB) aabbV {
 
 func overlapNode(av aabbV, node *TreeNode) bool {
 	bounds := &node.AABB
-	return av.LowerBound.X <= bounds.UpperBound.X && av.LowerBound.Y <= bounds.UpperBound.Y && bounds.LowerBound.X <= av.UpperBound.X && bounds.LowerBound.Y <= av.UpperBound.Y
+
+	var lowerX, lowerY, upperX, upperY uint8
+	if av.LowerBound.X <= bounds.UpperBound.X {
+		lowerX = 1
+	}
+
+	if av.LowerBound.Y <= bounds.UpperBound.Y {
+		lowerY = 1
+	}
+
+	if bounds.LowerBound.X <= av.UpperBound.X {
+		upperX = 1
+	}
+
+	if bounds.LowerBound.Y <= av.UpperBound.Y {
+		upperY = 1
+	}
+
+	return lowerX&lowerY&upperX&upperY != 0
 }
 
 func overlapV(left, right *AABB) bool {

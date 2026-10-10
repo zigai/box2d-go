@@ -5,6 +5,7 @@ package main
 
 import (
 	"github.com/go-gl/glfw/v3.4/glfw"
+
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/scenes"
 )

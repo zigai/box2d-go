@@ -247,6 +247,8 @@ type worldRayCastContext struct {
 	filter   QueryFilter
 	fraction float32
 	origin   Pos
+	closest  bool
+	result   RayResult
 }
 
 type worldShapeCastContext struct {
@@ -674,15 +676,16 @@ func (w *World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn Overl
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(aabb.IsValid(), "b2IsValidAABB( aabb )")
 
-	var recWriter recQueryWriter
+	var recWriter *recQueryWriter
 	if world.recording != nil {
-		recQueryBegin(&recWriter)
+		recWriter = &recQueryWriter{}
+		recQueryBegin(recWriter)
 		recWriter.userFcn.overlapFcn = fcn
 		recWPOSITION(&recWriter.buf, origin)
 		recWAABB(&recWriter.buf, aabb)
 		recWQUERYFILTER(&recWriter.buf, filter)
 		recWriter.countOffset = recReserveU32(&recWriter.buf)
-		fcn = func(id Shape) bool { return recOverlapTrampoline(id, &recWriter) }
+		fcn = func(id Shape) bool { return recOverlapTrampoline(id, recWriter) }
 	}
 	// Lift to a world float box with outward rounding so the conservative tree test never misses
 	worldBox := offsetAABB(aabb, origin)
@@ -694,10 +697,10 @@ func (w *World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn Overl
 		treeStats.LeafVisits += treeResult.LeafVisits
 	}
 
-	if world.recording != nil {
+	if recWriter != nil && world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
-		recQueryCommit(world.recording, 0xE0, &recWriter)
+		recQueryCommit(world.recording, 0xE0, recWriter)
 	}
 
 	return treeStats
@@ -742,15 +745,16 @@ func (w *World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, 
 
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 
-	var recWriter recQueryWriter
+	var recWriter *recQueryWriter
 	if world.recording != nil {
-		recQueryBegin(&recWriter)
+		recWriter = &recQueryWriter{}
+		recQueryBegin(recWriter)
 		recWriter.userFcn.overlapFcn = fcn
 		recWPOSITION(&recWriter.buf, origin)
 		recWSHAPEPROXY(&recWriter.buf, *proxy)
 		recWQUERYFILTER(&recWriter.buf, filter)
 		recWriter.countOffset = recReserveU32(&recWriter.buf)
-		fcn = func(id Shape) bool { return recOverlapTrampoline(id, &recWriter) }
+		fcn = func(id Shape) bool { return recOverlapTrampoline(id, recWriter) }
 	}
 	// Relative box lifted to world float with outward rounding, conservative for the tree
 	aabb := offsetAABB(MakeAABB(proxy.Points[:proxy.Count], proxy.Radius), origin)
@@ -762,10 +766,10 @@ func (w *World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, 
 		treeStats.LeafVisits += treeResult.LeafVisits
 	}
 
-	if world.recording != nil {
+	if recWriter != nil && world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
-		recQueryCommit(world.recording, 0xE1, &recWriter)
+		recQueryCommit(world.recording, 0xE1, recWriter)
 	}
 
 	return treeStats
@@ -790,7 +794,13 @@ func rayCastCallback(input *RayCastInput, _ int, userData uint64, context *world
 	if output.Hit {
 		id := Shape{index1: int32(shapeID + 1), world: world, generation: shape.generation}
 		point := context.origin.Add(output.Point)
-		fraction := context.fcn(id, point, output.Normal, output.Fraction)
+
+		var fraction float32
+		if context.closest {
+			fraction = rayCastClosestFcn(id, point, output.Normal, output.Fraction, &context.result)
+		} else {
+			fraction = context.fcn(id, point, output.Normal, output.Fraction)
+		}
 		// The user may return -1 to skip this shape
 		if 0 <= fraction && fraction <= 1 {
 			context.fraction = fraction
@@ -815,16 +825,17 @@ func (w *World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn Ca
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 
-	var recWriter recQueryWriter
+	var recWriter *recQueryWriter
 	if world.recording != nil {
-		recQueryBegin(&recWriter)
+		recWriter = &recQueryWriter{}
+		recQueryBegin(recWriter)
 		recWriter.userFcn.castFcn = fcn
 		recWPOSITION(&recWriter.buf, origin)
 		recWVEC2(&recWriter.buf, translation)
 		recWQUERYFILTER(&recWriter.buf, filter)
 		recWriter.countOffset = recReserveU32(&recWriter.buf)
 		fcn = func(id Shape, point Pos, normal Vec2, fraction float32) float32 {
-			return recCastTrampoline(id, point, normal, fraction, &recWriter)
+			return recCastTrampoline(id, point, normal, fraction, recWriter)
 		}
 	}
 	// Tree traversal sees the origin truncated to float, displacing the ray by up to one
@@ -847,10 +858,10 @@ func (w *World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn Ca
 		input.MaxFraction = worldContext.fraction
 	}
 
-	if world.recording != nil {
+	if recWriter != nil && world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
-		recQueryCommit(world.recording, 0xE2, &recWriter)
+		recQueryCommit(world.recording, 0xE2, recWriter)
 	}
 
 	return treeStats
@@ -886,15 +897,13 @@ func (w *World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter)
 	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 	input := RayCastInput{Origin: origin.Vec2(), Translation: translation, MaxFraction: 1}
 
-	worldContext := worldRayCastContext{world: world, fcn: func(id Shape, point Pos, normal Vec2, fraction float32) float32 {
-		return rayCastClosestFcn(id, point, normal, fraction, &result)
-	}, filter: filter, fraction: 1, origin: origin}
+	worldContext := worldRayCastContext{world: world, filter: filter, fraction: 1, origin: origin, closest: true}
 	for i := range int(BodyTypeCount) {
 		treeResult := world.broadPhase.trees[i].CastRay(&input, filter.MaskBits, func(input *RayCastInput, proxyID int, userData uint64) float32 {
 			return rayCastCallback(input, proxyID, userData, &worldContext)
 		})
-		result.NodeVisits += treeResult.NodeVisits
-		result.LeafVisits += treeResult.LeafVisits
+		worldContext.result.NodeVisits += treeResult.NodeVisits
+		worldContext.result.LeafVisits += treeResult.LeafVisits
 
 		if worldContext.fraction == 0 {
 			break
@@ -908,12 +917,12 @@ func (w *World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter)
 		recWPOSITION(&recBuf, origin)
 		recWVEC2(&recBuf, translation)
 		recWQUERYFILTER(&recBuf, filter)
-		recWRAYRESULT(&recBuf, result)
+		recWRAYRESULT(&recBuf, worldContext.result)
 		recCommitRecord(world.recording, 0xE5, recBuf.data, recBuf.size)
 		recBufFree(&recBuf)
 	}
 
-	return result
+	return worldContext.result
 }
 
 func shapeCastCallback(input *BoxCastInput, _ int, userData uint64, context *worldShapeCastContext) float32 {
@@ -961,9 +970,10 @@ func (w *World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filte
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 	assert(translation.IsValid(), "b2IsValidVec2( translation )")
 
-	var recWriter recQueryWriter
+	var recWriter *recQueryWriter
 	if world.recording != nil {
-		recQueryBegin(&recWriter)
+		recWriter = &recQueryWriter{}
+		recQueryBegin(recWriter)
 		recWriter.userFcn.castFcn = fcn
 		recWPOSITION(&recWriter.buf, origin)
 		recWSHAPEPROXY(&recWriter.buf, *proxy)
@@ -971,7 +981,7 @@ func (w *World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filte
 		recWQUERYFILTER(&recWriter.buf, filter)
 		recWriter.countOffset = recReserveU32(&recWriter.buf)
 		fcn = func(id Shape, point Pos, normal Vec2, fraction float32) float32 {
-			return recCastTrampoline(id, point, normal, fraction, &recWriter)
+			return recCastTrampoline(id, point, normal, fraction, recWriter)
 		}
 	}
 
@@ -995,10 +1005,10 @@ func (w *World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filte
 		treeInput.MaxFraction = worldContext.fraction
 	}
 
-	if world.recording != nil {
+	if recWriter != nil && world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		recWTREESTATS(&recWriter.buf, treeStats)
-		recQueryCommit(world.recording, 0xE3, &recWriter)
+		recQueryCommit(world.recording, 0xE3, recWriter)
 	}
 
 	return treeStats
@@ -1114,15 +1124,16 @@ func (w *World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn
 
 	assert(origin.IsValid(), "b2IsValidPosition( origin )")
 
-	var recWriter recQueryWriter
+	var recWriter *recQueryWriter
 	if world.recording != nil {
-		recQueryBegin(&recWriter)
+		recWriter = &recQueryWriter{}
+		recQueryBegin(recWriter)
 		recWriter.userFcn.planeFcn = fcn
 		recWPOSITION(&recWriter.buf, origin)
 		recWCAPSULE(&recWriter.buf, *mover)
 		recWQUERYFILTER(&recWriter.buf, filter)
 		recWriter.countOffset = recReserveU32(&recWriter.buf)
-		fcn = func(id Shape, plane *PlaneResult) bool { return recPlaneTrampoline(id, plane, &recWriter) }
+		fcn = func(id Shape, plane *PlaneResult) bool { return recPlaneTrampoline(id, plane, recWriter) }
 	}
 
 	r := Vec2{X: mover.Radius, Y: mover.Radius}
@@ -1135,10 +1146,10 @@ func (w *World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn
 		world.broadPhase.trees[i].Query(aabb, filter.MaskBits, func(proxyID int, userData uint64) bool { return treeCollideCallback(proxyID, userData, &worldContext) })
 	}
 
-	if world.recording != nil {
+	if recWriter != nil && world.recording != nil {
 		recPatchU32(&recWriter.buf, recWriter.countOffset, recWriter.hitCount)
 		// CollideMover returns void; no TREESTATS tail
-		recQueryCommit(world.recording, 0xE4, &recWriter)
+		recQueryCommit(world.recording, 0xE4, recWriter)
 	}
 }
 

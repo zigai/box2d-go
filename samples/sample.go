@@ -18,6 +18,7 @@ import (
 	"github.com/AllenDang/cimgui-go/implot"
 	"github.com/go-gl/glfw/v3.4/glfw"
 	"github.com/ncruces/zenity"
+
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/scenes"
 )
@@ -655,17 +656,27 @@ func (s *Sample) DrawProfile() {
 	}
 
 	rows := [rowCount]rowDef{
-		{"step", 0, colorStep}, {"pairs", 0, colorPairs},
-		{"collide", 0, colorCollide}, {"solve", 0, colorSolve},
-		{"setup", 1, colorSolveChild}, {"constraints", 1, colorSolveChild},
-		{"prepare", 2, colorConstraintChild}, {"velocities", 2, colorConstraintChild},
-		{"warm start", 2, colorConstraintChild}, {"bias", 2, colorConstraintChild},
-		{"positions", 2, colorConstraintChild}, {"relax", 2, colorConstraintChild},
-		{"restitution", 2, colorConstraintChild}, {"store", 2, colorConstraintChild},
+		{"step", 0, colorStep},
+		{"pairs", 0, colorPairs},
+		{"collide", 0, colorCollide},
+		{"solve", 0, colorSolve},
+		{"setup", 1, colorSolveChild},
+		{"constraints", 1, colorSolveChild},
+		{"prepare", 2, colorConstraintChild},
+		{"velocities", 2, colorConstraintChild},
+		{"warm start", 2, colorConstraintChild},
+		{"bias", 2, colorConstraintChild},
+		{"positions", 2, colorConstraintChild},
+		{"relax", 2, colorConstraintChild},
+		{"restitution", 2, colorConstraintChild},
+		{"store", 2, colorConstraintChild},
 		{"split", 2, colorConstraintChild},
-		{"transforms", 1, colorSolveChild}, {"joint events", 1, colorSolveChild},
-		{"hit events", 1, colorSolveChild}, {"refit BVH", 1, colorSolveChild},
-		{"sleep", 1, colorSolveChild}, {"bullets", 1, colorSolveChild},
+		{"transforms", 1, colorSolveChild},
+		{"joint events", 1, colorSolveChild},
+		{"hit events", 1, colorSolveChild},
+		{"refit BVH", 1, colorSolveChild},
+		{"sleep", 1, colorSolveChild},
+		{"bullets", 1, colorSolveChild},
 		{"sensors", 0, colorSensors},
 	}
 

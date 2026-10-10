@@ -8,6 +8,7 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/go-gl/glfw/v3.4/glfw"
+
 	"github.com/zigai/box2d"
 	"github.com/zigai/box2d/internal/scenes"
 )
@@ -596,8 +597,16 @@ func (s *GhostBumps) CreateScene() {
 
 		if s.bevel > 0.0 {
 			hb := s.bevel
-			vs := []box2d.Vec2{{X: hx + hb, Y: hy - 0.05}, {X: hx, Y: hy}, {X: -hx, Y: hy}, {X: -hx - hb, Y: hy - 0.05},
-				{X: -hx - hb, Y: -hy + 0.05}, {X: -hx, Y: -hy}, {X: hx, Y: -hy}, {X: hx + hb, Y: -hy + 0.05}}
+			vs := []box2d.Vec2{
+				{X: hx + hb, Y: hy - 0.05},
+				{X: hx, Y: hy},
+				{X: -hx, Y: hy},
+				{X: -hx - hb, Y: hy - 0.05},
+				{X: -hx - hb, Y: -hy + 0.05},
+				{X: -hx, Y: -hy},
+				{X: hx, Y: -hy},
+				{X: hx + hb, Y: -hy + 0.05},
+			}
 			hull = box2d.ComputeHull(vs)
 		} else {
 			vs := []box2d.Vec2{{X: hx, Y: hy}, {X: -hx, Y: hy}, {X: -hx, Y: -hy}, {X: hx, Y: -hy}}

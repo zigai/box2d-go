@@ -3,6 +3,8 @@
 
 package box2d
 
+import "slices"
+
 type contactLink struct {
 	contactID int
 	bodyIDA   int
@@ -126,7 +128,7 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 	}
 
 	bigIslandID := bigIsland.islandID
-	bigIsland.bodies = arrayReserve(bigIsland.bodies, len(bigIsland.bodies)+len(smallIsland.bodies))
+	bigIsland.bodies = slices.Grow(bigIsland.bodies, len(smallIsland.bodies))
 
 	// Move bodies from smaller island to larger island
 	for i := range len(smallIsland.bodies) {
@@ -140,7 +142,7 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 
 	// Migrate contacts from smaller island to larger island
 	if len(smallIsland.contacts) > 0 {
-		bigIsland.contacts = arrayReserve(bigIsland.contacts, len(bigIsland.contacts)+len(smallIsland.contacts))
+		bigIsland.contacts = slices.Grow(bigIsland.contacts, len(smallIsland.contacts))
 
 		for i := range len(smallIsland.contacts) {
 			link := &smallIsland.contacts[i]
@@ -153,7 +155,7 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 
 	// Migrate joints from smaller island to larger island
 	if len(smallIsland.joints) > 0 {
-		bigIsland.joints = arrayReserve(bigIsland.joints, len(bigIsland.joints)+len(smallIsland.joints))
+		bigIsland.joints = slices.Grow(bigIsland.joints, len(smallIsland.joints))
 
 		for i := range len(smallIsland.joints) {
 			link := &smallIsland.joints[i]

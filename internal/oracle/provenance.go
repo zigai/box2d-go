@@ -167,7 +167,7 @@ func adapterSources(root string) ([]string, error) {
 	files := []string{
 		"oracle/oracle.c", "oracle/oracle.h", "oracle/differential.c", "oracle/CMakeLists.txt",
 		"oracle/build.sh", "oracle/reference.cmake", "oracle/capture.cmake",
-		"oracle/check-upstream.cmake", "oracle/cases.json",
+		"oracle/check-upstream.cmake", "oracle/cases.json", "oracle/patches/world_overlap_stop.patch",
 	}
 
 	for _, dir := range []string{"sample", "tests", "debug", "bench"} {

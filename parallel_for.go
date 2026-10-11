@@ -72,16 +72,18 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 	assert(blockSize*blockCount >= itemCount, "blockSize * blockCount >= itemCount")
 	// No point enqueueing more tasks than blocks.
 	taskCount := min(workerCount, blockCount)
-	shared := parallelForShared{blockCount: blockCount, blockSize: blockSize, itemCount: itemCount, callback: callback}
+	shared := &w.parallelForScratch
+	shared.blockCount = blockCount
+	shared.blockSize = blockSize
+	shared.itemCount = itemCount
+	shared.callback = callback
 	shared.nextBlock.Store(0)
 
-	var (
-		tasks   [MaxWorkers]parallelForTask
-		handles [MaxWorkers]func()
-	)
+	tasks := w.parallelTaskScratch[:taskCount]
+	handles := w.parallelHandleScratch[:taskCount]
 
 	for i := range taskCount {
-		tasks[i].shared = &shared
+		tasks[i].shared = shared
 
 		tasks[i].workerIndex = i
 		if w.taskCount < MaxTasks {
@@ -97,4 +99,7 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 			handles[i]()
 		}
 	}
+	clear(tasks)
+	clear(handles)
+	w.parallelForScratch = parallelForShared{}
 }

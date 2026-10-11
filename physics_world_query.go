@@ -691,10 +691,20 @@ func (w *World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn Overl
 	worldBox := offsetAABB(aabb, origin)
 
 	worldContext := worldQueryContext{world: world, fcn: fcn, filter: filter}
+	stopped := false
 	for i := range int(BodyTypeCount) {
-		treeResult := world.broadPhase.trees[i].Query(worldBox, filter.MaskBits, func(proxyID int, userData uint64) bool { return treeQueryCallback(proxyID, userData, &worldContext) })
+		treeResult := world.broadPhase.trees[i].Query(worldBox, filter.MaskBits, func(proxyID int, userData uint64) bool {
+			if !treeQueryCallback(proxyID, userData, &worldContext) {
+				stopped = true
+				return false
+			}
+			return true
+		})
 		treeStats.NodeVisits += treeResult.NodeVisits
 		treeStats.LeafVisits += treeResult.LeafVisits
+		if stopped {
+			break
+		}
 	}
 
 	if recWriter != nil && world.recording != nil {
@@ -760,10 +770,20 @@ func (w *World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, 
 	aabb := offsetAABB(MakeAABB(proxy.Points[:proxy.Count], proxy.Radius), origin)
 
 	worldContext := worldOverlapContext{world: world, fcn: fcn, filter: filter, proxy: proxy, origin: origin}
+	stopped := false
 	for i := range int(BodyTypeCount) {
-		treeResult := world.broadPhase.trees[i].Query(aabb, filter.MaskBits, func(proxyID int, userData uint64) bool { return treeOverlapCallback(proxyID, userData, &worldContext) })
+		treeResult := world.broadPhase.trees[i].Query(aabb, filter.MaskBits, func(proxyID int, userData uint64) bool {
+			if !treeOverlapCallback(proxyID, userData, &worldContext) {
+				stopped = true
+				return false
+			}
+			return true
+		})
 		treeStats.NodeVisits += treeResult.NodeVisits
 		treeStats.LeafVisits += treeResult.LeafVisits
+		if stopped {
+			break
+		}
 	}
 
 	if recWriter != nil && world.recording != nil {
@@ -1019,7 +1039,7 @@ func moverCastCallback(input *BoxCastInput, _ int, userData uint64, context *wor
 	world := context.world
 
 	shape := &world.shapes[shapeID]
-	if !shouldQueryCollide(shape.filter, context.filter) {
+	if shape.sensorIndex != nullIndex || !shouldQueryCollide(shape.filter, context.filter) {
 		return context.fraction
 	}
 	// Rebuild from the origin relative input, taking only the advancing fraction from the tree
@@ -1106,7 +1126,10 @@ func treeCollideCallback(_ int, userData uint64, context *worldMoverContext) boo
 	// todo handle deep overlap
 	if result.Hit && result.Plane.Normal.IsNormalized() {
 		id := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
-		return context.fcn(id, &result)
+		// Only callback-visible hits need an independently retained result.
+		// Keep misses on the stack without changing callback pointer lifetime.
+		hit := result
+		return context.fcn(id, &hit)
 	}
 
 	return true

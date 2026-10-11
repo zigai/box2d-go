@@ -33,6 +33,23 @@ func allocID(pool *idPool) int {
 	return id
 }
 
+func allocIDWithGeneration[Generation ~uint16 | ~uint32](pool *idPool, generation func(int) Generation) int {
+	for freeIndex, id := range slices.Backward(pool.freeArray) {
+		if generation(id) == ^Generation(0) {
+			continue
+		}
+
+		pool.freeArray = slices.Delete(pool.freeArray, freeIndex, freeIndex+1)
+
+		return id
+	}
+
+	id := pool.nextIndex
+	pool.nextIndex++
+
+	return id
+}
+
 func freeID(pool *idPool, id int) {
 	assert(pool.nextIndex > 0, "pool.nextIndex > 0")
 	assert(0 <= id && id < pool.nextIndex, "0 <= id && id < pool.nextIndex")

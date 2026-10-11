@@ -162,6 +162,44 @@ func worldContactData(b box2d.Body, data *[4]box2d.ContactData) int {
 	return count
 }
 
+func TestWorldKinematicVelocityLimitWithOverflowingSquaredSpeed(t *testing.T) {
+	def := box2d.DefaultWorldDef()
+	def.WorkerCount = 0
+	def.Gravity = box2d.Vec2{}
+	def.MaximumLinearSpeed = 8
+	world := box2d.NewWorld(&def)
+	box2d.BTWorldCleanup(t, world)
+
+	bodyDef := box2d.DefaultBodyDef()
+	bodyDef.Type = box2d.KinematicBody
+	body := world.CreateBody(&bodyDef)
+	body.SetLinearVelocity(box2d.Vec2{X: 0x1p64})
+	world.Step(1.0/60, 1)
+
+	if got := body.LinearVelocity(); got != (box2d.Vec2{X: 8}) {
+		t.Errorf("limited velocity = %v, want {8 0}", got)
+	}
+}
+
+func TestWorldImpulseLimitWithOverflowingSquaredSpeed(t *testing.T) {
+	def := box2d.DefaultWorldDef()
+	def.WorkerCount = 0
+	def.Gravity = box2d.Vec2{}
+	def.MaximumLinearSpeed = 8
+	world := box2d.NewWorld(&def)
+	box2d.BTWorldCleanup(t, world)
+
+	bodyDef := box2d.DefaultBodyDef()
+	bodyDef.Type = box2d.DynamicBody
+	body := world.CreateBody(&bodyDef)
+	body.SetMassData(box2d.MassData{Mass: 1})
+	body.ApplyLinearImpulse(box2d.Vec2{X: 0x1p64}, box2d.Pos{}, true)
+
+	if got := body.LinearVelocity(); got != (box2d.Vec2{X: 8}) {
+		t.Errorf("limited velocity = %v, want {8 0}", got)
+	}
+}
+
 func TestWorld(t *testing.T) {
 	cases := []struct {
 		name string

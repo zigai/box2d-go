@@ -110,9 +110,13 @@ func (a Vec2) Distance(b Vec2) float32 {
 }
 
 // Convert a vector into a unit vector if possible, otherwise returns the zero vector.
-// todo MSVC is not inlining this function in several places per warning 4710.
 func (a Vec2) Normalize() Vec2 {
 	lengthSquared := float32(a.X*a.X) + float32(a.Y*a.Y)
+	if math.IsInf(float64(lengthSquared), 1) {
+		_, direction := a.LengthAndNormalize()
+		return direction
+	}
+
 	if lengthSquared > float32(1000)*float32(0x1p-126) {
 		s := 1 / float32(math.Sqrt(float64(lengthSquared)))
 		return Vec2{s * a.X, s * a.Y}
@@ -131,6 +135,11 @@ func (a Vec2) IsNormalized() bool {
 // zero vector if a is too short to normalize.
 func (a Vec2) LengthAndNormalize() (float32, Vec2) {
 	lengthSquared := float32(a.X*a.X) + float32(a.Y*a.Y)
+	if math.IsInf(float64(lengthSquared), 1) {
+		length := math.Hypot(float64(a.X), float64(a.Y))
+		return float32(length), Vec2{float32(float64(a.X) / length), float32(float64(a.Y) / length)}
+	}
+
 	if lengthSquared > float32(1000)*float32(0x1p-126) {
 		length := float32(math.Sqrt(float64(lengthSquared)))
 		s := 1 / length

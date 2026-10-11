@@ -135,13 +135,32 @@ func desIDPool(r *snapReader, pool *idPool) {
 
 	if pool.nextIndex < 0 || len(pool.freeArray) > pool.nextIndex {
 		r.ok = false
+		return
+	}
+
+	seen := make(map[int]bool, len(pool.freeArray))
+	for _, id := range pool.freeArray {
+		if id < 0 || id >= pool.nextIndex || seen[id] {
+			r.ok = false
+			return
+		}
+
+		seen[id] = true
+	}
+}
+
+func snapIDPoolValid[Object any](pool *idPool, objects []Object, objectID func(Object) int) bool {
+	if pool.nextIndex != len(objects) {
+		return false
 	}
 
 	for _, id := range pool.freeArray {
-		if id < 0 || id >= pool.nextIndex {
-			r.ok = false
+		if objectID(objects[id]) != nullIndex {
+			return false
 		}
 	}
+
+	return true
 }
 
 func serBitSet(buf *recBuffer, bs *bitSet) {
@@ -195,8 +214,26 @@ func desHashSet(r *snapReader, hs *hashSet) {
 	hs.count = count
 
 	hs.items = make([]setItem, n)
+	seen := make(map[uint64]bool, count)
+
 	for i := range n {
-		hs.items[i].key = snapReadU64(r)
+		key := snapReadU64(r)
+		hs.items[i].key = key
+
+		if key == 0 {
+			continue
+		}
+
+		if seen[key] {
+			r.ok = false
+			return
+		}
+
+		seen[key] = true
+	}
+
+	if len(seen) != int(count) {
+		r.ok = false
 	}
 }
 
@@ -267,6 +304,23 @@ func desTree(r *snapReader, tree *DynamicTree) {
 	for i := range proxyCapacity {
 		snapReadTreeProxy(r, &tree.proxies[i])
 	}
+
+	if !snapTreeFreeProxiesValid(tree) {
+		r.ok = false
+	}
+}
+
+func snapTreeFreeProxiesValid(tree *DynamicTree) bool {
+	freeCount := 0
+	for id := tree.proxyFreeList; id != int32(nullIndex); id = tree.proxies[id].Next {
+		if id < 0 || id >= tree.proxyCapacity || tree.proxies[id].Node != int32(nullIndex) || freeCount >= int(tree.proxyCapacity-tree.proxyCount) {
+			return false
+		}
+
+		freeCount++
+	}
+
+	return freeCount == int(tree.proxyCapacity-tree.proxyCount)
 }
 
 func serSolverSet(buf *recBuffer, set *solverSet) {
@@ -510,6 +564,10 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 		return false
 	}
 
+	if !snapWorldIDPoolsValid(world) {
+		return false
+	}
+
 	for i := range world.broadPhase.trees {
 		desTree(r, &world.broadPhase.trees[i])
 	}
@@ -533,6 +591,16 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 	world.jointEvents = world.jointEvents[:0]
 
 	return r.ok
+}
+
+func snapWorldIDPoolsValid(world *World) bool {
+	return snapIDPoolValid(&world.bodyIDPool, world.bodies, func(value body) int { return value.id }) &&
+		snapIDPoolValid(&world.shapeIDPool, world.shapes, func(value shape) int { return value.id }) &&
+		snapIDPoolValid(&world.chainIDPool, world.chainShapes, func(value chainShape) int { return value.id }) &&
+		snapIDPoolValid(&world.contactIDPool, world.contacts, func(value contact) int { return value.contactID }) &&
+		snapIDPoolValid(&world.jointIDPool, world.joints, func(value joint) int { return value.jointID }) &&
+		snapIDPoolValid(&world.islandIDPool, world.islands, func(value island) int { return value.islandID }) &&
+		snapIDPoolValid(&world.solverSetIDPool, world.solverSets, func(value solverSet) int { return value.setIndex })
 }
 
 func openSnapshotImage(image []byte, size int, r *snapReader) {

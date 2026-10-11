@@ -42,6 +42,112 @@ func shapePublicCast(o *oracle.Reader, key string, c box2d.CastOutput) {
 	o.I32(key+"/iterations", int32(c.Iterations))
 }
 
+func TestRayCastCircleHitsWithOverflowingSquaredTranslation(t *testing.T) {
+	circle := box2d.Circle{Radius: 1}
+
+	input := box2d.RayCastInput{
+		Origin:      box2d.Vec2{X: -2},
+		Translation: box2d.Vec2{X: 0x1p64},
+		MaxFraction: 1,
+	}
+	if !input.IsValid() {
+		t.Fatal("finite long ray is not valid")
+	}
+
+	got := box2d.RayCastCircle(&circle, &input)
+
+	want := box2d.CastOutput{
+		Hit:      true,
+		Point:    box2d.Vec2{X: -1},
+		Normal:   box2d.Vec2{X: -1},
+		Fraction: 0x1p-64,
+	}
+	if got.Hit != want.Hit || got.Point != want.Point || got.Normal != want.Normal || got.Fraction != want.Fraction {
+		t.Fatalf("long ray cast = %+v, want %+v", got, want)
+	}
+}
+
+func TestRayCastLongTranslationRange(t *testing.T) {
+	circle := box2d.Circle{Radius: 5}
+	capsule := box2d.Capsule{Center1: box2d.Vec2{X: -4}, Center2: box2d.Vec2{X: 4}, Radius: 1}
+
+	shapes := []struct {
+		name  string
+		cast  func(*box2d.RayCastInput) box2d.CastOutput
+		input box2d.RayCastInput
+		want  box2d.CastOutput
+	}{
+		{
+			name: "circle",
+			cast: func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCircle(&circle, input) },
+			input: box2d.RayCastInput{
+				Origin:      box2d.Vec2{X: -8, Y: -6},
+				Translation: box2d.Vec2{X: 0x1.cp127, Y: 0x1.5p127},
+			},
+			want: box2d.CastOutput{Hit: true, Point: box2d.Vec2{X: -4, Y: -3}, Normal: box2d.Vec2{X: -0.8, Y: -0.6}, Fraction: 0x1p-123 / 7},
+		},
+		{
+			name: "capsule",
+			cast: func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCapsule(&capsule, input) },
+			input: box2d.RayCastInput{
+				Origin:      box2d.Vec2{X: -1.5, Y: -3},
+				Translation: box2d.Vec2{X: 0x1.5p127, Y: 0x1.cp127},
+			},
+			want: box2d.CastOutput{Hit: true, Point: box2d.Vec2{Y: -1}, Normal: box2d.Vec2{Y: -1}, Fraction: 0x1p-124 / 7},
+		},
+	}
+	for _, shape := range shapes {
+		t.Run(shape.name, func(t *testing.T) {
+			cases := []struct {
+				name        string
+				maxFraction float32
+				want        box2d.CastOutput
+			}{
+				{"hit", 1, shape.want},
+				{"zero_limit", 0, box2d.CastOutput{}},
+				{"before_hit", 0x1p-125 / 7, box2d.CastOutput{}},
+			}
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					input := shape.input
+					input.MaxFraction = tc.maxFraction
+
+					if !input.IsValid() {
+						t.Fatal("finite long ray is not valid")
+					}
+
+					got := shape.cast(&input)
+					if got.Hit != tc.want.Hit || got.Point != tc.want.Point || got.Normal != tc.want.Normal || got.Fraction != tc.want.Fraction {
+						t.Fatalf("long ray cast = %+v, want %+v", got, tc.want)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestHullRetainsTriangleWithOverflowingSquaredEdges(t *testing.T) {
+	points := []box2d.Vec2{{}, {X: 0x1p64}, {Y: 0x1p64}}
+
+	hull := box2d.ComputeHull(points)
+	if hull.Count != 3 {
+		t.Fatalf("hull count = %d, want 3", hull.Count)
+	}
+
+	want := map[box2d.Vec2]bool{{}: true, {X: 0x1p64}: true, {Y: 0x1p64}: true}
+	for _, point := range hull.Points[:hull.Count] {
+		if !want[point] {
+			t.Errorf("unexpected or duplicate hull vertex %v", point)
+		}
+
+		delete(want, point)
+	}
+
+	if len(want) != 0 {
+		t.Errorf("missing hull vertices: %v", want)
+	}
+}
+
 func TestShapePublicHullAndConstructors(t *testing.T) {
 	cases := []struct {
 		name   string

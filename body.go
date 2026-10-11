@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"iter"
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -213,11 +214,24 @@ type bodySim struct {
 	flags          uint32
 }
 
-func limitVelocity(state *bodyState, maxLinearSpeed float32) {
+func limitVelocity(state *bodyState, maxLinearSpeed float32) bool {
 	v2 := state.linearVelocity.LengthSquared()
+	if math.IsInf(float64(v2), 1) {
+		length, direction := state.linearVelocity.LengthAndNormalize()
+		if length > maxLinearSpeed {
+			state.linearVelocity = direction.Scale(maxLinearSpeed)
+			return true
+		}
+
+		return false
+	}
+
 	if v2 > maxLinearSpeed*maxLinearSpeed {
 		state.linearVelocity = state.linearVelocity.Scale(maxLinearSpeed / float32(math.Sqrt(float64(v2))))
+		return true
 	}
+
+	return false
 }
 
 func refreshBodyContactIndices(world *World, body *body) {
@@ -401,6 +415,24 @@ func bodyDefFlags(def *BodyDef) uint32 {
 	return flags
 }
 
+func allocBodyID(world *World) int {
+	pool := &world.bodyIDPool
+	for freeIndex, bodyID := range slices.Backward(pool.freeArray) {
+		if world.bodies[bodyID].generation == math.MaxUint16 {
+			continue
+		}
+
+		pool.freeArray = slices.Delete(pool.freeArray, freeIndex, freeIndex+1)
+
+		return bodyID
+	}
+
+	bodyID := pool.nextIndex
+	pool.nextIndex++
+
+	return bodyID
+}
+
 // Create a rigid body given a definition. No reference to the definition is retained. So you can create the definition
 // on the stack and pass it as a pointer.
 //
@@ -431,7 +463,7 @@ func (w *World) CreateBody(def *BodyDef) Body {
 
 	assert(0 <= setID && setID < len(world.solverSets), "0 <= setId && setId < world->solverSets.count")
 
-	bodyID := allocID(&world.bodyIDPool)
+	bodyID := allocBodyID(world)
 
 	set := &world.solverSets[setID]
 

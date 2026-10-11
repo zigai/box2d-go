@@ -199,7 +199,6 @@ func integratePositionsTask(block solverBlock, context *stepContext) {
 	h := context.h
 	maxLinearSpeed := context.maxLinearVelocity
 	maxAngularSpeed := MaxRotation * context.invDt
-	maxLinearSpeedSquared := maxLinearSpeed * maxLinearSpeed
 	maxAngularSpeedSquared := maxAngularSpeed * maxAngularSpeed
 
 	for i := block.startIndex; i < block.startIndex+int(block.count); i++ {
@@ -221,10 +220,8 @@ func integratePositionsTask(block solverBlock, context *stepContext) {
 			w = 0
 		}
 
-		// Clamp to max linear speed
-		if v.Dot(v) > maxLinearSpeedSquared {
-			ratio := maxLinearSpeed / v.Length()
-			v = v.Scale(ratio)
+		state.linearVelocity = v
+		if limitVelocity(state, maxLinearSpeed) {
 			state.flags |= isSpeedCapped
 		}
 
@@ -235,7 +232,6 @@ func integratePositionsTask(block solverBlock, context *stepContext) {
 			state.flags |= isSpeedCapped
 		}
 
-		state.linearVelocity = v
 		state.angularVelocity = w
 		state.deltaPosition = state.deltaPosition.MulAdd(h, state.linearVelocity)
 		state.deltaRotation = state.deltaRotation.Integrate(h * state.angularVelocity)
@@ -1036,7 +1032,8 @@ func solve(world *World, stepContext *stepContext) {
 
 		// Prepare buffers for bullets
 		stepContext.bulletBodyCount.Store(int32(0))
-		stepContext.bulletBodies = make([]int, awakeBodyCount)
+		world.solverBulletScratch = arrayReserve(world.solverBulletScratch, awakeBodyCount)
+		stepContext.bulletBodies = world.solverBulletScratch[:awakeBodyCount]
 
 		graph := &world.constraintGraph
 		colors := graph.colors[:]
@@ -1120,10 +1117,8 @@ func solve(world *World, stepContext *stepContext) {
 		// Build the span table for the flat prepare/store parallel-for while I slice the
 		// wide constraint buffer across colors. One entry per active color plus a sentinel
 		// at wideContactCount.
-		var (
-			contactPrepareSpans [GraphColorCount + 1]contactPrepareSpan
-			jointPrepareSpans   [GraphColorCount + 1]jointPrepareSpan
-		)
+		contactPrepareSpans := world.contactPrepareSpanScratch[:]
+		jointPrepareSpans := world.jointPrepareSpanScratch[:]
 
 		prepareSolverConstraintSpans(colors, activeColorCount, activeColorIndices[:], wideContactConstraints, wideContactCount, jointCount, contactPrepareSpans[:], jointPrepareSpans[:])
 
@@ -1148,11 +1143,30 @@ func solve(world *World, stepContext *stepContext) {
 		// stageStoreImpulses
 		stageCount += 1
 
-		stages := make([]solverStage, stageCount)
-		bodyBlocks := make([]syncBlock, bodyDim.count)
-		contactBlocks := make([]syncBlock, contactPrepareDim.count)
-		jointBlocks := make([]syncBlock, jointPrepareDim.count)
-		graphBlocks := make([]syncBlock, graphBlockCount)
+		if stageCount > cap(world.solverStageScratch) {
+			world.solverStageScratch = make([]solverStage, stageCount)
+		}
+		stages := world.solverStageScratch[:stageCount]
+		if bodyDim.count > cap(world.solverBodyBlockScratch) {
+			world.solverBodyBlockScratch = make([]syncBlock, bodyDim.count)
+		}
+		bodyBlocks := world.solverBodyBlockScratch[:bodyDim.count]
+		clear(bodyBlocks)
+		if contactPrepareDim.count > cap(world.solverContactBlockScratch) {
+			world.solverContactBlockScratch = make([]syncBlock, contactPrepareDim.count)
+		}
+		contactBlocks := world.solverContactBlockScratch[:contactPrepareDim.count]
+		clear(contactBlocks)
+		if jointPrepareDim.count > cap(world.solverJointBlockScratch) {
+			world.solverJointBlockScratch = make([]syncBlock, jointPrepareDim.count)
+		}
+		jointBlocks := world.solverJointBlockScratch[:jointPrepareDim.count]
+		clear(jointBlocks)
+		if graphBlockCount > cap(world.solverGraphBlockScratch) {
+			world.solverGraphBlockScratch = make([]syncBlock, graphBlockCount)
+		}
+		graphBlocks := world.solverGraphBlockScratch[:graphBlockCount]
+		clear(graphBlocks)
 
 		// Split an awake island. This modifies:
 		// - stack allocator
@@ -1224,7 +1238,7 @@ func solve(world *World, stepContext *stepContext) {
 
 		assert(workerCount <= MaxWorkers, "workerCount <= B2_MAX_WORKERS")
 
-		var workerContexts [MaxWorkers]workerContext
+		workerContexts := world.solverWorkerScratch[:]
 
 		stepContext.graph = graph
 		stepContext.activeColorCount = activeColorCount

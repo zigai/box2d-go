@@ -296,8 +296,14 @@ func (s *Sample) StartRecording() {
 
 	start := time.Now()
 
-	s.recording = box2d.NewRecording(0)
-	s.worldID.StartRecording(s.recording)
+	recording := box2d.NewRecording(0)
+	s.worldID.StartRecording(recording)
+
+	if recording.Size() == 0 {
+		return
+	}
+
+	s.recording = recording
 	s.recordStartStep = s.stepCount
 
 	ms := float32(time.Since(start).Seconds() * 1000.0)

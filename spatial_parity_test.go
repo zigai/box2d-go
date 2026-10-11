@@ -460,6 +460,53 @@ func observeSpatialPlaneLimits(r *oracle.Reader, hits []spatialHit, translation,
 	}
 }
 
+func TestWorldOverlapStopsAcrossBodyTypes(t *testing.T) {
+	wd := DefaultWorldDef()
+	w := NewWorld(&wd)
+	BTWorldCleanup(t, w)
+
+	circle := Circle{Radius: 1}
+	sd := DefaultShapeDef()
+	for _, bodyType := range []BodyType{StaticBody, KinematicBody, DynamicBody} {
+		bd := DefaultBodyDef()
+		bd.Type = bodyType
+		body := w.CreateBody(&bd)
+		body.CreateCircleShape(&sd, &circle)
+	}
+
+	filter := DefaultQueryFilter()
+	proxy := MakeProxy([]Vec2{{}}, 1)
+	queries := []struct {
+		name  string
+		query func(OverlapResultFunc) TreeStats
+	}{
+		{"AABB", func(callback OverlapResultFunc) TreeStats {
+			return w.OverlapAABB(Pos{}, AABB{LowerBound: Vec2{-2, -2}, UpperBound: Vec2{2, 2}}, filter, callback)
+		}},
+		{"shape", func(callback OverlapResultFunc) TreeStats {
+			return w.OverlapShape(Pos{}, &proxy, filter, callback)
+		}},
+	}
+	for _, tc := range queries {
+		t.Run(tc.name, func(t *testing.T) {
+			count := 0
+			tc.query(func(Shape) bool { count++; return true })
+			if count != 3 {
+				t.Fatalf("continuing callback saw %d shapes, want 3", count)
+			}
+
+			count = 0
+			stats := tc.query(func(Shape) bool { count++; return false })
+			if count != 1 {
+				t.Fatalf("stopping callback saw %d shapes, want 1", count)
+			}
+			if stats.NodeVisits != 1 || stats.LeafVisits != 1 {
+				t.Fatalf("stopping traversal visited %d nodes and %d leaves, want 1 each", stats.NodeVisits, stats.LeafVisits)
+			}
+		})
+	}
+}
+
 func TestWorldSpatialParity(t *testing.T) {
 	frames := []struct {
 		name string

@@ -43,7 +43,7 @@ const (
 var recReplayDecoders = [256]func(*recReader){
 	recOpDestroyWorld: func(rdr *recReader) {
 		var a recArgsDestroyWorld
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDestroyWorld(&a, rdr)
 		}
 	},
@@ -53,7 +53,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.dt = recRF32(rdr)
 
 		a.subStepCount = recRI32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchStep(&a, rdr)
 		}
 	},
@@ -61,7 +61,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldEnableSleeping
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldEnableSleeping(&a, rdr)
 		}
 	},
@@ -69,7 +69,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldEnableContinuous
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldEnableContinuous(&a, rdr)
 		}
 	},
@@ -77,7 +77,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldSetRestitutionThreshold
 
 		a.value = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldSetRestitutionThreshold(&a, rdr)
 		}
 	},
@@ -85,7 +85,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldSetHitEventThreshold
 
 		a.value = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldSetHitEventThreshold(&a, rdr)
 		}
 	},
@@ -93,7 +93,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldSetGravity
 
 		a.gravity = recRVEC2(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldSetGravity(&a, rdr)
 		}
 	},
@@ -101,7 +101,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldExplode
 
 		a.def = recREXPLOSIONDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldExplode(&a, rdr)
 		}
 	},
@@ -112,7 +112,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.dampingRatio = recRF32(rdr)
 
 		a.pushSpeed = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldSetContactTuning(&a, rdr)
 		}
 	},
@@ -120,7 +120,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldSetContactRecycleDistance
 
 		a.recycleDistance = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldSetContactRecycleDistance(&a, rdr)
 		}
 	},
@@ -128,7 +128,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldSetMaximumLinearSpeed
 
 		a.maximumLinearSpeed = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldSetMaximumLinearSpeed(&a, rdr)
 		}
 	},
@@ -136,13 +136,13 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldEnableWarmStarting
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldEnableWarmStarting(&a, rdr)
 		}
 	},
 	recOpWorldRebuildStaticTree: func(rdr *recReader) {
 		var a recArgsWorldRebuildStaticTree
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldRebuildStaticTree(&a, rdr)
 		}
 	},
@@ -150,7 +150,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldSetRestitutionIterations
 
 		a.iterations = recRI32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldSetRestitutionIterations(&a, rdr)
 		}
 	},
@@ -158,7 +158,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsWorldEnableRestitutionPropagation
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWorldEnableRestitutionPropagation(&a, rdr)
 		}
 	},
@@ -166,7 +166,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateBody
 
 		a.def = recRBODYDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateBody(&a, rdr)
 		}
 	},
@@ -174,7 +174,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsDestroyBody
 
 		a.body = recRBODYID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDestroyBody(&a, rdr)
 		}
 	},
@@ -185,7 +185,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.position = recRPOSITION(rdr)
 
 		a.rotation = recRROT(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetTransform(&a, rdr)
 		}
 	},
@@ -195,7 +195,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.v = recRVEC2(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetLinearVelocity(&a, rdr)
 		}
 	},
@@ -205,7 +205,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.bodyType = recRI32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetType(&a, rdr)
 		}
 	},
@@ -215,7 +215,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.name = recRSTR(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetName(&a, rdr)
 		}
 	},
@@ -225,7 +225,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.w = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetAngularVelocity(&a, rdr)
 		}
 	},
@@ -237,7 +237,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.timeStep = recRF32(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetTargetTransform(&a, rdr)
 		}
 	},
@@ -249,7 +249,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.point = recRPOSITION(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyApplyForce(&a, rdr)
 		}
 	},
@@ -260,7 +260,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.force = recRVEC2(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyApplyForceToCenter(&a, rdr)
 		}
 	},
@@ -271,7 +271,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.torque = recRF32(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyApplyTorque(&a, rdr)
 		}
 	},
@@ -279,7 +279,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsBodyClearForces
 
 		a.body = recRBODYID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyClearForces(&a, rdr)
 		}
 	},
@@ -291,7 +291,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.point = recRPOSITION(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyApplyLinearImpulse(&a, rdr)
 		}
 	},
@@ -302,7 +302,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.impulse = recRVEC2(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyApplyLinearImpulseToCenter(&a, rdr)
 		}
 	},
@@ -313,7 +313,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.impulse = recRF32(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyApplyAngularImpulse(&a, rdr)
 		}
 	},
@@ -323,7 +323,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.massData = recRMASSDATA(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetMassData(&a, rdr)
 		}
 	},
@@ -331,7 +331,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsBodyUpdateMassFromShapes
 
 		a.body = recRBODYID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyUpdateMassFromShapes(&a, rdr)
 		}
 	},
@@ -341,7 +341,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.damping = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetLinearDamping(&a, rdr)
 		}
 	},
@@ -351,7 +351,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.damping = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetAngularDamping(&a, rdr)
 		}
 	},
@@ -361,7 +361,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.scale = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetGravityScale(&a, rdr)
 		}
 	},
@@ -371,7 +371,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.awake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetAwake(&a, rdr)
 		}
 	},
@@ -379,7 +379,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsBodyWakeTouching
 
 		a.body = recRBODYID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyWakeTouching(&a, rdr)
 		}
 	},
@@ -389,7 +389,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyEnableSleep(&a, rdr)
 		}
 	},
@@ -399,7 +399,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.threshold = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetSleepThreshold(&a, rdr)
 		}
 	},
@@ -407,7 +407,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsBodyDisable
 
 		a.body = recRBODYID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyDisable(&a, rdr)
 		}
 	},
@@ -415,7 +415,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsBodyEnable
 
 		a.body = recRBODYID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyEnable(&a, rdr)
 		}
 	},
@@ -425,7 +425,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.locks = recRLOCKS(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetMotionLocks(&a, rdr)
 		}
 	},
@@ -435,7 +435,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetBullet(&a, rdr)
 		}
 	},
@@ -445,7 +445,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyEnableContactRecycling(&a, rdr)
 		}
 	},
@@ -455,7 +455,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyEnableContactEvents(&a, rdr)
 		}
 	},
@@ -465,7 +465,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodyEnableHitEvents(&a, rdr)
 		}
 	},
@@ -475,7 +475,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.value = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchBodySetSafetyFactor(&a, rdr)
 		}
 	},
@@ -486,7 +486,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.def = recRSHAPEDEF(rdr)
 
 		a.circle = recRCIRCLE(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateCircleShape(&a, rdr)
 		}
 	},
@@ -497,7 +497,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.def = recRSHAPEDEF(rdr)
 
 		a.capsule = recRCAPSULE(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateCapsuleShape(&a, rdr)
 		}
 	},
@@ -508,7 +508,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.def = recRSHAPEDEF(rdr)
 
 		a.segment = recRSEGMENT(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateSegmentShape(&a, rdr)
 		}
 	},
@@ -519,7 +519,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.def = recRSHAPEDEF(rdr)
 
 		a.polygon = recRPOLYGON(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreatePolygonShape(&a, rdr)
 		}
 	},
@@ -530,7 +530,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.def = recRSHAPEDEF(rdr)
 
 		a.chainSegment = recRCHAINSEG(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateChainSegmentShape(&a, rdr)
 		}
 	},
@@ -540,7 +540,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.updateBodyMass = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDestroyShape(&a, rdr)
 		}
 	},
@@ -551,7 +551,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.density = recRF32(rdr)
 
 		a.updateBodyMass = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetDensity(&a, rdr)
 		}
 	},
@@ -561,7 +561,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.friction = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetFriction(&a, rdr)
 		}
 	},
@@ -571,7 +571,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.restitution = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetRestitution(&a, rdr)
 		}
 	},
@@ -581,7 +581,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.material = recRU64(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetUserMaterial(&a, rdr)
 		}
 	},
@@ -591,7 +591,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.material = recRMATERIAL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetSurfaceMaterial(&a, rdr)
 		}
 	},
@@ -601,7 +601,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.filter = recRFILTER(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetFilter(&a, rdr)
 		}
 	},
@@ -611,7 +611,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeEnableSensorEvents(&a, rdr)
 		}
 	},
@@ -621,7 +621,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeEnableContactEvents(&a, rdr)
 		}
 	},
@@ -631,7 +631,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeEnablePreSolveEvents(&a, rdr)
 		}
 	},
@@ -641,7 +641,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.flag = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeEnableHitEvents(&a, rdr)
 		}
 	},
@@ -651,7 +651,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.circle = recRCIRCLE(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetCircle(&a, rdr)
 		}
 	},
@@ -661,7 +661,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.capsule = recRCAPSULE(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetCapsule(&a, rdr)
 		}
 	},
@@ -671,7 +671,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.segment = recRSEGMENT(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetSegment(&a, rdr)
 		}
 	},
@@ -681,7 +681,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.polygon = recRPOLYGON(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetPolygon(&a, rdr)
 		}
 	},
@@ -691,7 +691,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.shape = recRSHAPEID(rdr)
 
 		a.chainSegment = recRCHAINSEG(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeSetChainSegment(&a, rdr)
 		}
 	},
@@ -704,7 +704,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.lift = recRF32(rdr)
 
 		a.wake = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchShapeApplyWind(&a, rdr)
 		}
 	},
@@ -714,7 +714,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.body = recRBODYID(rdr)
 
 		a.def = recRCHAINDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateChain(&a, rdr)
 		}
 	},
@@ -722,7 +722,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsDestroyChain
 
 		a.chain = recRCHAINID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDestroyChain(&a, rdr)
 		}
 	},
@@ -733,7 +733,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.material = recRMATERIAL(rdr)
 
 		a.segmentIndex = recRI32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchChainSetSurfaceMaterial(&a, rdr)
 		}
 	},
@@ -743,7 +743,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.chain = recRCHAINID(rdr)
 
 		a.material = recRMATERIAL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchChainSetAllSurfaceMaterials(&a, rdr)
 		}
 	},
@@ -751,7 +751,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsDestroyJoint
 
 		a.joint = recRJOINTID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDestroyJoint(&a, rdr)
 		}
 	},
@@ -761,7 +761,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.localFrame = recRXF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchJointSetLocalFrameA(&a, rdr)
 		}
 	},
@@ -771,7 +771,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.localFrame = recRXF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchJointSetLocalFrameB(&a, rdr)
 		}
 	},
@@ -781,7 +781,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.shouldCollide = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchJointSetCollideConnected(&a, rdr)
 		}
 	},
@@ -789,7 +789,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsJointWakeBodies
 
 		a.joint = recRJOINTID(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchJointWakeBodies(&a, rdr)
 		}
 	},
@@ -800,7 +800,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.hertz = recRF32(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchJointSetConstraintTuning(&a, rdr)
 		}
 	},
@@ -810,7 +810,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.threshold = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchJointSetForceThreshold(&a, rdr)
 		}
 	},
@@ -820,7 +820,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.threshold = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchJointSetTorqueThreshold(&a, rdr)
 		}
 	},
@@ -828,7 +828,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateDistanceJoint
 
 		a.def = recRDISTANCEJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateDistanceJoint(&a, rdr)
 		}
 	},
@@ -838,7 +838,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.length = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointSetLength(&a, rdr)
 		}
 	},
@@ -848,7 +848,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableSpring = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointEnableSpring(&a, rdr)
 		}
 	},
@@ -859,7 +859,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.lowerForce = recRF32(rdr)
 
 		a.upperForce = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointSetSpringForceRange(&a, rdr)
 		}
 	},
@@ -869,7 +869,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointSetSpringHertz(&a, rdr)
 		}
 	},
@@ -879,7 +879,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointSetSpringDampingRatio(&a, rdr)
 		}
 	},
@@ -889,7 +889,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableLimit = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointEnableLimit(&a, rdr)
 		}
 	},
@@ -900,7 +900,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.minLength = recRF32(rdr)
 
 		a.maxLength = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointSetLengthRange(&a, rdr)
 		}
 	},
@@ -910,7 +910,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableMotor = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointEnableMotor(&a, rdr)
 		}
 	},
@@ -920,7 +920,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.motorSpeed = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointSetMotorSpeed(&a, rdr)
 		}
 	},
@@ -930,7 +930,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.force = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchDistanceJointSetMaxMotorForce(&a, rdr)
 		}
 	},
@@ -938,7 +938,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateFilterJoint
 
 		a.def = recRFILTERJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateFilterJoint(&a, rdr)
 		}
 	},
@@ -946,7 +946,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateMotorJoint
 
 		a.def = recRMOTORJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateMotorJoint(&a, rdr)
 		}
 	},
@@ -956,7 +956,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.velocity = recRVEC2(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetLinearVelocity(&a, rdr)
 		}
 	},
@@ -966,7 +966,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.velocity = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetAngularVelocity(&a, rdr)
 		}
 	},
@@ -976,7 +976,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.maxForce = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetMaxVelocityForce(&a, rdr)
 		}
 	},
@@ -986,7 +986,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.maxTorque = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetMaxVelocityTorque(&a, rdr)
 		}
 	},
@@ -996,7 +996,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetLinearHertz(&a, rdr)
 		}
 	},
@@ -1006,7 +1006,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.damping = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetLinearDampingRatio(&a, rdr)
 		}
 	},
@@ -1016,7 +1016,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetAngularHertz(&a, rdr)
 		}
 	},
@@ -1026,7 +1026,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.damping = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetAngularDampingRatio(&a, rdr)
 		}
 	},
@@ -1036,7 +1036,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.maxForce = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetMaxSpringForce(&a, rdr)
 		}
 	},
@@ -1046,7 +1046,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.maxTorque = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMotorJointSetMaxSpringTorque(&a, rdr)
 		}
 	},
@@ -1054,7 +1054,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateMoverJoint
 
 		a.def = recRMOVERJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateMoverJoint(&a, rdr)
 		}
 	},
@@ -1064,7 +1064,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.velocity = recRVEC2(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMoverJointSetLinearVelocity(&a, rdr)
 		}
 	},
@@ -1074,7 +1074,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.maxForce = recRVEC2(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchMoverJointSetMaxVelocityForce(&a, rdr)
 		}
 	},
@@ -1082,7 +1082,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreatePogoJoint
 
 		a.def = recRPOGOJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreatePogoJoint(&a, rdr)
 		}
 	},
@@ -1092,7 +1092,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.length = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPogoJointSetRestLength(&a, rdr)
 		}
 	},
@@ -1102,7 +1102,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPogoJointSetSpringHertz(&a, rdr)
 		}
 	},
@@ -1112,7 +1112,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPogoJointSetSpringDampingRatio(&a, rdr)
 		}
 	},
@@ -1120,7 +1120,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreatePrismaticJoint
 
 		a.def = recRPRISMATICJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreatePrismaticJoint(&a, rdr)
 		}
 	},
@@ -1130,7 +1130,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableSpring = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointEnableSpring(&a, rdr)
 		}
 	},
@@ -1140,7 +1140,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointSetSpringHertz(&a, rdr)
 		}
 	},
@@ -1150,7 +1150,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointSetSpringDampingRatio(&a, rdr)
 		}
 	},
@@ -1160,7 +1160,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.translation = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointSetTargetTranslation(&a, rdr)
 		}
 	},
@@ -1170,7 +1170,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableLimit = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointEnableLimit(&a, rdr)
 		}
 	},
@@ -1181,7 +1181,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.lower = recRF32(rdr)
 
 		a.upper = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointSetLimits(&a, rdr)
 		}
 	},
@@ -1191,7 +1191,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableMotor = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointEnableMotor(&a, rdr)
 		}
 	},
@@ -1201,7 +1201,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.motorSpeed = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointSetMotorSpeed(&a, rdr)
 		}
 	},
@@ -1211,7 +1211,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.force = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchPrismaticJointSetMaxMotorForce(&a, rdr)
 		}
 	},
@@ -1219,7 +1219,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateRevoluteJoint
 
 		a.def = recRREVOLUTEJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateRevoluteJoint(&a, rdr)
 		}
 	},
@@ -1229,7 +1229,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableSpring = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointEnableSpring(&a, rdr)
 		}
 	},
@@ -1239,7 +1239,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointSetSpringHertz(&a, rdr)
 		}
 	},
@@ -1249,7 +1249,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointSetSpringDampingRatio(&a, rdr)
 		}
 	},
@@ -1259,7 +1259,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.angle = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointSetTargetAngle(&a, rdr)
 		}
 	},
@@ -1269,7 +1269,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableLimit = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointEnableLimit(&a, rdr)
 		}
 	},
@@ -1280,7 +1280,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.lower = recRF32(rdr)
 
 		a.upper = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointSetLimits(&a, rdr)
 		}
 	},
@@ -1290,7 +1290,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableMotor = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointEnableMotor(&a, rdr)
 		}
 	},
@@ -1300,7 +1300,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.motorSpeed = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointSetMotorSpeed(&a, rdr)
 		}
 	},
@@ -1310,7 +1310,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.torque = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRevoluteJointSetMaxMotorTorque(&a, rdr)
 		}
 	},
@@ -1318,7 +1318,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateWeldJoint
 
 		a.def = recRWELDJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateWeldJoint(&a, rdr)
 		}
 	},
@@ -1328,7 +1328,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWeldJointSetLinearHertz(&a, rdr)
 		}
 	},
@@ -1338,7 +1338,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWeldJointSetLinearDampingRatio(&a, rdr)
 		}
 	},
@@ -1348,7 +1348,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWeldJointSetAngularHertz(&a, rdr)
 		}
 	},
@@ -1358,7 +1358,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWeldJointSetAngularDampingRatio(&a, rdr)
 		}
 	},
@@ -1366,7 +1366,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsCreateWheelJoint
 
 		a.def = recRWHEELJOINTDEF(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 8) {
 			recDispatchCreateWheelJoint(&a, rdr)
 		}
 	},
@@ -1376,7 +1376,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableSpring = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointEnableSpring(&a, rdr)
 		}
 	},
@@ -1386,7 +1386,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.hertz = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointSetSpringHertz(&a, rdr)
 		}
 	},
@@ -1396,7 +1396,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.dampingRatio = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointSetSpringDampingRatio(&a, rdr)
 		}
 	},
@@ -1406,7 +1406,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableLimit = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointEnableLimit(&a, rdr)
 		}
 	},
@@ -1417,7 +1417,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.lower = recRF32(rdr)
 
 		a.upper = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointSetLimits(&a, rdr)
 		}
 	},
@@ -1427,7 +1427,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.enableMotor = recRBOOL(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointEnableMotor(&a, rdr)
 		}
 	},
@@ -1437,7 +1437,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.motorSpeed = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointSetMotorSpeed(&a, rdr)
 		}
 	},
@@ -1447,7 +1447,7 @@ var recReplayDecoders = [256]func(*recReader){
 		a.joint = recRJOINTID(rdr)
 
 		a.torque = recRF32(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchWheelJointSetMaxMotorTorque(&a, rdr)
 		}
 	},
@@ -1555,7 +1555,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsStateHash
 
 		a.hash = recRU64(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchStateHash(&a, rdr)
 		}
 	},
@@ -1563,7 +1563,7 @@ var recReplayDecoders = [256]func(*recReader){
 		var a recArgsRecordingBounds
 
 		a.bounds = recRAABB(rdr)
-		if rdr.ok {
+		if recRdrCheckEnd(rdr, 0) {
 			recDispatchRecordingBounds(&a, rdr)
 		}
 	},
@@ -1802,6 +1802,11 @@ func recRdrCheck(rdr *recReader, size int) {
 	if size < 0 || rdr.cursor < 0 || rdr.cursor > rdr.size || size > rdr.size-rdr.cursor || rdr.size > len(rdr.data) {
 		rdr.ok = false
 	}
+}
+
+func recRdrCheckEnd(rdr *recReader, trailingBytes int) bool {
+	rdr.ok = rdr.ok && rdr.size-rdr.cursor == trailingBytes
+	return rdr.ok
 }
 
 func recRU8(rdr *recReader) uint8 {
@@ -2824,11 +2829,6 @@ func recDispatchShapeApplyWind(a *recArgsShapeApplyWind, rdr *recReader) {
 
 func recDispatchCreateChain(a *recArgsCreateChain, rdr *recReader) {
 	recID := recRCHAINID(rdr)
-	if !rdr.ok {
-		// A corrupt point/material count left the def degenerate, do not build a chain from it
-		return
-	}
-
 	bodyID := recMakeBodyID(rdr, a.body)
 	gotID := bodyID.CreateChain(&a.def)
 	recCheckChainID(rdr, gotID, recID)
@@ -3230,7 +3230,7 @@ func recDispatchQueryOverlapAABB(a *recArgsQueryOverlapAABB, rdr *recReader) {
 
 	recRTREESTATS(rdr)
 
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3264,7 +3264,7 @@ func recDispatchQueryOverlapShape(a *recArgsQueryOverlapShape, rdr *recReader) {
 
 	recRTREESTATS(rdr)
 
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3320,7 +3320,7 @@ func recDispatchQueryCastRay(a *recArgsQueryCastRay, rdr *recReader) {
 
 	recRTREESTATS(rdr)
 
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3359,7 +3359,7 @@ func recDispatchQueryCastShape(a *recArgsQueryCastShape, rdr *recReader) {
 
 	recRTREESTATS(rdr)
 
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3414,7 +3414,7 @@ func recDispatchQueryCollideMover(a *recArgsQueryCollideMover, rdr *recReader) {
 		rdr.hits[i].userReturnB = recRBOOL(rdr)
 	}
 
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3435,7 +3435,7 @@ func recDispatchQueryCollideMover(a *recArgsQueryCollideMover, rdr *recReader) {
 
 func recDispatchQueryCastRayClosest(a *recArgsQueryCastRayClosest, rdr *recReader) {
 	rec := recRRAYRESULT(rdr)
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3462,7 +3462,7 @@ func recDispatchQueryCastRayClosest(a *recArgsQueryCastRayClosest, rdr *recReade
 
 func recDispatchQueryCastMover(a *recArgsQueryCastMover, rdr *recReader) {
 	rec := recRF32(rdr)
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3483,7 +3483,7 @@ func recDispatchQueryCastMover(a *recArgsQueryCastMover, rdr *recReader) {
 
 func recDispatchShapeTestPoint(a *recArgsShapeTestPoint, rdr *recReader) {
 	rec := recRBOOL(rdr)
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3504,7 +3504,7 @@ func recDispatchShapeTestPoint(a *recArgsShapeTestPoint, rdr *recReader) {
 
 func recDispatchShapeRayCast(a *recArgsShapeRayCast, rdr *recReader) {
 	rec := recRWORLDCASTOUTPUT(rdr)
-	if !rdr.ok {
+	if !recRdrCheckEnd(rdr, 0) {
 		return
 	}
 
@@ -3557,17 +3557,25 @@ func recDispatchOne(player *Replay) int {
 	}
 
 	payloadStart := rdr.cursor
+	if uint64(payloadSize) > uint64(rdr.size-payloadStart) {
+		rdr.ok = false
+		return -1
+	}
+
+	payloadEnd := payloadStart + int(payloadSize)
 
 	if decode := recReplayDecoders[opcode]; decode != nil {
+		fileSize := rdr.size
+		rdr.size = payloadEnd
 		decode(rdr)
+		rdr.size = fileSize
 	} else {
 		rdr.replayWorldID.logger.Warn("box2d: replay skipped unknown opcode", "opcode", opcode, "bytes", payloadSize)
+		rdr.cursor = payloadEnd
+	}
 
-		if uint64(payloadSize) > uint64(rdr.size-payloadStart) {
-			rdr.ok = false
-		} else {
-			rdr.cursor = payloadStart + int(payloadSize)
-		}
+	if !rdr.ok {
+		return -1
 	}
 
 	return int(opcode)

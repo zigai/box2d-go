@@ -652,9 +652,10 @@ func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
 	// Pythagoras
 	h := float32(math.Sqrt(float64(rr - cc)))
 
-	fraction := t - h
+	distance := t - h
+	fraction, inRange := rayCastFraction(input, length, distance)
 
-	if fraction < 0.0 || input.MaxFraction*length < fraction {
+	if !inRange {
 		// intersection is point outside the range of the ray segment
 		if s.LengthSquared() < rr {
 			// initial overlap
@@ -666,9 +667,9 @@ func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
 	}
 
 	// hit point relative to center
-	hitPoint := s.MulAdd(fraction, d)
+	hitPoint := s.MulAdd(distance, d)
 
-	output.Fraction = fraction / length
+	output.Fraction = fraction
 	output.Normal = hitPoint.Normalize()
 	output.Point = p.MulAdd(shape.Radius, output.Normal)
 	output.Hit = true
@@ -775,7 +776,8 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 		n = n.Neg()
 	}
 
-	if s2 < 0.0 || input.MaxFraction*rayLength < s2 {
+	fraction, inRange := rayCastFraction(input, rayLength, s2)
+	if !inRange {
 		return output
 	}
 
@@ -794,7 +796,7 @@ func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
 		return RayCastCircle(&circle, input)
 	}
 	// ray hits capsule side
-	output.Fraction = s2 / rayLength
+	output.Fraction = fraction
 	output.Point = v1.Lerp(v2, s1/capsuleLength).Add(n.Scale(shape.Radius))
 	output.Normal = n
 	output.Hit = true
@@ -1226,6 +1228,15 @@ func collideMoverAndSegment(mover *Capsule, shape *Segment) PlaneResult {
 	}
 
 	return PlaneResult{}
+}
+
+func rayCastFraction(input *RayCastInput, length, distance float32) (float32, bool) {
+	if math.IsInf(float64(length), 1) {
+		wideLength := math.Hypot(float64(input.Translation.X), float64(input.Translation.Y))
+		return float32(float64(distance) / wideLength), !(distance < 0 || float64(input.MaxFraction)*wideLength < float64(distance))
+	}
+
+	return distance / length, !(distance < 0 || input.MaxFraction*length < distance)
 }
 
 func rayCastSharpPolygon(shape *Polygon, input *RayCastInput) CastOutput {

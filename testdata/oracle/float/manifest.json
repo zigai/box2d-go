@@ -374,7 +374,7 @@
     {
       "oracle/CMakeLists.txt" : "553b68dcd6738928952cf89114831376cc2905bf8cceb1f52785af7feaac8262",
       "oracle/bench/scenes.c" : "6c717167f536d7013648801ffe841e9d91d81058a9d0af26489d7a7b4ed2b1ad",
-      "oracle/build.sh" : "6faba992dc31cf48e1cb5f8eddd99562c1bdb8c23c64a2dec49b2df71f3cfa53",
+      "oracle/build.sh" : "2cdcd506a09c84e7c64e892dabb9b9d5630b2b2309d5d647cb48eeb515c54fe6",
       "oracle/capture.cmake" : "2ba17a91ca55fd9306f6f9b85fb9b22ae07b815660002dccc9b9e9508b821747",
       "oracle/cases.json" : "9cea0d320b45eb5ac75d5f4ae134d46a29a779de3bde64d52a141a5b993575a6",
       "oracle/check-upstream.cmake" : "71ed1b56feb390f47c7e16f9831c596c2a0e79053460cee801b0fb3857dac3ce",
@@ -382,7 +382,8 @@
       "oracle/differential.c" : "e3ce813ed035a1610e6cf857cb36e53e9ac73b29476c2d505d0b7a16defbbad9",
       "oracle/oracle.c" : "c20bcaaa85c5efa38999129c452cf162f031ec43bac839588b50e0150c19144c",
       "oracle/oracle.h" : "b2aa900972a8fe87bd638329c29c7d91dea692bbcf4b6f57b19559a7ca823b43",
-      "oracle/reference.cmake" : "d7bc14dca64ac9fddaf53576a9c09631de4fb14bd6beefc21c5678112a2743d6",
+      "oracle/patches/world_overlap_stop.patch" : "21a74c1aa74cb524c28496cf00a66e9ecd4d94c85f2f9467a8aca70edb7f0d3a",
+      "oracle/reference.cmake" : "a77cb9ac6ca83ef4bb30e9ad1c6462a2d3ffe7f400f15b5000bf8e83584b8025",
       "oracle/sample/make_rot.c" : "453674952976b3d6ddf7435a5679cc338ffd7186742fbf10ffa278e7cfc5250a",
       "oracle/sample/types.c" : "c107bed6fe2710e6b2bc28f6818de8a708d822097495b83fd8f67b3c7e44aec9",
       "oracle/sample/vector_rounding.c" : "81e9de69b0019e6e8c9836b2ccefab41e8afffc462254e29d31233f50a114070",
@@ -3589,15 +3590,15 @@
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 12804,
-      "sha256" : "2b6b9298a77a37e04282617a3cbba0bb67cc2239038a31f3fcba80e74c37fbe8"
+      "records" : 12798,
+      "sha256" : "343d78cf719a3e487e232a824061ca4c565bde22309ad21e6fcec6453bb27aa9"
     },
     "differential/corpus/replay_seek_restep" : 
     {
       "completed" : true,
       "producer" : "tests_differential_corpus",
-      "records" : 4165,
-      "sha256" : "6bf3de4a1be7021bca0cf9881c763ae6857d5aee6f9fbe99f083b962024711a8"
+      "records" : 4159,
+      "sha256" : "d6b74d0bf22cca1022e6b562ab8906a9958edcf3cb64fc5281ece1668e6f9837"
     },
     "differential/corpus/snapshot_continuation" : 
     {
@@ -6740,15 +6741,15 @@
     {
       "completed" : true,
       "producer" : "tests_api_spatial",
-      "records" : 1785,
-      "sha256" : "bb094f1264be5258ef425902b7e103afcfb92373528aa9e884dbeac4c605ec12"
+      "records" : 1773,
+      "sha256" : "7908e9bed8c3f03caa16d3312638eb394f3f18a88cb297947b8cab1b8474df98"
     },
     "spatial/WorldOrigin" : 
     {
       "completed" : true,
       "producer" : "tests_api_spatial",
-      "records" : 1785,
-      "sha256" : "c69fa8fb9634185cbfc3ab9cecd8dd94566112b56c2452c71eb98b6019f83a44"
+      "records" : 1773,
+      "sha256" : "e6c0ac6e9fce2a637726dc930f430d748ae53de90858f998fba834433536521c"
     },
     "table/BasicHashSetTest" : 
     {
@@ -7289,7 +7290,7 @@
   {
     "oracle/CMakeLists.txt" : "553b68dcd6738928952cf89114831376cc2905bf8cceb1f52785af7feaac8262",
     "oracle/bench/scenes.c" : "6c717167f536d7013648801ffe841e9d91d81058a9d0af26489d7a7b4ed2b1ad",
-    "oracle/build.sh" : "6faba992dc31cf48e1cb5f8eddd99562c1bdb8c23c64a2dec49b2df71f3cfa53",
+    "oracle/build.sh" : "2cdcd506a09c84e7c64e892dabb9b9d5630b2b2309d5d647cb48eeb515c54fe6",
     "oracle/capture.cmake" : "2ba17a91ca55fd9306f6f9b85fb9b22ae07b815660002dccc9b9e9508b821747",
     "oracle/cases.json" : "9cea0d320b45eb5ac75d5f4ae134d46a29a779de3bde64d52a141a5b993575a6",
     "oracle/check-upstream.cmake" : "71ed1b56feb390f47c7e16f9831c596c2a0e79053460cee801b0fb3857dac3ce",
@@ -7297,7 +7298,8 @@
     "oracle/differential.c" : "e3ce813ed035a1610e6cf857cb36e53e9ac73b29476c2d505d0b7a16defbbad9",
     "oracle/oracle.c" : "c20bcaaa85c5efa38999129c452cf162f031ec43bac839588b50e0150c19144c",
     "oracle/oracle.h" : "b2aa900972a8fe87bd638329c29c7d91dea692bbcf4b6f57b19559a7ca823b43",
-    "oracle/reference.cmake" : "d7bc14dca64ac9fddaf53576a9c09631de4fb14bd6beefc21c5678112a2743d6",
+    "oracle/patches/world_overlap_stop.patch" : "21a74c1aa74cb524c28496cf00a66e9ecd4d94c85f2f9467a8aca70edb7f0d3a",
+    "oracle/reference.cmake" : "a77cb9ac6ca83ef4bb30e9ad1c6462a2d3ffe7f400f15b5000bf8e83584b8025",
     "oracle/sample/make_rot.c" : "453674952976b3d6ddf7435a5679cc338ffd7186742fbf10ffa278e7cfc5250a",
     "oracle/sample/types.c" : "c107bed6fe2710e6b2bc28f6818de8a708d822097495b83fd8f67b3c7e44aec9",
     "oracle/sample/vector_rounding.c" : "81e9de69b0019e6e8c9836b2ccefab41e8afffc462254e29d31233f50a114070",

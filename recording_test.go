@@ -74,6 +74,160 @@ func recordingReplaySafetyFactor(player *box2d.Replay, name string) float32 {
 	return -1.0
 }
 
+func TestRecordingClampsRestitutionIterationsBeforeNarrowing(t *testing.T) {
+	if strconv.IntSize < 64 {
+		t.Skip("input requires a 64-bit int")
+	}
+
+	def := box2d.DefaultWorldDef()
+	def.WorkerCount = 0
+	world := box2d.NewWorld(&def)
+	box2d.BTWorldCleanup(t, world)
+
+	oversized := int64(1) << 31
+	recording := box2d.NewRecording(0)
+	world.StartRecording(recording)
+	world.SetRestitutionIterations(int(oversized))
+	world.Step(1.0/60, 1)
+	world.StopRecording()
+
+	if got := world.RestitutionIterations(); got != 63 {
+		t.Fatalf("live restitution iterations = %d, want 63", got)
+	}
+
+	player, err := box2d.NewReplay(recording.Data(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(player.Close)
+
+	if !player.StepFrame() {
+		t.Fatal("recording has no frame")
+	}
+
+	if got := player.World().RestitutionIterations(); got != 63 {
+		t.Errorf("replayed restitution iterations = %d, want 63", got)
+	}
+}
+
+func recordingMalformedPayload(t *testing.T, opcode byte, sizeDelta int) []byte {
+	t.Helper()
+
+	worldDef := box2d.DefaultWorldDef()
+	worldDef.WorkerCount = 0
+	world := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, world)
+
+	bodyDef := box2d.DefaultBodyDef()
+	bodyDef.Type = box2d.KinematicBody
+	bodyDef.LinearVelocity = box2d.Vec2{X: 1}
+	body := world.CreateBody(&bodyDef)
+	shapeDef := box2d.DefaultShapeDef()
+	circle := box2d.Circle{Radius: 1}
+	body.CreateCircleShape(&shapeDef, &circle)
+
+	recording := box2d.NewRecording(0)
+	world.StartRecording(recording)
+
+	switch opcode {
+	case 0x10:
+		createdDef := box2d.DefaultBodyDef()
+		world.CreateBody(&createdDef)
+	case 0xE0:
+		aabb := box2d.AABB{LowerBound: box2d.Vec2{X: -2, Y: -2}, UpperBound: box2d.Vec2{X: 2, Y: 2}}
+		world.OverlapAABB(box2d.Pos{}, aabb, box2d.DefaultQueryFilter(), func(box2d.Shape) bool { return true })
+	}
+
+	world.Step(1.0/60, 1)
+	world.StopRecording()
+
+	data := bytes.Clone(recording.Data())
+	cursor := 32 + int(binary.LittleEndian.Uint64(data[24:]))
+	found := false
+
+	for cursor <= len(data)-4 {
+		size := int(data[cursor+1]) | int(data[cursor+2])<<8 | int(data[cursor+3])<<16
+		if size > len(data)-cursor-4 {
+			t.Fatal("source recording has an incomplete payload")
+		}
+
+		if data[cursor] == opcode {
+			size += sizeDelta
+			data[cursor+1] = byte(size)
+			data[cursor+2] = byte(size >> 8)
+			data[cursor+3] = byte(size >> 16)
+			found = true
+
+			break
+		}
+
+		cursor += 4 + size
+	}
+
+	if !found {
+		t.Fatal("source recording has no target opcode")
+	}
+
+	return data
+}
+
+func recordingCheckMalformedPayload(t *testing.T, opcode byte, sizeDelta int) {
+	t.Helper()
+
+	data := recordingMalformedPayload(t, opcode, sizeDelta)
+	player, err := box2d.NewReplay(data, 0)
+	box2d.BTReplayCleanup(t, player)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if player.StepFrame() || player.Frame() != 0 {
+		t.Errorf("malformed payload executed: frame = %d, want 0", player.Frame())
+	}
+
+	if count := player.BodyCount(); count != 1 {
+		t.Errorf("body count = %d, want 1", count)
+	}
+
+	if count := player.FrameQueryCount(); count != 0 {
+		t.Errorf("query count = %d, want 0", count)
+	}
+
+	body := player.Body(0)
+	if position := body.Position(); position != (box2d.Pos{}) {
+		t.Errorf("malformed payload moved body to %v, want {0 0}", position)
+	}
+
+	if velocity := body.LinearVelocity(); velocity != (box2d.Vec2{X: 1}) {
+		t.Errorf("malformed payload changed velocity to %v, want {1 0}", velocity)
+	}
+
+	if err := box2d.ValidateReplay(data, 0); !errors.Is(err, box2d.ErrCorrupt) {
+		t.Errorf("malformed payload error = %v, want ErrCorrupt", err)
+	}
+}
+
+func TestRecordingRejectsMalformedPayloadBeforeMutation(t *testing.T) {
+	cases := []struct {
+		name      string
+		opcode    byte
+		sizeDelta int
+	}{
+		{"zero_length_step", 0x80, -8},
+		{"surplus_step_byte", 0x80, 1},
+		{"missing_created_body_id", 0x10, -8},
+		{"surplus_created_body_byte", 0x10, 1},
+		{"surplus_query_byte", 0xE0, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			recordingCheckMalformedPayload(t, tc.opcode, tc.sizeDelta)
+		})
+	}
+}
+
 func TestRecording(t *testing.T) {
 	r := oracle.Open(t, "recording/RecordingTest")
 	trace := newRecordingTrace(t, "RecordingTest")

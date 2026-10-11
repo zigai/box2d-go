@@ -1,0 +1,76 @@
+diff --git a/src/physics_world.c b/src/physics_world.c
+index 4d72c49..61c299c 100644
+--- a/src/physics_world.c
++++ b/src/physics_world.c
+@@ -2355,6 +2355,7 @@ typedef struct WorldQueryContext
+ 	b2OverlapResultFcn* fcn;
+ 	b2QueryFilter filter;
+ 	void* userContext;
++	bool stopped;
+ } WorldQueryContext;
+ 
+ static bool TreeQueryCallback( int proxyId, uint64_t userData, void* context )
+@@ -2375,6 +2376,7 @@ static bool TreeQueryCallback( int proxyId, uint64_t userData, void* context )
+ 
+ 	b2ShapeId id = { shapeId + 1, world->worldId, shape->generation };
+ 	bool result = worldContext->fcn( id, worldContext->userContext );
++	worldContext->stopped = result == false;
+ 	return result;
+ }
+ 
+@@ -2410,7 +2412,7 @@ b2TreeStats b2World_OverlapAABB( b2WorldId worldId, b2Pos origin, b2AABB aabb, b
+ 	// Lift to a world float box with outward rounding so the conservative tree test never misses
+ 	b2AABB worldBox = b2OffsetAABB( aabb, origin );
+ 
+-	WorldQueryContext worldContext = { world, fcn, filter, context };
++	WorldQueryContext worldContext = { world, fcn, filter, context, false };
+ 
+ 	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+ 	{
+@@ -2419,6 +2421,10 @@ b2TreeStats b2World_OverlapAABB( b2WorldId worldId, b2Pos origin, b2AABB aabb, b
+ 
+ 		treeStats.nodeVisits += treeResult.nodeVisits;
+ 		treeStats.leafVisits += treeResult.leafVisits;
++		if ( worldContext.stopped )
++		{
++			break;
++		}
+ 	}
+ 
+ 	if ( world->recording != NULL )
+@@ -2439,6 +2445,7 @@ typedef struct WorldOverlapContext
+ 	const b2ShapeProxy* proxy;
+ 	b2Pos origin;
+ 	void* userContext;
++	bool stopped;
+ } WorldOverlapContext;
+ 
+ static bool TreeOverlapCallback( int proxyId, uint64_t userData, void* context )
+@@ -2478,6 +2485,7 @@ static bool TreeOverlapCallback( int proxyId, uint64_t userData, void* context )
+ 
+ 	b2ShapeId id = { shape->id + 1, world->worldId, shape->generation };
+ 	bool result = worldContext->fcn( id, worldContext->userContext );
++	worldContext->stopped = result == false;
+ 	return result;
+ }
+ 
+@@ -2512,7 +2520,7 @@ b2TreeStats b2World_OverlapShape( b2WorldId worldId, b2Pos origin, const b2Shape
+ 	// Relative box lifted to world float with outward rounding, conservative for the tree
+ 	b2AABB aabb = b2OffsetAABB( b2MakeAABB( proxy->points, proxy->count, proxy->radius ), origin );
+ 	WorldOverlapContext worldContext = {
+-		world, fcn, filter, proxy, origin, context,
++		world, fcn, filter, proxy, origin, context, false,
+ 	};
+ 
+ 	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+@@ -2522,6 +2530,10 @@ b2TreeStats b2World_OverlapShape( b2WorldId worldId, b2Pos origin, const b2Shape
+ 
+ 		treeStats.nodeVisits += treeResult.nodeVisits;
+ 		treeStats.leafVisits += treeResult.leafVisits;
++		if ( worldContext.stopped )
++		{
++			break;
++		}
+ 	}
+ 
+ 	if ( world->recording != NULL )

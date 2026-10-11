@@ -326,7 +326,9 @@ func checkedShapeGeometry[T any](geometry any, mismatch string) *T {
 }
 
 func createShapeInternal(world *World, body *body, transform WorldTransform, def *ShapeDef, geometry any, shapeType ShapeType) *shape {
-	shapeID := allocID(&world.shapeIDPool)
+	shapeID := allocIDWithGeneration(&world.shapeIDPool, func(id int) uint16 {
+		return world.shapes[id].generation
+	})
 
 	if shapeID == len(world.shapes) {
 		world.shapes = arrayPush(world.shapes, shape{})
@@ -801,7 +803,9 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
-	chainID := allocID(&world.chainIDPool)
+	chainID := allocIDWithGeneration(&world.chainIDPool, func(id int) uint16 {
+		return world.chainShapes[id].generation
+	})
 
 	if chainID == len(world.chainShapes) {
 		world.chainShapes = arrayPush(world.chainShapes, chainShape{})

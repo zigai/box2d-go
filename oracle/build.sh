@@ -190,6 +190,7 @@ compare() {
 }
 
 fetch_upstream
+git -C "$upstream" apply "$here/patches/world_overlap_stop.patch"
 
 rm -rf "$build"
 mkdir -p "$build"

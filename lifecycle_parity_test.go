@@ -114,6 +114,100 @@ func lifecycleMembership(t *testing.T, r *oracle.Reader, w *box2d.World, b, peer
 	}
 }
 
+func TestLifecycleBodyHandleStaysInvalidAfterGenerationExhaustion(t *testing.T) {
+	worldDef := box2d.DefaultWorldDef()
+	worldDef.WorkerCount = 0
+	world := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, world)
+
+	bodyDef := box2d.DefaultBodyDef()
+	stale := world.CreateBody(&bodyDef)
+	stale.Destroy()
+
+	lastDestroyed := stale
+	for range 65535 {
+		lastDestroyed = world.CreateBody(&bodyDef)
+		lastDestroyed.Destroy()
+	}
+
+	replacement := world.CreateBody(&bodyDef)
+
+	if stale.IsValid() || lastDestroyed.IsValid() {
+		t.Error("destroyed body handle became valid after slot reuse")
+	}
+
+	if replacement.ID() == stale.ID() {
+		t.Errorf("replacement reused destroyed body ID %#x", stale.ID())
+	}
+
+	if !replacement.IsValid() {
+		t.Error("replacement body is invalid")
+	}
+
+	if count := world.Counters().BodyCount; count != 1 {
+		t.Errorf("body count = %d, want 1", count)
+	}
+}
+
+func TestLifecycleHandlesStayInvalidAfterGenerationExhaustion(t *testing.T) {
+	type handle interface {
+		ID() uint64
+		IsValid() bool
+	}
+
+	cases := []struct {
+		name   string
+		create func(*box2d.World, box2d.Body, box2d.Body) (handle, func())
+	}{
+		{"shape", func(_ *box2d.World, _ box2d.Body, body box2d.Body) (handle, func()) {
+			def := box2d.DefaultShapeDef()
+			shape := body.CreateCircleShape(&def, &box2d.Circle{Radius: 1})
+
+			return shape, func() { shape.Destroy(true) }
+		}},
+		{"chain", func(_ *box2d.World, ground, _ box2d.Body) (handle, func()) {
+			chain := lifecycleChain(ground)
+
+			return chain, chain.Destroy
+		}},
+		{"joint", func(world *box2d.World, ground, body box2d.Body) (handle, func()) {
+			joint := lifecycleJoint(world, ground, body)
+
+			return joint, joint.Destroy
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			worldDef := box2d.DefaultWorldDef()
+			worldDef.WorkerCount = 0
+			world := box2d.NewWorld(&worldDef)
+			box2d.BTWorldCleanup(t, world)
+
+			bodyDef := box2d.DefaultBodyDef()
+			ground := world.CreateBody(&bodyDef)
+			bodyDef.Type = box2d.DynamicBody
+			body := world.CreateBody(&bodyDef)
+			stale, destroy := tc.create(world, ground, body)
+			destroy()
+
+			for range 65535 {
+				_, destroy = tc.create(world, ground, body)
+				destroy()
+			}
+
+			replacement, _ := tc.create(world, ground, body)
+			if stale.IsValid() || replacement.ID() == stale.ID() {
+				t.Errorf("destroyed %s handle became valid after slot reuse", tc.name)
+			}
+
+			if !replacement.IsValid() {
+				t.Errorf("replacement %s is invalid", tc.name)
+			}
+		})
+	}
+}
+
 func TestLifecycleReuseAndDestruction(t *testing.T) {
 	r := oracle.Open(t, "lifecycle/ReuseAndDestruction")
 

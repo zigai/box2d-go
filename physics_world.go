@@ -112,6 +112,20 @@ type World struct {
 	constraintGraph              constraintGraph
 	solverWideScratch            []contactConstraintWide
 	solverOverflowScratch        []contactConstraint
+	stepScratch                  stepContext
+	collideSpanScratch           [GraphColorCount + 2]contactCollideSpan
+	contactPrepareSpanScratch    [GraphColorCount + 1]contactPrepareSpan
+	jointPrepareSpanScratch      [GraphColorCount + 1]jointPrepareSpan
+	solverStageScratch           []solverStage
+	solverBodyBlockScratch       []syncBlock
+	solverContactBlockScratch    []syncBlock
+	solverJointBlockScratch      []syncBlock
+	solverGraphBlockScratch      []syncBlock
+	solverWorkerScratch          [MaxWorkers]workerContext
+	solverBulletScratch          []int
+	parallelForScratch           parallelForShared
+	parallelTaskScratch          [MaxWorkers]parallelForTask
+	parallelHandleScratch        [MaxWorkers]func()
 	bodyIDPool                   idPool
 	bodies                       []body
 	solverSetIDPool              idPool
@@ -695,7 +709,7 @@ func collide(context *stepContext) {
 		return
 	}
 
-	var spans [GraphColorCount + 2]contactCollideSpan
+	spans := w.collideSpanScratch[:]
 
 	spanCount := 0
 	contactIndex := 0
@@ -732,6 +746,7 @@ func collide(context *stepContext) {
 	parallelFor(w, func(start, end, worker int) { collideTask(start, end, worker, context) }, contactCount, minRange)
 
 	context.collideSpans = nil
+	clear(spans)
 	// Serially update contact state
 	// Bitwise OR all contact bits
 	bitSet := &w.taskContexts[0].contactStateBitSet
@@ -809,7 +824,10 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 		state.profile.Pairs = milliseconds(pairTicks)
 	}
 
-	context := stepContext{world: state, dt: timeStep, subStepCount: max(1, subStepCount)}
+	context := &state.stepScratch
+	context.world = state
+	context.dt = timeStep
+	context.subStepCount = max(1, subStepCount)
 	if timeStep > 0 {
 		context.invDt = 1 / timeStep
 		context.h = timeStep / float32(context.subStepCount)
@@ -829,7 +847,7 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 	{
 		collideTicks := currentTicks()
 
-		collide(&context)
+		collide(context)
 
 		state.profile.Collide = milliseconds(collideTicks)
 	}
@@ -837,7 +855,7 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 	if timeStep > 0 {
 		solveTicks := currentTicks()
 
-		solve(state, &context)
+		solve(state, context)
 		state.profile.Solve = milliseconds(solveTicks)
 	}
 	// Finish the tree task in case solve didn't finish it
@@ -876,6 +894,11 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 		}
 	}
 
+	state.stepScratch = stepContext{}
+	clear(state.contactPrepareSpanScratch[:])
+	clear(state.jointPrepareSpanScratch[:])
+	clear(state.solverWorkerScratch[:])
+	clear(state.solverStageScratch)
 	state.locked = false
 }
 
@@ -917,136 +940,57 @@ func (w *World) Bounds() AABB {
 }
 
 func (w *World) BodyMoveEvents() iter.Seq[BodyMoveEvent] {
-	state := w
-	assert(!state.locked, "world->locked == false")
-
-	if state.locked {
-		return func(yield func(BodyMoveEvent) bool) {}
-	}
-
-	events := state.bodyMoveEvents
-
-	return func(yield func(BodyMoveEvent) bool) {
-		for _, event := range events {
-			if !yield(event) {
-				return
-			}
-		}
-	}
+	return eventSlice[BodyMoveEvent](checkedEventSlice(w, w.bodyMoveEvents)).values
 }
 
 func (w *World) SensorBeginEvents() iter.Seq[SensorBeginTouchEvent] {
-	state := w
-	assert(!state.locked, "world->locked == false")
-
-	if state.locked {
-		return func(yield func(SensorBeginTouchEvent) bool) {}
-	}
-
-	events := state.sensorBeginEvents
-
-	return func(yield func(SensorBeginTouchEvent) bool) {
-		for _, event := range events {
-			if !yield(event) {
-				return
-			}
-		}
-	}
+	return eventSlice[SensorBeginTouchEvent](checkedEventSlice(w, w.sensorBeginEvents)).values
 }
 
 func (w *World) SensorEndEvents() iter.Seq[SensorEndTouchEvent] {
-	state := w
-	assert(!state.locked, "world->locked == false")
-
-	if state.locked {
-		return func(yield func(SensorEndTouchEvent) bool) {}
-	}
 	// Careful to use previous buffer
-	events := state.sensorEndEvents[1-state.endEventArrayIndex]
-
-	return func(yield func(SensorEndTouchEvent) bool) {
-		for _, event := range events {
-			if !yield(event) {
-				return
-			}
-		}
-	}
+	return eventSlice[SensorEndTouchEvent](checkedEndEventSlice(w, &w.sensorEndEvents)).values
 }
 
 func (w *World) ContactBeginEvents() iter.Seq[ContactBeginTouchEvent] {
-	state := w
-	assert(!state.locked, "world->locked == false")
-
-	if state.locked {
-		return func(yield func(ContactBeginTouchEvent) bool) {}
-	}
-
-	events := state.contactBeginEvents
-
-	return func(yield func(ContactBeginTouchEvent) bool) {
-		for _, event := range events {
-			if !yield(event) {
-				return
-			}
-		}
-	}
+	return eventSlice[ContactBeginTouchEvent](checkedEventSlice(w, w.contactBeginEvents)).values
 }
 
 func (w *World) ContactEndEvents() iter.Seq[ContactEndTouchEvent] {
-	state := w
-	assert(!state.locked, "world->locked == false")
-
-	if state.locked {
-		return func(yield func(ContactEndTouchEvent) bool) {}
-	}
 	// Careful to use previous buffer
-	events := state.contactEndEvents[1-state.endEventArrayIndex]
-
-	return func(yield func(ContactEndTouchEvent) bool) {
-		for _, event := range events {
-			if !yield(event) {
-				return
-			}
-		}
-	}
+	return eventSlice[ContactEndTouchEvent](checkedEndEventSlice(w, &w.contactEndEvents)).values
 }
 
 func (w *World) ContactHitEvents() iter.Seq[ContactHitEvent] {
-	state := w
-	assert(!state.locked, "world->locked == false")
+	return eventSlice[ContactHitEvent](checkedEventSlice(w, w.contactHitEvents)).values
+}
 
-	if state.locked {
-		return func(yield func(ContactHitEvent) bool) {}
-	}
+func (w *World) JointEvents() iter.Seq[JointEvent] {
+	return eventSlice[JointEvent](checkedEventSlice(w, w.jointEvents)).values
+}
 
-	events := state.contactHitEvents
+type eventSlice[E any] []E
 
-	return func(yield func(ContactHitEvent) bool) {
-		for _, event := range events {
-			if !yield(event) {
-				return
-			}
+func (events eventSlice[E]) values(yield func(E) bool) {
+	for _, event := range events {
+		if !yield(event) {
+			return
 		}
 	}
 }
 
-func (w *World) JointEvents() iter.Seq[JointEvent] {
-	state := w
-	assert(!state.locked, "world->locked == false")
-
-	if state.locked {
-		return func(yield func(JointEvent) bool) {}
+//go:noinline
+func checkedEventSlice[E any](w *World, events []E) []E {
+	assert(!w.locked, "world->locked == false")
+	if w.locked {
+		return nil
 	}
+	return events
+}
 
-	events := state.jointEvents
-
-	return func(yield func(JointEvent) bool) {
-		for _, event := range events {
-			if !yield(event) {
-				return
-			}
-		}
-	}
+//go:noinline
+func checkedEndEventSlice[E any](w *World, events *[2][]E) []E {
+	return checkedEventSlice(w, events[1-w.endEventArrayIndex])
 }
 
 func (w *World) IsValid() bool {
@@ -1261,11 +1205,12 @@ func (w *World) SetRestitutionIterations(iterations int) {
 		return
 	}
 
+	iterations = min(max(iterations, 0), MaxRestitutionIterations)
 	if state.recording != nil {
 		recWriteWorldSetRestitutionIterations(state.recording, &recArgsWorldSetRestitutionIterations{iterations: int32(iterations)})
 	}
 
-	state.restitutionIterations = min(max(iterations, 0), MaxRestitutionIterations)
+	state.restitutionIterations = iterations
 }
 
 func (w *World) RestitutionIterations() int {
@@ -1424,12 +1369,22 @@ func (w *World) SetFrictionCallback(callback FrictionFunc) {
 		return
 	}
 
+	if callback != nil && state.recording != nil {
+		state.logger.Warn("box2d: friction callbacks are not supported while recording")
+		return
+	}
+
 	state.frictionCallback = callback
 }
 
 func (w *World) SetRestitutionCallback(callback RestitutionFunc) {
 	state := w
 	if state.locked {
+		return
+	}
+
+	if callback != nil && state.recording != nil {
+		state.logger.Warn("box2d: restitution callbacks are not supported while recording")
 		return
 	}
 
@@ -1469,6 +1424,16 @@ func (w *World) StartRecording(recording *Recording) {
 
 	if state.preSolveFcn != nil || state.preContinuousFcn != nil {
 		state.logger.Warn("box2d: recording does not support pre-solve callbacks")
+		return
+	}
+
+	if state.customFilterFcn != nil {
+		state.logger.Warn("box2d: recording does not support custom filter callbacks")
+		return
+	}
+
+	if state.frictionCallback != nil || state.restitutionCallback != nil {
+		state.logger.Warn("box2d: recording does not support material callbacks")
 		return
 	}
 

@@ -10,6 +10,131 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
+func TestRecordingRejectsPreinstalledCustomFilter(t *testing.T) {
+	worldDef := box2d.DefaultWorldDef()
+	worldDef.WorkerCount = 0
+	worldDef.Gravity = box2d.Vec2{}
+	world := box2d.NewWorld(&worldDef)
+	box2d.BTWorldCleanup(t, world)
+
+	filterCalled := false
+
+	world.SetCustomFilterCallback(func(box2d.Shape, box2d.Shape) bool {
+		filterCalled = true
+		return false
+	})
+
+	bodyDef := box2d.DefaultBodyDef()
+	ground := world.CreateBody(&bodyDef)
+	bodyDef.Type = box2d.DynamicBody
+	bodyDef.Position = box2d.Pos{X: 1.75}
+	body := world.CreateBody(&bodyDef)
+
+	shapeDef := box2d.DefaultShapeDef()
+	shapeDef.EnableCustomFiltering = true
+	circle := box2d.Circle{Radius: 1}
+	ground.CreateCircleShape(&shapeDef, &circle)
+	body.CreateCircleShape(&shapeDef, &circle)
+
+	recording := box2d.NewRecording(0)
+	world.StartRecording(recording)
+	world.Step(1.0/60, 1)
+	world.StopRecording()
+
+	if recording.Size() != 0 {
+		t.Errorf("recording with unsupported custom filter contains %d bytes, want 0", recording.Size())
+	}
+
+	if !filterCalled {
+		t.Error("overlapping shapes did not reach the custom filter")
+	}
+
+	if count := world.Counters().ContactCount; count != 0 {
+		t.Errorf("rejected pair has %d contacts, want 0", count)
+	}
+
+	if position := body.Position(); position != (box2d.Pos{X: 1.75}) {
+		t.Errorf("filtered body moved to %v, want {1.75 0}", position)
+	}
+}
+
+func TestRecordingRejectsMaterialCallbacks(t *testing.T) {
+	setFriction := func(world *box2d.World, callback func(float32, uint64, float32, uint64) float32) {
+		world.SetFrictionCallback(callback)
+	}
+	setRestitution := func(world *box2d.World, callback func(float32, uint64, float32, uint64) float32) {
+		world.SetRestitutionCallback(callback)
+	}
+	cases := []struct {
+		name    string
+		before  bool
+		value   float32
+		install func(*box2d.World, func(float32, uint64, float32, uint64) float32)
+	}{
+		{"friction/preinstalled", true, 0, setFriction},
+		{"friction/while_recording", false, 0, setFriction},
+		{"restitution/preinstalled", true, 1, setRestitution},
+		{"restitution/while_recording", false, 1, setRestitution},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			def := box2d.DefaultWorldDef()
+			def.WorkerCount = 0
+			def.Gravity = box2d.Vec2{}
+			world := box2d.NewWorld(&def)
+			box2d.BTWorldCleanup(t, world)
+
+			bodyDef := box2d.DefaultBodyDef()
+			ground := world.CreateBody(&bodyDef)
+			bodyDef.Type = box2d.DynamicBody
+			bodyDef.Position = box2d.Pos{X: 1.75}
+			bodyDef.LinearVelocity = box2d.Vec2{X: -4, Y: 4}
+			body := world.CreateBody(&bodyDef)
+			shapeDef := box2d.DefaultShapeDef()
+			circle := box2d.Circle{Radius: 1}
+			ground.CreateCircleShape(&shapeDef, &circle)
+			body.CreateCircleShape(&shapeDef, &circle)
+
+			called := false
+			callback := func(float32, uint64, float32, uint64) float32 {
+				called = true
+				return tc.value
+			}
+
+			if tc.before {
+				tc.install(world, callback)
+			}
+
+			recording := box2d.NewRecording(0)
+			world.StartRecording(recording)
+
+			if !tc.before {
+				tc.install(world, callback)
+			}
+
+			world.Step(1.0/60, 1)
+			world.StopRecording()
+
+			if called != tc.before {
+				t.Errorf("material callback called = %t, want %t", called, tc.before)
+			}
+
+			if tc.before {
+				if recording.Size() != 0 {
+					t.Errorf("unsupported recording contains %d bytes, want 0", recording.Size())
+				}
+
+				return
+			}
+
+			if err := box2d.ValidateReplay(recording.Data(), 0); err != nil {
+				t.Fatalf("accepted recording did not reproduce live physics: %v", err)
+			}
+		})
+	}
+}
+
 // Each mutation phase has two steps. The first is a dispatch fence: its replay
 // observations cannot be canceled by the next phase's between-frame mutation.
 func TestRecordingMutationParity(t *testing.T) {

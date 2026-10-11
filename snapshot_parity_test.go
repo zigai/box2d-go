@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/zigai/box2d/internal/oracle"
@@ -62,6 +63,185 @@ func snapshotQuery(t *testing.T, r *oracle.Reader, w *World, origin Pos, key str
 	for i := range 64 {
 		if mask&(uint64(1)<<i) != 0 {
 			r.U32(fmt.Sprintf("%s/query/%d/generation", key, i), generations[i])
+		}
+	}
+}
+
+func TestSnapshotRejectsDuplicateFreeBodyIDs(t *testing.T) {
+	worldDef := DefaultWorldDef()
+	worldDef.WorkerCount = 0
+	world := NewWorld(&worldDef)
+	BTWorldCleanup(t, world)
+
+	bodyDef := DefaultBodyDef()
+	first := world.CreateBody(&bodyDef)
+	second := world.CreateBody(&bodyDef)
+
+	first.Destroy()
+	second.Destroy()
+
+	image, err := world.MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := recBuffer{countOnly: true}
+	serWorldConfig(&config, world)
+
+	poolOffset := 16 + config.size
+	if count := binary.LittleEndian.Uint32(image[poolOffset+4:]); count != 2 {
+		t.Fatalf("free body count = %d, want 2", count)
+	}
+
+	copy(image[poolOffset+12:poolOffset+16], image[poolOffset+8:poolOffset+12])
+
+	loaded, err := NewWorldFromSnapshot(image, 0)
+	BTWorldCleanup(t, loaded)
+
+	if !errors.Is(err, ErrCorrupt) || loaded != nil {
+		t.Fatalf("duplicate free body IDs: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+	}
+}
+
+func TestSnapshotRejectsFreeIDOfLiveBody(t *testing.T) {
+	def := DefaultWorldDef()
+	def.WorkerCount = 0
+	world := NewWorld(&def)
+	BTWorldCleanup(t, world)
+
+	bodyDef := DefaultBodyDef()
+	world.CreateBody(&bodyDef)
+	world.CreateBody(&bodyDef).Destroy()
+	image := BTSnapshot(world)
+	config := recBuffer{countOnly: true}
+	serWorldConfig(&config, world)
+	binary.LittleEndian.PutUint32(image[16+config.size+8:], 0)
+
+	loaded, err := NewWorldFromSnapshot(image, 0)
+	BTWorldCleanup(t, loaded)
+
+	if loaded != nil || !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("free ID of live body: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+	}
+}
+
+func TestSnapshotRejectsLiveProxyOnFreeList(t *testing.T) {
+	def := DefaultWorldDef()
+	def.WorkerCount = 0
+	world := NewWorld(&def)
+	BTWorldCleanup(t, world)
+
+	bodyDef := DefaultBodyDef()
+	body := world.CreateBody(&bodyDef)
+	shapeDef := DefaultShapeDef()
+	body.CreateCircleShape(&shapeDef, &Circle{Radius: 1})
+
+	world.broadPhase.trees[StaticBody].proxyFreeList = 0
+
+	loaded, err := NewWorldFromSnapshot(BTSnapshot(world), 0)
+	BTWorldCleanup(t, loaded)
+
+	if loaded != nil || !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("live proxy on free list: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+	}
+}
+
+func TestSnapshotRejectsDuplicatePairKeys(t *testing.T) {
+	def := DefaultWorldDef()
+	def.WorkerCount = 0
+	def.Gravity = Vec2{}
+	world := NewWorld(&def)
+	BTWorldCleanup(t, world)
+
+	bodyDef := DefaultBodyDef()
+	ground := world.CreateBody(&bodyDef)
+	bodyDef.Type = DynamicBody
+	bodyDef.Position = Pos{X: 1.75}
+	body := world.CreateBody(&bodyDef)
+	shapeDef := DefaultShapeDef()
+	circle := Circle{Radius: 1}
+	ground.CreateCircleShape(&shapeDef, &circle)
+	body.CreateCircleShape(&shapeDef, &circle)
+	world.Step(1.0/60, 1)
+
+	pairs := &world.broadPhase.pairSet
+	if pairs.count != 1 {
+		t.Fatalf("fixture pair count = %d, want 1", pairs.count)
+	}
+
+	for index, item := range pairs.items {
+		if item.key == 1 {
+			pairs.items[(index+1)&int(pairs.capacity-1)].key = 1
+			pairs.count++
+
+			break
+		}
+	}
+
+	if pairs.count != 2 {
+		t.Fatal("fixture did not contain pair key 1")
+	}
+
+	loaded, err := NewWorldFromSnapshot(BTSnapshot(world), 0)
+	BTWorldCleanup(t, loaded)
+
+	if loaded != nil || !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("duplicate pair keys: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+	}
+}
+
+func TestSnapshotContactHandleStaysInvalidAfterGenerationExhaustion(t *testing.T) {
+	def := DefaultWorldDef()
+	def.WorkerCount = 0
+	def.Gravity = Vec2{}
+	world := NewWorld(&def)
+	BTWorldCleanup(t, world)
+
+	bodyDef := DefaultBodyDef()
+	ground := world.CreateBody(&bodyDef)
+	bodyDef.Type = DynamicBody
+	bodyDef.Position = Pos{X: 1.5}
+	moving := world.CreateBody(&bodyDef)
+	shapeDef := DefaultShapeDef()
+	circle := Circle{Radius: 1}
+	ground.CreateCircleShape(&shapeDef, &circle)
+	moving.CreateCircleShape(&shapeDef, &circle)
+	world.Step(1.0/60, 1)
+
+	if world.Counters().ContactCount != 1 {
+		t.Fatal("fixture must contain one contact")
+	}
+
+	world.contacts[0].generation = math.MaxUint32
+	image := BTSnapshot(world)
+
+	loaded, err := NewWorldFromSnapshot(image, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	BTWorldCleanup(t, loaded)
+	stale := Contact{index1: 1, world: loaded, generation: 1}
+	moving.world = loaded
+
+	for range 2 {
+		moving.SetTransform(Pos{X: 10}, Rot{C: 1})
+		loaded.Step(1.0/60, 1)
+		moving.SetTransform(Pos{X: 1.5}, Rot{C: 1})
+		loaded.Step(1.0/60, 1)
+	}
+
+	if stale.IsValid() {
+		t.Error("destroyed contact handle became valid after slot reuse")
+	}
+
+	if count := loaded.Counters().ContactCount; count != 1 {
+		t.Errorf("contact count = %d, want 1", count)
+	}
+
+	for data := range moving.ContactData() {
+		if !data.Contact.IsValid() {
+			t.Error("replacement contact is invalid")
 		}
 	}
 }

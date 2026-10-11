@@ -398,7 +398,9 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	set := &world.solverSets[setIndex]
 
 	// Create contact key and contact
-	contactID := allocID(&world.contactIDPool)
+	contactID := allocIDWithGeneration(&world.contactIDPool, func(id int) uint32 {
+		return world.contacts[id].generation
+	})
 	if contactID == len(world.contacts) {
 		world.contacts = arrayPush(world.contacts, contact{})
 	}

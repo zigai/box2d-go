@@ -485,7 +485,9 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 	)
 
 	// Create joint id and joint
-	jointID := allocID(&world.jointIDPool)
+	jointID := allocIDWithGeneration(&world.jointIDPool, func(id int) uint16 {
+		return world.joints[id].generation
+	})
 	if jointID == len(world.joints) {
 		world.joints = arrayPush(world.joints, joint{})
 	}

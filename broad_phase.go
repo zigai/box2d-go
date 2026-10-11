@@ -11,10 +11,12 @@ const (
 )
 
 type broadPhase struct {
-	trees         [BodyTypeCount]DynamicTree
-	movedSiblings []int
-	pairKeys      []uint64
-	pairSet       hashSet
+	trees            [BodyTypeCount]DynamicTree
+	movedSiblings    []int
+	pairKeys         []uint64
+	crossSeedScratch [2 * crossSeedCount]nodePair
+	crossScratch     crossContext
+	pairSet          hashSet
 }
 
 type candidatePair struct {
@@ -397,15 +399,19 @@ func updateBroadPhasePairs(w *World) {
 		bp.movedSiblings = slices.Grow(bp.movedSiblings[:0], pairCapacity)[:pairCapacity]
 		dynamicMoveCount := gatherMovedSiblings(dynamicTree, bp.movedSiblings)
 
-		var crossSeeds [2 * crossSeedCount]nodePair
+		crossSeeds := bp.crossSeedScratch[:]
 
 		staticSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[StaticBody], crossSeeds[:])
 		assert(staticSeedCount <= crossSeedCount, "staticSeedCount <= B2_CROSS_SEED_COUNT")
 		kinematicSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[KinematicBody], crossSeeds[staticSeedCount:])
 		assert(kinematicSeedCount <= crossSeedCount, "kinematicSeedCount <= B2_CROSS_SEED_COUNT")
 		crossMoveCount := staticSeedCount + kinematicSeedCount
-		cross := crossContext{world: w, seeds: crossSeeds[:], staticSeedCount: staticSeedCount}
-		parallelFor(w, func(start, end, worker int) { crossPairsTask(start, end, worker, &cross) }, crossMoveCount, 1)
+		cross := &bp.crossScratch
+		cross.world = w
+		cross.seeds = crossSeeds
+		cross.staticSeedCount = staticSeedCount
+		parallelFor(w, func(start, end, worker int) { crossPairsTask(start, end, worker, cross) }, crossMoveCount, 1)
+		bp.crossScratch = crossContext{}
 		parallelFor(w, func(start, end, worker int) { selfPairsTask(start, end, worker, w) }, dynamicMoveCount, 64)
 	}
 

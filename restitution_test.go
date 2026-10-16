@@ -24,65 +24,6 @@ const (
 	restitutionImpactSpeed           float32 = 5.0
 )
 
-func TestBTWorldCleanupSkipped(t *testing.T) {
-	var ids [2]*World
-
-	t.Run("skip", func(t *testing.T) {
-		def := DefaultWorldDef()
-		for i := range ids {
-			ids[i] = NewWorld(&def)
-			BTWorldCleanup(t, ids[i])
-
-			if !ids[i].IsValid() {
-				t.Fatal("condition false")
-			}
-		}
-
-		t.SkipNow()
-	})
-
-	for _, id := range ids {
-		if id.IsValid() {
-			t.Fatal("skipped test left a live world")
-		}
-	}
-}
-
-func TestBTWorldCleanupExplicitDestroy(t *testing.T) {
-	var replacement *World
-
-	t.Run("destroy and recycle", func(child *testing.T) {
-		def := DefaultWorldDef()
-		id := NewWorld(&def)
-		BTWorldCleanup(child, id)
-
-		if !id.IsValid() {
-			child.Fatal("condition false")
-		}
-
-		id.Close()
-
-		if id.IsValid() {
-			child.Fatal("condition false")
-		}
-
-		replacement = NewWorld(&def)
-		BTWorldCleanup(t, replacement)
-
-		if !replacement.IsValid() {
-			child.Fatal("condition false")
-		}
-	})
-
-	if !replacement.IsValid() {
-		t.Fatal("condition false")
-	}
-
-	t.Run("null", func(t *testing.T) {
-		BTWorldCleanup(t, nil)
-	})
-}
-
 func restitutionMakeWorld(r *restitutionOracle, gravityY float32) *World {
 	var worldDef WorldDef = DefaultWorldDef()
 

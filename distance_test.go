@@ -4,6 +4,7 @@
 package box2d_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/zigai/box2d"
@@ -240,5 +241,24 @@ func testDistanceTimeOfImpact(t *testing.T) {
 
 	if v := output.Fraction - 0.5; v < -0.005 || 0.005 < v {
 		t.Fatalf("condition false: abs(%v) < %v", v, 0.005)
+	}
+}
+
+func geometryOriginalDistance(r *oracle.Reader, output box2d.DistanceOutput, cache box2d.SimplexCache) {
+	r.F32("full/distance", output.Distance)
+	r.Vec2("full/point-a", output.PointA.X, output.PointA.Y)
+	r.Vec2("full/point-b", output.PointB.X, output.PointB.Y)
+
+	if output.Distance > 0 {
+		r.Vec2("full/normal", output.Normal.X, output.Normal.Y)
+	}
+
+	r.I32("full/iterations", int32(output.Iterations))
+	r.I32("full/simplex-count", int32(output.SimplexCount))
+	r.U32("full/cache/count", uint32(cache.Count))
+
+	for i := range int(cache.Count) {
+		r.U32(fmt.Sprintf("full/cache/%d/a", i), uint32(cache.IndexA[i]))
+		r.U32(fmt.Sprintf("full/cache/%d/b", i), uint32(cache.IndexB[i]))
 	}
 }

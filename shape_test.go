@@ -4,6 +4,7 @@
 package box2d_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -391,5 +392,31 @@ func collisionTestRayCastShape(t *testing.T) {
 		o.F32("shape:174", output.Fraction-0.5)
 
 		collisionAssertNearZero(t, output.Fraction-0.5)
+	}
+}
+
+func geometryOriginalMass(r *oracle.Reader, md box2d.MassData) {
+	r.F32("full/mass", md.Mass)
+	r.Vec2("full/mass-center", md.Center.X, md.Center.Y)
+	r.F32("full/inertia", md.RotationalInertia)
+}
+
+func geometryOriginalHull(r *oracle.Reader, hull box2d.Hull) {
+	r.I32("full/hull/count", int32(hull.Count))
+	r.Bool("full/hull/valid", box2d.ValidateHull(&hull))
+
+	for i := range hull.Count {
+		r.Vec2(fmt.Sprintf("full/hull/%d", i), hull.Points[i].X, hull.Points[i].Y)
+	}
+}
+
+func geometryOriginalPolygon(r *oracle.Reader, polygon box2d.Polygon) {
+	r.I32("full/polygon/count", int32(polygon.Count))
+	r.Vec2("full/polygon/centroid", polygon.Centroid.X, polygon.Centroid.Y)
+	r.F32("full/polygon/radius", polygon.Radius)
+
+	for i := range polygon.Count {
+		r.Vec2(fmt.Sprintf("full/polygon/%d/vertex", i), polygon.Vertices[i].X, polygon.Vertices[i].Y)
+		r.Vec2(fmt.Sprintf("full/polygon/%d/normal", i), polygon.Normals[i].X, polygon.Normals[i].Y)
 	}
 }

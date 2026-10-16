@@ -223,7 +223,7 @@ linters:
     presets: []
     rules:
       - path: ".*_test\\.go"
-        linters: [decorder, funcorder]
+        linters: [decorder, funcorder, cyclop, gocognit]
       - path: "^body\\.go$"
         linters: [gocritic]
         source: "^[\\t ]*if bodyA\\.bodyType != DynamicBody && bodyB\\.bodyType != DynamicBody \\{$"
@@ -236,14 +236,6 @@ linters:
         linters: [nestif]
         source: "^[\\t ]*if jnt\\.enableSpring && \\(jnt\\.minLength < jnt\\.maxLength \\|\\| !jnt\\.enableLimit\\) \\{$"
         text: "^(?:`if jnt\\.enableSpring && \\(jnt\\.minLength < jnt\\.maxLength \\|\\| !jnt\\.enableLimit\\)` has complex nested blocks \\(complexity: 5\\))$"
-      - path: "^distance_test\\.go$"
-        linters: [cyclop]
-        source: "^[\\t ]*func testDistanceSegments\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function testDistanceSegments is 15, max is 12)$"
-      - path: "^draw_parity_test\\.go$"
-        linters: [gocognit]
-        source: "^[\\t ]*func TestWorldDrawTypedParity\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:cognitive complexity 23 of func `TestWorldDrawTypedParity` is high \\(> 20\\))$"
       - path: "^dynamic_tree\\.go$"
         linters: [cyclop, gocognit]
         source: "^[\\t ]*func \\(tree \\*DynamicTree\\) CastBox\\(input \\*BoxCastInput, maskBits uint64, callback TreeBoxCastCallbackFunc\\) TreeStats \\{$"
@@ -344,10 +336,6 @@ linters:
         linters: [gocritic]
         source: "^[\\t ]*if u1 < 0\\.0 && separation > float32\\(0x1p-23\\) \\{$"
         text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
-      - path: "^mover_test\\.go$"
-        linters: [cyclop]
-        source: "^[\\t ]*func testMoverClipVector\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function testMoverClipVector is 13, max is 12)$"
       - path: "^physics_world_query\\.go$"
         linters: [gocritic]
         source: "^[\\t ]*if bodySetIndex == disabledSet \\|\\| otherBody\\.setIndex == disabledSet \\{$"
@@ -376,34 +364,6 @@ linters:
         linters: [cyclop, maintidx]
         source: "^[\\t ]*func TestRecording\\(t \\*testing\\.T\\) \\{$"
         text: "^(?:calculated cyclomatic complexity for function TestRecording is 16, max is 12|Function name: TestRecording, Cyclomatic Complexity: 16, Halstead Volume: 12550\\.92, Maintainability Index: 15)$"
-      - path: "^recording_test\\.go$"
-        linters: [gocognit]
-        source: "^[\\t ]*func TestRecordingTransformFixturePacking\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:cognitive complexity 24 of func `TestRecordingTransformFixturePacking` is high \\(> 20\\))$"
-      - path: "^recording_test\\.go$"
-        linters: [cyclop, gocognit]
-        source: "^[\\t ]*func newRecordingTrace\\(t \\*testing\\.T, name string\\) \\*recordingTrace \\{$"
-        text: "^(?:calculated cyclomatic complexity for function newRecordingTrace is 21, max is 12|cognitive complexity 28 of func `newRecordingTrace` is high \\(> 20\\))$"
-      - path: "^recording_test\\.go$"
-        linters: [cyclop]
-        source: "^[\\t ]*func recordingCheckKeyframeSeek\\(t \\*testing\\.T, r \\*oracle\\.Reader, trace \\*recordingTrace, recData \\[\\]byte, workerCount, budgetBytes, minInterval int\\) int \\{$"
-        text: "^(?:calculated cyclomatic complexity for function recordingCheckKeyframeSeek is 16, max is 12)$"
-      - path: "^recording_test\\.go$"
-        linters: [cyclop]
-        source: "^[\\t ]*func recordingCheckPlayback\\(t \\*testing\\.T, r \\*oracle\\.Reader, trace \\*recordingTrace, recData \\[\\]byte\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function recordingCheckPlayback is 13, max is 12)$"
-      - path: "^recording_test\\.go$"
-        linters: [cyclop]
-        source: "^[\\t ]*func recordingCheckScrubAllFrames\\(t \\*testing\\.T, r \\*oracle\\.Reader, trace \\*recordingTrace, recData \\[\\]byte, workerCount, budgetBytes, minInterval int\\) int \\{$"
-        text: "^(?:calculated cyclomatic complexity for function recordingCheckScrubAllFrames is 16, max is 12)$"
-      - path: "^recording_test\\.go$"
-        linters: [cyclop]
-        source: "^[\\t ]*func recordingUnpackTransforms\\(raw \\[\\]byte\\) \\(\\[\\]recordingTransformBits, error\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function recordingUnpackTransforms is 17, max is 12)$"
-      - path: "^scenes_test\\.go$"
-        linters: [gocognit]
-        source: "^[\\t ]*func TestSceneFixtureInventory\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:cognitive complexity 21 of func `TestSceneFixtureInventory` is high \\(> 20\\))$"
       - path: "^simd_accel_amd64\\.go$"
         linters: [gosec]
         source: "unsafe\\.Pointer\\("
@@ -420,10 +380,6 @@ linters:
         linters: [cyclop]
         source: "^[\\t ]*func snapWriteValue\\[T any\\]\\(buf \\*recBuffer, value T\\) \\{$"
         text: "^(?:calculated cyclomatic complexity for function snapWriteValue is 22, max is 12)$"
-      - path: "^snapshot_parity_test\\.go$"
-        linters: [gocognit]
-        source: "^[\\t ]*func TestSnapshotFamiliesRollback\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:cognitive complexity 28 of func `TestSnapshotFamiliesRollback` is high \\(> 20\\))$"
       - path: "^solver\\.go$"
         linters: [cyclop, gocognit, maintidx]
         source: "^[\\t ]*func solve\\(world \\*World, stepContext \\*stepContext\\) \\{$"
@@ -464,11 +420,3 @@ linters:
         linters: [thelper]
         source: "^[\\t ]*func testSolverScratchSleepingContacts\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^table_test\\.go$"
-        linters: [cyclop]
-        source: "^[\\t ]*func runTableHashSetAddRemoveTest\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function runTableHashSetAddRemoveTest is 18, max is 12)$"
-      - path: "^table_test\\.go$"
-        linters: [cyclop, gocognit]
-        source: "^[\\t ]*func runTableHashSetTest\\(t \\*testing\\.T\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function runTableHashSetTest is 19, max is 12|cognitive complexity 51 of func `runTableHashSetTest` is high \\(> 20\\))$"

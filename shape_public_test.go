@@ -42,32 +42,8 @@ func shapePublicCast(o *oracle.Reader, key string, c box2d.CastOutput) {
 	o.I32(key+"/iterations", int32(c.Iterations))
 }
 
-func TestRayCastCircleHitsWithOverflowingSquaredTranslation(t *testing.T) {
-	circle := box2d.Circle{Radius: 1}
-
-	input := box2d.RayCastInput{
-		Origin:      box2d.Vec2{X: -2},
-		Translation: box2d.Vec2{X: 0x1p64},
-		MaxFraction: 1,
-	}
-	if !input.IsValid() {
-		t.Fatal("finite long ray is not valid")
-	}
-
-	got := box2d.RayCastCircle(&circle, &input)
-
-	want := box2d.CastOutput{
-		Hit:      true,
-		Point:    box2d.Vec2{X: -1},
-		Normal:   box2d.Vec2{X: -1},
-		Fraction: 0x1p-64,
-	}
-	if got.Hit != want.Hit || got.Point != want.Point || got.Normal != want.Normal || got.Fraction != want.Fraction {
-		t.Fatalf("long ray cast = %+v, want %+v", got, want)
-	}
-}
-
 func TestRayCastLongTranslationRange(t *testing.T) {
+	unitCircle := box2d.Circle{Radius: 1}
 	circle := box2d.Circle{Radius: 5}
 	capsule := box2d.Capsule{Center1: box2d.Vec2{X: -4}, Center2: box2d.Vec2{X: 4}, Radius: 1}
 
@@ -77,6 +53,15 @@ func TestRayCastLongTranslationRange(t *testing.T) {
 		input box2d.RayCastInput
 		want  box2d.CastOutput
 	}{
+		{
+			name: "circle_squared_translation_overflow",
+			cast: func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCircle(&unitCircle, input) },
+			input: box2d.RayCastInput{
+				Origin:      box2d.Vec2{X: -2},
+				Translation: box2d.Vec2{X: 0x1p64},
+			},
+			want: box2d.CastOutput{Hit: true, Point: box2d.Vec2{X: -1}, Normal: box2d.Vec2{X: -1}, Fraction: 0x1p-64},
+		},
 		{
 			name: "circle",
 			cast: func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCircle(&circle, input) },

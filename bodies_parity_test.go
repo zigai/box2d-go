@@ -1134,6 +1134,38 @@ func apiChainCase(t *testing.T, name string, topology, reverse int) {
 	r.Bool("replacementDestroyedWithBody", replacement.IsValid())
 }
 
+func TestShapeApplyWindOnDisabledBody(test *testing.T) {
+	for _, wake := range []bool{false, true} {
+		test.Run(fmt.Sprintf("wake=%t", wake), func(test *testing.T) {
+			worldDef := box2d.DefaultWorldDef()
+			worldDef.Gravity = box2d.Vec2{}
+			world := box2d.NewWorld(&worldDef)
+			test.Cleanup(world.Close)
+
+			bodyDef := box2d.DefaultBodyDef()
+			bodyDef.Type = box2d.DynamicBody
+			body := world.CreateBody(&bodyDef)
+			shapeDef := box2d.DefaultShapeDef()
+			shape := body.CreateCircleShape(&shapeDef, &box2d.Circle{Radius: 1})
+
+			body.Disable()
+			shape.ApplyWind(box2d.Vec2{X: 5, Y: 2}, 0.4, 0.2, wake)
+			if body.Enabled() || body.Awake() {
+				test.Fatal("wind changed the disabled body's state")
+			}
+
+			body.Enable()
+			world.Step(1.0/60, 4)
+			if got := body.LinearVelocity(); got != (box2d.Vec2{}) {
+				test.Fatalf("velocity after enabling = %v, want zero", got)
+			}
+			if got := body.AngularVelocity(); got != 0 {
+				test.Fatalf("angular velocity after enabling = %v, want zero", got)
+			}
+		})
+	}
+}
+
 func TestChainsOwnershipMaterialsWindingAndDestruction(t *testing.T) {
 	for topology := range 5 {
 		for reverse := range 2 {

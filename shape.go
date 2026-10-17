@@ -2163,7 +2163,7 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 
 	body := &world.bodies[shape.bodyID]
 
-	if body.bodyType != DynamicBody {
+	if body.bodyType != DynamicBody || body.setIndex == disabledSet {
 		return
 	}
 

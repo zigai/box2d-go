@@ -3,7 +3,11 @@
 
 package box2d
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+
+	"github.com/zigai/box2d/internal/core"
+)
 
 type parallelForFunc func(startIndex, endIndex, workerIndex int)
 
@@ -49,10 +53,10 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 		return
 	}
 
-	assert(minRange > 0, "minRange > 0")
+	core.Assert(minRange > 0, "minRange > 0")
 
 	workerCount := w.workerCount
-	assert(0 < workerCount && workerCount <= MaxWorkers, "0 < workerCount && workerCount <= B2_MAX_WORKERS")
+	core.Assert(0 < workerCount && workerCount <= MaxWorkers, "0 < workerCount && workerCount <= B2_MAX_WORKERS")
 	// Target multiple blocks per worker to reduce thread stalls.
 	// block size grows once items exceed maxBlockCount * minRange
 	// so the block count stays bounded and per-block sync overhead stays low.
@@ -68,8 +72,8 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 		blockCount = (itemCount + blockSize - 1) / blockSize
 	}
 
-	assert(blockCount >= 1, "blockCount >= 1")
-	assert(blockSize*blockCount >= itemCount, "blockSize * blockCount >= itemCount")
+	core.Assert(blockCount >= 1, "blockCount >= 1")
+	core.Assert(blockSize*blockCount >= itemCount, "blockSize * blockCount >= itemCount")
 	// No point enqueueing more tasks than blocks.
 	taskCount := min(workerCount, blockCount)
 	shared := &w.parallelForScratch

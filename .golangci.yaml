@@ -228,10 +228,14 @@ linters:
         linters: [gocritic]
         source: "^[\\t ]*if bodyA\\.bodyType != DynamicBody && bodyB\\.bodyType != DynamicBody \\{$"
         text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
+      - path: "^constraint_graph\\.go$"
+        linters: [dupl]
+        source: "^func remove(Contact|Joint)FromGraph\\(world \\*World, bodyIDA int, bodyIDB int, colorIndex int, localIndex int\\) \\{$"
+        text: "^(?:134-161 lines are duplicate of `constraint_graph\\.go:229-254`|229-254 lines are duplicate of `constraint_graph\\.go:134-161`)$"
       - path: "^contact_solver\\.go$"
         linters: [dupl]
         source: "^[\\t ]*\\{$"
-        text: "^(?:1505-1532 lines are duplicate of `contact_solver\\.go:1534-1561`|1534-1561 lines are duplicate of `contact_solver\\.go:1505-1532`)$"
+        text: "^(?:1510-1537 lines are duplicate of `contact_solver\\.go:1539-1566`|1539-1566 lines are duplicate of `contact_solver\\.go:1510-1537`)$"
       - path: "^distance_joint\\.go$"
         linters: [nestif]
         source: "^[\\t ]*if jnt\\.enableSpring && \\(jnt\\.minLength < jnt\\.maxLength \\|\\| !jnt\\.enableLimit\\) \\{$"
@@ -295,11 +299,11 @@ linters:
       - path: "^manifold\\.go$"
         linters: [cyclop, gocognit, maintidx]
         source: "^[\\t ]*func CollideCapsules\\(capsuleA, capsuleB \\*Capsule, xf Transform\\) LocalManifold \\{$"
-        text: "^(?:calculated cyclomatic complexity for function CollideCapsules is 40, max is 12|cognitive complexity 56 of func `CollideCapsules` is high \\(> 20\\)|Function name: CollideCapsules, Cyclomatic Complexity: 40, Halstead Volume: 7216\\.29, Maintainability Index: 15)$"
+        text: "^(?:calculated cyclomatic complexity for function CollideCapsules is 40, max is 12|cognitive complexity 56 of func `CollideCapsules` is high \\(> 20\\)|Function name: CollideCapsules, Cyclomatic Complexity: 40, Halstead Volume: 7234\\.59, Maintainability Index: 15)$"
       - path: "^manifold\\.go$"
         linters: [cyclop, gocognit, maintidx]
         source: "^[\\t ]*func CollideChainSegmentAndPolygon\\(segmentA \\*ChainSegment, polygonB \\*Polygon, xf Transform, cache \\*SimplexCache\\) LocalManifold \\{$"
-        text: "^(?:calculated cyclomatic complexity for function CollideChainSegmentAndPolygon is 48, max is 12|cognitive complexity 102 of func `CollideChainSegmentAndPolygon` is high \\(> 20\\)|Function name: CollideChainSegmentAndPolygon, Cyclomatic Complexity: 48, Halstead Volume: 8939\\.94, Maintainability Index: 9)$"
+        text: "^(?:calculated cyclomatic complexity for function CollideChainSegmentAndPolygon is 48, max is 12|cognitive complexity 102 of func `CollideChainSegmentAndPolygon` is high \\(> 20\\)|Function name: CollideChainSegmentAndPolygon, Cyclomatic Complexity: 48, Halstead Volume: 8994\\.84, Maintainability Index: 9)$"
       - path: "^manifold\\.go$"
         linters: [cyclop, gocognit]
         source: "^[\\t ]*func CollidePolygons\\(polygonA, polygonB \\*Polygon, xf Transform\\) LocalManifold \\{$"
@@ -351,11 +355,11 @@ linters:
       - path: "^prismatic_joint\\.go$"
         linters: [maintidx]
         source: "^[\\t ]*func solvePrismaticJoint\\(base \\*jointSim, context \\*stepContext, useBias bool\\) \\{$"
-        text: "^(?:Function name: solvePrismaticJoint, Cyclomatic Complexity: 11, Halstead Volume: 8853\\.21, Maintainability Index: 19)$"
+        text: "^(?:Function name: solvePrismaticJoint, Cyclomatic Complexity: 11, Halstead Volume: 8901\\.23, Maintainability Index: 19)$"
       - path: "^prismatic_joint\\.go$"
         linters: [dupl]
         source: "^[\\t ]*if separation < speculativeDistance \\{$"
-        text: "^(?:596-615 lines are duplicate of `prismatic_joint\\.go:625-647`|625-647 lines are duplicate of `prismatic_joint\\.go:596-615`)$"
+        text: "^(?:598-617 lines are duplicate of `prismatic_joint\\.go:627-649`|627-649 lines are duplicate of `prismatic_joint\\.go:598-617`)$"
       - path: "^recording_mutations_test\\.go$"
         linters: [cyclop, maintidx]
         source: "^[\\t ]*func TestRecordingMutationParity\\(t \\*testing\\.T\\) \\{$"
@@ -387,7 +391,7 @@ linters:
       - path: "^solver\\.go$"
         linters: [cyclop, gocognit, maintidx]
         source: "^[\\t ]*func solverTask\\(taskContext \\*workerContext\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function solverTask is 18, max is 12|cognitive complexity 44 of func `solverTask` is high \\(> 20\\)|Function name: solverTask, Cyclomatic Complexity: 18, Halstead Volume: 4601\\.04, Maintainability Index: 19)$"
+        text: "^(?:calculated cyclomatic complexity for function solverTask is 18, max is 12|cognitive complexity 44 of func `solverTask` is high \\(> 20\\)|Function name: solverTask, Cyclomatic Complexity: 18, Halstead Volume: 4769\\.51, Maintainability Index: 19)$"
       - path: "^solver_arena_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverArenaGrowthShrink\\(t \\*testing\\.T, workers int\\) \\{$"

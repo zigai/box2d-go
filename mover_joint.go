@@ -3,6 +3,8 @@
 
 package box2d
 
+import "github.com/zigai/box2d/internal/core"
+
 type MoverJoint struct {
 	Joint
 }
@@ -64,7 +66,7 @@ func getMoverJointForce(world *World, base *jointSim) Vec2 {
 }
 
 func prepareMoverJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == MoverJointType, "base->type == b2_moverJoint")
+	core.Assert(base.jointType == MoverJointType, "base->type == b2_moverJoint")
 
 	idA := base.bodyIDA
 	idB := base.bodyIDB
@@ -74,7 +76,7 @@ func prepareMoverJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
@@ -119,7 +121,7 @@ func prepareMoverJoint(base *jointSim, context *stepContext) {
 }
 
 func warmStartMoverJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == MoverJointType, "base->type == b2_moverJoint")
+	core.Assert(base.jointType == MoverJointType, "base->type == b2_moverJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -153,7 +155,7 @@ func warmStartMoverJoint(base *jointSim, context *stepContext) {
 }
 
 func solveMoverJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == MoverJointType, "base->type == b2_moverJoint")
+	core.Assert(base.jointType == MoverJointType, "base->type == b2_moverJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB

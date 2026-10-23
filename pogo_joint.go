@@ -3,6 +3,8 @@
 
 package box2d
 
+import "github.com/zigai/box2d/internal/core"
+
 var pogoAxis = Vec2{X: 0.0, Y: 1.0}
 
 type PogoJoint struct {
@@ -130,7 +132,7 @@ func getPogoJointForce(world *World, base *jointSim) Vec2 {
 }
 
 func preparePogoJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == PogoJointType, "base->type == b2_pogoJoint")
+	core.Assert(base.jointType == PogoJointType, "base->type == b2_pogoJoint")
 
 	world := context.world
 
@@ -141,7 +143,7 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
@@ -204,7 +206,7 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 }
 
 func warmStartPogoJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == PogoJointType, "base->type == b2_pogoJoint")
+	core.Assert(base.jointType == PogoJointType, "base->type == b2_pogoJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -252,7 +254,7 @@ func warmStartPogoJoint(base *jointSim, context *stepContext) {
 }
 
 func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
-	assert(base.jointType == PogoJointType, "base->type == b2_pogoJoint")
+	core.Assert(base.jointType == PogoJointType, "base->type == b2_pogoJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB

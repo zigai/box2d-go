@@ -165,20 +165,20 @@ func TestSnapshotRejectsDuplicatePairKeys(t *testing.T) {
 	world.Step(1.0/60, 1)
 
 	pairs := &world.broadPhase.pairSet
-	if pairs.count != 1 {
-		t.Fatalf("fixture pair count = %d, want 1", pairs.count)
+	if pairs.Count != 1 {
+		t.Fatalf("fixture pair count = %d, want 1", pairs.Count)
 	}
 
-	for index, item := range pairs.items {
-		if item.key == 1 {
-			pairs.items[(index+1)&int(pairs.capacity-1)].key = 1
-			pairs.count++
+	for index, item := range pairs.Items {
+		if item.Key == 1 {
+			pairs.Items[(index+1)&int(pairs.Capacity-1)].Key = 1
+			pairs.Count++
 
 			break
 		}
 	}
 
-	if pairs.count != 2 {
+	if pairs.Count != 2 {
 		t.Fatal("fixture did not contain pair key 1")
 	}
 

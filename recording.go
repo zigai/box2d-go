@@ -10,6 +10,8 @@ import (
 	"math"
 	"strings"
 	"sync"
+
+	"github.com/zigai/box2d/internal/core"
 )
 
 const (
@@ -514,12 +516,12 @@ func recReserveU32(buf *recBuffer) int {
 }
 
 func recPatchU32(buf *recBuffer, offset int, v uint32) {
-	assert(offset >= 0 && offset <= buf.size-4, "offset >= 0 && offset + 4 <= buf->size")
+	core.Assert(offset >= 0 && offset <= buf.size-4, "offset >= 0 && offset + 4 <= buf->size")
 	binary.LittleEndian.PutUint32(buf.data[offset:offset+4], v)
 }
 
 func recCommitRecord(rec *Recording, opcode uint8, payload []byte, payloadSize int) {
-	assert(payloadSize >= 0 && payloadSize < 1<<24, "payloadSize >= 0 && payloadSize < ( 1 << 24 )")
+	core.Assert(payloadSize >= 0 && payloadSize < 1<<24, "payloadSize >= 0 && payloadSize < ( 1 << 24 )")
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
 
@@ -576,7 +578,7 @@ func recBeginRecord(rec *Recording, opcode uint8) {
 
 func recEndRecord(rec *Recording) {
 	n := rec.buffer.size - rec.recordStart - 3
-	assert(n >= 0 && n < 1<<24, "payloadSize >= 0 && payloadSize < ( 1 << 24 )")
+	core.Assert(n >= 0 && n < 1<<24, "payloadSize >= 0 && payloadSize < ( 1 << 24 )")
 
 	p := rec.buffer.data[rec.recordStart:]
 	p[0] = byte(n)
@@ -619,7 +621,7 @@ func startRecordingIntoBuffer(world *World, recording *Recording) {
 	recWU8(&recording.buffer, 0)
 	recWU8(&recording.buffer, 0)
 	recWU8(&recording.buffer, 0)
-	recWBOOL(&recording.buffer, validationEnabled)
+	recWBOOL(&recording.buffer, core.ValidationEnabled)
 	recWU32(&recording.buffer, 0)
 	recWU64(&recording.buffer, uint64(blob.size))
 	recBufAppend(&recording.buffer, blob.data, blob.size)

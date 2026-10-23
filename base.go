@@ -3,10 +3,7 @@
 
 package box2d
 
-import (
-	"fmt"
-	"runtime"
-)
+import "github.com/zigai/box2d/internal/core"
 
 const (
 	nullIndex int = -1
@@ -29,11 +26,7 @@ type Version struct {
 
 // AssertError is the panic value for invalid API input and, unless built with the
 // box2d_noassert tag, for broken internal invariants.
-type AssertError struct {
-	Condition string
-	File      string
-	Line      int
-}
+type AssertError = core.AssertError
 
 // Get the current version of Box2D.
 func CurrentVersion() Version {
@@ -52,22 +45,4 @@ func Hash(hash uint32, data []byte) uint32 {
 	}
 
 	return hash
-}
-
-func assert(ok bool, condition string) {
-	if assertsEnabled && !ok {
-		_, file, line, _ := runtime.Caller(1)
-		panic(&AssertError{Condition: condition, File: file, Line: line})
-	}
-}
-
-func validate(ok bool, condition string) {
-	if validationEnabled && assertsEnabled && !ok {
-		_, file, line, _ := runtime.Caller(1)
-		panic(&AssertError{Condition: condition, File: file, Line: line})
-	}
-}
-
-func (e *AssertError) Error() string {
-	return fmt.Sprintf("BOX2D ASSERTION: %s, %s, line %d", e.Condition, e.File, e.Line)
 }

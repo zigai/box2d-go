@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-//go:build box2d_noassert
+//go:build !box2d_noassert
 
-package box2d
+package core
 
-const assertsEnabled = false
+const AssertsEnabled = true

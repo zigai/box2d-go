@@ -3,7 +3,11 @@
 
 package box2d
 
-import "math"
+import (
+	"math"
+
+	"github.com/zigai/box2d/internal/core"
+)
 
 const (
 	normalSkip normalType = iota
@@ -351,7 +355,7 @@ func CollideCapsules(capsuleA, capsuleB *Capsule, xf Transform) LocalManifold {
 	)
 
 	epsSqr := float32(0x1p-23) * float32(0x1p-23)
-	assert(dd1 > epsSqr && dd2 > epsSqr, "dd1 > epsSqr && dd2 > epsSqr")
+	core.Assert(dd1 > epsSqr && dd2 > epsSqr, "dd1 > epsSqr && dd2 > epsSqr")
 
 	var (
 		r   = p1.Sub(p2)
@@ -671,7 +675,7 @@ func CollidePolygons(polygonA, polygonB *Polygon, xf Transform) LocalManifold {
 		)
 
 		result := SegmentDistance(v11, v12, v21, v22)
-		assert(result.DistanceSquared > 0.0, "result.distanceSquared > 0.0f")
+		core.Assert(result.DistanceSquared > 0.0, "result.distanceSquared > 0.0f")
 
 		var (
 			distance   = float32(math.Sqrt(float64(result.DistanceSquared)))
@@ -925,7 +929,7 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 			incidentIndex = int(cache.IndexB[0])
 		} else {
 			// vertex-edge collision
-			assert(cache.Count == 2, "cache->count == 2")
+			core.Assert(cache.Count == 2, "cache->count == 2")
 
 			var (
 				ia1 = int(cache.IndexA[0])
@@ -936,7 +940,7 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 
 			if ia1 == ia2 {
 				// 1 point on A, expect 2 points on B
-				assert(ib1 != ib2, "ib1 != ib2")
+				core.Assert(ib1 != ib2, "ib1 != ib2")
 
 				// Find polygon normal most aligned with vector between closest points.
 				// This effectively sorts ib1 and ib2
@@ -992,7 +996,7 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 
 					manifold = clipSegments(b1, b2, p1, p2, normalB, radiusB, 0.0, (uint16(uint8(ib1))<<8 | uint16(uint8(1))), (uint16(uint8(ib2))<<8 | uint16(uint8(0))))
 
-					assert(manifold.PointCount == 0 || manifold.PointCount == 2, "manifold.pointCount == 0 || manifold.pointCount == 2")
+					core.Assert(manifold.PointCount == 0 || manifold.PointCount == 2, "manifold.pointCount == 0 || manifold.pointCount == 2")
 
 					if manifold.PointCount == 2 {
 						manifold.Normal = normalB.Neg()
@@ -1113,7 +1117,7 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 
 			manifold = clipSegments(a1, a2, p1, p2, normals[ia1], radiusB, 0.0, (uint16(uint8(ia1))<<8 | uint16(uint8(1))), (uint16(uint8(ia2))<<8 | uint16(uint8(0))))
 
-			assert(manifold.PointCount == 0 || manifold.PointCount == 2, "manifold.pointCount == 0 || manifold.pointCount == 2")
+			core.Assert(manifold.PointCount == 0 || manifold.PointCount == 2, "manifold.pointCount == 0 || manifold.pointCount == 2")
 
 			if manifold.PointCount == 2 {
 				manifold.Normal = normals[ia1].Neg()
@@ -1130,7 +1134,7 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 		// fall through segment normal axis
 	}
 
-	assert(incidentNormal != -1 || incidentIndex != -1, "incidentNormal != -1 || incidentIndex != -1")
+	core.Assert(incidentNormal != -1 || incidentIndex != -1, "incidentNormal != -1 || incidentIndex != -1")
 
 	// Segment normal
 
@@ -1185,7 +1189,7 @@ func CollideChainSegmentAndPolygon(segmentA *ChainSegment, polygonB *Polygon, xf
 
 	manifold = clipSegments(p1, p2, b1, b2, normal1, 0.0, radiusB, (uint16(uint8(0))<<8 | uint16(uint8(ib2))), (uint16(uint8(1))<<8 | uint16(uint8(ib1))))
 
-	assert(manifold.PointCount == 0 || manifold.PointCount == 2, "manifold.pointCount == 0 || manifold.pointCount == 2")
+	core.Assert(manifold.PointCount == 0 || manifold.PointCount == 2, "manifold.pointCount == 0 || manifold.pointCount == 2")
 
 	return manifold
 }
@@ -1198,7 +1202,7 @@ func makeCapsule(p1, p2 Vec2, radius float32) Polygon {
 	shape.Centroid = p1.Lerp(p2, 0.5)
 
 	d := p2.Sub(p1)
-	assert(d.LengthSquared() > float32(0x1p-23), "b2LengthSquared( d ) > FLT_EPSILON")
+	core.Assert(d.LengthSquared() > float32(0x1p-23), "b2LengthSquared( d ) > FLT_EPSILON")
 
 	var (
 		axis   = d.Normalize()

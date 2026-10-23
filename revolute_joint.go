@@ -3,7 +3,11 @@
 
 package box2d
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/zigai/box2d/internal/core"
+)
 
 type RevoluteJoint struct {
 	Joint
@@ -178,7 +182,7 @@ func (r RevoluteJoint) SetLimits(lower float32, upper float32) {
 	checkInput(IsValidFloat(lower), "b2IsValidFloat( lower )")
 	checkInput(IsValidFloat(upper), "b2IsValidFloat( upper )")
 
-	assert(lower <= upper, "lower <= upper")
+	core.Assert(lower <= upper, "lower <= upper")
 
 	world := r.Joint.world
 	if world.recording != nil {
@@ -271,7 +275,7 @@ func getRevoluteJointTorque(world *World, base *jointSim) float32 {
 }
 
 func prepareRevoluteJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
+	core.Assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
 
 	// chase body id to the solver set where the body lives
 	idA := base.bodyIDA
@@ -282,7 +286,7 @@ func prepareRevoluteJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
 
@@ -348,7 +352,7 @@ func prepareRevoluteJoint(base *jointSim, context *stepContext) {
 }
 
 func warmStartRevoluteJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
+	core.Assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -381,7 +385,7 @@ func warmStartRevoluteJoint(base *jointSim, context *stepContext) {
 }
 
 func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
-	assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
+	core.Assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -543,7 +547,7 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 }
 
 func drawRevoluteJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform, drawScale float32) {
-	assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
+	core.Assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
 
 	joint := &base.revoluteJoint
 

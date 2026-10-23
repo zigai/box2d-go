@@ -8,6 +8,11 @@ import (
 	"errors"
 	"math"
 	"unsafe"
+
+	"github.com/zigai/box2d/internal/bitset"
+	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d/internal/hashset"
+	"github.com/zigai/box2d/internal/idpool"
 )
 
 const (
@@ -108,7 +113,7 @@ func snapRU32(r *snapReader) uint32 {
 }
 
 func snapWI32(buf *recBuffer, v int) {
-	assert(int64(v) >= math.MinInt32 && int64(v) <= math.MaxInt32, "int32 range")
+	core.Assert(int64(v) >= math.MinInt32 && int64(v) <= math.MaxInt32, "int32 range")
 	recWI32(buf, int32(v))
 }
 
@@ -124,23 +129,23 @@ func snapCheckCount(r *snapReader, count int, memSize int, minStreamBytes int) b
 	return minStreamBytes == 0 || count <= (r.size-r.cursor)/minStreamBytes
 }
 
-func serIDPool(buf *recBuffer, pool *idPool) {
-	snapWI32(buf, pool.nextIndex)
-	serPodArray(buf, pool.freeArray)
+func serIDPool(buf *recBuffer, pool *idpool.Pool) {
+	snapWI32(buf, pool.NextIndex)
+	serPodArray(buf, pool.FreeArray)
 }
 
-func desIDPool(r *snapReader, pool *idPool) {
-	pool.nextIndex = snapRI32(r)
-	desPodArray(r, &pool.freeArray)
+func desIDPool(r *snapReader, pool *idpool.Pool) {
+	pool.NextIndex = snapRI32(r)
+	desPodArray(r, &pool.FreeArray)
 
-	if pool.nextIndex < 0 || len(pool.freeArray) > pool.nextIndex {
+	if pool.NextIndex < 0 || len(pool.FreeArray) > pool.NextIndex {
 		r.ok = false
 		return
 	}
 
-	seen := make(map[int]bool, len(pool.freeArray))
-	for _, id := range pool.freeArray {
-		if id < 0 || id >= pool.nextIndex || seen[id] {
+	seen := make(map[int]bool, len(pool.FreeArray))
+	for _, id := range pool.FreeArray {
+		if id < 0 || id >= pool.NextIndex || seen[id] {
 			r.ok = false
 			return
 		}
@@ -149,12 +154,12 @@ func desIDPool(r *snapReader, pool *idPool) {
 	}
 }
 
-func snapIDPoolValid[Object any](pool *idPool, objects []Object, objectID func(Object) int) bool {
-	if pool.nextIndex != len(objects) {
+func snapIDPoolValid[Object any](pool *idpool.Pool, objects []Object, objectID func(Object) int) bool {
+	if pool.NextIndex != len(objects) {
 		return false
 	}
 
-	for _, id := range pool.freeArray {
+	for _, id := range pool.FreeArray {
 		if objectID(objects[id]) != nullIndex {
 			return false
 		}
@@ -163,62 +168,62 @@ func snapIDPoolValid[Object any](pool *idPool, objects []Object, objectID func(O
 	return true
 }
 
-func serBitSet(buf *recBuffer, bs *bitSet) {
-	snapWU32(buf, bs.blockCount)
+func serBitSet(buf *recBuffer, bs *bitset.Set) {
+	snapWU32(buf, bs.BlockCount)
 
-	for _, v := range bs.bits[:bs.blockCount] {
+	for _, v := range bs.Bits[:bs.BlockCount] {
 		recWU64(buf, v)
 	}
 }
 
-func desBitSet(r *snapReader, bs *bitSet) {
+func desBitSet(r *snapReader, bs *bitset.Set) {
 	n := snapRU32(r)
 
-	destroyBitSet(bs)
+	bs.Destroy()
 
 	if !r.ok || !snapCheckCount(r, int(n), 8, 8) {
 		r.ok = false
 		return
 	}
 
-	bs.blockCount = n
-	bs.blockCapacity = max(n, 1)
+	bs.BlockCount = n
+	bs.BlockCapacity = max(n, 1)
 
-	bs.bits = make([]uint64, bs.blockCapacity)
+	bs.Bits = make([]uint64, bs.BlockCapacity)
 	for i := range n {
-		bs.bits[i] = snapReadU64(r)
+		bs.Bits[i] = snapReadU64(r)
 	}
 }
 
-func serHashSet(buf *recBuffer, hs *hashSet) {
-	snapWU32(buf, hs.capacity)
-	snapWU32(buf, hs.count)
+func serHashSet(buf *recBuffer, hs *hashset.Set) {
+	snapWU32(buf, hs.Capacity)
+	snapWU32(buf, hs.Count)
 
-	for _, v := range hs.items[:hs.capacity] {
-		recWU64(buf, v.key)
+	for _, v := range hs.Items[:hs.Capacity] {
+		recWU64(buf, v.Key)
 	}
 }
 
-func desHashSet(r *snapReader, hs *hashSet) {
+func desHashSet(r *snapReader, hs *hashset.Set) {
 	n := snapRU32(r)
 	count := snapRU32(r)
 
-	destroySet(hs)
+	hs.Destroy()
 
 	if !r.ok || !snapCheckCount(r, int(n), 8, 8) || n&(n-1) != 0 || count > n {
 		r.ok = false
 		return
 	}
 
-	hs.capacity = n
-	hs.count = count
+	hs.Capacity = n
+	hs.Count = count
 
-	hs.items = make([]setItem, n)
+	hs.Items = make([]hashset.Item, n)
 	seen := make(map[uint64]bool, count)
 
 	for i := range n {
 		key := snapReadU64(r)
-		hs.items[i].key = key
+		hs.Items[i].Key = key
 
 		if key == 0 {
 			continue
@@ -428,7 +433,7 @@ func serializeWorld(world *World, buf *recBuffer) {
 	snapWU32(buf, computeLayoutHash())
 
 	flags := uint32(0)
-	if validationEnabled {
+	if core.ValidationEnabled {
 		flags |= snapFlagValidation
 	}
 
@@ -732,20 +737,20 @@ func hashWorldStateDeep(world *World) uint64 {
 		}
 	}
 
-	hash = fnvMixInt(hash, world.bodyIDPool.nextIndex)
-	hash = fnvMixInt(hash, getIDCount(&world.bodyIDPool))
-	hash = fnvMixInt(hash, world.shapeIDPool.nextIndex)
-	hash = fnvMixInt(hash, getIDCount(&world.shapeIDPool))
-	hash = fnvMixInt(hash, world.chainIDPool.nextIndex)
-	hash = fnvMixInt(hash, getIDCount(&world.chainIDPool))
-	hash = fnvMixInt(hash, world.contactIDPool.nextIndex)
-	hash = fnvMixInt(hash, getIDCount(&world.contactIDPool))
-	hash = fnvMixInt(hash, world.jointIDPool.nextIndex)
-	hash = fnvMixInt(hash, getIDCount(&world.jointIDPool))
-	hash = fnvMixInt(hash, world.islandIDPool.nextIndex)
-	hash = fnvMixInt(hash, getIDCount(&world.islandIDPool))
-	hash = fnvMixInt(hash, world.solverSetIDPool.nextIndex)
-	hash = fnvMixInt(hash, getIDCount(&world.solverSetIDPool))
+	hash = fnvMixInt(hash, world.bodyIDPool.NextIndex)
+	hash = fnvMixInt(hash, world.bodyIDPool.Count())
+	hash = fnvMixInt(hash, world.shapeIDPool.NextIndex)
+	hash = fnvMixInt(hash, world.shapeIDPool.Count())
+	hash = fnvMixInt(hash, world.chainIDPool.NextIndex)
+	hash = fnvMixInt(hash, world.chainIDPool.Count())
+	hash = fnvMixInt(hash, world.contactIDPool.NextIndex)
+	hash = fnvMixInt(hash, world.contactIDPool.Count())
+	hash = fnvMixInt(hash, world.jointIDPool.NextIndex)
+	hash = fnvMixInt(hash, world.jointIDPool.Count())
+	hash = fnvMixInt(hash, world.islandIDPool.NextIndex)
+	hash = fnvMixInt(hash, world.islandIDPool.Count())
+	hash = fnvMixInt(hash, world.solverSetIDPool.NextIndex)
+	hash = fnvMixInt(hash, world.solverSetIDPool.Count())
 	hash = fnvMixInt(hash, len(world.solverSets))
 
 	return hash
@@ -1942,12 +1947,12 @@ func snapReadCapacity(r *snapReader, v *Capacity) {
 	v.ContactCount = snapRI32(r)
 }
 
-func snapWriteSetItem(buf *recBuffer, v setItem) {
-	recWU64(buf, v.key)
+func snapWriteSetItem(buf *recBuffer, v hashset.Item) {
+	recWU64(buf, v.Key)
 }
 
-func snapReadSetItem(r *snapReader, v *setItem) {
-	v.key = snapReadU64(r)
+func snapReadSetItem(r *snapReader, v *hashset.Item) {
+	v.Key = snapReadU64(r)
 }
 
 func snapWriteValue[T any](buf *recBuffer, value T) {
@@ -1984,7 +1989,7 @@ func snapWriteValue[T any](buf *recBuffer, value T) {
 		snapWriteJointLink(buf, v)
 	case jointSim:
 		snapWriteJointSim(buf, v)
-	case setItem:
+	case hashset.Item:
 		snapWriteSetItem(buf, v)
 	case shape:
 		snapWriteShape(buf, v)
@@ -2031,7 +2036,7 @@ func snapReadValue[T any](r *snapReader, value *T) {
 		snapReadJointLink(r, v)
 	case *jointSim:
 		snapReadJointSim(r, v)
-	case *setItem:
+	case *hashset.Item:
 		snapReadSetItem(r, v)
 	case *shape:
 		snapReadShape(r, v)
@@ -2078,7 +2083,7 @@ func snapMinSize[T any]() int {
 		return 12
 	case jointSim:
 		return 92
-	case setItem:
+	case hashset.Item:
 		return 8
 	case shape:
 		return 115

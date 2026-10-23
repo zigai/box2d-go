@@ -3,7 +3,14 @@
 
 package box2d
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d/internal/hashset"
+	"github.com/zigai/box2d/internal/qsort"
+)
 
 const (
 	candidateBatch = 32
@@ -16,7 +23,7 @@ type broadPhase struct {
 	pairKeys         []uint64
 	crossSeedScratch [2 * crossSeedCount]nodePair
 	crossScratch     crossContext
-	pairSet          hashSet
+	pairSet          hashset.Set
 }
 
 type candidatePair struct {
@@ -48,7 +55,7 @@ type crossContext struct {
 }
 
 func createBroadPhase(bp *broadPhase, capacity *Capacity) {
-	bp.pairSet = createSet(max(32, 2*capacity.ContactCount))
+	bp.pairSet = hashset.New(max(32, 2*capacity.ContactCount))
 	bp.trees[StaticBody] = NewDynamicTree(max(16, capacity.StaticShapeCount))
 	bp.trees[KinematicBody] = NewDynamicTree(16)
 	bp.trees[DynamicBody] = NewDynamicTree(max(16, capacity.DynamicShapeCount))
@@ -60,12 +67,12 @@ func destroyBroadPhase(bp *broadPhase) {
 	for range int(BodyTypeCount) {
 	}
 
-	destroySet(&bp.pairSet)
+	bp.pairSet.Destroy()
 	*bp = broadPhase{}
 }
 
 func (bp *broadPhase) createProxy(proxyType BodyType, aabb AABB, categoryBits uint64, shapeIndex int, forcePairCreation bool) int {
-	assert(0 <= proxyType && proxyType < BodyTypeCount, "0 <= proxyType && proxyType < b2_bodyTypeCount")
+	core.Assert(0 <= proxyType && proxyType < BodyTypeCount, "0 <= proxyType && proxyType < b2_bodyTypeCount")
 	mark := proxyType != StaticBody || forcePairCreation
 	id := createTreeProxyInternal(&bp.trees[proxyType], aabb, categoryBits, uint64(shapeIndex), mark)
 
@@ -76,7 +83,7 @@ func (bp *broadPhase) destroyProxy(proxyKey int) {
 	kind := proxyType(proxyKey)
 	id := proxyID(proxyKey)
 
-	assert(0 <= kind && kind < BodyTypeCount, "0 <= proxyType && proxyType < b2_bodyTypeCount")
+	core.Assert(0 <= kind && kind < BodyTypeCount, "0 <= proxyType && proxyType < b2_bodyTypeCount")
 	bp.trees[kind].DestroyProxy(id)
 }
 
@@ -100,7 +107,7 @@ func gatherMovedSiblings(tree *DynamicTree, pairIndices []int) int {
 	return count
 }
 
-func prefetchHash(set *hashSet, hash uint64) {}
+func prefetchHash(set *hashset.Set, hash uint64) {}
 
 func flushCandidatePairs(context *pairContext) {
 	w := context.world
@@ -112,8 +119,8 @@ func flushCandidatePairs(context *pairContext) {
 
 	for i := range count1 {
 		candidate := &context.batch[i]
-		keys[i] = shapePairKey(candidate.shapeIDA, candidate.shapeIDB)
-		hashes[i] = keyHash(keys[i])
+		keys[i] = hashset.ShapePairKey(candidate.shapeIDA, candidate.shapeIDB)
+		hashes[i] = hashset.Hash(keys[i])
 		prefetchHash(&bp.pairSet, hashes[i])
 	}
 
@@ -122,7 +129,7 @@ func flushCandidatePairs(context *pairContext) {
 	count2 := 0
 
 	for i := range count1 {
-		pairExists := containsHashedKey(&bp.pairSet, keys[i], hashes[i])
+		pairExists := bp.pairSet.ContainsHashed(keys[i], hashes[i])
 		if !pairExists {
 			candidates[count2] = context.batch[i]
 			count2++
@@ -137,7 +144,7 @@ func flushCandidatePairs(context *pairContext) {
 			continue
 		}
 
-		*pairKeys = arrayPush(*pairKeys, shapePairKey(shapeIDA, shapeIDB))
+		*pairKeys = array.Push(*pairKeys, hashset.ShapePairKey(shapeIDA, shapeIDB))
 	}
 }
 
@@ -229,7 +236,7 @@ func collideProxyAndSubtree(proxy *TreeNode, nodes []TreeNode, pair int, context
 					stack[stackCount] = getLeftChild(node)
 					stackCount++
 				} else {
-					assert(stackCount < treeStackSize, "stackCount < B2_TREE_STACK_SIZE")
+					core.Assert(stackCount < treeStackSize, "stackCount < B2_TREE_STACK_SIZE")
 				}
 			}
 		}
@@ -254,7 +261,7 @@ func visitPair(arrayA, arrayB []TreeNode, nodeA, nodeB *TreeNode, stack []indexP
 			stack[*stackCount] = indexPair{a: getLeftChild(nodeA), b: getLeftChild(nodeB)}
 			*stackCount += 1
 		} else {
-			assert(*stackCount < treeStackSize, "*stackCount < B2_TREE_STACK_SIZE")
+			core.Assert(*stackCount < treeStackSize, "*stackCount < B2_TREE_STACK_SIZE")
 		}
 	}
 }
@@ -402,9 +409,9 @@ func updateBroadPhasePairs(w *World) {
 		crossSeeds := bp.crossSeedScratch[:]
 
 		staticSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[StaticBody], crossSeeds[:])
-		assert(staticSeedCount <= crossSeedCount, "staticSeedCount <= B2_CROSS_SEED_COUNT")
+		core.Assert(staticSeedCount <= crossSeedCount, "staticSeedCount <= B2_CROSS_SEED_COUNT")
 		kinematicSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[KinematicBody], crossSeeds[staticSeedCount:])
-		assert(kinematicSeedCount <= crossSeedCount, "kinematicSeedCount <= B2_CROSS_SEED_COUNT")
+		core.Assert(kinematicSeedCount <= crossSeedCount, "kinematicSeedCount <= B2_CROSS_SEED_COUNT")
 		crossMoveCount := staticSeedCount + kinematicSeedCount
 		cross := &bp.crossScratch
 		cross.world = w
@@ -435,8 +442,8 @@ func updateBroadPhasePairs(w *World) {
 		}
 	}
 
-	assert(keyCount == pairCount, "keyCount == pairCount")
-	qsort(pairKeys[:pairCount], func(a, b uint64) bool { return a < b })
+	core.Assert(keyCount == pairCount, "keyCount == pairCount")
+	qsort.Sort(pairKeys[:pairCount], func(a, b uint64) bool { return a < b })
 
 	for i := range keyCount {
 		shapeIDA := int(pairKeys[i] >> 32)
@@ -457,7 +464,7 @@ func validateBroadphase(bp *broadPhase) {
 }
 
 func validateNoEnlarged(bp *broadPhase) {
-	if !validationEnabled {
+	if !core.ValidationEnabled {
 		return
 	}
 

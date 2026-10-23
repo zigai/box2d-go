@@ -3,6 +3,8 @@
 
 package box2d
 
+import "github.com/zigai/box2d/internal/core"
+
 type DistanceJoint struct {
 	Joint
 }
@@ -140,7 +142,7 @@ func (d DistanceJoint) CurrentLength() float32 {
 	base := getJointSimCheckType(d.Joint, DistanceJointType)
 
 	world := d.Joint.world
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return 0.0
@@ -191,7 +193,7 @@ func (d DistanceJoint) SetSpringForceRange(lowerForce float32, upperForce float3
 		recWriteDistanceJointSetSpringForceRange(world.recording, &recArgsDistanceJointSetSpringForceRange{joint: d.Joint, lowerForce: lowerForce, upperForce: upperForce})
 	}
 
-	assert(lowerForce <= upperForce, "lowerForce <= upperForce")
+	core.Assert(lowerForce <= upperForce, "lowerForce <= upperForce")
 
 	base := getJointSimCheckType(d.Joint, DistanceJointType)
 
@@ -363,7 +365,7 @@ func getDistanceJointForce(world *World, base *jointSim) Vec2 {
 }
 
 func prepareDistanceJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
+	core.Assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
 
 	// chase body id to the solver set where the body lives
 	var (
@@ -377,7 +379,7 @@ func prepareDistanceJoint(base *jointSim, context *stepContext) {
 		bodyB = &world.bodies[idB]
 	)
 
-	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 
 	var (
 		setA = &world.solverSets[bodyA.setIndex]
@@ -455,7 +457,7 @@ func prepareDistanceJoint(base *jointSim, context *stepContext) {
 }
 
 func warmStartDistanceJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
+	core.Assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
 
 	var (
 		mA = base.invMassA
@@ -502,7 +504,7 @@ func warmStartDistanceJoint(base *jointSim, context *stepContext) {
 }
 
 func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
-	assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
+	core.Assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
 
 	var (
 		mA = base.invMassA
@@ -698,7 +700,7 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 }
 
 func drawDistanceJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform) {
-	assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
+	core.Assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
 
 	jnt := &base.distanceJoint
 

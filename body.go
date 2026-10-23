@@ -9,6 +9,9 @@ import (
 	"math"
 	"slices"
 	"strings"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/core"
 )
 
 const (
@@ -256,7 +259,7 @@ func refreshBodyContactIndices(world *World, body *body) {
 }
 
 func getBodyFullID(world *World, bodyID Body) *body {
-	assert(bodyID.IsValid(), "b2Body_IsValid( bodyId )")
+	core.Assert(bodyID.IsValid(), "b2Body_IsValid( bodyId )")
 
 	// id index starts at one so that zero can represent null
 	return &world.bodies[bodyID.index1-1]
@@ -292,11 +295,11 @@ func syncBodyFlags(world *World, body *body) {
 }
 
 func createIslandForBody(world *World, setIndex int, body *body) {
-	assert(body.islandID == nullIndex, "body->islandId == B2_NULL_INDEX")
-	assert(setIndex != disabledSet, "setIndex != b2_disabledSet")
+	core.Assert(body.islandID == nullIndex, "body->islandId == B2_NULL_INDEX")
+	core.Assert(setIndex != disabledSet, "setIndex != b2_disabledSet")
 
 	island := createIsland(world, setIndex)
-	island.bodies = arrayPush(island.bodies, body.id)
+	island.bodies = array.Push(island.bodies, body.id)
 	body.islandID = island.islandID
 	body.islandIndex = 0
 
@@ -305,7 +308,7 @@ func createIslandForBody(world *World, setIndex int, body *body) {
 
 func removeBodyFromIsland(world *World, body *body) {
 	if body.islandID == nullIndex {
-		assert(body.islandIndex == nullIndex, "body->islandIndex == B2_NULL_INDEX")
+		core.Assert(body.islandIndex == nullIndex, "body->islandIndex == B2_NULL_INDEX")
 		return
 	}
 
@@ -315,15 +318,15 @@ func removeBodyFromIsland(world *World, body *body) {
 		localIndex := body.islandIndex
 		movedBodyID := island.bodies[len(island.bodies)-1]
 		island.bodies[localIndex] = movedBodyID
-		validate(world.bodies[movedBodyID].islandIndex == len(island.bodies)-1, "world->bodies.data[movedBodyId].islandIndex == island->bodies.count - 1")
+		core.Validate(world.bodies[movedBodyID].islandIndex == len(island.bodies)-1, "world->bodies.data[movedBodyId].islandIndex == island->bodies.count - 1")
 		world.bodies[movedBodyID].islandIndex = localIndex
 		island.bodies = island.bodies[:len(island.bodies)-1]
 	}
 
 	if len(island.bodies) == 0 {
 		// Destroy empty island
-		assert(len(island.contacts) == 0, "island->contacts.count == 0")
-		assert(len(island.joints) == 0, "island->joints.count == 0")
+		core.Assert(len(island.contacts) == 0, "island->contacts.count == 0")
+		core.Assert(len(island.joints) == 0, "island->joints.count == 0")
 
 		// Free the island
 		destroyIsland(world, island.islandID)
@@ -365,12 +368,12 @@ func createBodySolverSet(world *World, def *BodyDef) int {
 	}
 
 	// new set for a sleeping body in its own island
-	setID := allocID(&world.solverSetIDPool)
+	setID := world.solverSetIDPool.Alloc()
 	if setID == len(world.solverSets) {
 		// Create a zero initialized solver set. All sub-arrays are also zero initialized.
-		world.solverSets = arrayPush(world.solverSets, solverSet{})
+		world.solverSets = array.Push(world.solverSets, solverSet{})
 	} else {
-		assert(world.solverSets[setID].setIndex == nullIndex, "world->solverSets.data[setId].setIndex == B2_NULL_INDEX")
+		core.Assert(world.solverSets[setID].setIndex == nullIndex, "world->solverSets.data[setId].setIndex == B2_NULL_INDEX")
 	}
 
 	world.solverSets[setID].setIndex = setID
@@ -417,18 +420,18 @@ func bodyDefFlags(def *BodyDef) uint32 {
 
 func allocBodyID(world *World) int {
 	pool := &world.bodyIDPool
-	for freeIndex, bodyID := range slices.Backward(pool.freeArray) {
+	for freeIndex, bodyID := range slices.Backward(pool.FreeArray) {
 		if world.bodies[bodyID].generation == math.MaxUint16 {
 			continue
 		}
 
-		pool.freeArray = slices.Delete(pool.freeArray, freeIndex, freeIndex+1)
+		pool.FreeArray = slices.Delete(pool.FreeArray, freeIndex, freeIndex+1)
 
 		return bodyID
 	}
 
-	bodyID := pool.nextIndex
-	pool.nextIndex++
+	bodyID := pool.NextIndex
+	pool.NextIndex++
 
 	return bodyID
 }
@@ -453,7 +456,7 @@ func (w *World) CreateBody(def *BodyDef) Body {
 	checkInput(IsValidFloat(def.GravityScale), "b2IsValidFloat( def->gravityScale )")
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return Body{}
@@ -461,7 +464,7 @@ func (w *World) CreateBody(def *BodyDef) Body {
 
 	setID := createBodySolverSet(world, def)
 
-	assert(0 <= setID && setID < len(world.solverSets), "0 <= setId && setId < world->solverSets.count")
+	core.Assert(0 <= setID && setID < len(world.solverSets), "0 <= setId && setId < world->solverSets.count")
 
 	bodyID := allocBodyID(world)
 
@@ -469,7 +472,7 @@ func (w *World) CreateBody(def *BodyDef) Body {
 
 	var sim *bodySim
 
-	set.bodySims, sim = arrayEmplace(set.bodySims)
+	set.bodySims, sim = array.Emplace(set.bodySims)
 	*sim = bodySim{}
 	sim.transform.P = def.Position
 	sim.transform.Q = def.Rotation
@@ -488,7 +491,7 @@ func (w *World) CreateBody(def *BodyDef) Body {
 	if setID == awakeSet {
 		var state *bodyState
 
-		set.bodyStates, state = arrayEmplace(set.bodyStates)
+		set.bodyStates, state = array.Emplace(set.bodyStates)
 
 		*state = bodyState{}
 		state.linearVelocity = def.LinearVelocity
@@ -498,9 +501,9 @@ func (w *World) CreateBody(def *BodyDef) Body {
 	}
 
 	if bodyID == len(world.bodies) {
-		world.bodies = arrayPush(world.bodies, body{})
+		world.bodies = array.Push(world.bodies, body{})
 	} else {
-		assert(world.bodies[bodyID].id == nullIndex, "world->bodies.data[bodyId].id == B2_NULL_INDEX")
+		core.Assert(world.bodies[bodyID].id == nullIndex, "world->bodies.data[bodyId].id == B2_NULL_INDEX")
 	}
 
 	body := &world.bodies[bodyID]
@@ -605,7 +608,7 @@ func (b Body) Destroy() {
 		destroyShapeProxy(shape, &world.broadPhase)
 
 		// Return shape to free list.
-		freeID(&world.shapeIDPool, shapeID)
+		world.shapeIDPool.Free(shapeID)
 
 		shape.id = nullIndex
 
@@ -620,7 +623,7 @@ func (b Body) Destroy() {
 		freeChainData(chain)
 
 		// Return chain to free list.
-		freeID(&world.chainIDPool, chainID)
+		world.chainIDPool.Free(chainID)
 
 		chain.id = nullIndex
 
@@ -639,14 +642,14 @@ func (b Body) Destroy() {
 
 	// Remove body state from awake set
 	if body.setIndex == awakeSet {
-		set.bodyStates, _ = arrayRemoveSwap(set.bodyStates, body.localIndex)
+		set.bodyStates, _ = array.RemoveSwap(set.bodyStates, body.localIndex)
 	} else if set.setIndex >= firstSleepingSet && len(set.bodySims) == 0 {
 		// Remove solver set if it is empty
 		destroySolverSet(world, set.setIndex)
 	}
 
 	// Free body and id (preserve body generation)
-	freeID(&world.bodyIDPool, body.id)
+	world.bodyIDPool.Free(body.id)
 
 	body.setIndex = nullIndex
 	body.localIndex = nullIndex
@@ -823,7 +826,7 @@ func updateBodyMassData(world *World, body *body) {
 		body.inertia += inertia
 	}
 
-	assert(body.inertia >= 0.0, "body->inertia >= 0.0f")
+	core.Assert(body.inertia >= 0.0, "body->inertia >= 0.0f")
 
 	if body.inertia > 0.0 && (body.flags&fixedRotation) == 0 {
 		bodySim.invInertia = 1.0 / body.inertia
@@ -930,9 +933,9 @@ func (b Body) WorldVector(localVector Vec2) Vec2 {
 func (b Body) SetTransform(position Pos, rotation Rot) {
 	checkInput(position.IsValid(), "b2IsValidPosition( position )")
 	checkInput(rotation.IsValid(), "b2IsValidRotation( rotation )")
-	assert(b.IsValid(), "b2Body_IsValid( bodyId )")
+	core.Assert(b.IsValid(), "b2Body_IsValid( bodyId )")
 	world := b.world
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.recording != nil {
 		recWriteBodySetTransform(world.recording, &recArgsBodySetTransform{b, position, rotation})
@@ -1127,7 +1130,7 @@ func (b Body) SetTargetTransform(target WorldTransform, timeStep float32, wake b
 		wakeBody(world, body)
 	}
 
-	assert(body.setIndex == awakeSet, "body->setIndex == b2_awakeSet")
+	core.Assert(body.setIndex == awakeSet, "body->setIndex == b2_awakeSet")
 
 	state := getBodyState(world, body)
 	state.linearVelocity = linearVelocity
@@ -1365,7 +1368,7 @@ func (b Body) ApplyLinearImpulseToCenter(impulse Vec2, wake bool) {
 // use a torque instead, which will work better with the sub-stepping solver.
 func (b Body) ApplyAngularImpulse(impulse float32, wake bool) {
 	checkInput(IsValidFloat(impulse), "b2IsValidFloat( impulse )")
-	assert(b.IsValid(), "b2Body_IsValid( bodyId )")
+	core.Assert(b.IsValid(), "b2Body_IsValid( bodyId )")
 
 	world := b.world
 	if world.recording != nil {
@@ -1448,13 +1451,13 @@ func restoreBodyJoints(world *World, body *body, awakeSolverSet, staticSolverSet
 		}
 
 		// All joints were transferred to the static set in an earlier stage
-		assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
+		core.Assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
 
 		bodyA := &world.bodies[joint.edges[0].bodyID]
 		bodyB := &world.bodies[joint.edges[1].bodyID]
 
-		assert(bodyA.setIndex == staticSet || bodyA.setIndex == awakeSet, "bodyA->setIndex == b2_staticSet || bodyA->setIndex == b2_awakeSet")
-		assert(bodyB.setIndex == staticSet || bodyB.setIndex == awakeSet, "bodyB->setIndex == b2_staticSet || bodyB->setIndex == b2_awakeSet")
+		core.Assert(bodyA.setIndex == staticSet || bodyA.setIndex == awakeSet, "bodyA->setIndex == b2_staticSet || bodyA->setIndex == b2_awakeSet")
+		core.Assert(bodyB.setIndex == staticSet || bodyB.setIndex == awakeSet, "bodyB->setIndex == b2_staticSet || bodyB->setIndex == b2_awakeSet")
 
 		if bodyA.bodyType == DynamicBody || bodyB.bodyType == DynamicBody {
 			transferJoint(world, awakeSolverSet, staticSolverSet, joint)
@@ -1836,7 +1839,7 @@ func (b Body) AngularDamping() float32 {
 // Adjust the gravity scale. Normally this is set in BodyDef before creation.
 // See: BodyDef.GravityScale.
 func (b Body) SetGravityScale(gravityScale float32) {
-	assert(b.IsValid(), "b2Body_IsValid( bodyId )")
+	core.Assert(b.IsValid(), "b2Body_IsValid( bodyId )")
 	checkInput(IsValidFloat(gravityScale), "b2IsValidFloat( gravityScale )")
 
 	world := getWorldLocked(b.world)
@@ -1855,7 +1858,7 @@ func (b Body) SetGravityScale(gravityScale float32) {
 
 // Get the current gravity scale.
 func (b Body) GravityScale() float32 {
-	assert(b.IsValid(), "b2Body_IsValid( bodyId )")
+	core.Assert(b.IsValid(), "b2Body_IsValid( bodyId )")
 	world := b.world
 	body := getBodyFullID(world, b)
 	bodySim := getBodySim(world, body)
@@ -2070,7 +2073,7 @@ func (b Body) Disable() {
 			continue
 		}
 
-		assert(joint.setIndex == set.setIndex || set.setIndex == staticSet || joint.setIndex == staticSet, "joint->setIndex == set->setIndex || set->setIndex == b2_staticSet || joint->setIndex == b2_staticSet")
+		core.Assert(joint.setIndex == set.setIndex || set.setIndex == staticSet || joint.setIndex == staticSet, "joint->setIndex == set->setIndex || set->setIndex == b2_staticSet || joint->setIndex == b2_staticSet")
 
 		// Remove joint from island
 		unlinkJoint(world, joint)
@@ -2107,8 +2110,8 @@ func enableBodyJoints(world *World, body *body, disabledSolverSet *solverSet) {
 		edgeIndex := jointKey & 1
 
 		joint := &world.joints[jointID]
-		assert(joint.setIndex == disabledSet, "joint->setIndex == b2_disabledSet")
-		assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
+		core.Assert(joint.setIndex == disabledSet, "joint->setIndex == b2_disabledSet")
+		core.Assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
 
 		jointKey = joint.edges[edgeIndex].nextKey
 

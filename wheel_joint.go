@@ -3,6 +3,8 @@
 
 package box2d
 
+import "github.com/zigai/box2d/internal/core"
+
 type WheelJoint struct {
 	Joint
 }
@@ -137,7 +139,7 @@ func (w WheelJoint) SetLimits(lower float32, upper float32) {
 		recWriteWheelJointSetLimits(world.recording, &recArgsWheelJointSetLimits{joint: w.Joint, lower: lower, upper: upper})
 	}
 
-	assert(lower <= upper, "lower <= upper")
+	core.Assert(lower <= upper, "lower <= upper")
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
 	joint.wheelJoint.lowerTranslation = minFloat(lower, upper)
@@ -245,7 +247,7 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 	// Motor rotational constraint
 	// Cdot = wB - wA
 	// J = [0 0 -1 0 0 1]
-	assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
+	core.Assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
 
 	// chase body id to the solver set where the body lives
 	idA := base.bodyIDA
@@ -256,7 +258,7 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
 
@@ -347,7 +349,7 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 }
 
 func warmStartWheelJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
+	core.Assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -394,7 +396,7 @@ func warmStartWheelJoint(base *jointSim, context *stepContext) {
 }
 
 func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
-	assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
+	core.Assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -557,7 +559,7 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 }
 
 func drawWheelJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform, drawScale float32) {
-	assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
+	core.Assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
 
 	joint := &base.wheelJoint
 

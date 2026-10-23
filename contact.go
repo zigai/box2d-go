@@ -3,7 +3,14 @@
 
 package box2d
 
-import "math"
+import (
+	"math"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d/internal/hashset"
+	"github.com/zigai/box2d/internal/idpool"
+)
 
 const (
 	contactTouchingFlag        uint32 = 0x00000001
@@ -251,7 +258,7 @@ func chainSegmentAndPolygonManifold(shapeA, shapeB *shape, xf Transform, cache *
 func getContactFullID(world *World, contactID Contact) *contact {
 	id := int(contactID.index1) - 1
 	contact := &world.contacts[id]
-	assert(contact.contactID == id && contact.generation == contactID.generation, "contact.contactID == id && contact.generation == contactID.generation")
+	core.Assert(contact.contactID == id && contact.generation == contactID.generation, "contact.contactID == id && contact.generation == contactID.generation")
 
 	return contact
 }
@@ -289,7 +296,7 @@ func initializeContactFlags(contact *contact, bodyA, bodyB *body, shapeA, shapeB
 		contact.flags |= contactRecycleFlag
 	}
 
-	assert(shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex, "shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex")
+	core.Assert(shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex, "shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex")
 
 	if shapeA.enableContactEvents || shapeB.enableContactEvents {
 		contact.flags |= contactEnableContactEvents
@@ -334,7 +341,7 @@ func initializeContactSim(world *World, contactSim *contactSim, contact *contact
 	shapeIDA := shapeA.id
 	shapeIDB := shapeB.id
 
-	if validationEnabled {
+	if core.ValidationEnabled {
 		contactSim.bodyIDA = shapeA.bodyID
 		contactSim.bodyIDB = shapeB.bodyID
 	}
@@ -365,8 +372,8 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	type1 := shapeA.shapeType
 	type2 := shapeB.shapeType
 
-	assert(0 <= type1 && type1 < ShapeTypeCount, "0 <= type1 && type1 < ShapeTypeCount")
-	assert(0 <= type2 && type2 < ShapeTypeCount, "0 <= type2 && type2 < ShapeTypeCount")
+	core.Assert(0 <= type1 && type1 < ShapeTypeCount, "0 <= type1 && type1 < ShapeTypeCount")
+	core.Assert(0 <= type2 && type2 < ShapeTypeCount, "0 <= type2 && type2 < ShapeTypeCount")
 
 	if contactRegistry[type1][type2].fcn == nil {
 		// For example, no segment vs segment collision
@@ -382,8 +389,8 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	bodyA := &world.bodies[shapeA.bodyID]
 	bodyB := &world.bodies[shapeB.bodyID]
 
-	assert(bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet, "bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet")
-	assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA.setIndex != staticSet || bodyB.setIndex != staticSet")
+	core.Assert(bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet, "bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet")
+	core.Assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA.setIndex != staticSet || bodyB.setIndex != staticSet")
 
 	var setIndex int
 	if bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet {
@@ -398,11 +405,12 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	set := &world.solverSets[setIndex]
 
 	// Create contact key and contact
-	contactID := allocIDWithGeneration(&world.contactIDPool, func(id int) uint32 {
+	contactID := idpool.AllocWithGeneration(&world.contactIDPool, func(id int) uint32 {
 		return world.contacts[id].generation
 	})
+
 	if contactID == len(world.contacts) {
-		world.contacts = arrayPush(world.contacts, contact{})
+		world.contacts = array.Push(world.contacts, contact{})
 	}
 
 	shapeIDA := shapeA.id
@@ -426,14 +434,14 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	connectContactToBody(world, contact, bodyB, shapeB.bodyID, 1)
 
 	// Add to pair set for fast lookup.
-	pairKey := shapePairKey(shapeIDA, shapeIDB)
-	addKey(&world.broadPhase.pairSet, pairKey)
+	pairKey := hashset.ShapePairKey(shapeIDA, shapeIDB)
+	world.broadPhase.pairSet.Add(pairKey)
 
 	// Contacts are created as non-touching. Later if they are found to be touching
 	// they will link islands and be moved into the constraint graph.
 	var contactSim *contactSim
 
-	set.contactSims, contactSim = arrayEmplace(set.contactSims)
+	set.contactSims, contactSim = array.Emplace(set.contactSims)
 	contactSim.contactID = contactID
 	initializeContactSim(world, contactSim, contact, shapeA, shapeB)
 }
@@ -507,8 +515,8 @@ func warmStartContactManifold(contactSim *contactSim, oldManifold *Manifold, cen
 
 func destroyContact(world *World, contact *contact) {
 	// Remove pair from set
-	pairKey := shapePairKey(contact.shapeIDA, contact.shapeIDB)
-	removeKey(&world.broadPhase.pairSet, pairKey)
+	pairKey := hashset.ShapePairKey(contact.shapeIDA, contact.shapeIDB)
+	world.broadPhase.pairSet.Remove(pairKey)
 
 	edgeA := &contact.edges[0]
 	edgeB := &contact.edges[1]
@@ -532,7 +540,7 @@ func destroyContact(world *World, contact *contact) {
 
 		event := ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: contactID}
 
-		world.contactEndEvents[world.endEventArrayIndex] = arrayPush(world.contactEndEvents[world.endEventArrayIndex], event)
+		world.contactEndEvents[world.endEventArrayIndex] = array.Push(world.contactEndEvents[world.endEventArrayIndex], event)
 	}
 
 	contactID := contact.contactID
@@ -548,16 +556,16 @@ func destroyContact(world *World, contact *contact) {
 
 	if contact.colorIndex != nullIndex {
 		// contact is an active constraint
-		assert(contact.setIndex == awakeSet, "contact.setIndex == awakeSet")
+		core.Assert(contact.setIndex == awakeSet, "contact.setIndex == awakeSet")
 		removeContactFromGraph(world, bodyIDA, bodyIDB, contact.colorIndex, contact.localIndex)
 	} else {
 		// contact is non-touching or is sleeping
-		assert(contact.setIndex != awakeSet || (contact.flags&contactTouchingFlag) == 0, "contact.setIndex != awakeSet || ( contact.flags & contactTouchingFlag ) == 0")
+		core.Assert(contact.setIndex != awakeSet || (contact.flags&contactTouchingFlag) == 0, "contact.setIndex != awakeSet || ( contact.flags & contactTouchingFlag ) == 0")
 		set := &world.solverSets[contact.setIndex]
 
 		var movedIndex int
 
-		set.contactSims, movedIndex = arrayRemoveSwap(set.contactSims, contact.localIndex)
+		set.contactSims, movedIndex = array.RemoveSwap(set.contactSims, contact.localIndex)
 		if movedIndex != nullIndex {
 			movedContactSim := &set.contactSims[contact.localIndex]
 			movedContact := &world.contacts[movedContactSim.contactID]
@@ -571,7 +579,7 @@ func destroyContact(world *World, contact *contact) {
 	contact.colorIndex = nullIndex
 	contact.localIndex = nullIndex
 
-	freeID(&world.contactIDPool, contactID)
+	world.contactIDPool.Free(contactID)
 
 	if touching {
 		wakeBody(world, bodyA)
@@ -582,7 +590,7 @@ func destroyContact(world *World, contact *contact) {
 func getContactSim(world *World, contact *contact) *contactSim {
 	if contact.setIndex == awakeSet && contact.colorIndex != nullIndex {
 		// contact lives in constraint graph
-		assert(0 <= contact.colorIndex && contact.colorIndex < GraphColorCount, "0 <= contact.colorIndex && contact.colorIndex < GraphColorCount")
+		core.Assert(0 <= contact.colorIndex && contact.colorIndex < GraphColorCount, "0 <= contact.colorIndex && contact.colorIndex < GraphColorCount")
 		color := &world.constraintGraph.colors[contact.colorIndex]
 
 		return &color.contactSims[contact.localIndex]

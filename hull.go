@@ -3,7 +3,11 @@
 
 package box2d
 
-import "math"
+import (
+	"math"
+
+	"github.com/zigai/box2d/internal/core"
+)
 
 // Compute the convex hull of a set of points. Returns an empty hull if it fails.
 // Some failure cases:
@@ -86,7 +90,7 @@ func ComputeHull(points []Vec2) Hull {
 		hull.Count++
 	}
 
-	assert(hull.Count <= MaxPolygonVertices, "hull.count <= B2_MAX_POLYGON_VERTICES")
+	core.Assert(hull.Count <= MaxPolygonVertices, "hull.count <= B2_MAX_POLYGON_VERTICES")
 
 	hull.removeCollinearPoints(linearSlop)
 
@@ -198,7 +202,7 @@ func recurseHull(p1 Vec2, p2 Vec2, ps []Vec2, count int) Hull {
 		hull.Count++
 	}
 
-	assert(hull.Count < MaxPolygonVertices, "hull.count < B2_MAX_POLYGON_VERTICES")
+	core.Assert(hull.Count < MaxPolygonVertices, "hull.count < B2_MAX_POLYGON_VERTICES")
 
 	return hull
 }

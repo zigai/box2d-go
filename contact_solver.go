@@ -3,7 +3,12 @@
 
 package box2d
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/zigai/box2d/internal/bitset"
+	"github.com/zigai/box2d/internal/core"
+)
 
 var zeroContactSim contactSim
 
@@ -128,17 +133,17 @@ func prepareContactsOverflow(context *stepContext) {
 		manifold := &contactSim.manifold
 		pointCount := manifold.PointCount
 
-		assert(0 < pointCount && pointCount <= 2, "0 < pointCount && pointCount <= 2")
+		core.Assert(0 < pointCount && pointCount <= 2, "0 < pointCount && pointCount <= 2")
 
 		indexA := decodeAwakeIndex(contactSim.encodedBodySimA)
 		indexB := decodeAwakeIndex(contactSim.encodedBodySimB)
 
-		if validationEnabled {
+		if core.ValidationEnabled {
 			bodyA := &world.bodies[contactSim.bodyIDA]
-			assert(contactSim.encodedBodySimA == encodeBodySimIndex(bodyA), "contactSim.encodedBodySimA == encodeBodySimIndex( bodyA )")
+			core.Assert(contactSim.encodedBodySimA == encodeBodySimIndex(bodyA), "contactSim.encodedBodySimA == encodeBodySimIndex( bodyA )")
 
 			bodyB := &world.bodies[contactSim.bodyIDB]
-			assert(contactSim.encodedBodySimB == encodeBodySimIndex(bodyB), "contactSim.encodedBodySimB == encodeBodySimIndex( bodyB )")
+			core.Assert(contactSim.encodedBodySimB == encodeBodySimIndex(bodyB), "contactSim.encodedBodySimB == encodeBodySimIndex( bodyB )")
 		}
 
 		constraint := &constraints[i]
@@ -649,7 +654,7 @@ func storeImpulsesOverflow(context *stepContext) {
 
 				// Need to check total impulse because the point may be speculative and not colliding
 				if mp.NormalVelocity < negHitThreshold && mp.TotalNormalImpulse > 0.0 {
-					setBit(hitEventBitSet, uint32(contactSim.contactID))
+					hitEventBitSet.SetBit(uint32(contactSim.contactID))
 
 					hasHitEvents = true
 
@@ -972,7 +977,7 @@ func getWideContactConstraintByteCount() int {
 }
 
 func gatherBodies(states []bodyState, indices []int, simdBody *bodyStateW, includePosition bool) {
-	validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
+	core.Validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
 
 	// zero means null
 	i1 := indices[0] - 1
@@ -1014,7 +1019,7 @@ func gatherBodies(states []bodyState, indices []int, simdBody *bodyStateW, inclu
 
 // This writes only the velocities back to the solver bodies.
 func scatterBodies(states []bodyState, indices []int, simdBody *bodyStateW) {
-	validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
+	core.Validate(indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0, "indices[0] >= 0 && indices[1] >= 0 && indices[2] >= 0 && indices[3] >= 0")
 
 	// zero means null
 	i1 := indices[0] - 1
@@ -1086,13 +1091,13 @@ func prepareContactsWide(block solverBlock, context *stepContext) {
 		colorContactCount := spans[colorIndex].count
 		contactSims := spans[colorIndex].contacts
 
-		if validationEnabled {
+		if core.ValidationEnabled {
 			expectedWide := 0
 			if colorContactCount > 0 {
 				expectedWide = ((colorContactCount - 1) >> simdShift) + 1
 			}
 
-			assert(spans[colorIndex+1].start-spans[colorIndex].start == expectedWide, "spans[colorIndex + 1].start - spans[colorIndex].start == expectedWide")
+			core.Assert(spans[colorIndex+1].start-spans[colorIndex].start == expectedWide, "spans[colorIndex + 1].start - spans[colorIndex].start == expectedWide")
 		}
 
 		// Loop over color
@@ -1774,11 +1779,11 @@ func gatherWideContactLanes(world *World, cw *contactConstraintWide, contactLane
 			cw.indexB[laneIndex] = decodeAwakeIndex(c.encodedBodySimB) + 1
 			hitEvents |= (c.simFlags & simEnableHitEvent)
 
-			if validationEnabled {
+			if core.ValidationEnabled {
 				bodyA := &world.bodies[c.bodyIDA]
 				bodyB := &world.bodies[c.bodyIDB]
-				assert(c.encodedBodySimA == encodeBodySimIndex(bodyA), "c.encodedBodySimA == encodeBodySimIndex( bodyA )")
-				assert(c.encodedBodySimB == encodeBodySimIndex(bodyB), "c.encodedBodySimB == encodeBodySimIndex( bodyB )")
+				core.Assert(c.encodedBodySimA == encodeBodySimIndex(bodyA), "c.encodedBodySimA == encodeBodySimIndex( bodyA )")
+				core.Assert(c.encodedBodySimB == encodeBodySimIndex(bodyB), "c.encodedBodySimB == encodeBodySimIndex( bodyB )")
 			}
 		} else {
 			contactLanes[laneIndex] = &zeroContactSim
@@ -2019,7 +2024,7 @@ func restitutionContactImpulseWide(normalMass, normalImpulse, vn, velocityBias, 
 	return impulse, approachImpulse
 }
 
-func markContactHitEvent(contactSim *contactSim, hitEventBitSet *bitSet, negHitThreshold float32) bool {
+func markContactHitEvent(contactSim *contactSim, hitEventBitSet *bitset.Set, negHitThreshold float32) bool {
 	// Check for hit events to speed up serial processing later in the step
 	if contactSim.simFlags&simEnableHitEvent == 0 {
 		return false
@@ -2030,7 +2035,7 @@ func markContactHitEvent(contactSim *contactSim, hitEventBitSet *bitSet, negHitT
 		mp := &m.Points[k]
 		// Need to check total impulse because the point may be speculative and not colliding
 		if mp.NormalVelocity < negHitThreshold && mp.TotalNormalImpulse > 0.0 {
-			setBit(hitEventBitSet, uint32(contactSim.contactID))
+			hitEventBitSet.SetBit(uint32(contactSim.contactID))
 			return true
 		}
 	}

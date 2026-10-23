@@ -7,6 +7,10 @@ import (
 	"cmp"
 	"math/bits"
 	"slices"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/bitset"
+	"github.com/zigai/box2d/internal/core"
 )
 
 // A begin touch event is generated when a shape starts to overlap a sensor shape.
@@ -65,7 +69,7 @@ type sensor struct {
 }
 
 type sensorTaskContext struct {
-	eventBits bitSet
+	eventBits bitset.Set
 }
 
 type sensorQueryContext struct {
@@ -135,7 +139,7 @@ func sensorQueryCallback(userData uint64, context *sensorQueryContext) bool {
 
 	var shapeRef *visitor
 
-	sensor.overlaps2, shapeRef = arrayEmplace(sensor.overlaps2)
+	sensor.overlaps2, shapeRef = array.Emplace(sensor.overlaps2)
 	shapeRef.shapeID = shapeID
 	shapeRef.generation = otherShape.generation
 
@@ -158,7 +162,7 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 	world := context
 	taskContext := &world.sensorTaskContexts[threadIndex]
 
-	assert(startIndex < endIndex, "startIndex < endIndex")
+	core.Assert(startIndex < endIndex, "startIndex < endIndex")
 
 	trees := &world.broadPhase.trees
 	for sensorIndex := startIndex; sensorIndex < endIndex; sensorIndex++ {
@@ -170,7 +174,7 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 		// Append sensor hits
 		hitCount := len(sensor.hits)
 		for i := range hitCount {
-			sensor.overlaps2 = arrayPush(sensor.overlaps2, sensor.hits[i])
+			sensor.overlaps2 = array.Push(sensor.overlaps2, sensor.hits[i])
 		}
 		// Clear the hits
 		sensor.hits = sensor.hits[:0]
@@ -179,7 +183,7 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 		if body.setIndex == disabledSet || !sensorShape.enableSensorEvents {
 			if len(sensor.overlaps1) != 0 {
 				// This sensor is dropping all overlaps because it has been disabled.
-				setBit(&taskContext.eventBits, uint32(sensorIndex))
+				taskContext.eventBits.SetBit(uint32(sensorIndex))
 			}
 
 			continue
@@ -193,7 +197,7 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 			sensorShape: sensorShape,
 			transform:   transform,
 		}
-		assert(sensorShape.sensorIndex == sensorIndex, "sensorShape->sensorIndex == sensorIndex")
+		core.Assert(sensorShape.sensorIndex == sensorIndex, "sensorShape->sensorIndex == sensorIndex")
 		queryBounds := sensorShape.aabb
 		// Query all trees
 		callback := func(_ int, userData uint64) bool {
@@ -219,7 +223,7 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 		sensor.overlaps2 = sensor.overlaps2[:uniqueCount]
 		if sensorOverlapsChanged(sensor.overlaps1, sensor.overlaps2) {
 			// something changed
-			setBit(&taskContext.eventBits, uint32(sensorIndex))
+			taskContext.eventBits.SetBit(uint32(sensorIndex))
 		}
 	}
 }
@@ -244,10 +248,10 @@ func overlapSensors(world *World) {
 		return
 	}
 
-	assert(world.workerCount > 0, "world->workerCount > 0")
+	core.Assert(world.workerCount > 0, "world->workerCount > 0")
 
 	for i := range world.workerCount {
-		setBitCountAndClear(&world.sensorTaskContexts[i].eventBits, uint32(sensorCount))
+		world.sensorTaskContexts[i].eventBits.SetBitCountAndClear(uint32(sensorCount))
 	}
 	// Parallel-for sensors overlaps
 	minRange := 16
@@ -257,13 +261,13 @@ func overlapSensors(world *World) {
 
 	bitSet := &world.sensorTaskContexts[0].eventBits
 	for i := 1; i < world.workerCount; i++ {
-		inPlaceUnion(bitSet, &world.sensorTaskContexts[i].eventBits)
+		bitSet.InPlaceUnion(&world.sensorTaskContexts[i].eventBits)
 	}
 	// Iterate sensors bits and publish events
 	// Process sensor state changes. Iterate over set bits
-	bitData := bitSet.bits
+	bitData := bitSet.Bits
 
-	blockCount := bitSet.blockCount
+	blockCount := bitSet.BlockCount
 	for k := range blockCount {
 		word := bitData[k]
 		for word != 0 {
@@ -301,13 +305,13 @@ func publishSensorEvents(world *World, sensorIndex int) {
 			// end
 			visitorID := Shape{index1: int32(r1.shapeID + 1), world: world, generation: r1.generation}
 			event := SensorEndTouchEvent{SensorShape: sensorID, VisitorShape: visitorID}
-			world.sensorEndEvents[world.endEventArrayIndex] = arrayPush(world.sensorEndEvents[world.endEventArrayIndex], event)
+			world.sensorEndEvents[world.endEventArrayIndex] = array.Push(world.sensorEndEvents[world.endEventArrayIndex], event)
 			index1++
 		case 1:
 			// begin
 			visitorID := Shape{index1: int32(r2.shapeID + 1), world: world, generation: r2.generation}
 			event := SensorBeginTouchEvent{SensorShape: sensorID, VisitorShape: visitorID}
-			world.sensorBeginEvents = arrayPush(world.sensorBeginEvents, event)
+			world.sensorBeginEvents = array.Push(world.sensorBeginEvents, event)
 			index2++
 		case 0:
 			// persisted
@@ -321,7 +325,7 @@ func publishSensorEvents(world *World, sensorIndex int) {
 		r1 := &refs1[index1]
 		visitorID := Shape{index1: int32(r1.shapeID + 1), world: world, generation: r1.generation}
 		event := SensorEndTouchEvent{SensorShape: sensorID, VisitorShape: visitorID}
-		world.sensorEndEvents[world.endEventArrayIndex] = arrayPush(world.sensorEndEvents[world.endEventArrayIndex], event)
+		world.sensorEndEvents[world.endEventArrayIndex] = array.Push(world.sensorEndEvents[world.endEventArrayIndex], event)
 		index1++
 	}
 
@@ -330,7 +334,7 @@ func publishSensorEvents(world *World, sensorIndex int) {
 		r2 := &refs2[index2]
 		visitorID := Shape{index1: int32(r2.shapeID + 1), world: world, generation: r2.generation}
 		event := SensorBeginTouchEvent{SensorShape: sensorID, VisitorShape: visitorID}
-		world.sensorBeginEvents = arrayPush(world.sensorBeginEvents, event)
+		world.sensorBeginEvents = array.Push(world.sensorBeginEvents, event)
 		index2++
 	}
 }
@@ -343,7 +347,7 @@ func destroySensor(world *World, sensorShape *shape) {
 			SensorShape:  Shape{index1: int32(sensorShape.id + 1), world: world, generation: sensorShape.generation},
 			VisitorShape: Shape{index1: int32(ref.shapeID + 1), world: world, generation: ref.generation},
 		}
-		world.sensorEndEvents[world.endEventArrayIndex] = arrayPush(world.sensorEndEvents[world.endEventArrayIndex], event)
+		world.sensorEndEvents[world.endEventArrayIndex] = array.Push(world.sensorEndEvents[world.endEventArrayIndex], event)
 	}
 	// Destroy sensor
 	sensor.hits = nil
@@ -352,7 +356,7 @@ func destroySensor(world *World, sensorShape *shape) {
 
 	var movedIndex int
 
-	world.sensors, movedIndex = arrayRemoveSwap(world.sensors, sensorShape.sensorIndex)
+	world.sensors, movedIndex = array.RemoveSwap(world.sensors, sensorShape.sensorIndex)
 	if movedIndex != nullIndex {
 		// Fixup moved sensor
 		movedSensor := &world.sensors[sensorShape.sensorIndex]

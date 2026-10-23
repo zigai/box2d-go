@@ -20,11 +20,11 @@
  * SOFTWARE.
  */
 
-package box2d
+package qsort
 
 const qThresh int = 16
 
-func qsort[T any](s []T, less func(a, b T) bool) {
+func Sort[T any](s []T, less func(a, b T) bool) {
 	if len(s) <= 1 {
 		return
 	}

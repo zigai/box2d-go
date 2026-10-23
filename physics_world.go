@@ -8,6 +8,13 @@ import (
 	"log/slog"
 	"math"
 	"math/bits"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/bitset"
+	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d/internal/idpool"
+	"github.com/zigai/box2d/internal/scheduler"
+	"github.com/zigai/box2d/internal/timer"
 )
 
 type (
@@ -95,12 +102,12 @@ type Counters struct {
 type taskContext struct {
 	sensorHits           []sensorHit
 	pairKeys             []uint64
-	contactStateBitSet   bitSet
-	hitEventBitSet       bitSet
+	contactStateBitSet   bitset.Set
+	hitEventBitSet       bitset.Set
 	hasHitEvents         bool
-	jointStateBitSet     bitSet
-	enlargedSimBitSet    bitSet
-	awakeIslandBitSet    bitSet
+	jointStateBitSet     bitset.Set
+	enlargedSimBitSet    bitset.Set
+	awakeIslandBitSet    bitset.Set
 	splitSleepTime       float32
 	splitIslandID        int
 	recycledContactCount int
@@ -126,18 +133,18 @@ type World struct {
 	parallelForScratch           parallelForShared
 	parallelTaskScratch          [MaxWorkers]parallelForTask
 	parallelHandleScratch        [MaxWorkers]func()
-	bodyIDPool                   idPool
+	bodyIDPool                   idpool.Pool
 	bodies                       []body
-	solverSetIDPool              idPool
+	solverSetIDPool              idpool.Pool
 	solverSets                   []solverSet
-	jointIDPool                  idPool
+	jointIDPool                  idpool.Pool
 	joints                       []joint
-	contactIDPool                idPool
+	contactIDPool                idpool.Pool
 	contacts                     []contact
-	islandIDPool                 idPool
+	islandIDPool                 idpool.Pool
 	islands                      []island
-	shapeIDPool                  idPool
-	chainIDPool                  idPool
+	shapeIDPool                  idpool.Pool
+	chainIDPool                  idpool.Pool
 	shapes                       []shape
 	fatAABBs                     []AABB
 	chainShapes                  []chainShape
@@ -152,10 +159,10 @@ type World struct {
 	endEventArrayIndex           int
 	contactHitEvents             []ContactHitEvent
 	jointEvents                  []JointEvent
-	debugBodySet                 bitSet
-	debugJointSet                bitSet
-	debugContactSet              bitSet
-	debugIslandSet               bitSet
+	debugBodySet                 bitset.Set
+	debugJointSet                bitset.Set
+	debugContactSet              bitset.Set
+	debugIslandSet               bitset.Set
 	stepIndex                    uint64
 	splitIslandID                int
 	gravity                      Vec2
@@ -178,7 +185,7 @@ type World struct {
 	workerCount                  int
 	enqueueTaskFcn               EnqueueTaskFunc
 	userTreeTask                 func()
-	scheduler                    *scheduler
+	scheduler                    *scheduler.Scheduler
 	userData                     any
 	logger                       *slog.Logger
 	recording                    *Recording
@@ -209,36 +216,36 @@ func NewWorld(def *WorldDef) *World {
 	createBroadPhase(&w.broadPhase, &def.Capacity)
 	createGraph(&w.constraintGraph, &def.Capacity)
 	// pools
-	w.bodyIDPool = createIDPool()
+	w.bodyIDPool = idpool.New()
 	bodyCapacity := max(16, def.Capacity.StaticBodyCount+def.Capacity.DynamicBodyCount)
 	w.bodies = make([]body, 0, bodyCapacity)
 	w.solverSets = make([]solverSet, 0, 8)
 	// add empty static, active, and disabled body sets
-	w.solverSetIDPool = createIDPool()
+	w.solverSetIDPool = idpool.New()
 	// static set
-	w.solverSets = arrayPush(w.solverSets, solverSet{setIndex: allocID(&w.solverSetIDPool)})
-	w.solverSets[staticSet].bodySims = arrayReserve(w.solverSets[staticSet].bodySims, max(16, def.Capacity.StaticBodyCount))
-	assert(w.solverSets[staticSet].setIndex == staticSet, "world->solverSets.data[b2_staticSet].setIndex == b2_staticSet")
+	w.solverSets = array.Push(w.solverSets, solverSet{setIndex: w.solverSetIDPool.Alloc()})
+	w.solverSets[staticSet].bodySims = array.Reserve(w.solverSets[staticSet].bodySims, max(16, def.Capacity.StaticBodyCount))
+	core.Assert(w.solverSets[staticSet].setIndex == staticSet, "world->solverSets.data[b2_staticSet].setIndex == b2_staticSet")
 	// disabled set
-	w.solverSets = arrayPush(w.solverSets, solverSet{setIndex: allocID(&w.solverSetIDPool)})
-	assert(w.solverSets[disabledSet].setIndex == disabledSet, "world->solverSets.data[b2_disabledSet].setIndex == b2_disabledSet")
+	w.solverSets = array.Push(w.solverSets, solverSet{setIndex: w.solverSetIDPool.Alloc()})
+	core.Assert(w.solverSets[disabledSet].setIndex == disabledSet, "world->solverSets.data[b2_disabledSet].setIndex == b2_disabledSet")
 	// awake set
-	w.solverSets = arrayPush(w.solverSets, solverSet{setIndex: allocID(&w.solverSetIDPool)})
-	w.solverSets[awakeSet].bodySims = arrayReserve(w.solverSets[awakeSet].bodySims, max(16, def.Capacity.DynamicBodyCount))
-	w.solverSets[awakeSet].bodyStates = arrayReserve(w.solverSets[awakeSet].bodyStates, max(16, def.Capacity.DynamicBodyCount))
-	w.solverSets[awakeSet].contactSims = arrayReserve(w.solverSets[awakeSet].contactSims, max(16, def.Capacity.ContactCount))
-	assert(w.solverSets[awakeSet].setIndex == awakeSet, "world->solverSets.data[b2_awakeSet].setIndex == b2_awakeSet")
-	w.shapeIDPool = createIDPool()
+	w.solverSets = array.Push(w.solverSets, solverSet{setIndex: w.solverSetIDPool.Alloc()})
+	w.solverSets[awakeSet].bodySims = array.Reserve(w.solverSets[awakeSet].bodySims, max(16, def.Capacity.DynamicBodyCount))
+	w.solverSets[awakeSet].bodyStates = array.Reserve(w.solverSets[awakeSet].bodyStates, max(16, def.Capacity.DynamicBodyCount))
+	w.solverSets[awakeSet].contactSims = array.Reserve(w.solverSets[awakeSet].contactSims, max(16, def.Capacity.ContactCount))
+	core.Assert(w.solverSets[awakeSet].setIndex == awakeSet, "world->solverSets.data[b2_awakeSet].setIndex == b2_awakeSet")
+	w.shapeIDPool = idpool.New()
 	shapeCapacity := max(16, def.Capacity.StaticShapeCount+def.Capacity.DynamicShapeCount)
 	w.shapes = make([]shape, 0, shapeCapacity)
 	w.fatAABBs = make([]AABB, 0, shapeCapacity)
-	w.chainIDPool = createIDPool()
+	w.chainIDPool = idpool.New()
 	w.chainShapes = make([]chainShape, 0, 4)
-	w.contactIDPool = createIDPool()
+	w.contactIDPool = idpool.New()
 	w.contacts = make([]contact, 0, max(16, def.Capacity.ContactCount))
-	w.jointIDPool = createIDPool()
+	w.jointIDPool = idpool.New()
 	w.joints = make([]joint, 0, 16)
-	w.islandIDPool = createIDPool()
+	w.islandIDPool = idpool.New()
 	w.islands = make([]island, 0, max(16, def.Capacity.DynamicBodyCount))
 	w.sensors = make([]sensor, 0, 4)
 	w.bodyMoveEvents = make([]BodyMoveEvent, 0, 4)
@@ -277,8 +284,8 @@ func NewWorld(def *WorldDef) *World {
 	} else {
 		w.workerCount = max(1, min(def.WorkerCount, MaxWorkers))
 		if w.workerCount > 1 {
-			w.scheduler = createScheduler(w.workerCount)
-			w.enqueueTaskFcn = func(task func()) func() { return schedulerEnqueueTask(task, w.scheduler) }
+			w.scheduler = scheduler.New(w.workerCount, MaxTasks)
+			w.enqueueTaskFcn = func(task func()) func() { return w.scheduler.Enqueue(task) }
 		} else {
 			// Serial fallback
 			w.enqueueTaskFcn = defaultAddTaskFcn
@@ -286,17 +293,17 @@ func NewWorld(def *WorldDef) *World {
 	}
 
 	createWorkerContexts(w)
-	w.debugBodySet = createBitSet(256)
-	w.debugJointSet = createBitSet(256)
-	w.debugContactSet = createBitSet(256)
-	w.debugIslandSet = createBitSet(256)
+	w.debugBodySet = bitset.New(256)
+	w.debugJointSet = bitset.New(256)
+	w.debugContactSet = bitset.New(256)
+	w.debugIslandSet = bitset.New(256)
 
 	return w
 }
 
 func getWorldLocked(w *World) *World {
 	if w.locked {
-		assert(false, "false")
+		core.Assert(false, "false")
 		return nil
 	}
 
@@ -315,13 +322,13 @@ func createWorkerContexts(w *World) {
 	for i := range w.workerCount {
 		c := &w.taskContexts[i]
 		c.sensorHits = make([]sensorHit, 0, 8)
-		c.contactStateBitSet = createBitSet(1024)
-		c.hitEventBitSet = createBitSet(1024)
-		c.jointStateBitSet = createBitSet(1024)
-		c.enlargedSimBitSet = createBitSet(256)
-		c.awakeIslandBitSet = createBitSet(256)
+		c.contactStateBitSet = bitset.New(1024)
+		c.hitEventBitSet = bitset.New(1024)
+		c.jointStateBitSet = bitset.New(1024)
+		c.enlargedSimBitSet = bitset.New(256)
+		c.awakeIslandBitSet = bitset.New(256)
 		c.splitIslandID = nullIndex
-		w.sensorTaskContexts[i].eventBits = createBitSet(128)
+		w.sensorTaskContexts[i].eventBits = bitset.New(128)
 	}
 }
 
@@ -330,12 +337,12 @@ func destroyWorkerContexts(w *World) {
 		c := &w.taskContexts[i]
 		c.sensorHits = nil
 		c.pairKeys = nil
-		destroyBitSet(&c.contactStateBitSet)
-		destroyBitSet(&c.hitEventBitSet)
-		destroyBitSet(&c.jointStateBitSet)
-		destroyBitSet(&c.enlargedSimBitSet)
-		destroyBitSet(&c.awakeIslandBitSet)
-		destroyBitSet(&w.sensorTaskContexts[i].eventBits)
+		c.contactStateBitSet.Destroy()
+		c.hitEventBitSet.Destroy()
+		c.jointStateBitSet.Destroy()
+		c.enlargedSimBitSet.Destroy()
+		c.awakeIslandBitSet.Destroy()
+		w.sensorTaskContexts[i].eventBits.Destroy()
 	}
 
 	w.taskContexts = nil
@@ -348,14 +355,14 @@ func (w *World) Close() {
 	stopRecordingInternal(state)
 
 	if state.scheduler != nil {
-		destroyScheduler(state.scheduler)
+		state.scheduler.Destroy()
 		state.scheduler = nil
 	}
 
-	destroyBitSet(&state.debugBodySet)
-	destroyBitSet(&state.debugJointSet)
-	destroyBitSet(&state.debugContactSet)
-	destroyBitSet(&state.debugIslandSet)
+	state.debugBodySet.Destroy()
+	state.debugJointSet.Destroy()
+	state.debugContactSet.Destroy()
+	state.debugIslandSet.Destroy()
 	destroyWorkerContexts(state)
 	state.bodyMoveEvents = nil
 	state.sensorBeginEvents = nil
@@ -370,7 +377,7 @@ func (w *World) Close() {
 		if chain.id != nullIndex {
 			freeChainData(chain)
 		} else {
-			assert(chain.shapeIndices == nil, "chain->shapeIndices == NULL")
+			core.Assert(chain.shapeIndices == nil, "chain->shapeIndices == NULL")
 		}
 	}
 
@@ -401,13 +408,13 @@ func (w *World) Close() {
 	state.solverSets = nil
 	destroyGraph(&state.constraintGraph)
 	destroyBroadPhase(&state.broadPhase)
-	destroyIDPool(&state.bodyIDPool)
-	destroyIDPool(&state.shapeIDPool)
-	destroyIDPool(&state.chainIDPool)
-	destroyIDPool(&state.contactIDPool)
-	destroyIDPool(&state.jointIDPool)
-	destroyIDPool(&state.islandIDPool)
-	destroyIDPool(&state.solverSetIDPool)
+	state.bodyIDPool.Destroy()
+	state.shapeIDPool.Destroy()
+	state.chainIDPool.Destroy()
+	state.contactIDPool.Destroy()
+	state.jointIDPool.Destroy()
+	state.islandIDPool.Destroy()
+	state.solverSetIDPool.Destroy()
 	*state = World{}
 }
 
@@ -489,11 +496,11 @@ func updateContactTouchingState(task *taskContext, sim *contactSim, touching, wa
 	if touching && !wasTouching {
 		sim.simFlags |= simStartedTouching
 
-		setBit(&task.contactStateBitSet, uint32(contactID))
+		task.contactStateBitSet.SetBit(uint32(contactID))
 	} else if !touching && wasTouching {
 		sim.simFlags |= simStoppedTouching
 
-		setBit(&task.contactStateBitSet, uint32(contactID))
+		task.contactStateBitSet.SetBit(uint32(contactID))
 	}
 
 	if touching {
@@ -514,7 +521,7 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 	awakeSims := w.solverSets[awakeSet].bodySims
 	staticSims := w.solverSets[staticSet].bodySims
 
-	assert(startIndex < endIndex, "startIndex < endIndex")
+	core.Assert(startIndex < endIndex, "startIndex < endIndex")
 
 	spanIndex := 0
 	for spans[spanIndex+1].start <= startIndex {
@@ -546,7 +553,7 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 			sim.simFlags |= simDisjoint
 			sim.simFlags &^= simTouchingFlag
 
-			setBit(&task.contactStateBitSet, uint32(contactID))
+			task.contactStateBitSet.SetBit(uint32(contactID))
 
 			continue
 		}
@@ -592,11 +599,11 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 }
 
 func addNonTouchingContact(w *World, c *contact, sim *contactSim) {
-	assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
+	core.Assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
 	set := &w.solverSets[awakeSet]
 	c.colorIndex = nullIndex
 	c.localIndex = len(set.contactSims)
-	set.contactSims = arrayPush(set.contactSims, *sim)
+	set.contactSims = array.Push(set.contactSims, *sim)
 }
 
 func removeNonTouchingContact(w *World, setIndex, localIndex int) {
@@ -604,13 +611,13 @@ func removeNonTouchingContact(w *World, setIndex, localIndex int) {
 
 	var movedIndex int
 
-	set.contactSims, movedIndex = arrayRemoveSwap(set.contactSims, localIndex)
+	set.contactSims, movedIndex = array.RemoveSwap(set.contactSims, localIndex)
 	if movedIndex != nullIndex {
 		movedSim := &set.contactSims[localIndex]
 		moved := &w.contacts[movedSim.contactID]
-		assert(moved.setIndex == setIndex, "movedContact->setIndex == setIndex")
-		assert(moved.localIndex == movedIndex, "movedContact->localIndex == movedIndex")
-		assert(moved.colorIndex == nullIndex, "movedContact->colorIndex == B2_NULL_INDEX")
+		core.Assert(moved.setIndex == setIndex, "movedContact->setIndex == setIndex")
+		core.Assert(moved.localIndex == movedIndex, "movedContact->localIndex == movedIndex")
+		core.Assert(moved.colorIndex == nullIndex, "movedContact->colorIndex == B2_NULL_INDEX")
 		moved.localIndex = localIndex
 	}
 }
@@ -618,7 +625,7 @@ func removeNonTouchingContact(w *World, setIndex, localIndex int) {
 func processContactStateChange(w *World, contactID int, awake *solverSet, endEventArrayIndex int, shapes []shape) {
 	colors := &w.constraintGraph.colors
 	c := &w.contacts[contactID]
-	assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
+	core.Assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
 	colorIndex := c.colorIndex
 	localIndex := c.localIndex
 
@@ -626,7 +633,7 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 
 	if colorIndex != nullIndex {
 		// contact lives in constraint graph
-		assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+		core.Assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
 		sim = &colors[colorIndex].contactSims[localIndex]
 	} else {
 		sim = &awake.contactSims[localIndex]
@@ -640,7 +647,7 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 		// Bounding boxes no longer overlap
 		destroyContact(w, c)
 	case simFlags&simStartedTouching != 0:
-		assert(c.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
+		core.Assert(c.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
 
 		if flags&contactEnableContactEvents != 0 {
 			shapeA := &shapes[c.shapeIDA]
@@ -648,18 +655,18 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 			shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
 			shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
 			fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
-			w.contactBeginEvents = arrayPush(w.contactBeginEvents, ContactBeginTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
+			w.contactBeginEvents = array.Push(w.contactBeginEvents, ContactBeginTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
 		}
 
-		assert(sim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
-		assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
+		core.Assert(sim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
+		core.Assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
 		// Link first because this wakes colliding bodies and ensures the body sims
 		// are in the correct place.
 		c.flags |= contactTouchingFlag
 		linkContact(w, c)
 		// Make sure these didn't change
-		assert(c.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
-		assert(c.localIndex == localIndex, "contact->localIndex == localIndex")
+		core.Assert(c.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
+		core.Assert(c.localIndex == localIndex, "contact->localIndex == localIndex")
 		// Contact sim pointer may have become orphaned due to awake set growth,
 		// so I just need to refresh it.
 		sim = &awake.contactSims[localIndex]
@@ -678,10 +685,10 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 			shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
 			shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
 			fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
-			w.contactEndEvents[endEventArrayIndex] = arrayPush(w.contactEndEvents[endEventArrayIndex], ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
+			w.contactEndEvents[endEventArrayIndex] = array.Push(w.contactEndEvents[endEventArrayIndex], ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
 		}
 
-		assert(sim.manifold.PointCount == 0, "contactSim->manifold.pointCount == 0")
+		core.Assert(sim.manifold.PointCount == 0, "contactSim->manifold.pointCount == 0")
 		unlinkContact(w, c)
 		bodyIDA := c.edges[0].bodyID
 		bodyIDB := c.edges[1].bodyID
@@ -693,7 +700,7 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 
 func collide(context *stepContext) {
 	w := context.world
-	assert(w.workerCount > 0, "world->workerCount > 0")
+	core.Assert(w.workerCount > 0, "world->workerCount > 0")
 	// gather contacts into a single array for easier parallel-for
 	contactCount := 0
 
@@ -731,14 +738,14 @@ func collide(context *stepContext) {
 		contactIndex += nonTouchingCount
 	}
 
-	assert(contactIndex == contactCount, "contactIndex == contactCount")
-	assert(spanCount <= GraphColorCount+1, "spanCount <= B2_GRAPH_COLOR_COUNT + 1")
+	core.Assert(contactIndex == contactCount, "contactIndex == contactCount")
+	core.Assert(spanCount <= GraphColorCount+1, "spanCount <= B2_GRAPH_COLOR_COUNT + 1")
 	spans[spanCount].start = contactCount
 	context.collideSpans = spans[:spanCount+1]
 	// Contact bit set on ids because contact pointers are unstable as they move between touching and not touching.
-	contactIDCapacity := getIDCapacity(&w.contactIDPool)
+	contactIDCapacity := w.contactIDPool.Capacity()
 	for i := range w.workerCount {
-		setBitCountAndClear(&w.taskContexts[i].contactStateBitSet, uint32(contactIDCapacity))
+		w.taskContexts[i].contactStateBitSet.SetBitCountAndClear(uint32(contactIDCapacity))
 		w.taskContexts[i].recycledContactCount = 0
 	}
 	// Task should take at least 40us on a 4GHz CPU (10K cycles)
@@ -751,15 +758,15 @@ func collide(context *stepContext) {
 	// Bitwise OR all contact bits
 	bitSet := &w.taskContexts[0].contactStateBitSet
 	for i := 1; i < w.workerCount; i++ {
-		inPlaceUnion(bitSet, &w.taskContexts[i].contactStateBitSet)
+		bitSet.InPlaceUnion(&w.taskContexts[i].contactStateBitSet)
 	}
 
 	awake := &w.solverSets[awakeSet]
 	endEventArrayIndex := w.endEventArrayIndex
 	shapes := w.shapes
 	// Process contact state changes. Iterate over set bits
-	for k := range uint32(bitSet.blockCount) {
-		word := bitSet.bits[k]
+	for k := range uint32(bitSet.BlockCount) {
+		word := bitSet.Bits[k]
 		for word != 0 {
 			ctz := bits.TrailingZeros64(word)
 			contactID := int(64*k) + ctz
@@ -775,10 +782,10 @@ func collide(context *stepContext) {
 
 func (w *World) Step(timeStep float32, subStepCount int) {
 	checkInput(IsValidFloat(timeStep), "b2IsValidFloat( timeStep )")
-	assert(0 < subStepCount, "0 < subStepCount")
+	core.Assert(0 < subStepCount, "0 < subStepCount")
 
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -800,10 +807,10 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 
 	state.taskCount = 0
 	if state.scheduler != nil {
-		resetScheduler(state.scheduler)
+		state.scheduler.Reset()
 	}
 
-	stepTicks := currentTicks()
+	stepTicks := timer.Ticks()
 	{
 		c := &state.maxCapacity
 		c.StaticShapeCount = max(c.StaticShapeCount, int(state.broadPhase.trees[StaticBody].proxyCount))
@@ -811,17 +818,17 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 		staticBodyCount := len(state.solverSets[staticSet].bodySims)
 		c.StaticBodyCount = max(c.StaticBodyCount, staticBodyCount)
 		// this includes kinematic bodies
-		totalBodyCount := getIDCount(&state.bodyIDPool)
+		totalBodyCount := state.bodyIDPool.Count()
 		c.DynamicBodyCount = max(c.DynamicBodyCount, totalBodyCount-staticBodyCount)
-		totalContactCount := getIDCount(&state.contactIDPool)
+		totalContactCount := state.contactIDPool.Count()
 		c.ContactCount = max(c.ContactCount, totalContactCount)
 	}
 	// Update collision pairs and create contacts
 	{
-		pairTicks := currentTicks()
+		pairTicks := timer.Ticks()
 
 		updateBroadPhasePairs(state)
-		state.profile.Pairs = milliseconds(pairTicks)
+		state.profile.Pairs = timer.Milliseconds(pairTicks)
 	}
 
 	context := &state.stepScratch
@@ -845,18 +852,18 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 	context.enableWarmStarting = state.enableWarmStarting
 	// Narrow phase : update contacts
 	{
-		collideTicks := currentTicks()
+		collideTicks := timer.Ticks()
 
 		collide(context)
 
-		state.profile.Collide = milliseconds(collideTicks)
+		state.profile.Collide = timer.Milliseconds(collideTicks)
 	}
 	// Integrate velocities, solve velocity constraints, and integrate positions.
 	if timeStep > 0 {
-		solveTicks := currentTicks()
+		solveTicks := timer.Ticks()
 
 		solve(state, context)
-		state.profile.Solve = milliseconds(solveTicks)
+		state.profile.Solve = timer.Milliseconds(solveTicks)
 	}
 	// Finish the tree task in case solve didn't finish it
 	if state.userTreeTask != nil {
@@ -867,15 +874,15 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 	}
 	// Update sensors
 	{
-		sensorTicks := currentTicks()
+		sensorTicks := timer.Ticks()
 
 		overlapSensors(state)
-		state.profile.Sensors = milliseconds(sensorTicks)
+		state.profile.Sensors = timer.Milliseconds(sensorTicks)
 	}
 
-	state.profile.Step = milliseconds(stepTicks)
+	state.profile.Step = timer.Milliseconds(stepTicks)
 	// Make sure all tasks that were started were also finished
-	assert(state.activeTaskCount == 0, "world->activeTaskCount == 0")
+	core.Assert(state.activeTaskCount == 0, "world->activeTaskCount == 0")
 	// Swap end event array buffers
 	state.endEventArrayIndex = 1 - state.endEventArrayIndex
 	state.sensorEndEvents[state.endEventArrayIndex] = state.sensorEndEvents[state.endEventArrayIndex][:0]
@@ -981,7 +988,7 @@ func (events eventSlice[E]) values(yield func(E) bool) {
 
 //go:noinline
 func checkedEventSlice[E any](w *World, events []E) []E {
-	assert(!w.locked, "world->locked == false")
+	core.Assert(!w.locked, "world->locked == false")
 	if w.locked {
 		return nil
 	}
@@ -1013,7 +1020,7 @@ func (b Body) IsValid() bool {
 		return false
 	}
 
-	assert(item.localIndex != nullIndex, "body->localIndex != B2_NULL_INDEX")
+	core.Assert(item.localIndex != nullIndex, "body->localIndex != B2_NULL_INDEX")
 
 	return item.generation == b.generation
 }
@@ -1034,7 +1041,7 @@ func (s Shape) IsValid() bool {
 		return false
 	}
 
-	assert(item.id == index, "shape->id == shapeId")
+	core.Assert(item.id == index, "shape->id == shapeId")
 
 	return item.generation == s.generation
 }
@@ -1055,7 +1062,7 @@ func (c Chain) IsValid() bool {
 		return false
 	}
 
-	assert(item.id == index, "chain->id == chainId")
+	core.Assert(item.id == index, "chain->id == chainId")
 
 	return item.generation == c.generation
 }
@@ -1076,7 +1083,7 @@ func (j Joint) IsValid() bool {
 		return false
 	}
 
-	assert(item.jointID == index, "joint->jointId == jointId")
+	core.Assert(item.jointID == index, "joint->jointId == jointId")
 
 	return item.generation == j.generation
 }
@@ -1097,14 +1104,14 @@ func (c Contact) IsValid() bool {
 		return false
 	}
 
-	assert(item.contactID == index, "contact->contactId == contactId")
+	core.Assert(item.contactID == index, "contact->contactId == contactId")
 
 	return item.generation == c.generation
 }
 
 func (w *World) SetSleepingEnabled(flag bool) {
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1134,7 +1141,7 @@ func (w *World) SleepingEnabled() bool {
 
 func (w *World) SetWarmStartingEnabled(flag bool) {
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1157,7 +1164,7 @@ func (w *World) AwakeBodyCount() int {
 
 func (w *World) SetContinuousEnabled(flag bool) {
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1178,7 +1185,7 @@ func (w *World) SetRestitutionThreshold(value float32) {
 	checkInput(IsValidFloat(value), "b2IsValidFloat( value )")
 
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1199,7 +1206,7 @@ func (w *World) SetRestitutionIterations(iterations int) {
 	checkInput(iterations >= 0, "iterations >= 0")
 
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1219,7 +1226,7 @@ func (w *World) RestitutionIterations() int {
 
 func (w *World) SetRestitutionPropagationEnabled(flag bool) {
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1240,7 +1247,7 @@ func (w *World) SetHitEventThreshold(value float32) {
 	checkInput(IsValidFloat(value), "b2IsValidFloat( value )")
 
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1263,7 +1270,7 @@ func (w *World) SetContactTuning(hertz, dampingRatio, pushSpeed float32) {
 	checkInput(IsValidFloat(pushSpeed), "b2IsValidFloat( pushSpeed )")
 
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1282,7 +1289,7 @@ func (w *World) SetContactRecycleDistance(recycleDistance float32) {
 	checkInput(IsValidFloat(recycleDistance), "b2IsValidFloat( recycleDistance )")
 
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1303,7 +1310,7 @@ func (w *World) SetMaximumLinearSpeed(maximumLinearSpeed float32) {
 	checkInput(IsValidFloat(maximumLinearSpeed) && maximumLinearSpeed > 0, "b2IsValidFloat( maximumLinearSpeed ) && maximumLinearSpeed > 0.0f")
 
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return
@@ -1327,11 +1334,11 @@ func (w *World) Profile() Profile {
 func (w *World) Counters() Counters {
 	state := w
 	s := Counters{}
-	s.BodyCount = getIDCount(&state.bodyIDPool)
-	s.ShapeCount = getIDCount(&state.shapeIDPool)
-	s.ContactCount = getIDCount(&state.contactIDPool)
-	s.JointCount = getIDCount(&state.jointIDPool)
-	s.IslandCount = getIDCount(&state.islandIDPool)
+	s.BodyCount = state.bodyIDPool.Count()
+	s.ShapeCount = state.shapeIDPool.Count()
+	s.ContactCount = state.contactIDPool.Count()
+	s.JointCount = state.jointIDPool.Count()
+	s.IslandCount = state.islandIDPool.Count()
 	s.StaticTreeHeight = state.broadPhase.trees[StaticBody].Height()
 	s.TreeHeight = max(state.broadPhase.trees[DynamicBody].Height(), state.broadPhase.trees[KinematicBody].Height())
 
@@ -1453,7 +1460,7 @@ func (w *World) SetCustomFilterCallback(fcn CustomFilterFunc) {
 	state := w
 	if fcn != nil && state.recording != nil {
 		state.logger.Warn("box2d: custom filter callbacks are not supported while recording")
-		assert(false, "false && \"customFilter callbacks are not supported while recording\"")
+		core.Assert(false, "false && \"customFilter callbacks are not supported while recording\"")
 	}
 
 	state.customFilterFcn = fcn
@@ -1463,7 +1470,7 @@ func (w *World) SetPreSolveCallback(preSolveFcn PreSolveFunc, preContinuousFcn P
 	state := w
 	if (preSolveFcn != nil || preContinuousFcn != nil) && state.recording != nil {
 		state.logger.Warn("box2d: pre-solve callbacks are not supported while recording")
-		assert(false, "false && \"preSolve callbacks are not supported while recording\"")
+		core.Assert(false, "false && \"preSolve callbacks are not supported while recording\"")
 	}
 
 	state.preSolveFcn = preSolveFcn
@@ -1487,7 +1494,7 @@ func (w *World) Gravity() Vec2 {
 
 func (w *World) RebuildStaticTree() {
 	state := w
-	assert(!state.locked, "world->locked == false")
+	core.Assert(!state.locked, "world->locked == false")
 
 	if state.locked {
 		return

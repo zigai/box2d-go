@@ -3,6 +3,8 @@
 
 package box2d
 
+import "github.com/zigai/box2d/internal/core"
+
 type PrismaticJoint struct {
 	Joint
 }
@@ -160,7 +162,7 @@ func (p PrismaticJoint) SetLimits(lower float32, upper float32) {
 		recWritePrismaticJointSetLimits(world.recording, &recArgsPrismaticJointSetLimits{joint: p.Joint, lower: lower, upper: upper})
 	}
 
-	assert(lower <= upper, "lower <= upper")
+	core.Assert(lower <= upper, "lower <= upper")
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
 	joint.prismaticJoint.lowerTranslation = minFloat(lower, upper)
@@ -256,9 +258,9 @@ func (p PrismaticJoint) Translation() float32 {
 func (p PrismaticJoint) Speed() float32 {
 	world := p.Joint.world
 	joint := getJointFullID(world, p.Joint)
-	assert(joint.jointType == PrismaticJointType, "joint->type == b2_prismaticJoint")
+	core.Assert(joint.jointType == PrismaticJointType, "joint->type == b2_prismaticJoint")
 	base := getJointSim(world, joint)
-	assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
+	core.Assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
 
 	bodyA := &world.bodies[base.bodyIDA]
 	bodyB := &world.bodies[base.bodyIDB]
@@ -377,7 +379,7 @@ func preparePrismaticJoint(base *jointSim, context *stepContext) {
 	// u = perp
 	// s1 = cross(d + r1, u), s2 = cross(r2, u)
 	// a1 = cross(d + r1, v), a2 = cross(r2, v)
-	assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
+	core.Assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
 
 	// chase body id to the solver set where the body lives
 	idA := base.bodyIDA
@@ -388,7 +390,7 @@ func preparePrismaticJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
 
@@ -442,7 +444,7 @@ func preparePrismaticJoint(base *jointSim, context *stepContext) {
 }
 
 func warmStartPrismaticJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
+	core.Assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -494,7 +496,7 @@ func warmStartPrismaticJoint(base *jointSim, context *stepContext) {
 }
 
 func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
-	assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
+	core.Assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
 
 	mA := base.invMassA
 	mB := base.invMassB
@@ -709,10 +711,10 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 		wB += float32(iB * angularImpulseB)
 	}
 
-	assert(vA.IsValid(), "b2IsValidVec2( vA )")
-	assert(IsValidFloat(wA), "b2IsValidFloat( wA )")
-	assert(vB.IsValid(), "b2IsValidVec2( vB )")
-	assert(IsValidFloat(wB), "b2IsValidFloat( wB )")
+	core.Assert(vA.IsValid(), "b2IsValidVec2( vA )")
+	core.Assert(IsValidFloat(wA), "b2IsValidFloat( wA )")
+	core.Assert(vB.IsValid(), "b2IsValidVec2( vB )")
+	core.Assert(IsValidFloat(wB), "b2IsValidFloat( wB )")
 
 	if stateA.flags&dynamicFlag != 0 {
 		stateA.linearVelocity = vA
@@ -726,7 +728,7 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 }
 
 func drawPrismaticJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform, drawScale float32) {
-	assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
+	core.Assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
 
 	joint := &base.prismaticJoint
 

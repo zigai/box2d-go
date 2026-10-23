@@ -8,6 +8,8 @@ import (
 	"math"
 	"math/bits"
 	"strconv"
+
+	"github.com/zigai/box2d/internal/core"
 )
 
 const (
@@ -346,9 +348,9 @@ func drawBodyJoints(world *World, draw *DebugDraw, body *body) {
 			edgeIndex := jointKey & 1
 			joint := &world.joints[jointID]
 			// avoid double draw
-			if !getBit(&world.debugJointSet, uint32(jointID)) {
+			if !world.debugJointSet.GetBit(uint32(jointID)) {
 				drawJoint(draw, world, joint)
-				setBit(&world.debugJointSet, uint32(jointID))
+				world.debugJointSet.SetBit(uint32(jointID))
 			}
 
 			jointKey = joint.edges[edgeIndex].nextKey
@@ -364,7 +366,7 @@ func drawBodyContacts(world *World, draw *DebugDraw, body *body) {
 			edgeIndex := contactKey & 1
 			contact := &world.contacts[contactID]
 			// avoid double draw
-			if !getBit(&world.debugContactSet, uint32(contactID)) {
+			if !world.debugContactSet.GetBit(uint32(contactID)) {
 				contactSim := getContactSim(world, contact)
 				bodyA := &world.bodies[contact.edges[0].bodyID]
 				bodySimA := getBodySim(world, bodyA)
@@ -377,7 +379,7 @@ func drawBodyContacts(world *World, draw *DebugDraw, body *body) {
 					drawContactPoint(world, draw, contact, bodySimA, bodySimB, normal, &contactSim.manifold.Points[j])
 				}
 
-				setBit(&world.debugContactSet, uint32(contactID))
+				world.debugContactSet.SetBit(uint32(contactID))
 			}
 
 			contactKey = contact.edges[edgeIndex].nextKey
@@ -570,10 +572,10 @@ func drawQueryCallback(_ int, userData uint64, context *drawContext) bool {
 	world := context.world
 	draw := context.draw
 	shape := &world.shapes[shapeID]
-	assert(shape.id == shapeID, "shape->id == shapeId")
+	core.Assert(shape.id == shapeID, "shape->id == shapeId")
 	body := &world.bodies[shape.bodyID]
 	bodySim := getBodySim(world, body)
-	setBit(&world.debugBodySet, uint32(shape.bodyID))
+	world.debugBodySet.SetBit(uint32(shape.bodyID))
 
 	if draw.DrawShapes {
 		color := debugShapeColor(shape, body, bodySim)
@@ -592,32 +594,32 @@ func drawQueryCallback(_ int, userData uint64, context *drawContext) bool {
 // solution: display order by shape id modulus 3, keep 3 buckets in GLSolid* and flush in 3 passes.
 func (w *World) Draw(draw *DebugDraw) {
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return
 	}
 
 	checkInput(draw.Drawer != nil, "draw.Drawer != nil")
-	assert(draw.DrawingBounds.IsValid(), "b2IsValidAABB( draw->drawingBounds )")
+	core.Assert(draw.DrawingBounds.IsValid(), "b2IsValidAABB( draw->drawingBounds )")
 
-	bodyCapacity := getIDCapacity(&world.bodyIDPool)
-	setBitCountAndClear(&world.debugBodySet, uint32(bodyCapacity))
-	jointCapacity := getIDCapacity(&world.jointIDPool)
-	setBitCountAndClear(&world.debugJointSet, uint32(jointCapacity))
-	contactCapacity := getIDCapacity(&world.contactIDPool)
-	setBitCountAndClear(&world.debugContactSet, uint32(contactCapacity))
-	islandCapacity := getIDCapacity(&world.islandIDPool)
-	setBitCountAndClear(&world.debugIslandSet, uint32(islandCapacity))
+	bodyCapacity := world.bodyIDPool.Capacity()
+	world.debugBodySet.SetBitCountAndClear(uint32(bodyCapacity))
+	jointCapacity := world.jointIDPool.Capacity()
+	world.debugJointSet.SetBitCountAndClear(uint32(jointCapacity))
+	contactCapacity := world.contactIDPool.Capacity()
+	world.debugContactSet.SetBitCountAndClear(uint32(contactCapacity))
+	islandCapacity := world.islandIDPool.Capacity()
+	world.debugIslandSet.SetBitCountAndClear(uint32(islandCapacity))
 
 	drawContext := drawContext{world: world, draw: draw}
 	for i := range int(BodyTypeCount) {
 		world.broadPhase.trees[i].QueryAll(draw.DrawingBounds, func(proxyID int, userData uint64) bool { return drawQueryCallback(proxyID, userData, &drawContext) })
 	}
 
-	wordCount := world.debugBodySet.blockCount
+	wordCount := world.debugBodySet.BlockCount
 
-	bodyBits := world.debugBodySet.bits
+	bodyBits := world.debugBodySet.Bits
 	for k := range wordCount {
 		word := bodyBits[k]
 		for word != 0 {
@@ -632,7 +634,7 @@ func (w *World) Draw(draw *DebugDraw) {
 
 			if draw.DrawIslands {
 				islandID := body.islandID
-				if islandID != nullIndex && !getBit(&world.debugIslandSet, uint32(islandID)) {
+				if islandID != nullIndex && !world.debugIslandSet.GetBit(uint32(islandID)) {
 					island := &world.islands[islandID]
 					if island.setIndex == nullIndex {
 						continue
@@ -640,7 +642,7 @@ func (w *World) Draw(draw *DebugDraw) {
 
 					drawIslandBounds(world, draw, island)
 
-					setBit(&world.debugIslandSet, uint32(islandID))
+					world.debugIslandSet.SetBit(uint32(islandID))
 				}
 			}
 			// Clear the smallest set bit
@@ -667,14 +669,14 @@ func (w *World) OverlapAABB(origin Pos, aabb AABB, filter QueryFilter, fcn Overl
 	var treeStats TreeStats
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return treeStats
 	}
 
-	assert(origin.IsValid(), "b2IsValidPosition( origin )")
-	assert(aabb.IsValid(), "b2IsValidAABB( aabb )")
+	core.Assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	core.Assert(aabb.IsValid(), "b2IsValidAABB( aabb )")
 
 	var recWriter *recQueryWriter
 	if world.recording != nil {
@@ -747,13 +749,13 @@ func (w *World) OverlapShape(origin Pos, proxy *ShapeProxy, filter QueryFilter, 
 	var treeStats TreeStats
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return treeStats
 	}
 
-	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	core.Assert(origin.IsValid(), "b2IsValidPosition( origin )")
 
 	var recWriter *recQueryWriter
 	if world.recording != nil {
@@ -836,14 +838,14 @@ func (w *World) CastRay(origin Pos, translation Vec2, filter QueryFilter, fcn Ca
 	var treeStats TreeStats
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return treeStats
 	}
 
-	assert(origin.IsValid(), "b2IsValidPosition( origin )")
-	assert(translation.IsValid(), "b2IsValidVec2( translation )")
+	core.Assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	core.Assert(translation.IsValid(), "b2IsValidVec2( translation )")
 
 	var recWriter *recQueryWriter
 	if world.recording != nil {
@@ -907,14 +909,14 @@ func (w *World) CastRayClosest(origin Pos, translation Vec2, filter QueryFilter)
 	var result RayResult
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return result
 	}
 
-	assert(origin.IsValid(), "b2IsValidPosition( origin )")
-	assert(translation.IsValid(), "b2IsValidVec2( translation )")
+	core.Assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	core.Assert(translation.IsValid(), "b2IsValidVec2( translation )")
 	input := RayCastInput{Origin: origin.Vec2(), Translation: translation, MaxFraction: 1}
 
 	worldContext := worldRayCastContext{world: world, filter: filter, fraction: 1, origin: origin, closest: true}
@@ -981,14 +983,14 @@ func (w *World) CastShape(origin Pos, proxy *ShapeProxy, translation Vec2, filte
 	var treeStats TreeStats
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return treeStats
 	}
 
-	assert(origin.IsValid(), "b2IsValidPosition( origin )")
-	assert(translation.IsValid(), "b2IsValidVec2( translation )")
+	core.Assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	core.Assert(translation.IsValid(), "b2IsValidVec2( translation )")
 
 	var recWriter *recQueryWriter
 	if world.recording != nil {
@@ -1061,12 +1063,12 @@ func moverCastCallback(input *BoxCastInput, _ int, userData uint64, context *wor
 }
 
 func (w *World) CastMover(origin Pos, mover *Capsule, translation Vec2, filter QueryFilter) float32 {
-	assert(origin.IsValid(), "b2IsValidPosition( origin )")
-	assert(translation.IsValid(), "b2IsValidVec2( translation )")
-	assert(mover.Radius > float32(2)*LinearSlop(), "mover->radius > 2.0f * B2_LINEAR_SLOP")
+	core.Assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	core.Assert(translation.IsValid(), "b2IsValidVec2( translation )")
+	core.Assert(mover.Radius > float32(2)*LinearSlop(), "mover->radius > 2.0f * B2_LINEAR_SLOP")
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return 1
@@ -1139,13 +1141,13 @@ func treeCollideCallback(_ int, userData uint64, context *worldMoverContext) boo
 // not be worth it.
 func (w *World) CollideMover(origin Pos, mover *Capsule, filter QueryFilter, fcn PlaneResultFunc) {
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return
 	}
 
-	assert(origin.IsValid(), "b2IsValidPosition( origin )")
+	core.Assert(origin.IsValid(), "b2IsValidPosition( origin )")
 
 	var recWriter *recQueryWriter
 	if world.recording != nil {
@@ -1181,7 +1183,7 @@ func explosionCallback(_ int, userData uint64, context *explosionContext) bool {
 	world := context.world
 	shape := &world.shapes[shapeID]
 	body := &world.bodies[shape.bodyID]
-	assert(body.bodyType == DynamicBody, "body->type == b2_dynamicBody")
+	core.Assert(body.bodyType == DynamicBody, "body->type == b2_dynamicBody")
 	xf := getBodyTransformQuick(world, body)
 	// Re-center the explosion into the shape local frame so distance and direction stay precise
 	// far from the origin. Everything below runs in that near-origin frame.
@@ -1251,7 +1253,7 @@ func (w *World) Explode(def *ExplosionDef) {
 	checkInput(IsValidFloat(impulsePerLength), "b2IsValidFloat( impulsePerLength )")
 
 	world := w
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return
@@ -1287,17 +1289,17 @@ func validateBodyJointConnectivity(world *World, body *body) {
 		otherBody := &world.bodies[joint.edges[otherEdgeIndex].bodyID]
 
 		if bodySetIndex == disabledSet || otherBody.setIndex == disabledSet {
-			assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
+			core.Assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
 		} else if bodySetIndex == staticSet {
 			// Intentional nesting
 			if otherBody.setIndex == staticSet {
-				assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
+				core.Assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
 			}
 		} else if body.bodyType != DynamicBody && otherBody.bodyType != DynamicBody {
-			assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
+			core.Assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
 		} else {
 			jointIslandID := joint.islandID
-			assert(jointIslandID == bodyIslandID, "jointIslandId == bodyIslandId")
+			core.Assert(jointIslandID == bodyIslandID, "jointIslandId == bodyIslandId")
 		}
 
 		jointKey = joint.edges[edgeIndex].nextKey
@@ -1305,7 +1307,7 @@ func validateBodyJointConnectivity(world *World, body *body) {
 }
 
 func validateConnectivity(world *World) {
-	if !validationEnabled {
+	if !core.ValidationEnabled {
 		return
 	}
 
@@ -1315,13 +1317,13 @@ func validateConnectivity(world *World) {
 	for bodyIndex := range bodyCapacity {
 		body := &bodies[bodyIndex]
 		if body.id == nullIndex {
-			validateFreeID(&world.bodyIDPool, bodyIndex)
+			world.bodyIDPool.ValidateFree(bodyIndex)
 			continue
 		}
 
-		validateUsedID(&world.bodyIDPool, bodyIndex)
+		world.bodyIDPool.ValidateUsed(bodyIndex)
 
-		assert(bodyIndex == body.id, "bodyIndex == body->id")
+		core.Assert(bodyIndex == body.id, "bodyIndex == body->id")
 
 		// Need to get the root island because islands are not merged until the next time step
 		bodyIslandID := body.islandID
@@ -1338,10 +1340,10 @@ func validateConnectivity(world *World) {
 			if touching {
 				if bodySetIndex != staticSet {
 					contactIslandID := contact.islandID
-					assert(contactIslandID == bodyIslandID, "contactIslandId == bodyIslandId")
+					core.Assert(contactIslandID == bodyIslandID, "contactIslandId == bodyIslandId")
 				}
 			} else {
-				assert(contact.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
+				core.Assert(contact.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
 			}
 
 			contactKey = contact.edges[edgeIndex].nextKey
@@ -1358,17 +1360,17 @@ func validateBodyShapes(world *World, body *body, setIndex int) {
 	shapeID := body.headShapeID
 	for shapeID != nullIndex {
 		shape := &world.shapes[shapeID]
-		assert(shape.id == shapeID, "shape->id == shapeId")
-		assert(shape.prevShapeID == prevShapeID, "shape->prevShapeId == prevShapeId")
+		core.Assert(shape.id == shapeID, "shape->id == shapeId")
+		core.Assert(shape.prevShapeID == prevShapeID, "shape->prevShapeId == prevShapeId")
 
 		switch setIndex {
 		case disabledSet:
-			assert(shape.proxyKey == nullIndex, "shape->proxyKey == B2_NULL_INDEX")
+			core.Assert(shape.proxyKey == nullIndex, "shape->proxyKey == B2_NULL_INDEX")
 		case staticSet:
-			assert(proxyType(shape.proxyKey) == StaticBody, "B2_PROXY_TYPE( shape->proxyKey ) == b2_staticBody")
+			core.Assert(proxyType(shape.proxyKey) == StaticBody, "B2_PROXY_TYPE( shape->proxyKey ) == b2_staticBody")
 		default:
 			proxyType := proxyType(shape.proxyKey)
-			assert(proxyType == KinematicBody || proxyType == DynamicBody, "proxyType == b2_kinematicBody || proxyType == b2_dynamicBody")
+			core.Assert(proxyType == KinematicBody || proxyType == DynamicBody, "proxyType == b2_kinematicBody || proxyType == b2_dynamicBody")
 		}
 
 		prevShapeID = shapeID
@@ -1384,8 +1386,8 @@ func validateBodyContacts(world *World, body *body, bodyID int) {
 		edgeIndex := contactKey & 1
 
 		contact := &world.contacts[contactID]
-		assert(contact.setIndex != staticSet, "contact->setIndex != b2_staticSet")
-		assert(contact.edges[0].bodyID == bodyID || contact.edges[1].bodyID == bodyID, "contact->edges[0].bodyId == bodyId || contact->edges[1].bodyId == bodyId")
+		core.Assert(contact.setIndex != staticSet, "contact->setIndex != b2_staticSet")
+		core.Assert(contact.edges[0].bodyID == bodyID || contact.edges[1].bodyID == bodyID, "contact->edges[0].bodyId == bodyId || contact->edges[1].bodyId == bodyId")
 		contactKey = contact.edges[edgeIndex].nextKey
 	}
 }
@@ -1404,21 +1406,21 @@ func validateBodyJoints(world *World, body *body, setIndex int) {
 		otherBody := &world.bodies[joint.edges[otherEdgeIndex].bodyID]
 
 		if setIndex == disabledSet || otherBody.setIndex == disabledSet {
-			assert(joint.setIndex == disabledSet, "joint->setIndex == b2_disabledSet")
+			core.Assert(joint.setIndex == disabledSet, "joint->setIndex == b2_disabledSet")
 		} else if setIndex == staticSet && otherBody.setIndex == staticSet {
-			assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
+			core.Assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
 		} else if body.bodyType != DynamicBody && otherBody.bodyType != DynamicBody {
-			assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
+			core.Assert(joint.setIndex == staticSet, "joint->setIndex == b2_staticSet")
 		} else if setIndex == awakeSet {
-			assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
+			core.Assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
 		} else if setIndex >= firstSleepingSet {
-			assert(joint.setIndex == setIndex, "joint->setIndex == setIndex")
+			core.Assert(joint.setIndex == setIndex, "joint->setIndex == setIndex")
 		}
 
 		jointSim := getJointSim(world, joint)
-		assert(jointSim.jointID == jointID, "jointSim->jointId == jointId")
-		assert(jointSim.bodyIDA == joint.edges[0].bodyID, "jointSim->bodyIdA == joint->edges[0].bodyId")
-		assert(jointSim.bodyIDB == joint.edges[1].bodyID, "jointSim->bodyIdB == joint->edges[1].bodyId")
+		core.Assert(jointSim.jointID == jointID, "jointSim->jointId == jointId")
+		core.Assert(jointSim.bodyIDA == joint.edges[0].bodyID, "jointSim->bodyIdA == joint->edges[0].bodyId")
+		core.Assert(jointSim.bodyIDB == joint.edges[1].bodyID, "jointSim->bodyIdB == joint->edges[1].bodyId")
 
 		jointKey = joint.edges[edgeIndex].nextKey
 	}
@@ -1432,19 +1434,19 @@ func validateSolverSetContacts(world *World, set *solverSet, setIndex int) {
 		if setIndex == awakeSet {
 			// contact should be non-touching if awake
 			// or it could be this contact hasn't been transferred yet
-			assert(contactSim.manifold.PointCount == 0 ||
+			core.Assert(contactSim.manifold.PointCount == 0 ||
 				(contactSim.simFlags&simStartedTouching) != 0, "contactSim->manifold.pointCount == 0 || ( contactSim->simFlags & b2_simStartedTouching ) != 0")
 		}
 
-		assert(contact.setIndex == setIndex, "contact->setIndex == setIndex")
-		assert(contact.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
-		assert(contact.localIndex == i, "contact->localIndex == i")
+		core.Assert(contact.setIndex == setIndex, "contact->setIndex == setIndex")
+		core.Assert(contact.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
+		core.Assert(contact.localIndex == i, "contact->localIndex == i")
 
 		edgeBodyA := &world.bodies[contact.edges[0].bodyID]
 		edgeBodyB := &world.bodies[contact.edges[1].bodyID]
 
-		assert(contactSim.encodedBodySimA == encodeBodySimIndex(edgeBodyA), "contactSim->encodedBodySimA == b2EncodeBodySimIndex( edgeBodyA )")
-		assert(contactSim.encodedBodySimB == encodeBodySimIndex(edgeBodyB), "contactSim->encodedBodySimB == b2EncodeBodySimIndex( edgeBodyB )")
+		core.Assert(contactSim.encodedBodySimA == encodeBodySimIndex(edgeBodyA), "contactSim->encodedBodySimA == b2EncodeBodySimIndex( edgeBodyA )")
+		core.Assert(contactSim.encodedBodySimB == encodeBodySimIndex(edgeBodyB), "contactSim->encodedBodySimB == b2EncodeBodySimIndex( edgeBodyB )")
 	}
 }
 
@@ -1455,25 +1457,25 @@ func validateSolverSetBodies(world *World, set *solverSet, setIndex int) {
 		bodySim := &set.bodySims[i]
 
 		bodyID := bodySim.bodyID
-		assert(0 <= bodyID && bodyID < len(world.bodies), "0 <= bodyId && bodyId < world->bodies.count")
+		core.Assert(0 <= bodyID && bodyID < len(world.bodies), "0 <= bodyId && bodyId < world->bodies.count")
 		body := &bodies[bodyID]
-		assert(body.setIndex == setIndex, "body->setIndex == setIndex")
-		assert(body.localIndex == i, "body->localIndex == i")
+		core.Assert(body.setIndex == setIndex, "body->setIndex == setIndex")
+		core.Assert(body.localIndex == i, "body->localIndex == i")
 
 		syncedFlags := body.flags &^ (isFast | bodyTransientFlags)
-		assert((bodySim.flags&syncedFlags) == syncedFlags, "( bodySim->flags & syncedFlags ) == syncedFlags")
+		core.Assert((bodySim.flags&syncedFlags) == syncedFlags, "( bodySim->flags & syncedFlags ) == syncedFlags")
 
 		bodyState := getBodyState(world, body)
 		if bodyState != nil {
-			assert((bodyState.flags&syncedFlags) == syncedFlags, "( bodyState->flags & syncedFlags ) == syncedFlags")
+			core.Assert((bodyState.flags&syncedFlags) == syncedFlags, "( bodyState->flags & syncedFlags ) == syncedFlags")
 		}
 
 		if body.bodyType == DynamicBody {
-			assert(body.flags&dynamicFlag != 0, "body->flags & b2_dynamicFlag")
+			core.Assert(body.flags&dynamicFlag != 0, "body->flags & b2_dynamicFlag")
 		}
 
 		if setIndex == disabledSet {
-			assert(body.headContactKey == nullIndex, "body->headContactKey == B2_NULL_INDEX")
+			core.Assert(body.headContactKey == nullIndex, "body->headContactKey == B2_NULL_INDEX")
 		}
 
 		validateBodyShapes(world, body, setIndex)
@@ -1492,11 +1494,12 @@ func validateGraphColor(world *World, colorIndex int) {
 		contactSim := &color.contactSims[i]
 		contact := &world.contacts[contactSim.contactID]
 		// contact should be touching in the constraint graph or awaiting transfer to non-touching
-		assert(contactSim.manifold.PointCount > 0 ||
+		core.Assert(contactSim.manifold.PointCount > 0 ||
 			(contactSim.simFlags&(simStoppedTouching|simDisjoint)) != 0, "contactSim->manifold.pointCount > 0 || ( contactSim->simFlags & ( b2_simStoppedTouching | b2_simDisjoint ) ) != 0")
-		assert(contact.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
-		assert(contact.colorIndex == colorIndex, "contact->colorIndex == colorIndex")
-		assert(contact.localIndex == i, "contact->localIndex == i")
+
+		core.Assert(contact.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
+		core.Assert(contact.colorIndex == colorIndex, "contact->colorIndex == colorIndex")
+		core.Assert(contact.localIndex == i, "contact->localIndex == i")
 
 		bodyIDA := contact.edges[0].bodyID
 		bodyIDB := contact.edges[1].bodyID
@@ -1504,12 +1507,12 @@ func validateGraphColor(world *World, colorIndex int) {
 		edgeBodyA := &world.bodies[bodyIDA]
 		edgeBodyB := &world.bodies[bodyIDB]
 
-		assert(contactSim.encodedBodySimA == encodeBodySimIndex(edgeBodyA), "contactSim->encodedBodySimA == b2EncodeBodySimIndex( edgeBodyA )")
-		assert(contactSim.encodedBodySimB == encodeBodySimIndex(edgeBodyB), "contactSim->encodedBodySimB == b2EncodeBodySimIndex( edgeBodyB )")
+		core.Assert(contactSim.encodedBodySimA == encodeBodySimIndex(edgeBodyA), "contactSim->encodedBodySimA == b2EncodeBodySimIndex( edgeBodyA )")
+		core.Assert(contactSim.encodedBodySimB == encodeBodySimIndex(edgeBodyB), "contactSim->encodedBodySimB == b2EncodeBodySimIndex( edgeBodyB )")
 
 		if colorIndex < overflowIndex {
-			assert(getBit(&color.bodySet, uint32(bodyIDA)) == (edgeBodyA.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdA ) == ( edgeBodyA->type == b2_dynamicBody )")
-			assert(getBit(&color.bodySet, uint32(bodyIDB)) == (edgeBodyB.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdB ) == ( edgeBodyB->type == b2_dynamicBody )")
+			core.Assert(color.bodySet.GetBit(uint32(bodyIDA)) == (edgeBodyA.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdA ) == ( edgeBodyA->type == b2_dynamicBody )")
+			core.Assert(color.bodySet.GetBit(uint32(bodyIDB)) == (edgeBodyB.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdB ) == ( edgeBodyB->type == b2_dynamicBody )")
 
 			if edgeBodyA.bodyType == DynamicBody {
 				bitCount++
@@ -1524,9 +1527,9 @@ func validateGraphColor(world *World, colorIndex int) {
 	for i := range len(color.jointSims) {
 		jointSim := &color.jointSims[i]
 		joint := &world.joints[jointSim.jointID]
-		assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
-		assert(joint.colorIndex == colorIndex, "joint->colorIndex == colorIndex")
-		assert(joint.localIndex == i, "joint->localIndex == i")
+		core.Assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
+		core.Assert(joint.colorIndex == colorIndex, "joint->colorIndex == colorIndex")
+		core.Assert(joint.localIndex == i, "joint->localIndex == i")
 
 		bodyIDA := joint.edges[0].bodyID
 		bodyIDB := joint.edges[1].bodyID
@@ -1535,8 +1538,8 @@ func validateGraphColor(world *World, colorIndex int) {
 			bodyA := &world.bodies[bodyIDA]
 			bodyB := &world.bodies[bodyIDB]
 
-			assert(getBit(&color.bodySet, uint32(bodyIDA)) == (bodyA.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdA ) == ( bodyA->type == b2_dynamicBody )")
-			assert(getBit(&color.bodySet, uint32(bodyIDB)) == (bodyB.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdB ) == ( bodyB->type == b2_dynamicBody )")
+			core.Assert(color.bodySet.GetBit(uint32(bodyIDA)) == (bodyA.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdA ) == ( bodyA->type == b2_dynamicBody )")
+			core.Assert(color.bodySet.GetBit(uint32(bodyIDB)) == (bodyB.bodyType == DynamicBody), "b2GetBit( &color->bodySet, bodyIdB ) == ( bodyB->type == b2_dynamicBody )")
 
 			if bodyA.bodyType == DynamicBody {
 				bitCount++
@@ -1549,19 +1552,19 @@ func validateGraphColor(world *World, colorIndex int) {
 	}
 
 	// Validate the bit population for this graph color
-	assert(bitCount == countSetBits(&color.bodySet), "bitCount == b2CountSetBits( &color->bodySet )")
+	core.Assert(bitCount == color.bodySet.CountSetBits(), "bitCount == b2CountSetBits( &color->bodySet )")
 }
 
 func validateSolverSets(world *World) {
-	if !validationEnabled {
+	if !core.ValidationEnabled {
 		return
 	}
 
-	assert(getIDCapacity(&world.bodyIDPool) == len(world.bodies), "b2GetIdCapacity( &world->bodyIdPool ) == world->bodies.count")
-	assert(getIDCapacity(&world.contactIDPool) == len(world.contacts), "b2GetIdCapacity( &world->contactIdPool ) == world->contacts.count")
-	assert(getIDCapacity(&world.jointIDPool) == len(world.joints), "b2GetIdCapacity( &world->jointIdPool ) == world->joints.count")
-	assert(getIDCapacity(&world.islandIDPool) == len(world.islands), "b2GetIdCapacity( &world->islandIdPool ) == world->islands.count")
-	assert(getIDCapacity(&world.solverSetIDPool) == len(world.solverSets), "b2GetIdCapacity( &world->solverSetIdPool ) == world->solverSets.count")
+	core.Assert(world.bodyIDPool.Capacity() == len(world.bodies), "b2GetIdCapacity( &world->bodyIdPool ) == world->bodies.count")
+	core.Assert(world.contactIDPool.Capacity() == len(world.contacts), "b2GetIdCapacity( &world->contactIdPool ) == world->contacts.count")
+	core.Assert(world.jointIDPool.Capacity() == len(world.joints), "b2GetIdCapacity( &world->jointIdPool ) == world->joints.count")
+	core.Assert(world.islandIDPool.Capacity() == len(world.islands), "b2GetIdCapacity( &world->islandIdPool ) == world->islands.count")
+	core.Assert(world.solverSetIDPool.Capacity() == len(world.solverSets), "b2GetIdCapacity( &world->solverSetIdPool ) == world->solverSets.count")
 
 	activeSetCount := 0
 	totalBodyCount := 0
@@ -1578,17 +1581,17 @@ func validateSolverSets(world *World) {
 
 			switch setIndex {
 			case staticSet:
-				assert(len(set.contactSims) == 0, "set->contactSims.count == 0")
-				assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
-				assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
+				core.Assert(len(set.contactSims) == 0, "set->contactSims.count == 0")
+				core.Assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
+				core.Assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
 			case disabledSet:
-				assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
-				assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
+				core.Assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
+				core.Assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
 			case awakeSet:
-				assert(len(set.bodySims) == len(set.bodyStates), "set->bodySims.count == set->bodyStates.count")
-				assert(len(set.jointSims) == 0, "set->jointSims.count == 0")
+				core.Assert(len(set.bodySims) == len(set.bodyStates), "set->bodySims.count == set->bodyStates.count")
+				core.Assert(len(set.jointSims) == 0, "set->jointSims.count == 0")
 			default:
-				assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
+				core.Assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
 			}
 
 			// Validate bodies
@@ -1609,9 +1612,9 @@ func validateSolverSets(world *World) {
 				for i := range len(set.jointSims) {
 					jointSim := &set.jointSims[i]
 					joint := &world.joints[jointSim.jointID]
-					assert(joint.setIndex == setIndex, "joint->setIndex == setIndex")
-					assert(joint.colorIndex == nullIndex, "joint->colorIndex == B2_NULL_INDEX")
-					assert(joint.localIndex == i, "joint->localIndex == i")
+					core.Assert(joint.setIndex == setIndex, "joint->setIndex == setIndex")
+					core.Assert(joint.colorIndex == nullIndex, "joint->colorIndex == B2_NULL_INDEX")
+					core.Assert(joint.localIndex == i, "joint->localIndex == i")
 				}
 			}
 
@@ -1621,27 +1624,27 @@ func validateSolverSets(world *World) {
 				for i := range len(set.islandSims) {
 					islandSim := &set.islandSims[i]
 					island := &world.islands[islandSim.islandID]
-					assert(island.setIndex == setIndex, "island->setIndex == setIndex")
-					assert(island.localIndex == i, "island->localIndex == i")
+					core.Assert(island.setIndex == setIndex, "island->setIndex == setIndex")
+					core.Assert(island.localIndex == i, "island->localIndex == i")
 				}
 			}
 		} else {
-			assert(len(set.bodySims) == 0, "set->bodySims.count == 0")
-			assert(len(set.contactSims) == 0, "set->contactSims.count == 0")
-			assert(len(set.jointSims) == 0, "set->jointSims.count == 0")
-			assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
-			assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
+			core.Assert(len(set.bodySims) == 0, "set->bodySims.count == 0")
+			core.Assert(len(set.contactSims) == 0, "set->contactSims.count == 0")
+			core.Assert(len(set.jointSims) == 0, "set->jointSims.count == 0")
+			core.Assert(len(set.islandSims) == 0, "set->islandSims.count == 0")
+			core.Assert(len(set.bodyStates) == 0, "set->bodyStates.count == 0")
 		}
 	}
 
-	setIDCount := getIDCount(&world.solverSetIDPool)
-	assert(activeSetCount == setIDCount, "activeSetCount == setIdCount")
+	setIDCount := world.solverSetIDPool.Count()
+	core.Assert(activeSetCount == setIDCount, "activeSetCount == setIdCount")
 
-	bodyIDCount := getIDCount(&world.bodyIDPool)
-	assert(totalBodyCount == bodyIDCount, "totalBodyCount == bodyIdCount")
+	bodyIDCount := world.bodyIDPool.Count()
+	core.Assert(totalBodyCount == bodyIDCount, "totalBodyCount == bodyIdCount")
 
-	islandIDCount := getIDCount(&world.islandIDPool)
-	assert(totalIslandCount == islandIDCount, "totalIslandCount == islandIdCount")
+	islandIDCount := world.islandIDPool.Count()
+	core.Assert(totalIslandCount == islandIDCount, "totalIslandCount == islandIdCount")
 
 	// Validate constraint graph
 	for colorIndex := range GraphColorCount {
@@ -1654,21 +1657,21 @@ func validateSolverSets(world *World) {
 		validateGraphColor(world, colorIndex)
 	}
 
-	contactIDCount := getIDCount(&world.contactIDPool)
-	assert(totalContactCount == contactIDCount, "totalContactCount == contactIdCount")
-	assert(totalContactCount == int(world.broadPhase.pairSet.count), "totalContactCount == (int)world->broadPhase.pairSet.count")
+	contactIDCount := world.contactIDPool.Count()
+	core.Assert(totalContactCount == contactIDCount, "totalContactCount == contactIdCount")
+	core.Assert(totalContactCount == int(world.broadPhase.pairSet.Count), "totalContactCount == (int)world->broadPhase.pairSet.count")
 
-	jointIDCount := getIDCount(&world.jointIDPool)
-	assert(totalJointCount == jointIDCount, "totalJointCount == jointIdCount")
+	jointIDCount := world.jointIDPool.Count()
+	core.Assert(totalJointCount == jointIDCount, "totalJointCount == jointIdCount")
 }
 
 func validateContacts(world *World) {
-	if !validationEnabled {
+	if !core.ValidationEnabled {
 		return
 	}
 
 	contactCount := len(world.contacts)
-	assert(contactCount == getIDCapacity(&world.contactIDPool), "contactCount == b2GetIdCapacity( &world->contactIdPool )")
+	core.Assert(contactCount == world.contactIDPool.Capacity(), "contactCount == b2GetIdCapacity( &world->contactIdPool )")
 
 	allocatedContactCount := 0
 
@@ -1678,7 +1681,7 @@ func validateContacts(world *World) {
 			continue
 		}
 
-		assert(contact.contactID == contactIndex, "contact->contactId == contactIndex")
+		core.Assert(contact.contactID == contactIndex, "contact->contactId == contactIndex")
 
 		allocatedContactCount += 1
 
@@ -1689,29 +1692,29 @@ func validateContacts(world *World) {
 		switch {
 		case setID == awakeSet:
 			if touching {
-				assert(0 <= contact.colorIndex && contact.colorIndex < GraphColorCount, "0 <= contact->colorIndex && contact->colorIndex < B2_GRAPH_COLOR_COUNT")
+				core.Assert(0 <= contact.colorIndex && contact.colorIndex < GraphColorCount, "0 <= contact->colorIndex && contact->colorIndex < B2_GRAPH_COLOR_COUNT")
 			} else {
-				assert(contact.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
+				core.Assert(contact.colorIndex == nullIndex, "contact->colorIndex == B2_NULL_INDEX")
 			}
 		case setID >= firstSleepingSet:
 			// Only touching contacts allowed in a sleeping set
-			assert(touching, "touching == true")
+			core.Assert(touching, "touching == true")
 		default:
 			// Sleeping and non-touching contacts belong in the disabled set
-			assert(!touching && setID == disabledSet, "touching == false && setId == b2_disabledSet")
+			core.Assert(!touching && setID == disabledSet, "touching == false && setId == b2_disabledSet")
 		}
 
 		contactSim := getContactSim(world, contact)
-		assert(contactSim.contactID == contactIndex, "contactSim->contactId == contactIndex")
-		assert(contactSim.bodyIDA == contact.edges[0].bodyID, "contactSim->bodyIdA == contact->edges[0].bodyId")
-		assert(contactSim.bodyIDB == contact.edges[1].bodyID, "contactSim->bodyIdB == contact->edges[1].bodyId")
+		core.Assert(contactSim.contactID == contactIndex, "contactSim->contactId == contactIndex")
+		core.Assert(contactSim.bodyIDA == contact.edges[0].bodyID, "contactSim->bodyIdA == contact->edges[0].bodyId")
+		core.Assert(contactSim.bodyIDB == contact.edges[1].bodyID, "contactSim->bodyIdB == contact->edges[1].bodyId")
 
 		simTouching := (contactSim.simFlags & simTouchingFlag) != 0
-		assert(touching == simTouching, "touching == simTouching")
+		core.Assert(touching == simTouching, "touching == simTouching")
 
-		assert(0 <= contactSim.manifold.PointCount && contactSim.manifold.PointCount <= 2, "0 <= contactSim->manifold.pointCount && contactSim->manifold.pointCount <= 2")
+		core.Assert(0 <= contactSim.manifold.PointCount && contactSim.manifold.PointCount <= 2, "0 <= contactSim->manifold.pointCount && contactSim->manifold.pointCount <= 2")
 	}
 
-	contactIDCount := getIDCount(&world.contactIDPool)
-	assert(allocatedContactCount == contactIDCount, "allocatedContactCount == contactIdCount")
+	contactIDCount := world.contactIDPool.Count()
+	core.Assert(allocatedContactCount == contactIDCount, "allocatedContactCount == contactIdCount")
 }

@@ -3,7 +3,11 @@
 
 package box2d
 
-import "math"
+import (
+	"math"
+
+	"github.com/zigai/box2d/internal/core"
+)
 
 // The maximum number of vertices on a convex polygon. Changing this affects performance even if you
 // don't use more vertices.
@@ -149,7 +153,7 @@ func (input *RayCastInput) IsValid() bool {
 // Make a convex polygon from a convex hull. This will assert if the hull is not valid.
 // @warning Do not manually fill in the hull data, it must come directly from ComputeHull.
 func MakePolygon(hull *Hull, radius float32) Polygon {
-	assert(ValidateHull(hull), "b2ValidateHull( hull )")
+	core.Assert(ValidateHull(hull), "b2ValidateHull( hull )")
 
 	if hull.Count < 3 {
 		// Handle a bad hull when assertions are disabled
@@ -175,7 +179,7 @@ func MakePolygon(hull *Hull, radius float32) Polygon {
 		}
 
 		edge := shape.Vertices[i2].Sub(shape.Vertices[i1])
-		assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
+		core.Assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
 		shape.Normals[i] = edge.CrossScalar(1.0).Normalize()
 	}
 
@@ -193,7 +197,7 @@ func MakeOffsetPolygon(hull *Hull, position Vec2, rotation Rot) Polygon {
 // Make an offset convex polygon from a convex hull. This will assert if the hull is not valid.
 // @warning Do not manually fill in the hull data, it must come directly from ComputeHull.
 func MakeOffsetRoundedPolygon(hull *Hull, position Vec2, rotation Rot, radius float32) Polygon {
-	assert(ValidateHull(hull), "b2ValidateHull( hull )")
+	core.Assert(ValidateHull(hull), "b2ValidateHull( hull )")
 
 	if hull.Count < 3 {
 		// Handle a bad hull when assertions are disabled
@@ -221,7 +225,7 @@ func MakeOffsetRoundedPolygon(hull *Hull, position Vec2, rotation Rot, radius fl
 		}
 
 		edge := shape.Vertices[i2].Sub(shape.Vertices[i1])
-		assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
+		core.Assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
 		shape.Normals[i] = edge.CrossScalar(1.0).Normalize()
 	}
 
@@ -240,8 +244,8 @@ func MakeSquare(halfWidth float32) Polygon {
 // @param halfWidth the half-width (x-axis)
 // @param halfHeight the half-height (y-axis).
 func MakeBox(halfWidth float32, halfHeight float32) Polygon {
-	assert(IsValidFloat(halfWidth) && halfWidth > 0.0, "b2IsValidFloat( halfWidth ) && halfWidth > 0.0f")
-	assert(IsValidFloat(halfHeight) && halfHeight > 0.0, "b2IsValidFloat( halfHeight ) && halfHeight > 0.0f")
+	core.Assert(IsValidFloat(halfWidth) && halfWidth > 0.0, "b2IsValidFloat( halfWidth ) && halfWidth > 0.0f")
+	core.Assert(IsValidFloat(halfHeight) && halfHeight > 0.0, "b2IsValidFloat( halfHeight ) && halfHeight > 0.0f")
 
 	var shape Polygon
 
@@ -265,7 +269,7 @@ func MakeBox(halfWidth float32, halfHeight float32) Polygon {
 // @param halfHeight the half-height (y-axis)
 // @param radius the radius of the rounded extension.
 func MakeRoundedBox(halfWidth float32, halfHeight float32, radius float32) Polygon {
-	assert(IsValidFloat(radius) && radius >= 0.0, "b2IsValidFloat( radius ) && radius >= 0.0f")
+	core.Assert(IsValidFloat(radius) && radius >= 0.0, "b2IsValidFloat( radius ) && radius >= 0.0f")
 
 	shape := MakeBox(halfWidth, halfHeight)
 	shape.Radius = radius
@@ -305,7 +309,7 @@ func MakeOffsetBox(halfWidth float32, halfHeight float32, center Vec2, rotation 
 // @param rotation the local rotation of the box
 // @param radius the radius of the rounded extension.
 func MakeOffsetRoundedBox(halfWidth float32, halfHeight float32, center Vec2, rotation Rot, radius float32) Polygon {
-	assert(IsValidFloat(radius) && radius >= 0.0, "b2IsValidFloat( radius ) && radius >= 0.0f")
+	core.Assert(IsValidFloat(radius) && radius >= 0.0, "b2IsValidFloat( radius ) && radius >= 0.0f")
 
 	xf := Transform{center, rotation}
 
@@ -429,7 +433,7 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 	// Simplification: triangle centroid = (1/3) * (p1 + p2 + p3)
 	//
 	// The rest of the derivation is handled by computer algebra.
-	assert(shape.Count > 0, "shape->count > 0")
+	core.Assert(shape.Count > 0, "shape->count > 0")
 
 	if shape.Count == 1 {
 		var circle Circle
@@ -518,7 +522,7 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 	// Total mass
 	massData.Mass = density * area
 	// Center of mass, shift back from origin at r
-	assert(area > float32(0x1p-23), "area > FLT_EPSILON")
+	core.Assert(area > float32(0x1p-23), "area > FLT_EPSILON")
 
 	invArea := 1.0 / area
 
@@ -530,7 +534,7 @@ func ComputePolygonMass(shape *Polygon, density float32) MassData {
 	// Shift inertia to center of mass
 	massData.RotationalInertia -= float32(massData.Mass * center.Dot(center))
 	// If this goes negative we are hosed
-	assert(massData.RotationalInertia >= 0.0, "massData.rotationalInertia >= 0.0f")
+	core.Assert(massData.RotationalInertia >= 0.0, "massData.rotationalInertia >= 0.0f")
 
 	return massData
 }
@@ -608,7 +612,7 @@ func PointInPolygon(shape *Polygon, point Vec2) bool {
 
 // Ray cast versus circle shape in local space.
 func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
-	assert(input.IsValid(), "b2IsValidRay( input )")
+	core.Assert(input.IsValid(), "b2IsValidRay( input )")
 
 	p := shape.Center
 
@@ -679,7 +683,7 @@ func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
 
 // Ray cast versus capsule shape in local space.
 func RayCastCapsule(shape *Capsule, input *RayCastInput) CastOutput {
-	assert(input.IsValid(), "b2IsValidRay( input )")
+	core.Assert(input.IsValid(), "b2IsValidRay( input )")
 
 	var output CastOutput
 
@@ -882,7 +886,7 @@ func RayCastSegment(shape *Segment, input *RayCastInput, oneSided bool) CastOutp
 
 // Ray cast versus polygon shape in local space.
 func RayCastPolygon(shape *Polygon, input *RayCastInput) CastOutput {
-	assert(input.IsValid(), "b2IsValidRay( input )")
+	core.Assert(input.IsValid(), "b2IsValidRay( input )")
 
 	if shape.Radius == 0.0 {
 		return rayCastSharpPolygon(shape, input)
@@ -980,7 +984,7 @@ func computePolygonCentroid(vertices []Vec2, count int) Vec2 {
 		area += a
 	}
 
-	assert(area > float32(0x1p-23), "area > FLT_EPSILON")
+	core.Assert(area > float32(0x1p-23), "area > FLT_EPSILON")
 
 	invArea := 1.0 / area
 
@@ -1033,7 +1037,7 @@ func computeCapsuleFatAABB(shape *Capsule, xf WorldTransform, extra float32) AAB
 }
 
 func computePolygonFatAABB(shape *Polygon, xf WorldTransform, extra float32) AABB {
-	assert(shape.Count > 0, "shape->count > 0")
+	core.Assert(shape.Count > 0, "shape->count > 0")
 	v := xf.Apply(shape.Vertices[0])
 
 	lx, ly, ux, uy := float64(v.X), float64(v.Y), float64(v.X), float64(v.Y)
@@ -1109,11 +1113,11 @@ func computeFatShapeAABB(shape *shape, xf WorldTransform, extra float32) AABB {
 	case ChainSegmentShape:
 		return computeSegmentFatAABB(&shape.chainSegment.Segment, xf, extra)
 	case ShapeTypeCount:
-		assert(false, "false")
+		core.Assert(false, "false")
 		return AABB{}
 	default:
 		{
-			assert(false, "false")
+			core.Assert(false, "false")
 
 			var empty AABB
 
@@ -1299,7 +1303,7 @@ func rayCastSharpPolygon(shape *Polygon, input *RayCastInput) CastOutput {
 		}
 	}
 
-	assert(0.0 <= lower && lower <= input.MaxFraction, "0.0f <= lower && lower <= input->maxFraction")
+	core.Assert(0.0 <= lower && lower <= input.MaxFraction, "0.0f <= lower && lower <= input->maxFraction")
 
 	if index >= 0 {
 		output.Fraction = lower

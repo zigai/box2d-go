@@ -3,7 +3,11 @@
 
 package box2d
 
-import "math"
+import (
+	"math"
+
+	"github.com/zigai/box2d/internal/core"
+)
 
 // Vector dot product.
 func (a Vec2) Dot(b Vec2) float32 {
@@ -196,7 +200,7 @@ func MakeRot(radians float32) Rot {
 
 // Make a rotation using a unit vector.
 func MakeRotFromUnitVector(unitVector Vec2) Rot {
-	assert(unitVector.IsNormalized(), "IsNormalized(unitVector)")
+	core.Assert(unitVector.IsNormalized(), "IsNormalized(unitVector)")
 	return Rot{unitVector.X, unitVector.Y}
 }
 
@@ -282,7 +286,7 @@ func (q Rot) RelativeAngle(b Rot) float32 {
 
 // Convert any angle into the range [-pi, pi].
 func UnwindAngle(radians float32) float32 {
-	validate(absFloat(radians) < 1e4, "AbsFloat(radians) < 1.0e4f")
+	core.Validate(absFloat(radians) < 1e4, "AbsFloat(radians) < 1.0e4f")
 	x := clampFloat(radians, -1e6, 1e6)
 	twoPi := float64(float32(2) * Pi)
 
@@ -510,7 +514,7 @@ func (a AABB) Overlaps(b AABB) bool {
 // Compute the bounding box of an array of circles.
 func MakeAABB(points []Vec2, radius float32) AABB {
 	count := len(points)
-	assert(count > 0, "count > 0")
+	core.Assert(count > 0, "count > 0")
 
 	a := AABB{points[0], points[0]}
 	for i := 1; i < count; i++ {
@@ -689,8 +693,8 @@ func ComputeCosSin(radians float32) CosSin {
 
 // Compute the rotation between two unit vectors.
 func ComputeRotationBetweenUnitVectors(v1 Vec2, v2 Vec2) Rot {
-	assert(absFloat(1-v1.Length()) < float32(100)*float32(0x1p-23), "AbsFloat(1.0f - Length(v1)) < 100.0f * FLT_EPSILON")
-	assert(absFloat(1-v2.Length()) < float32(100)*float32(0x1p-23), "AbsFloat(1.0f - Length(v2)) < 100.0f * FLT_EPSILON")
+	core.Assert(absFloat(1-v1.Length()) < float32(100)*float32(0x1p-23), "AbsFloat(1.0f - Length(v1)) < 100.0f * FLT_EPSILON")
+	core.Assert(absFloat(1-v2.Length()) < float32(100)*float32(0x1p-23), "AbsFloat(1.0f - Length(v2)) < 100.0f * FLT_EPSILON")
 
 	var rot Rot
 
@@ -726,7 +730,7 @@ func absInt(a int) int {
 
 // https://en.wikipedia.org/wiki/Floor_and_ceiling_functions
 func ceilingInt(numerator int, denominator int) int {
-	validate(denominator > 0 && numerator >= 0, "denominator > 0 && numerator >= 0")
+	core.Validate(denominator > 0 && numerator >= 0, "denominator > 0 && numerator >= 0")
 	return (numerator + denominator - 1) / denominator
 }
 

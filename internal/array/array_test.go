@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
 
-package box2d
+package array
 
 import (
 	"testing"
@@ -63,7 +63,7 @@ func runContainerTestCreateDestroy(t *testing.T) {
 
 	var a []int
 	for i := range 2 {
-		a = arrayReserve(a, 16)
+		a = Reserve(a, 16)
 		observeContainerArray(r, a)
 
 		value := 42
@@ -71,12 +71,12 @@ func runContainerTestCreateDestroy(t *testing.T) {
 			value = 99
 		}
 
-		a = arrayPush(a, value)
+		a = Push(a, value)
 		observeContainerArray(r, a)
 
 		var popped int
 
-		a, popped = arrayPop(a)
+		a, popped = Pop(a)
 		r.I32("popped", int32(popped))
 		observeContainerArray(r, a)
 		a = nil
@@ -89,7 +89,7 @@ func runContainerTestAccess(t *testing.T) {
 	var a []int
 
 	a = nil
-	a = arrayPush(a, 42)
+	a = Push(a, 42)
 
 	element := &a[0]
 	if *element != 42 {
@@ -105,9 +105,9 @@ func runContainerTestIteration(t *testing.T) {
 
 	var a []int
 
-	a = arrayPush(a, 1)
-	a = arrayPush(a, 2)
-	a = arrayPush(a, 3)
+	a = Push(a, 1)
+	a = Push(a, 2)
+	a = Push(a, 3)
 
 	sum := 0
 	for i := range a {
@@ -128,9 +128,9 @@ func runContainerTestArrayOfStruct(t *testing.T) {
 	var a []containerFoo
 
 	a = nil
-	a = arrayPush(a, containerFoo{a: 1, b: 5.0})
-	a = arrayPush(a, containerFoo{a: 2, b: 6.0})
-	a = arrayPush(a, containerFoo{a: 3, b: 7.0})
+	a = Push(a, containerFoo{a: 1, b: 5.0})
+	a = Push(a, containerFoo{a: 2, b: 6.0})
+	a = Push(a, containerFoo{a: 3, b: 7.0})
 
 	sum1 := 0
 	sum2 := float32(0)
@@ -159,9 +159,9 @@ func runContainerTestStructWithArray(t *testing.T) {
 	var a containerBar
 
 	a.a = nil
-	a.a = arrayPush(a.a, 1)
-	a.a = arrayPush(a.a, 2)
-	a.a = arrayPush(a.a, 3)
+	a.a = Push(a.a, 1)
+	a.a = Push(a.a, 2)
+	a.a = Push(a.a, 3)
 
 	sum1 := 0
 	for i := range len(a.a) {
@@ -186,7 +186,7 @@ func runContainerTestArrayEmplace(t *testing.T) {
 	for i := range 100 {
 		var j *uint64
 
-		a, j = arrayEmplace(a)
+		a, j = Emplace(a)
 		*j = uint64(i)
 	}
 
@@ -214,7 +214,7 @@ func runContainerTestArrayRemove(t *testing.T) {
 
 	n := 10
 
-	a = arrayReserve(a, n)
+	a = Reserve(a, n)
 	if cap(a) != n || len(a) != 0 {
 		t.Fatal("condition false")
 	}
@@ -222,7 +222,7 @@ func runContainerTestArrayRemove(t *testing.T) {
 	observeContainerArray(r, a)
 
 	for i := range n {
-		a = arrayPush(a, int16(i))
+		a = Push(a, int16(i))
 	}
 
 	if len(a) != n {
@@ -236,7 +236,7 @@ func runContainerTestArrayRemove(t *testing.T) {
 	for range n {
 		var temp int
 
-		a, temp = arrayRemoveSwap(a, 0)
+		a, temp = RemoveSwap(a, 0)
 		sum += temp
 		r.I32("moved", int32(temp))
 		observeContainerArray(r, a)
@@ -255,7 +255,7 @@ func runContainerTestArrayPop(t *testing.T) {
 	var a []uint8
 
 	n := 100
-	a = arrayReserve(a, n)
+	a = Reserve(a, n)
 
 	a = a[:n]
 	if cap(a) != n || len(a) != n {
@@ -265,7 +265,7 @@ func runContainerTestArrayPop(t *testing.T) {
 	r.I32("resizedCount", int32(len(a)))
 
 	for i := range n {
-		a = arrayPush(a, uint8(i))
+		a = Push(a, uint8(i))
 	}
 
 	sum := 0
@@ -273,7 +273,7 @@ func runContainerTestArrayPop(t *testing.T) {
 	for range n {
 		var popped uint8
 
-		a, popped = arrayPop(a)
+		a, popped = Pop(a)
 		sum += int(popped)
 		r.I32("popped", int32(popped))
 		r.I32("count", int32(len(a)))
@@ -291,7 +291,7 @@ func runContainerTestEmptyArrayProperties(t *testing.T) {
 
 	var a []int
 
-	a = arrayReserve(a, 0)
+	a = Reserve(a, 0)
 	if len(a) != 0 {
 		t.Fatal("condition false")
 	}
@@ -312,9 +312,9 @@ func runContainerTestEmptyArrayProperties(t *testing.T) {
 	}
 
 	r.I32("count", int32(len(a)))
-	a = arrayPush(a, 7)
+	a = Push(a, 7)
 	observeContainerArray(r, a)
-	a, popped := arrayPop(a)
+	a, popped := Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 }
@@ -324,7 +324,7 @@ func runContainerTestArrayReserveNoop(t *testing.T) {
 
 	var a []int
 
-	a = arrayReserve(a, 16)
+	a = Reserve(a, 16)
 	if cap(a) < 16 {
 		t.Fatal("condition false")
 	}
@@ -332,7 +332,7 @@ func runContainerTestArrayReserveNoop(t *testing.T) {
 	observeContainerArray(r, a)
 	oldCapacity := cap(a)
 
-	a = arrayReserve(a, 8)
+	a = Reserve(a, 8)
 	if cap(a) != oldCapacity {
 		t.Fatal("condition false")
 	}
@@ -340,13 +340,13 @@ func runContainerTestArrayReserveNoop(t *testing.T) {
 	r.Bool("capacityUnchanged", cap(a) == oldCapacity)
 	observeContainerArray(r, a)
 
-	a = arrayReserve(a, oldCapacity)
+	a = Reserve(a, oldCapacity)
 	if cap(a) != oldCapacity {
 		t.Fatal("condition false")
 	}
 
 	r.Bool("capacityUnchanged", cap(a) == oldCapacity)
-	a = arrayPush(a, 42)
+	a = Push(a, 42)
 	observeContainerArray(r, a)
 }
 
@@ -355,7 +355,7 @@ func runContainerTestArrayResizeDown(t *testing.T) {
 
 	var a []int
 	for i := range 10 {
-		a = arrayPush(a, i*10)
+		a = Push(a, i*10)
 	}
 
 	if len(a) != 10 {
@@ -364,7 +364,7 @@ func runContainerTestArrayResizeDown(t *testing.T) {
 
 	observeContainerArray(r, a)
 
-	a = arrayReserve(a, 5)
+	a = Reserve(a, 5)
 
 	a = a[:5]
 	if len(a) != 5 {
@@ -385,7 +385,7 @@ func runContainerTestArrayResizeUp(t *testing.T) {
 
 	var a []int
 
-	a = arrayReserve(a, 10)
+	a = Reserve(a, 10)
 
 	a = a[:10]
 	if len(a) != 10 {
@@ -402,7 +402,7 @@ func runContainerTestArrayResizeUp(t *testing.T) {
 		a[i] = i + 1
 	}
 
-	a = arrayReserve(a, 20)
+	a = Reserve(a, 20)
 
 	a = a[:20]
 	if len(a) != 20 {
@@ -429,11 +429,11 @@ func runContainerTestArrayPopOrder(t *testing.T) {
 
 	var a []int
 
-	a = arrayPush(a, 10)
-	a = arrayPush(a, 20)
-	a = arrayPush(a, 30)
+	a = Push(a, 10)
+	a = Push(a, 20)
+	a = Push(a, 30)
 
-	a, popped = arrayPop(a)
+	a, popped = Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 
@@ -445,7 +445,7 @@ func runContainerTestArrayPopOrder(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, popped = arrayPop(a)
+	a, popped = Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 
@@ -457,7 +457,7 @@ func runContainerTestArrayPopOrder(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, popped = arrayPop(a)
+	a, popped = Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 
@@ -477,12 +477,12 @@ func runContainerTestArrayRemoveSwapContents(t *testing.T) {
 
 	var a []int
 
-	a = arrayPush(a, 100)
-	a = arrayPush(a, 200)
-	a = arrayPush(a, 300)
-	a = arrayPush(a, 400)
+	a = Push(a, 100)
+	a = Push(a, 200)
+	a = Push(a, 300)
+	a = Push(a, 400)
 
-	a, moved = arrayRemoveSwap(a, 1)
+	a, moved = RemoveSwap(a, 1)
 	r.I32("moved", int32(moved))
 	observeContainerArray(r, a)
 
@@ -502,7 +502,7 @@ func runContainerTestArrayRemoveSwapContents(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, moved = arrayRemoveSwap(a, 2)
+	a, moved = RemoveSwap(a, 2)
 	r.I32("moved", int32(moved))
 	observeContainerArray(r, a)
 
@@ -518,7 +518,7 @@ func runContainerTestArrayRemoveSwapContents(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, moved = arrayRemoveSwap(a, 0)
+	a, moved = RemoveSwap(a, 0)
 	r.I32("moved", int32(moved))
 	observeContainerArray(r, a)
 
@@ -530,7 +530,7 @@ func runContainerTestArrayRemoveSwapContents(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, moved = arrayRemoveSwap(a, 0)
+	a, moved = RemoveSwap(a, 0)
 	r.I32("moved", int32(moved))
 	observeContainerArray(r, a)
 
@@ -546,11 +546,11 @@ func runContainerTestArrayRemoveSwapAllFromEnd(t *testing.T) {
 
 	var a []int
 
-	a = arrayPush(a, 1)
-	a = arrayPush(a, 2)
-	a = arrayPush(a, 3)
+	a = Push(a, 1)
+	a = Push(a, 2)
+	a = Push(a, 3)
 
-	a, moved = arrayRemoveSwap(a, len(a)-1)
+	a, moved = RemoveSwap(a, len(a)-1)
 	r.I32("moved", int32(moved))
 	observeContainerArray(r, a)
 
@@ -566,7 +566,7 @@ func runContainerTestArrayRemoveSwapAllFromEnd(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, moved = arrayRemoveSwap(a, len(a)-1)
+	a, moved = RemoveSwap(a, len(a)-1)
 	r.I32("moved", int32(moved))
 	observeContainerArray(r, a)
 
@@ -578,7 +578,7 @@ func runContainerTestArrayRemoveSwapAllFromEnd(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, moved = arrayRemoveSwap(a, len(a)-1)
+	a, moved = RemoveSwap(a, len(a)-1)
 	r.I32("moved", int32(moved))
 	observeContainerArray(r, a)
 
@@ -593,7 +593,7 @@ func runContainerTestArrayGrowthIntegrity(t *testing.T) {
 	var a []int
 
 	for i := range 1000 {
-		a = arrayPush(a, i)
+		a = Push(a, i)
 	}
 
 	if len(a) != 1000 {
@@ -620,9 +620,9 @@ func runContainerTestArrayInterleavedPushPop(t *testing.T) {
 
 	var a []int
 
-	a = arrayPush(a, 1)
-	a = arrayPush(a, 2)
-	a, popped = arrayPop(a)
+	a = Push(a, 1)
+	a = Push(a, 2)
+	a, popped = Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 
@@ -634,15 +634,15 @@ func runContainerTestArrayInterleavedPushPop(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a = arrayPush(a, 3)
+	a = Push(a, 3)
 
-	a = arrayPush(a, 4)
+	a = Push(a, 4)
 	if len(a) != 3 {
 		t.Fatal("condition false")
 	}
 
 	observeContainerArray(r, a)
-	a, popped = arrayPop(a)
+	a, popped = Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 
@@ -650,7 +650,7 @@ func runContainerTestArrayInterleavedPushPop(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, popped = arrayPop(a)
+	a, popped = Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 
@@ -658,7 +658,7 @@ func runContainerTestArrayInterleavedPushPop(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a, popped = arrayPop(a)
+	a, popped = Pop(a)
 	r.I32("popped", int32(popped))
 	observeContainerArray(r, a)
 
@@ -670,7 +670,7 @@ func runContainerTestArrayInterleavedPushPop(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	a = arrayPush(a, 99)
+	a = Push(a, 99)
 	if len(a) != 1 {
 		t.Fatal("condition false")
 	}
@@ -690,7 +690,7 @@ func runContainerTestArrayEmplaceStruct(t *testing.T) {
 	for i := range 50 {
 		var f *containerFoo
 
-		a, f = arrayEmplace(a)
+		a, f = Emplace(a)
 		f.a = i
 		f.b = float32(i) * 2.0
 	}
@@ -718,7 +718,7 @@ func runContainerTestArrayPushAfterReserve(t *testing.T) {
 
 	var a []int
 
-	a = arrayReserve(a, 50)
+	a = Reserve(a, 50)
 	if len(a) != 0 {
 		t.Fatal("condition false")
 	}
@@ -730,7 +730,7 @@ func runContainerTestArrayPushAfterReserve(t *testing.T) {
 	observeContainerArray(r, a)
 
 	for i := range 50 {
-		a = arrayPush(a, i*3)
+		a = Push(a, i*3)
 	}
 
 	if len(a) != 50 {
@@ -753,7 +753,7 @@ func runContainerTestArraySingleElement(t *testing.T) {
 
 	var f *containerFoo
 
-	a, f = arrayEmplace(a)
+	a, f = Emplace(a)
 	f.a = 7
 	f.b = 3.14
 
@@ -771,7 +771,7 @@ func runContainerTestArraySingleElement(t *testing.T) {
 
 	observeContainerFooArray(r, a)
 
-	a, popped := arrayPop(a)
+	a, popped := Pop(a)
 	if popped.a != 7 {
 		t.Fatal("condition false")
 	}
@@ -794,7 +794,7 @@ func runContainerTestArrayCreateN(t *testing.T) {
 
 	var a []int
 
-	a = arrayReserve(a, 16)
+	a = Reserve(a, 16)
 	if len(a) != 0 {
 		t.Fatal("condition false")
 	}
@@ -810,7 +810,7 @@ func runContainerTestArrayCreateN(t *testing.T) {
 	observeContainerArray(r, a)
 
 	for i := range 16 {
-		a = arrayPush(a, i*5)
+		a = Push(a, i*5)
 	}
 
 	if len(a) != 16 {

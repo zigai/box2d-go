@@ -6,6 +6,10 @@ package box2d
 import (
 	"iter"
 	"math"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d/internal/idpool"
 )
 
 const (
@@ -216,7 +220,7 @@ type shapeExtent struct {
 func getShape(world *World, shapeID Shape) *shape {
 	id := int(shapeID.index1) - 1
 	shape := &world.shapes[id]
-	assert(shape.id == id && shape.generation == shapeID.generation, "shape.id == id && shape.generation == shapeID.generation")
+	core.Assert(shape.id == id && shape.generation == shapeID.generation, "shape.id == id && shape.generation == shapeID.generation")
 
 	return shape
 }
@@ -224,7 +228,7 @@ func getShape(world *World, shapeID Shape) *shape {
 func getChainShape(world *World, chainID Chain) *chainShape {
 	id := int(chainID.index1) - 1
 	chain := &world.chainShapes[id]
-	assert(chain.id == id && chain.generation == chainID.generation, "chain.id == id && chain.generation == chainID.generation")
+	core.Assert(chain.id == id && chain.generation == chainID.generation, "chain.id == id && chain.generation == chainID.generation")
 
 	return chain
 }
@@ -270,7 +274,7 @@ func computeShapeMargin(shape *shape) float32 {
 	case ShapeTypeCount:
 		fallthrough // The count sentinel uses the invalid-geometry path.
 	default:
-		validate(false, "false")
+		core.Validate(false, "false")
 		return MaxAABBMargin()
 	}
 
@@ -312,7 +316,7 @@ func setShapeGeometry(shape *shape, geometry any, shapeType ShapeType) {
 	case ShapeTypeCount:
 		fallthrough // The count sentinel uses the invalid-geometry path.
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 	}
 }
 
@@ -326,18 +330,18 @@ func checkedShapeGeometry[T any](geometry any, mismatch string) *T {
 }
 
 func createShapeInternal(world *World, body *body, transform WorldTransform, def *ShapeDef, geometry any, shapeType ShapeType) *shape {
-	shapeID := allocIDWithGeneration(&world.shapeIDPool, func(id int) uint16 {
+	shapeID := idpool.AllocWithGeneration(&world.shapeIDPool, func(id int) uint16 {
 		return world.shapes[id].generation
 	})
 
 	if shapeID == len(world.shapes) {
-		world.shapes = arrayPush(world.shapes, shape{})
-		world.fatAABBs = arrayPush(world.fatAABBs, AABB{})
+		world.shapes = array.Push(world.shapes, shape{})
+		world.fatAABBs = array.Push(world.fatAABBs, AABB{})
 	} else {
-		assert(world.shapes[shapeID].id == nullIndex, "world.shapes[shapeID].id == nullIndex")
+		core.Assert(world.shapes[shapeID].id == nullIndex, "world.shapes[shapeID].id == nullIndex")
 	}
 
-	assert(len(world.fatAABBs) == len(world.shapes), "len(world.fatAABBs) == len(world.shapes)")
+	core.Assert(len(world.fatAABBs) == len(world.shapes), "len(world.fatAABBs) == len(world.shapes)")
 
 	shape := &world.shapes[shapeID]
 
@@ -385,7 +389,7 @@ func createShapeInternal(world *World, body *body, transform WorldTransform, def
 		sensor.hits = make([]visitor, 0, 4)
 		sensor.overlaps1 = make([]visitor, 0, 16)
 		sensor.overlaps2 = make([]visitor, 0, 16)
-		world.sensors = arrayPush(world.sensors, sensor)
+		world.sensors = array.Push(world.sensors, sensor)
 	} else {
 		shape.sensorIndex = nullIndex
 	}
@@ -531,7 +535,7 @@ func (b Body) CreateSegmentShape(def *ShapeDef, segment *Segment) Shape {
 
 	lengthSqr := segment.Point1.DistanceSquared(segment.Point2)
 	if lengthSqr <= LinearSlop()*LinearSlop() {
-		assert(false, "false")
+		core.Assert(false, "false")
 		return Shape{}
 	}
 
@@ -555,7 +559,7 @@ func (b Body) CreateChainSegmentShape(def *ShapeDef, chainSegment *ChainSegment)
 
 	lengthSqr := chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2)
 	if lengthSqr <= LinearSlop()*LinearSlop() {
-		assert(false, "false")
+		core.Assert(false, "false")
 		return Shape{}
 	}
 
@@ -619,7 +623,7 @@ func destroyShapeInternal(world *World, shape *shape, body *body) {
 				VisitorShape: Shape{index1: int32(ref.shapeID + 1), world: world, generation: ref.generation},
 			}
 
-			world.sensorEndEvents[world.endEventArrayIndex] = arrayPush(world.sensorEndEvents[world.endEventArrayIndex], event)
+			world.sensorEndEvents[world.endEventArrayIndex] = array.Push(world.sensorEndEvents[world.endEventArrayIndex], event)
 		}
 
 		// Destroy sensor
@@ -629,7 +633,7 @@ func destroyShapeInternal(world *World, shape *shape, body *body) {
 
 		var movedIndex int
 
-		world.sensors, movedIndex = arrayRemoveSwap(world.sensors, shape.sensorIndex)
+		world.sensors, movedIndex = array.RemoveSwap(world.sensors, shape.sensorIndex)
 		if movedIndex != nullIndex {
 			// Fixup moved sensor
 			movedSensor := &world.sensors[shape.sensorIndex]
@@ -639,7 +643,7 @@ func destroyShapeInternal(world *World, shape *shape, body *body) {
 	}
 
 	// Return shape to free list.
-	freeID(&world.shapeIDPool, shapeID)
+	world.shapeIDPool.Free(shapeID)
 
 	shape.id = nullIndex
 
@@ -660,7 +664,7 @@ func (s Shape) Destroy(updateBodyMass bool) {
 
 	// Cannot destroy a chain segment that has a parent chain shape
 	if shape.shapeType == ChainSegmentShape && shape.chainSegment.ChainID != nullIndex {
-		assert(false, "false")
+		core.Assert(false, "false")
 		return
 	}
 
@@ -704,8 +708,8 @@ func createChainSegments(world *World, body *body, transform WorldTransform, def
 			chainSegment.Segment.Point2 = points[(i+1)%n]
 			chainSegment.Ghost2 = points[(i+2)%n]
 
-			assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
-			assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
+			core.Assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
+			core.Assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
 
 			chainSegment.ChainID = chainID
 			prevIndex = i
@@ -727,7 +731,7 @@ func createChainSegments(world *World, body *body, transform WorldTransform, def
 	var chainSegment ChainSegment
 
 	for i := range n {
-		assert(i+1 < len(def.Points), "i + 1 < len(def.Points)")
+		core.Assert(i+1 < len(def.Points), "i + 1 < len(def.Points)")
 
 		if i == 0 {
 			chainSegment.Ghost1 = def.Ghost1
@@ -744,9 +748,9 @@ func createChainSegments(world *World, body *body, transform WorldTransform, def
 			chainSegment.Ghost2 = points[i+2]
 		}
 
-		assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
-		assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
-		assert(chainSegment.Segment.Point2.DistanceSquared(chainSegment.Ghost2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point2, chainSegment.Ghost2) > tolSqr")
+		core.Assert(chainSegment.Ghost1.DistanceSquared(chainSegment.Segment.Point1) > tolSqr, "DistanceSquared(chainSegment.Ghost1, chainSegment.Segment.Point1) > tolSqr")
+		core.Assert(chainSegment.Segment.Point1.DistanceSquared(chainSegment.Segment.Point2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point1, chainSegment.Segment.Point2) > tolSqr")
+		core.Assert(chainSegment.Segment.Point2.DistanceSquared(chainSegment.Ghost2) > tolSqr, "DistanceSquared(chainSegment.Segment.Point2, chainSegment.Ghost2) > tolSqr")
 
 		chainSegment.ChainID = chainID
 
@@ -803,14 +807,14 @@ func (b Body) CreateChain(def *ChainDef) Chain {
 	body := getBodyFullID(world, b)
 	transform := getBodyTransformQuick(world, body)
 
-	chainID := allocIDWithGeneration(&world.chainIDPool, func(id int) uint16 {
+	chainID := idpool.AllocWithGeneration(&world.chainIDPool, func(id int) uint16 {
 		return world.chainShapes[id].generation
 	})
 
 	if chainID == len(world.chainShapes) {
-		world.chainShapes = arrayPush(world.chainShapes, chainShape{})
+		world.chainShapes = array.Push(world.chainShapes, chainShape{})
 	} else {
-		assert(world.chainShapes[chainID].id == nullIndex, "world.chainShapes[chainID].id == nullIndex")
+		core.Assert(world.chainShapes[chainID].id == nullIndex, "world.chainShapes[chainID].id == nullIndex")
 	}
 
 	chainShape := &world.chainShapes[chainID]
@@ -867,7 +871,7 @@ func (c Chain) Destroy() {
 		chainIDPtr = &world.chainShapes[*chainIDPtr].nextChainID
 	}
 
-	assert(found, "found == true")
+	core.Assert(found, "found == true")
 
 	if !found {
 		return
@@ -883,7 +887,7 @@ func (c Chain) Destroy() {
 	freeChainData(chain)
 
 	// Return chain to free list.
-	freeID(&world.chainIDPool, chain.id)
+	world.chainIDPool.Free(chain.id)
 	chain.id = nullIndex
 
 	validateSolverSets(world)
@@ -941,7 +945,7 @@ func (c Chain) SetSurfaceMaterial(material *SurfaceMaterial, segmentIndex int) {
 	}
 
 	chainShape := getChainShape(world, c)
-	assert(0 <= segmentIndex && segmentIndex < chainShape.segmentCount, "0 <= segmentIndex && segmentIndex < chainShape.segmentCount")
+	core.Assert(0 <= segmentIndex && segmentIndex < chainShape.segmentCount, "0 <= segmentIndex && segmentIndex < chainShape.segmentCount")
 	shapeID := chainShape.shapeIndices[segmentIndex]
 	shape := &world.shapes[shapeID]
 	shape.material = *material
@@ -973,7 +977,7 @@ func (c Chain) SetAllSurfaceMaterials(material *SurfaceMaterial) {
 func (c Chain) SurfaceMaterial(segmentIndex int) SurfaceMaterial {
 	world := c.world
 	chainShape := getChainShape(world, c)
-	assert(0 <= segmentIndex && segmentIndex < chainShape.segmentCount, "0 <= segmentIndex && segmentIndex < chainShape.segmentCount")
+	core.Assert(0 <= segmentIndex && segmentIndex < chainShape.segmentCount, "0 <= segmentIndex && segmentIndex < chainShape.segmentCount")
 	shapeID := chainShape.shapeIndices[segmentIndex]
 	shape := &world.shapes[shapeID]
 
@@ -996,7 +1000,7 @@ func computeShapeAABB(shape *shape, xf WorldTransform) AABB {
 		fallthrough // The count sentinel uses the invalid-geometry path.
 	default:
 		{
-			assert(false, "false")
+			core.Assert(false, "false")
 
 			empty := AABB{}
 
@@ -1041,7 +1045,7 @@ func getShapeProjectedPerimeter(shape *shape, line Vec2) float32 {
 		{
 			points := shape.polygon.Vertices
 			count := shape.polygon.Count
-			assert(count > 0, "count > 0")
+			core.Assert(count > 0, "count > 0")
 
 			value := points[0].Dot(line)
 			lower := value
@@ -1285,7 +1289,7 @@ func collideMover(mover *Capsule, shape *shape, transform Transform) PlaneResult
 }
 
 func createShapeProxy(world *World, shape *shape, bodyType BodyType, transform WorldTransform, forcePairCreation bool) {
-	assert(shape.proxyKey == nullIndex, "shape.proxyKey == nullIndex")
+	core.Assert(shape.proxyKey == nullIndex, "shape.proxyKey == nullIndex")
 
 	fatAABB := &world.fatAABBs[shape.id]
 	updateShapeAABBs(shape, fatAABB, transform, bodyType)
@@ -1293,7 +1297,7 @@ func createShapeProxy(world *World, shape *shape, bodyType BodyType, transform W
 	// Create proxies in the broad-phase.
 	shape.proxyKey = world.broadPhase.createProxy(bodyType, *fatAABB, shape.filter.CategoryBits, shape.id,
 		forcePairCreation)
-	assert(proxyType(shape.proxyKey) < BodyTypeCount, "proxyType( shape.proxyKey ) < BodyTypeCount")
+	core.Assert(proxyType(shape.proxyKey) < BodyTypeCount, "proxyType( shape.proxyKey ) < BodyTypeCount")
 }
 
 func destroyShapeProxy(shape *shape, bp *broadPhase) {
@@ -1319,7 +1323,7 @@ func makeShapeDistanceProxy(shape *shape) ShapeProxy {
 		fallthrough // The count sentinel uses the invalid-geometry path.
 	default:
 		{
-			assert(false, "false")
+			core.Assert(false, "false")
 
 			empty := ShapeProxy{}
 
@@ -1408,8 +1412,8 @@ func (s Shape) TestPoint(point Pos) bool {
 // Ray cast a single shape. The ray starts at the origin and extends by the translation. The output
 // point is a world position.
 func (s Shape) RayCast(origin Pos, translation Vec2) WorldCastOutput {
-	assert(origin.IsValid(), "IsValidPosition( origin )")
-	assert(translation.IsValid(), "IsValidVec2( translation )")
+	core.Assert(origin.IsValid(), "IsValidPosition( origin )")
+	core.Assert(translation.IsValid(), "IsValidVec2( translation )")
 
 	world := s.world
 	shape := getShape(world, s)
@@ -1486,7 +1490,7 @@ func (s Shape) SetFriction(friction float32) {
 	checkInput(IsValidFloat(friction) && friction >= 0.0, "IsValidFloat( friction ) && friction >= 0.0")
 
 	world := s.world
-	assert(!world.locked, "world.locked == false")
+	core.Assert(!world.locked, "world.locked == false")
 
 	if world.locked {
 		return
@@ -1513,7 +1517,7 @@ func (s Shape) SetRestitution(restitution float32) {
 	checkInput(IsValidFloat(restitution) && restitution >= 0.0, "IsValidFloat( restitution ) && restitution >= 0.0")
 
 	world := s.world
-	assert(!world.locked, "world.locked == false")
+	core.Assert(!world.locked, "world.locked == false")
 
 	if world.locked {
 		return
@@ -1538,7 +1542,7 @@ func (s Shape) Restitution() float32 {
 // Set the user material identifier.
 func (s Shape) SetUserMaterial(material uint64) {
 	world := s.world
-	assert(!world.locked, "world.locked == false")
+	core.Assert(!world.locked, "world.locked == false")
 
 	if world.locked {
 		return
@@ -1773,7 +1777,7 @@ func (s Shape) Type() ShapeType {
 func (s Shape) Circle() Circle {
 	world := s.world
 	shape := getShape(world, s)
-	assert(shape.shapeType == CircleShape, "shape.shapeType == CircleShape")
+	core.Assert(shape.shapeType == CircleShape, "shape.shapeType == CircleShape")
 
 	return shape.circle
 }
@@ -1782,7 +1786,7 @@ func (s Shape) Circle() Circle {
 func (s Shape) Segment() Segment {
 	world := s.world
 	shape := getShape(world, s)
-	assert(shape.shapeType == SegmentShape, "shape.shapeType == SegmentShape")
+	core.Assert(shape.shapeType == SegmentShape, "shape.shapeType == SegmentShape")
 
 	return shape.segment
 }
@@ -1792,7 +1796,7 @@ func (s Shape) Segment() Segment {
 func (s Shape) ChainSegment() ChainSegment {
 	world := s.world
 	shape := getShape(world, s)
-	assert(shape.shapeType == ChainSegmentShape, "shape.shapeType == ChainSegmentShape")
+	core.Assert(shape.shapeType == ChainSegmentShape, "shape.shapeType == ChainSegmentShape")
 
 	return shape.chainSegment
 }
@@ -1801,7 +1805,7 @@ func (s Shape) ChainSegment() ChainSegment {
 func (s Shape) Capsule() Capsule {
 	world := s.world
 	shape := getShape(world, s)
-	assert(shape.shapeType == CapsuleShape, "shape.shapeType == CapsuleShape")
+	core.Assert(shape.shapeType == CapsuleShape, "shape.shapeType == CapsuleShape")
 
 	return shape.capsule
 }
@@ -1810,7 +1814,7 @@ func (s Shape) Capsule() Capsule {
 func (s Shape) Polygon() Polygon {
 	world := s.world
 	shape := getShape(world, s)
-	assert(shape.shapeType == PolygonShape, "shape.shapeType == PolygonShape")
+	core.Assert(shape.shapeType == PolygonShape, "shape.shapeType == PolygonShape")
 
 	return shape.polygon
 }
@@ -1930,7 +1934,7 @@ func (s Shape) SetChainSegment(chainSegment *ChainSegment) {
 
 	// Cannot modify a chain segment that has a parent chain shape
 	if shape.shapeType == ChainSegmentShape && shape.chainSegment.ChainID != nullIndex {
-		assert(false, "false")
+		core.Assert(false, "false")
 		return
 	}
 
@@ -2178,7 +2182,7 @@ func (s Shape) ApplyWind(wind Vec2, drag float32, lift float32, wake bool) {
 		wakeBody(world, body)
 	}
 
-	assert(body.setIndex == awakeSet, "body.setIndex == awakeSet")
+	core.Assert(body.setIndex == awakeSet, "body.setIndex == awakeSet")
 
 	state := getBodyState(world, body)
 

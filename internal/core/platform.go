@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-package box2d
+package core
 
 import "math/bits"
 
-func boundingPowerOf2(x int) int {
+func BoundingPowerOf2(x int) int {
 	if x <= 1 {
 		return 1
 	}
@@ -13,7 +13,7 @@ func boundingPowerOf2(x int) int {
 	return 32 - bits.LeadingZeros32(uint32(x)-1)
 }
 
-func roundUpPowerOf2(x int) int {
+func RoundUpPowerOf2(x int) int {
 	if x <= 1 {
 		return 1
 	}

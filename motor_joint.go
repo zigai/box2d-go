@@ -3,6 +3,8 @@
 
 package box2d
 
+import "github.com/zigai/box2d/internal/core"
+
 type MotorJoint struct {
 	Joint
 }
@@ -246,7 +248,7 @@ func getMotorJointTorque(world *World, base *jointSim) float32 {
 }
 
 func prepareMotorJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
+	core.Assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
 
 	// chase body id to the solver set where the body lives
 	var (
@@ -261,7 +263,7 @@ func prepareMotorJoint(base *jointSim, context *stepContext) {
 		bodyB = &world.bodies[idB]
 	)
 
-	assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
 
 	var (
 		setA = &world.solverSets[bodyA.setIndex]
@@ -344,7 +346,7 @@ func prepareMotorJoint(base *jointSim, context *stepContext) {
 }
 
 func warmStartMotorJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
+	core.Assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
 
 	var (
 		mA = base.invMassA
@@ -384,7 +386,7 @@ func warmStartMotorJoint(base *jointSim, context *stepContext) {
 }
 
 func solveMotorJoint(base *jointSim, context *stepContext) {
-	assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
+	core.Assert(base.jointType == MotorJointType, "base->type == b2_motorJoint")
 
 	var (
 		mA = base.invMassA

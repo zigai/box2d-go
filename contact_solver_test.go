@@ -6,6 +6,8 @@ package box2d
 import (
 	"math"
 	"testing"
+
+	"github.com/zigai/box2d/internal/bitset"
 )
 
 func TestContactSolverWideArithmetic(t *testing.T) {
@@ -231,8 +233,8 @@ func TestContactSolverWarmStartAndPush(t *testing.T) {
 func TestContactSolverStoreImpulses(t *testing.T) {
 	ctx, c, cw := solverContext()
 	for i := range ctx.world.taskContexts {
-		ctx.world.taskContexts[i].hitEventBitSet = createBitSet(128)
-		setBitCountAndClear(&ctx.world.taskContexts[i].hitEventBitSet, 128)
+		ctx.world.taskContexts[i].hitEventBitSet = bitset.New(128)
+		ctx.world.taskContexts[i].hitEventBitSet.SetBitCountAndClear(128)
 	}
 
 	contacts := []contactSim{{contactID: 65, simFlags: simEnableHitEvent, manifold: Manifold{PointCount: 1, Points: [2]ManifoldPoint{{NormalVelocity: -2}}}}}
@@ -245,7 +247,7 @@ func TestContactSolverStoreImpulses(t *testing.T) {
 	storeImpulsesOverflow(ctx)
 
 	storedOverflow := [4]float32{contacts[0].manifold.Points[0].NormalImpulse, contacts[0].manifold.Points[0].TangentImpulse, contacts[0].manifold.Points[0].TotalNormalImpulse, contacts[0].manifold.RollingImpulse}
-	if storedOverflow != ([4]float32{3, -1, 4, 0.5}) || !ctx.world.taskContexts[0].hasHitEvents || !getBit(&ctx.world.taskContexts[0].hitEventBitSet, 65) {
+	if storedOverflow != ([4]float32{3, -1, 4, 0.5}) || !ctx.world.taskContexts[0].hasHitEvents || !ctx.world.taskContexts[0].hitEventBitSet.GetBit(65) {
 		t.Fatal("overflow store/hit")
 	}
 
@@ -263,7 +265,7 @@ func TestContactSolverStoreImpulses(t *testing.T) {
 	m := contacts[0].manifold
 
 	storedWide := [7]float32{m.Points[0].NormalImpulse, m.Points[1].NormalImpulse, m.Points[0].TangentImpulse, m.Points[1].TangentImpulse, m.Points[0].TotalNormalImpulse, m.Points[1].TotalNormalImpulse, m.RollingImpulse}
-	if storedWide != ([7]float32{5, 6, -2, -3, 7, 8, 1}) || !ctx.world.taskContexts[1].hasHitEvents || !getBit(&ctx.world.taskContexts[1].hitEventBitSet, 65) {
+	if storedWide != ([7]float32{5, 6, -2, -3, 7, 8, 1}) || !ctx.world.taskContexts[1].hasHitEvents || !ctx.world.taskContexts[1].hitEventBitSet.GetBit(65) {
 		t.Fatal("wide store/hit")
 	}
 }

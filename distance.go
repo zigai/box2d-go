@@ -3,6 +3,8 @@
 
 package box2d
 
+import "github.com/zigai/box2d/internal/core"
+
 const (
 	TOIStateUnknown TOIState = iota
 	TOIStateFailed
@@ -292,9 +294,9 @@ func MakeOffsetProxy(points []Vec2, radius float32, position Vec2, rotation Rot)
 // Passing a simplex buffer records the initial, reduced iteration, and final simplexes
 // up to its length. Pass nil to skip the debug history.
 func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simplex) DistanceOutput {
-	assert(input.ProxyA.Count > 0 && input.ProxyB.Count > 0, "input->proxyA.count > 0 && input->proxyB.count > 0")
-	assert(input.ProxyA.Radius >= 0.0, "input->proxyA.radius >= 0.0f")
-	assert(input.ProxyB.Radius >= 0.0, "input->proxyB.radius >= 0.0f")
+	core.Assert(input.ProxyA.Count > 0 && input.ProxyB.Count > 0, "input->proxyA.count > 0 && input->proxyB.count > 0")
+	core.Assert(input.ProxyA.Radius >= 0.0, "input->proxyA.radius >= 0.0f")
+	core.Assert(input.ProxyB.Radius >= 0.0, "input->proxyB.radius >= 0.0f")
 
 	var output DistanceOutput
 
@@ -342,7 +344,7 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 
 	// Prepare output in frame A
 	normal := nonUnitNormal.Normalize()
-	assert(normal.IsNormalized(), "b2IsNormalized( normal )")
+	core.Assert(normal.IsNormalized(), "b2IsNormalized( normal )")
 
 	var localPointA, localPointB Vec2
 	computeWitnessPoints(&simplex, &localPointA, &localPointB)
@@ -382,7 +384,7 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 		tolerance   = float32(0.25 * linearSlop)
 	)
 
-	assert(target > tolerance, "target > tolerance")
+	core.Assert(target > tolerance, "target > tolerance")
 	// Prepare input for distance query
 	var cache SimplexCache
 
@@ -410,7 +412,7 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 		if distanceOutput.Distance < target+tolerance {
 			if iteration != 0 {
 				// Regular hit
-				assert(distanceOutput.Distance > 0.0 && distanceOutput.Normal.IsNormalized(), "distanceOutput.distance > 0.0f && b2IsNormalized( distanceOutput.normal )")
+				core.Assert(distanceOutput.Distance > 0.0 && distanceOutput.Normal.IsNormalized(), "distanceOutput.distance > 0.0f && b2IsNormalized( distanceOutput.normal )")
 
 				output.Fraction = fraction
 				output.Point = distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
@@ -434,8 +436,8 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 			target = distanceOutput.Distance - linearSlop
 		}
 
-		assert(distanceOutput.Distance > 0.0, "distanceOutput.distance > 0.0f")
-		assert(distanceOutput.Normal.IsNormalized(), "b2IsNormalized( distanceOutput.normal )")
+		core.Assert(distanceOutput.Distance > 0.0, "distanceOutput.distance > 0.0f")
+		core.Assert(distanceOutput.Normal.IsNormalized(), "b2IsNormalized( distanceOutput.normal )")
 		// Check if shapes are approaching each other
 		denominator := delta2.Dot(distanceOutput.Normal)
 		if denominator >= 0.0 {
@@ -469,8 +471,8 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 	sweepA := input.SweepA
 	sweepB := input.SweepB
 
-	assert(sweepA.Q1.IsNormalized() && sweepA.Q2.IsNormalized(), "b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 )")
-	assert(sweepB.Q1.IsNormalized() && sweepB.Q2.IsNormalized(), "b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 )")
+	core.Assert(sweepA.Q1.IsNormalized() && sweepA.Q2.IsNormalized(), "b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 )")
+	core.Assert(sweepB.Q1.IsNormalized() && sweepB.Q2.IsNormalized(), "b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 )")
 	// todo_erin
 	// c1 can be at the origin yet the points are far away
 	// Vec2 origin = Add(sweepA.C1, input.ProxyA.Points[0])
@@ -485,7 +487,7 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 		target      = maxFloat(LinearSlop(), totalRadius-LinearSlop())
 		tolerance   = float32(0.25 * LinearSlop())
 	)
-	assert(target > tolerance, "target > tolerance")
+	core.Assert(target > tolerance, "target > tolerance")
 
 	var t1 float32 = 0.0
 
@@ -620,7 +622,7 @@ func findSupport(proxy *ShapeProxy, direction Vec2) int {
 }
 
 func makeSimplexFromCache(cache SimplexCache, proxyA, proxyB *ShapeProxy) Simplex {
-	assert(cache.Count <= 3, "cache.count <= 3")
+	core.Assert(cache.Count <= 3, "cache.count <= 3")
 
 	var s Simplex
 
@@ -688,7 +690,7 @@ func computeWitnessPoints(s *Simplex, a, b *Vec2) {
 		*a = Vec2Zero
 		*b = Vec2Zero
 
-		assert(false, "false")
+		core.Assert(false, "false")
 	}
 }
 
@@ -867,7 +869,7 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 	f.proxyA = proxyA
 	f.proxyB = proxyB
 	count := int(cache.Count)
-	assert(0 < count && count < 3, "0 < count && count < 3")
+	core.Assert(0 < count && count < 3, "0 < count && count < 3")
 
 	f.sweepA = *sweepA
 	f.sweepB = *sweepB
@@ -991,7 +993,7 @@ func findMinSeparation(f *separationFunction, indexA, indexB *int, t float32) fl
 		}
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 
 		*indexA = -1
 		*indexB = -1
@@ -1045,7 +1047,7 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 		}
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 		return 0.0
 	}
 }
@@ -1215,7 +1217,7 @@ func (simplex *Simplex) searchDirection() Vec2 {
 	case 3:
 		return solveSimplex3(simplex)
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 		return Vec2{}
 	}
 }

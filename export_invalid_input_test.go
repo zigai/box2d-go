@@ -39,5 +39,5 @@ func InputWorldTuning(worldID *World) (float32, float32, float32) {
 }
 
 func InputChainCount(worldID *World) int {
-	return getIDCount(&worldID.chainIDPool)
+	return worldID.chainIDPool.Count()
 }

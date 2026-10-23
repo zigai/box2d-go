@@ -3,7 +3,13 @@
 
 package box2d
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d/internal/timer"
+)
 
 type contactLink struct {
 	contactID int
@@ -32,15 +38,15 @@ type islandSim struct {
 }
 
 func createIsland(world *World, setIndex int) *island {
-	assert(setIndex == awakeSet || setIndex >= firstSleepingSet, "setIndex == b2_awakeSet || setIndex >= b2_firstSleepingSet")
+	core.Assert(setIndex == awakeSet || setIndex >= firstSleepingSet, "setIndex == b2_awakeSet || setIndex >= b2_firstSleepingSet")
 
-	islandID := allocID(&world.islandIDPool)
+	islandID := world.islandIDPool.Alloc()
 
 	if islandID == len(world.islands) {
 		emptyIsland := island{}
-		world.islands = arrayPush(world.islands, emptyIsland)
+		world.islands = array.Push(world.islands, emptyIsland)
 	} else {
-		assert(world.islands[islandID].setIndex == nullIndex, "world->islands.data[islandId].setIndex == B2_NULL_INDEX")
+		core.Assert(world.islands[islandID].setIndex == nullIndex, "world->islands.data[islandId].setIndex == B2_NULL_INDEX")
 	}
 
 	set := &world.solverSets[setIndex]
@@ -56,7 +62,7 @@ func createIsland(world *World, setIndex int) *island {
 
 	var islandSim *islandSim
 
-	set.islandSims, islandSim = arrayEmplace(set.islandSims)
+	set.islandSims, islandSim = array.Emplace(set.islandSims)
 	islandSim.islandID = islandID
 
 	return island
@@ -73,7 +79,7 @@ func destroyIsland(world *World, islandID int) {
 	{
 		localIndex := island.localIndex
 		lastIndex := len(set.islandSims) - 1
-		assert(0 <= localIndex && localIndex <= lastIndex, "0 <= localIndex && localIndex <= lastIndex")
+		core.Assert(0 <= localIndex && localIndex <= lastIndex, "0 <= localIndex && localIndex <= lastIndex")
 		moveIslandID := set.islandSims[lastIndex].islandID
 		set.islandSims[localIndex] = set.islandSims[lastIndex]
 		world.islands[moveIslandID].localIndex = localIndex
@@ -89,9 +95,9 @@ func destroyIsland(world *World, islandID int) {
 	island.islandID = nullIndex
 	island.setIndex = nullIndex
 
-	validate(island.localIndex == nullIndex, "island->localIndex == B2_NULL_INDEX")
+	core.Validate(island.localIndex == nullIndex, "island->localIndex == B2_NULL_INDEX")
 
-	freeID(&world.islandIDPool, islandID)
+	world.islandIDPool.Free(islandID)
 }
 
 func mergeIslands(world *World, islandIDA int, islandIDB int) int {
@@ -100,12 +106,12 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 	}
 
 	if islandIDA == nullIndex {
-		assert(islandIDB != nullIndex, "islandIdB != B2_NULL_INDEX")
+		core.Assert(islandIDB != nullIndex, "islandIdB != B2_NULL_INDEX")
 		return islandIDB
 	}
 
 	if islandIDB == nullIndex {
-		assert(islandIDA != nullIndex, "islandIdA != B2_NULL_INDEX")
+		core.Assert(islandIDA != nullIndex, "islandIdA != B2_NULL_INDEX")
 		return islandIDA
 	}
 
@@ -134,10 +140,10 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 	for i := range len(smallIsland.bodies) {
 		bodyID := smallIsland.bodies[i]
 		body := &world.bodies[bodyID]
-		validate(body.islandID == smallIsland.islandID, "body->islandId == smallIsland->islandId")
+		core.Validate(body.islandID == smallIsland.islandID, "body->islandId == smallIsland->islandId")
 		body.islandID = bigIslandID
 		body.islandIndex = len(bigIsland.bodies)
-		bigIsland.bodies = arrayPush(bigIsland.bodies, bodyID)
+		bigIsland.bodies = array.Push(bigIsland.bodies, bodyID)
 	}
 
 	// Migrate contacts from smaller island to larger island
@@ -149,7 +155,7 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 			contact := &world.contacts[link.contactID]
 			contact.islandID = bigIslandID
 			contact.islandIndex = len(bigIsland.contacts)
-			bigIsland.contacts = arrayPush(bigIsland.contacts, *link)
+			bigIsland.contacts = array.Push(bigIsland.contacts, *link)
 		}
 	}
 
@@ -162,7 +168,7 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 			joint := &world.joints[link.jointID]
 			joint.islandID = bigIslandID
 			joint.islandIndex = len(bigIsland.joints)
-			bigIsland.joints = arrayPush(bigIsland.joints, *link)
+			bigIsland.joints = array.Push(bigIsland.joints, *link)
 		}
 	}
 
@@ -177,8 +183,8 @@ func mergeIslands(world *World, islandIDA int, islandIDB int) int {
 }
 
 func addContactToIsland(world *World, islandID int, contact *contact) {
-	assert(contact.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
-	assert(contact.islandIndex == nullIndex, "contact->islandIndex == B2_NULL_INDEX")
+	core.Assert(contact.islandID == nullIndex, "contact->islandId == B2_NULL_INDEX")
+	core.Assert(contact.islandIndex == nullIndex, "contact->islandIndex == B2_NULL_INDEX")
 
 	island := &world.islands[islandID]
 
@@ -190,13 +196,13 @@ func addContactToIsland(world *World, islandID int, contact *contact) {
 	link.contactID = contact.contactID
 	link.bodyIDA = contact.edges[0].bodyID
 	link.bodyIDB = contact.edges[1].bodyID
-	island.contacts = arrayPush(island.contacts, link)
+	island.contacts = array.Push(island.contacts, link)
 
 	validateIsland(world, islandID)
 }
 
 func linkContact(world *World, contact *contact) {
-	assert((contact.flags&contactTouchingFlag) != 0, "( contact->flags & b2_contactTouchingFlag ) != 0")
+	core.Assert((contact.flags&contactTouchingFlag) != 0, "( contact->flags & b2_contactTouchingFlag ) != 0")
 
 	bodyIDA := contact.edges[0].bodyID
 	bodyIDB := contact.edges[1].bodyID
@@ -204,8 +210,8 @@ func linkContact(world *World, contact *contact) {
 	bodyA := &world.bodies[bodyIDA]
 	bodyB := &world.bodies[bodyIDB]
 
-	assert(bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet, "bodyA->setIndex != b2_disabledSet && bodyB->setIndex != b2_disabledSet")
-	assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet")
+	core.Assert(bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet, "bodyA->setIndex != b2_disabledSet && bodyB->setIndex != b2_disabledSet")
+	core.Assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet")
 
 	// Wake bodyB if bodyA is awake and bodyB is sleeping
 	if bodyA.setIndex == awakeSet && bodyB.setIndex >= firstSleepingSet {
@@ -221,9 +227,9 @@ func linkContact(world *World, contact *contact) {
 	islandIDB := bodyB.islandID
 
 	// Static bodies have null island indices.
-	assert(bodyA.setIndex != staticSet || islandIDA == nullIndex, "bodyA->setIndex != b2_staticSet || islandIdA == B2_NULL_INDEX")
-	assert(bodyB.setIndex != staticSet || islandIDB == nullIndex, "bodyB->setIndex != b2_staticSet || islandIdB == B2_NULL_INDEX")
-	assert(islandIDA != nullIndex || islandIDB != nullIndex, "islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX")
+	core.Assert(bodyA.setIndex != staticSet || islandIDA == nullIndex, "bodyA->setIndex != b2_staticSet || islandIdA == B2_NULL_INDEX")
+	core.Assert(bodyB.setIndex != staticSet || islandIDB == nullIndex, "bodyB->setIndex != b2_staticSet || islandIdB == B2_NULL_INDEX")
+	core.Assert(islandIDA != nullIndex || islandIDB != nullIndex, "islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX")
 
 	// Merge islands. This will destroy one of the islands.
 	finalIslandID := mergeIslands(world, islandIDA, islandIDB)
@@ -233,24 +239,24 @@ func linkContact(world *World, contact *contact) {
 }
 
 func unlinkContact(world *World, contact *contact) {
-	assert(contact.islandID != nullIndex, "contact->islandId != B2_NULL_INDEX")
+	core.Assert(contact.islandID != nullIndex, "contact->islandId != B2_NULL_INDEX")
 
 	// remove from island
 	islandID := contact.islandID
 	island := &world.islands[islandID]
 
 	removeIndex := contact.islandIndex
-	assert(0 <= removeIndex && removeIndex < len(island.contacts), "0 <= removeIndex && removeIndex < island->contacts.count")
-	assert(island.contacts[removeIndex].contactID == contact.contactID, "island->contacts.data[removeIndex].contactId == contact->contactId")
+	core.Assert(0 <= removeIndex && removeIndex < len(island.contacts), "0 <= removeIndex && removeIndex < island->contacts.count")
+	core.Assert(island.contacts[removeIndex].contactID == contact.contactID, "island->contacts.data[removeIndex].contactId == contact->contactId")
 
 	var movedIndex int
 
-	island.contacts, movedIndex = arrayRemoveSwap(island.contacts, removeIndex)
+	island.contacts, movedIndex = array.RemoveSwap(island.contacts, removeIndex)
 	if movedIndex != nullIndex {
 		// Fix islandIndex on the contact that was swapped into removeIndex
 		movedLink := &island.contacts[removeIndex]
 		movedContact := &world.contacts[movedLink.contactID]
-		assert(movedContact.islandIndex == movedIndex, "movedContact->islandIndex == movedIndex")
+		core.Assert(movedContact.islandIndex == movedIndex, "movedContact->islandIndex == movedIndex")
 		movedContact.islandIndex = removeIndex
 	}
 
@@ -262,8 +268,8 @@ func unlinkContact(world *World, contact *contact) {
 }
 
 func addJointToIsland(world *World, islandID int, joint *joint) {
-	assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
-	assert(joint.islandIndex == nullIndex, "joint->islandIndex == B2_NULL_INDEX")
+	core.Assert(joint.islandID == nullIndex, "joint->islandId == B2_NULL_INDEX")
+	core.Assert(joint.islandIndex == nullIndex, "joint->islandIndex == B2_NULL_INDEX")
 
 	island := &world.islands[islandID]
 
@@ -275,7 +281,7 @@ func addJointToIsland(world *World, islandID int, joint *joint) {
 	link.jointID = joint.jointID
 	link.bodyIDA = joint.edges[0].bodyID
 	link.bodyIDB = joint.edges[1].bodyID
-	island.joints = arrayPush(island.joints, link)
+	island.joints = array.Push(island.joints, link)
 
 	validateIsland(world, islandID)
 }
@@ -284,7 +290,7 @@ func linkJoint(world *World, joint *joint) {
 	bodyA := &world.bodies[joint.edges[0].bodyID]
 	bodyB := &world.bodies[joint.edges[1].bodyID]
 
-	assert(bodyA.bodyType == DynamicBody || bodyB.bodyType == DynamicBody, "bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody")
+	core.Assert(bodyA.bodyType == DynamicBody || bodyB.bodyType == DynamicBody, "bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody")
 
 	if bodyA.setIndex == awakeSet && bodyB.setIndex >= firstSleepingSet {
 		wakeSolverSet(world, bodyB.setIndex)
@@ -295,7 +301,7 @@ func linkJoint(world *World, joint *joint) {
 	islandIDA := bodyA.islandID
 	islandIDB := bodyB.islandID
 
-	assert(islandIDA != nullIndex || islandIDB != nullIndex, "islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX")
+	core.Assert(islandIDA != nullIndex || islandIDB != nullIndex, "islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX")
 
 	// Merge islands. This will destroy one of the islands.
 	finalIslandID := mergeIslands(world, islandIDA, islandIDB)
@@ -314,17 +320,17 @@ func unlinkJoint(world *World, joint *joint) {
 	island := &world.islands[islandID]
 
 	removeIndex := joint.islandIndex
-	assert(0 <= removeIndex && removeIndex < len(island.joints), "0 <= removeIndex && removeIndex < island->joints.count")
-	assert(island.joints[removeIndex].jointID == joint.jointID, "island->joints.data[removeIndex].jointId == joint->jointId")
+	core.Assert(0 <= removeIndex && removeIndex < len(island.joints), "0 <= removeIndex && removeIndex < island->joints.count")
+	core.Assert(island.joints[removeIndex].jointID == joint.jointID, "island->joints.data[removeIndex].jointId == joint->jointId")
 
 	var movedIndex int
 
-	island.joints, movedIndex = arrayRemoveSwap(island.joints, removeIndex)
+	island.joints, movedIndex = array.RemoveSwap(island.joints, removeIndex)
 	if movedIndex != nullIndex {
 		// Fix islandIndex on the joint that was swapped into removeIndex
 		movedLink := &island.joints[removeIndex]
 		movedJoint := &world.joints[movedLink.jointID]
-		assert(movedJoint.islandIndex == movedIndex, "movedJoint->islandIndex == movedIndex")
+		core.Assert(movedJoint.islandIndex == movedIndex, "movedJoint->islandIndex == movedIndex")
 		movedJoint.islandIndex = removeIndex
 	}
 
@@ -371,8 +377,8 @@ func islandUnion(parents []int, ranks []int, node1 int, node2 int, contactCounts
 
 func splitIsland(world *World, baseID int) {
 	baseIsland := &world.islands[baseID]
-	assert(baseIsland.constraintRemoveCount > 0, "baseIsland->constraintRemoveCount > 0")
-	assert(baseIsland.setIndex == awakeSet, "baseIsland->setIndex == b2_awakeSet")
+	core.Assert(baseIsland.constraintRemoveCount > 0, "baseIsland->constraintRemoveCount > 0")
+	core.Assert(baseIsland.setIndex == awakeSet, "baseIsland->setIndex == b2_awakeSet")
 
 	validateIsland(world, baseID)
 
@@ -466,7 +472,7 @@ func splitIsland(world *World, baseID int) {
 		componentBodyCounts[rootMap[rootIndex]] += 1
 	}
 
-	assert(islandCount == componentCount, "islandCount == componentCount")
+	core.Assert(islandCount == componentCount, "islandCount == componentCount")
 
 	// Map from new island index to island id
 	islandIDs := make([]int, islandCount)
@@ -478,9 +484,9 @@ func splitIsland(world *World, baseID int) {
 		islandIDs[i] = newIsland.islandID
 
 		// Reserve arrays to avoid wasteful growth and memcpy.
-		newIsland.bodies = arrayReserve(newIsland.bodies, componentBodyCounts[i])
-		newIsland.contacts = arrayReserve(newIsland.contacts, componentContactCounts[i])
-		newIsland.joints = arrayReserve(newIsland.joints, componentJointCounts[i])
+		newIsland.bodies = array.Reserve(newIsland.bodies, componentBodyCounts[i])
+		newIsland.contacts = array.Reserve(newIsland.contacts, componentContactCounts[i])
+		newIsland.joints = array.Reserve(newIsland.joints, componentJointCounts[i])
 	}
 
 	// Assign bodies to new islands
@@ -496,8 +502,8 @@ func splitIsland(world *World, baseID int) {
 		body.islandIndex = len(newIsland.bodies)
 
 		// Ensure the array has the correct capacity
-		validate(len(newIsland.bodies) < cap(newIsland.bodies), "newIsland->bodies.count < newIsland->bodies.capacity")
-		newIsland.bodies = arrayPush(newIsland.bodies, bodyID)
+		core.Validate(len(newIsland.bodies) < cap(newIsland.bodies), "newIsland->bodies.count < newIsland->bodies.capacity")
+		newIsland.bodies = array.Push(newIsland.bodies, bodyID)
 	}
 
 	reassignSplitIslandContacts(world, baseContacts)
@@ -511,8 +517,8 @@ func splitIsland(world *World, baseID int) {
 func unionIslandBodies(world *World, parents, ranks, contactCounts, jointCounts []int, bodyIDA, bodyIDB int) int {
 	baseBodyCount := len(parents)
 	bodies := world.bodies
-	validate(0 <= bodyIDA && bodyIDA < len(world.bodies), "0 <= bodyIdA && bodyIdA < world->bodies.count")
-	validate(0 <= bodyIDB && bodyIDB < len(world.bodies), "0 <= bodyIdB && bodyIdB < world->bodies.count")
+	core.Validate(0 <= bodyIDA && bodyIDA < len(world.bodies), "0 <= bodyIdA && bodyIdA < world->bodies.count")
+	core.Validate(0 <= bodyIDB && bodyIDB < len(world.bodies), "0 <= bodyIdB && bodyIdB < world->bodies.count")
 	bodyA := &bodies[bodyIDA]
 	bodyB := &bodies[bodyIDB]
 	islandIndexA := bodyA.islandIndex
@@ -520,8 +526,8 @@ func unionIslandBodies(world *World, parents, ranks, contactCounts, jointCounts 
 
 	// Only connect non-static bodies
 	if islandIndexA != nullIndex && islandIndexB != nullIndex {
-		validate(0 <= islandIndexA && islandIndexA < baseBodyCount, "0 <= islandIndexA && islandIndexA < baseBodyCount")
-		validate(0 <= islandIndexB && islandIndexB < baseBodyCount, "0 <= islandIndexB && islandIndexB < baseBodyCount")
+		core.Validate(0 <= islandIndexA && islandIndexA < baseBodyCount, "0 <= islandIndexA && islandIndexA < baseBodyCount")
+		core.Validate(0 <= islandIndexB && islandIndexB < baseBodyCount, "0 <= islandIndexB && islandIndexB < baseBodyCount")
 		islandUnion(parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts)
 
 		return islandFindParent(parents, islandIndexA)
@@ -536,20 +542,20 @@ func unionIslandBodies(world *World, parents, ranks, contactCounts, jointCounts 
 }
 
 func splitIslandTask(context *World) {
-	ticks := currentTicks()
+	ticks := timer.Ticks()
 
 	world := context
 
-	assert(world.splitIslandID != nullIndex, "world->splitIslandId != B2_NULL_INDEX")
+	core.Assert(world.splitIslandID != nullIndex, "world->splitIslandId != B2_NULL_INDEX")
 
 	splitIsland(world, world.splitIslandID)
 
 	world.splitIslandID = nullIndex
-	world.profile.SplitIslands += milliseconds(ticks)
+	world.profile.SplitIslands += timer.Milliseconds(ticks)
 }
 
 func validateIsland(world *World, islandID int) {
-	if !validationEnabled {
+	if !core.ValidationEnabled {
 		return
 	}
 
@@ -558,41 +564,41 @@ func validateIsland(world *World, islandID int) {
 	}
 
 	island := &world.islands[islandID]
-	assert(island.islandID == islandID, "island->islandId == islandId")
-	assert(island.setIndex != nullIndex, "island->setIndex != B2_NULL_INDEX")
+	core.Assert(island.islandID == islandID, "island->islandId == islandId")
+	core.Assert(island.setIndex != nullIndex, "island->setIndex != B2_NULL_INDEX")
 	{
-		assert(len(island.bodies) > 0, "island->bodies.count > 0")
-		assert(len(island.bodies) <= getIDCount(&world.bodyIDPool), "island->bodies.count <= b2GetIdCount( &world->bodyIdPool )")
+		core.Assert(len(island.bodies) > 0, "island->bodies.count > 0")
+		core.Assert(len(island.bodies) <= world.bodyIDPool.Count(), "island->bodies.count <= b2GetIdCount( &world->bodyIdPool )")
 
 		for i := range len(island.bodies) {
 			body := &world.bodies[island.bodies[i]]
-			assert(body.islandID == islandID, "body->islandId == islandId")
-			assert(body.islandIndex == i, "body->islandIndex == i")
-			assert(body.setIndex == island.setIndex, "body->setIndex == island->setIndex")
+			core.Assert(body.islandID == islandID, "body->islandId == islandId")
+			core.Assert(body.islandIndex == i, "body->islandIndex == i")
+			core.Assert(body.setIndex == island.setIndex, "body->setIndex == island->setIndex")
 		}
 	}
 
 	if len(island.contacts) > 0 {
-		assert(len(island.contacts) <= getIDCount(&world.contactIDPool), "island->contacts.count <= b2GetIdCount( &world->contactIdPool )")
+		core.Assert(len(island.contacts) <= world.contactIDPool.Count(), "island->contacts.count <= b2GetIdCount( &world->contactIdPool )")
 
 		for i := range len(island.contacts) {
 			link := &island.contacts[i]
 			contact := &world.contacts[link.contactID]
-			assert(contact.setIndex == island.setIndex, "contact->setIndex == island->setIndex")
-			assert(contact.islandID == islandID, "contact->islandId == islandId")
-			assert(contact.islandIndex == i, "contact->islandIndex == i")
+			core.Assert(contact.setIndex == island.setIndex, "contact->setIndex == island->setIndex")
+			core.Assert(contact.islandID == islandID, "contact->islandId == islandId")
+			core.Assert(contact.islandIndex == i, "contact->islandIndex == i")
 		}
 	}
 
 	if len(island.joints) > 0 {
-		assert(len(island.joints) <= getIDCount(&world.jointIDPool), "island->joints.count <= b2GetIdCount( &world->jointIdPool )")
+		core.Assert(len(island.joints) <= world.jointIDPool.Count(), "island->joints.count <= b2GetIdCount( &world->jointIdPool )")
 
 		for i := range len(island.joints) {
 			link := &island.joints[i]
 			joint := &world.joints[link.jointID]
-			assert(joint.setIndex == island.setIndex, "joint->setIndex == island->setIndex")
-			assert(joint.islandID == islandID, "joint->islandId == islandId")
-			assert(joint.islandIndex == i, "joint->islandIndex == i")
+			core.Assert(joint.setIndex == island.setIndex, "joint->setIndex == island->setIndex")
+			core.Assert(joint.islandID == islandID, "joint->islandId == islandId")
+			core.Assert(joint.islandIndex == i, "joint->islandIndex == i")
 		}
 	}
 }
@@ -618,8 +624,8 @@ func reassignSplitIslandContacts(world *World, baseContacts []contactLink) {
 		contact.islandIndex = len(targetIsland.contacts)
 
 		// Ensure the array has the correct capacity
-		validate(len(targetIsland.contacts) < cap(targetIsland.contacts), "targetIsland->contacts.count < targetIsland->contacts.capacity")
-		targetIsland.contacts = arrayPush(targetIsland.contacts, *link)
+		core.Validate(len(targetIsland.contacts) < cap(targetIsland.contacts), "targetIsland->contacts.count < targetIsland->contacts.capacity")
+		targetIsland.contacts = array.Push(targetIsland.contacts, *link)
 	}
 }
 
@@ -644,7 +650,7 @@ func reassignSplitIslandJoints(world *World, baseJoints []jointLink) {
 		joint.islandIndex = len(targetIsland.joints)
 
 		// Ensure the array has the correct capacity
-		validate(len(targetIsland.joints) < cap(targetIsland.joints), "targetIsland->joints.count < targetIsland->joints.capacity")
-		targetIsland.joints = arrayPush(targetIsland.joints, *link)
+		core.Validate(len(targetIsland.joints) < cap(targetIsland.joints), "targetIsland->joints.count < targetIsland->joints.capacity")
+		targetIsland.joints = array.Push(targetIsland.joints, *link)
 	}
 }

@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
 
-package box2d
+package hashset
 
 import (
 	"testing"
 
+	"github.com/zigai/box2d/internal/core"
 	"github.com/zigai/box2d/internal/oracle"
+	"github.com/zigai/box2d/internal/timer"
 )
 
 const tableItemCount = (317*317 - 317) / 2
@@ -22,14 +24,14 @@ func tableBoolByte(v bool) byte {
 func TestTable(t *testing.T) {
 	r := oracle.Open(t, "table/TableTest")
 
-	power := boundingPowerOf2(3008)
+	power := core.BoundingPowerOf2(3008)
 	if power != 12 {
 		t.Fatal("condition false")
 	}
 
 	r.I32("line_427", int32(power))
 
-	nextPowerOf2 := roundUpPowerOf2(3008)
+	nextPowerOf2 := core.RoundUpPowerOf2(3008)
 	if nextPowerOf2 != (1 << power) {
 		t.Fatal("condition false")
 	}
@@ -52,269 +54,269 @@ func TestTable(t *testing.T) {
 func runTableBasicHashSetTest(t *testing.T) {
 	r := oracle.Open(t, "table/BasicHashSetTest")
 
-	set := createSet(16)
-	if getSetCount(&set) != 0 {
+	set := New(16)
+	if int(set.Count) != 0 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_18", int32(getSetCount(&set)))
+	r.I32("line_18", int32(int(set.Count)))
 
-	if getSetCapacity(&set) != 16 {
+	if int(set.Capacity) != 16 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_19", int32(getSetCapacity(&set)))
+	r.I32("line_19", int32(int(set.Capacity)))
 
-	destroySet(&set)
+	set.Destroy()
 
-	if set.items != nil {
+	if set.Items != nil {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_22", set.items == nil)
+	r.Bool("line_22", set.Items == nil)
 
-	if set.count != 0 {
+	if set.Count != 0 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_23", int32(set.count))
+	r.I32("line_23", int32(set.Count))
 
-	if set.capacity != 0 {
+	if set.Capacity != 0 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_24", int32(set.capacity))
+	r.I32("line_24", int32(set.Capacity))
 }
 
 func runTableHashSetCapacityTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetCapacityTest")
 
 	{
-		set := createSet(1)
-		if getSetCapacity(&set) != 16 {
+		set := New(1)
+		if int(set.Capacity) != 16 {
 			t.Fatal("condition false")
 		}
 
-		r.I32("line_34", int32(getSetCapacity(&set)))
-		destroySet(&set)
+		r.I32("line_34", int32(int(set.Capacity)))
+		set.Destroy()
 	}
 
 	{
-		set := createSet(15)
-		if getSetCapacity(&set) != 16 {
+		set := New(15)
+		if int(set.Capacity) != 16 {
 			t.Fatal("condition false")
 		}
 
-		r.I32("line_40", int32(getSetCapacity(&set)))
-		destroySet(&set)
+		r.I32("line_40", int32(int(set.Capacity)))
+		set.Destroy()
 	}
 
 	{
-		set := createSet(32)
-		if getSetCapacity(&set) != 32 {
+		set := New(32)
+		if int(set.Capacity) != 32 {
 			t.Fatal("condition false")
 		}
 
-		r.I32("line_46", int32(getSetCapacity(&set)))
-		destroySet(&set)
+		r.I32("line_46", int32(int(set.Capacity)))
+		set.Destroy()
 	}
 
 	{
-		set := createSet(33)
-		if getSetCapacity(&set) != 64 {
+		set := New(33)
+		if int(set.Capacity) != 64 {
 			t.Fatal("condition false")
 		}
 
-		r.I32("line_52", int32(getSetCapacity(&set)))
-		destroySet(&set)
+		r.I32("line_52", int32(int(set.Capacity)))
+		set.Destroy()
 	}
 }
 
 func runTableHashSetAddRemoveTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetAddRemoveTest")
 
-	set := createSet(16)
+	set := New(16)
 
-	found := addKey(&set, 42)
+	found := set.Add(42)
 	if found != false {
 		t.Fatal("condition false")
 	}
 
 	r.Bool("line_65", found)
 
-	if getSetCount(&set) != 1 {
+	if int(set.Count) != 1 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_66", int32(getSetCount(&set)))
+	r.I32("line_66", int32(int(set.Count)))
 
-	found = addKey(&set, 123)
+	found = set.Add(123)
 	if found != false {
 		t.Fatal("condition false")
 	}
 
 	r.Bool("line_69", found)
 
-	if getSetCount(&set) != 2 {
+	if int(set.Count) != 2 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_70", int32(getSetCount(&set)))
+	r.I32("line_70", int32(int(set.Count)))
 
-	found = addKey(&set, 42)
+	found = set.Add(42)
 	if found != true {
 		t.Fatal("condition false")
 	}
 
 	r.Bool("line_74", found)
 
-	if getSetCount(&set) != 2 {
+	if int(set.Count) != 2 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_75", int32(getSetCount(&set)))
+	r.I32("line_75", int32(int(set.Count)))
 
-	if containsKey(&set, 42) != true {
+	if set.Contains(42) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_78", containsKey(&set, 42))
+	r.Bool("line_78", set.Contains(42))
 
-	if containsKey(&set, 123) != true {
+	if set.Contains(123) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_79", containsKey(&set, 123))
+	r.Bool("line_79", set.Contains(123))
 
-	if containsKey(&set, 999) != false {
+	if set.Contains(999) != false {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_80", containsKey(&set, 999))
+	r.Bool("line_80", set.Contains(999))
 
-	removed := removeKey(&set, 42)
+	removed := set.Remove(42)
 	if removed != true {
 		t.Fatal("condition false")
 	}
 
 	r.Bool("line_84", removed)
 
-	if getSetCount(&set) != 1 {
+	if int(set.Count) != 1 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_85", int32(getSetCount(&set)))
+	r.I32("line_85", int32(int(set.Count)))
 
-	if containsKey(&set, 42) != false {
+	if set.Contains(42) != false {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_86", containsKey(&set, 42))
+	r.Bool("line_86", set.Contains(42))
 
-	if containsKey(&set, 123) != true {
+	if set.Contains(123) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_87", containsKey(&set, 123))
+	r.Bool("line_87", set.Contains(123))
 
-	removed = removeKey(&set, 999)
+	removed = set.Remove(999)
 	if removed != false {
 		t.Fatal("condition false")
 	}
 
 	r.Bool("line_91", removed)
 
-	if getSetCount(&set) != 1 {
+	if int(set.Count) != 1 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_92", int32(getSetCount(&set)))
+	r.I32("line_92", int32(int(set.Count)))
 
-	removed = removeKey(&set, 42)
+	removed = set.Remove(42)
 	if removed != false {
 		t.Fatal("condition false")
 	}
 
 	r.Bool("line_96", removed)
 
-	if getSetCount(&set) != 1 {
+	if int(set.Count) != 1 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_97", int32(getSetCount(&set)))
+	r.I32("line_97", int32(int(set.Count)))
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetClearTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetClearTest")
 
-	set := createSet(16)
+	set := New(16)
 
-	addKey(&set, 10)
-	addKey(&set, 20)
-	addKey(&set, 30)
+	set.Add(10)
+	set.Add(20)
+	set.Add(30)
 
-	if getSetCount(&set) != 3 {
+	if int(set.Count) != 3 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_111", int32(getSetCount(&set)))
+	r.I32("line_111", int32(int(set.Count)))
 
-	clearSet(&set)
+	set.Clear()
 
-	if getSetCount(&set) != 0 {
+	if int(set.Count) != 0 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_115", int32(getSetCount(&set)))
+	r.I32("line_115", int32(int(set.Count)))
 
-	if containsKey(&set, 10) != false {
+	if set.Contains(10) != false {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_116", containsKey(&set, 10))
+	r.Bool("line_116", set.Contains(10))
 
-	if containsKey(&set, 20) != false {
+	if set.Contains(20) != false {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_117", containsKey(&set, 20))
+	r.Bool("line_117", set.Contains(20))
 
-	if containsKey(&set, 30) != false {
+	if set.Contains(30) != false {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_118", containsKey(&set, 30))
+	r.Bool("line_118", set.Contains(30))
 
-	addKey(&set, 40)
+	set.Add(40)
 
-	if getSetCount(&set) != 1 {
+	if int(set.Count) != 1 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_122", int32(getSetCount(&set)))
+	r.I32("line_122", int32(int(set.Count)))
 
-	if containsKey(&set, 40) != true {
+	if set.Contains(40) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_123", containsKey(&set, 40))
+	r.Bool("line_123", set.Contains(40))
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetGrowthTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetGrowthTest")
 
-	set := createSet(16)
-	initialCapacity := getSetCapacity(&set)
+	set := New(16)
+	initialCapacity := int(set.Capacity)
 
 	for i := range uint64(8) {
-		addKey(&set, i+1)
+		set.Add(i + 1)
 	}
 
-	newCapacity := getSetCapacity(&set)
+	newCapacity := int(set.Capacity)
 	if newCapacity < initialCapacity {
 		t.Fatal("condition false")
 	}
@@ -322,121 +324,121 @@ func runTableHashSetGrowthTest(t *testing.T) {
 	r.I32("line_143", int32(newCapacity))
 	r.I32("line_143_initial", int32(initialCapacity))
 
-	if getSetCount(&set) != 8 {
+	if int(set.Count) != 8 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_144", int32(getSetCount(&set)))
+	r.I32("line_144", int32(int(set.Count)))
 
 	for i := uint64(1); i <= 8; i++ {
-		if containsKey(&set, i) != true {
+		if set.Contains(i) != true {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("line_149", containsKey(&set, i))
+		r.Bool("line_149", set.Contains(i))
 	}
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetEdgeCasesTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetEdgeCasesTest")
 
-	set := createSet(16)
+	set := New(16)
 
 	largeKey := uint64(0xFFFFFFFFFFFFFFFF) - 1
-	addKey(&set, largeKey)
+	set.Add(largeKey)
 
-	if containsKey(&set, largeKey) != true {
+	if set.Contains(largeKey) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_163", containsKey(&set, largeKey))
+	r.Bool("line_163", set.Contains(largeKey))
 
-	if getSetCount(&set) != 1 {
+	if int(set.Count) != 1 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_164", int32(getSetCount(&set)))
+	r.I32("line_164", int32(int(set.Count)))
 
 	key1 := uint64(0x123456789ABCDEF)
 	key2 := uint64(0x987654321FEDCBA)
 
-	addKey(&set, key1)
-	addKey(&set, key2)
+	set.Add(key1)
+	set.Add(key2)
 
-	if containsKey(&set, key1) != true {
+	if set.Contains(key1) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_171", containsKey(&set, key1))
+	r.Bool("line_171", set.Contains(key1))
 
-	if containsKey(&set, key2) != true {
+	if set.Contains(key2) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_172", containsKey(&set, key2))
+	r.Bool("line_172", set.Contains(key2))
 
 	for i := uint64(0x1000); i < 0x1010; i++ {
-		addKey(&set, i)
+		set.Add(i)
 	}
 
 	for i := uint64(0x1000); i < 0x1010; i++ {
-		if containsKey(&set, i) != true {
+		if set.Contains(i) != true {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("line_182", containsKey(&set, i))
+		r.Bool("line_182", set.Contains(i))
 	}
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetRemovalReorganizationTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetRemovalReorganizationTest")
 
-	set := createSet(16)
+	set := New(16)
 
 	keys := [...]uint64{100, 116, 132, 148, 164}
 	keyCount := len(keys)
 
 	for i := range keyCount {
-		addKey(&set, keys[i])
+		set.Add(keys[i])
 	}
 
 	for i := range keyCount {
-		if containsKey(&set, keys[i]) != true {
+		if set.Contains(keys[i]) != true {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("line_205", containsKey(&set, keys[i]))
+		r.Bool("line_205", set.Contains(keys[i]))
 	}
 
-	removeKey(&set, keys[2])
+	set.Remove(keys[2])
 
-	if containsKey(&set, keys[2]) != false {
+	if set.Contains(keys[2]) != false {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_210", containsKey(&set, keys[2]))
+	r.Bool("line_210", set.Contains(keys[2]))
 
 	for i := range keyCount {
 		if i != 2 {
-			if containsKey(&set, keys[i]) != true {
+			if set.Contains(keys[i]) != true {
 				t.Fatal("condition false")
 			}
 
-			r.Bool("line_217", containsKey(&set, keys[i]))
+			r.Bool("line_217", set.Contains(keys[i]))
 		}
 	}
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetStressTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetStressTest")
 
-	set := createSet(32)
+	set := New(32)
 
 	testSize := 1000
 
@@ -447,7 +449,7 @@ func runTableHashSetStressTest(t *testing.T) {
 	}
 
 	for i := range testSize {
-		found := addKey(&set, keys[i])
+		found := set.Add(keys[i])
 		if found != false {
 			t.Fatal("condition false")
 		}
@@ -455,24 +457,24 @@ func runTableHashSetStressTest(t *testing.T) {
 		r.Bool("line_244", found)
 	}
 
-	if getSetCount(&set) != testSize {
+	if int(set.Count) != testSize {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_247", int32(getSetCount(&set)))
+	r.I32("line_247", int32(int(set.Count)))
 
 	for i := range testSize {
-		if containsKey(&set, keys[i]) != true {
+		if set.Contains(keys[i]) != true {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("line_252", containsKey(&set, keys[i]))
+		r.Bool("line_252", set.Contains(keys[i]))
 	}
 
 	removedCount := 0
 
 	for i := 0; i < testSize; i += 2 {
-		removed := removeKey(&set, keys[i])
+		removed := set.Remove(keys[i])
 		if removed != true {
 			t.Fatal("condition false")
 		}
@@ -482,32 +484,32 @@ func runTableHashSetStressTest(t *testing.T) {
 		removedCount++
 	}
 
-	if getSetCount(&set) != testSize-removedCount {
+	if int(set.Count) != testSize-removedCount {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_264", int32(getSetCount(&set)))
+	r.I32("line_264", int32(int(set.Count)))
 
 	for i := range testSize {
 		shouldBePresent := (i%2 == 1)
-		if containsKey(&set, keys[i]) != shouldBePresent {
+		if set.Contains(keys[i]) != shouldBePresent {
 			t.Fatal("condition false")
 		}
 
-		r.Bool("line_270", containsKey(&set, keys[i]))
+		r.Bool("line_270", set.Contains(keys[i]))
 	}
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetShapePairKeyTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetShapePairKeyTest")
 
-	set := createSet(16)
+	set := New(16)
 
-	key1 := shapePairKey(5, 10)
+	key1 := ShapePairKey(5, 10)
 
-	key2 := shapePairKey(10, 5)
+	key2 := ShapePairKey(10, 5)
 	if key1 != key2 {
 		t.Fatal("condition false")
 	}
@@ -515,23 +517,23 @@ func runTableHashSetShapePairKeyTest(t *testing.T) {
 	r.U64("line_284", key1)
 	r.U64("line_284_other", key2)
 
-	addKey(&set, key1)
+	set.Add(key1)
 
-	if containsKey(&set, key1) != true {
+	if set.Contains(key1) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_287", containsKey(&set, key1))
+	r.Bool("line_287", set.Contains(key1))
 
-	if containsKey(&set, key2) != true {
+	if set.Contains(key2) != true {
 		t.Fatal("condition false")
 	}
 
-	r.Bool("line_288", containsKey(&set, key2))
+	r.Bool("line_288", set.Contains(key2))
 
-	key3 := shapePairKey(1, 2)
+	key3 := ShapePairKey(1, 2)
 
-	key4 := shapePairKey(2, 3)
+	key4 := ShapePairKey(2, 3)
 	if key3 == key4 {
 		t.Fatal("condition false")
 	}
@@ -539,24 +541,24 @@ func runTableHashSetShapePairKeyTest(t *testing.T) {
 	r.U64("line_293", key3)
 	r.U64("line_293_other", key4)
 
-	addKey(&set, key3)
-	addKey(&set, key4)
+	set.Add(key3)
+	set.Add(key4)
 
-	if getSetCount(&set) != 3 {
+	if int(set.Count) != 3 {
 		t.Fatal("condition false")
 	}
 
-	r.I32("line_297", int32(getSetCount(&set)))
+	r.I32("line_297", int32(int(set.Count)))
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetBytesTest(t *testing.T) {
 	r := oracle.Open(t, "table/HashSetBytesTest")
 
-	set := createSet(32)
+	set := New(32)
 
-	bytes := getHashSetBytes(&set)
+	bytes := set.Bytes()
 
 	expectedBytes := 32 * 8
 	if bytes != expectedBytes {
@@ -565,17 +567,17 @@ func runTableHashSetBytesTest(t *testing.T) {
 
 	r.I32("line_309", int32(bytes))
 
-	addKey(&set, 100)
-	addKey(&set, 200)
+	set.Add(100)
+	set.Add(200)
 
-	bytesAfterAdd := getHashSetBytes(&set)
+	bytesAfterAdd := set.Bytes()
 	if bytesAfterAdd != expectedBytes {
 		t.Fatal("condition false")
 	}
 
 	r.I32("line_316", int32(bytesAfterAdd))
 
-	destroySet(&set)
+	set.Destroy()
 }
 
 func runTableHashSetTest(t *testing.T) {
@@ -589,13 +591,13 @@ func runTableHashSetTest(t *testing.T) {
 	var removed [tableItemCount]bool
 
 	for range 1 {
-		set := createSet(16)
+		set := New(16)
 
 		for i := range n {
 			for j := i + 1; j < n; j++ {
-				key := shapePairKey(i, j)
+				key := ShapePairKey(i, j)
 
-				found := addKey(&set, key)
+				found := set.Add(key)
 				if found != false {
 					t.Fatal("condition false")
 				}
@@ -607,11 +609,11 @@ func runTableHashSetTest(t *testing.T) {
 		r.Bytes("fill", checks)
 		checks = checks[:0]
 
-		if getSetCount(&set) != itemCount {
+		if int(set.Count) != itemCount {
 			t.Fatal("condition false")
 		}
 
-		r.I32("line_343", int32(getSetCount(&set)))
+		r.I32("line_343", int32(int(set.Count)))
 
 		k := 0
 		removeCount := 0
@@ -619,17 +621,17 @@ func runTableHashSetTest(t *testing.T) {
 		for i := range n {
 			for j := i + 1; j < n; j++ {
 				if j == i+1 {
-					key := shapePairKey(i, j)
-					size1 := getSetCount(&set)
+					key := ShapePairKey(i, j)
+					size1 := int(set.Count)
 
-					found := removeKey(&set, key)
+					found := set.Remove(key)
 					if !found {
 						t.Fatal("condition false")
 					}
 
 					r.Bool("line_357", found)
 
-					size2 := getSetCount(&set)
+					size2 := int(set.Count)
 					if size2 != size1-1 {
 						t.Fatal("condition false")
 					}
@@ -646,21 +648,21 @@ func runTableHashSetTest(t *testing.T) {
 			}
 		}
 
-		if getSetCount(&set) != (itemCount - removeCount) {
+		if int(set.Count) != (itemCount - removeCount) {
 			t.Fatal("condition false")
 		}
 
-		r.I32("line_370", int32(getSetCount(&set)))
+		r.I32("line_370", int32(int(set.Count)))
 
-		ticks := currentTicks()
+		ticks := timer.Ticks()
 
 		k = 0
 
 		for i := range n {
 			for j := i + 1; j < n; j++ {
-				key := shapePairKey(j, i)
+				key := ShapePairKey(j, i)
 
-				found := containsKey(&set, key)
+				found := set.Contains(key)
 				if !found && !removed[k] {
 					t.Fatal("condition false")
 				}
@@ -674,22 +676,22 @@ func runTableHashSetTest(t *testing.T) {
 		r.Bytes("search", checks)
 		checks = checks[:0]
 
-		ms := milliseconds(ticks)
+		ms := timer.Milliseconds(ticks)
 		t.Logf("set: count = %d, containsKey = %.5f ms, ave = %.5f us\n", itemCount, ms, 1000.0*ms/float32(itemCount))
 
 		for i := range n {
 			for j := i + 1; j < n; j++ {
-				key := shapePairKey(i, j)
-				removeKey(&set, key)
+				key := ShapePairKey(i, j)
+				set.Remove(key)
 			}
 		}
 
-		if getSetCount(&set) != 0 {
+		if int(set.Count) != 0 {
 			t.Fatal("condition false")
 		}
 
-		r.I32("line_415", int32(getSetCount(&set)))
+		r.I32("line_415", int32(int(set.Count)))
 
-		destroySet(&set)
+		set.Destroy()
 	}
 }

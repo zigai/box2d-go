@@ -199,7 +199,7 @@ func TestUpstreamSuite(t *testing.T) {
 			_ = command.Wait()
 			t.Fatalf("malformed Go collection: %v", err)
 		}
-		if event.Package == "github.com/zigai/box2d" && event.Test != "" {
+		if (event.Package == "github.com/zigai/box2d" || strings.HasPrefix(event.Package, "github.com/zigai/box2d/internal/")) && event.Test != "" {
 			switch event.Action {
 			case "pass":
 				passed[event.Test]++

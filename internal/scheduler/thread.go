@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-package box2d
+package scheduler
 
 import "sync"
 

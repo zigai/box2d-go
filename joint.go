@@ -6,6 +6,10 @@ package box2d
 import (
 	"fmt"
 	"math"
+
+	"github.com/zigai/box2d/internal/array"
+	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d/internal/idpool"
 )
 
 const (
@@ -380,14 +384,14 @@ func getJointFullID(world *World, jointID Joint) *joint {
 		id  = int(jointID.index1) - 1
 		jnt = &world.joints[id]
 	)
-	assert(jnt.jointID == id && jnt.generation == jointID.generation, "joint->jointId == id && joint->generation == jointId.generation")
+	core.Assert(jnt.jointID == id && jnt.generation == jointID.generation, "joint->jointId == id && joint->generation == jointId.generation")
 
 	return jnt
 }
 
 func getJointSim(world *World, jnt *joint) *jointSim {
 	if jnt.setIndex == awakeSet {
-		assert(0 <= jnt.colorIndex && jnt.colorIndex < GraphColorCount, "0 <= joint->colorIndex && joint->colorIndex < B2_GRAPH_COLOR_COUNT")
+		core.Assert(0 <= jnt.colorIndex && jnt.colorIndex < GraphColorCount, "0 <= joint->colorIndex && joint->colorIndex < B2_GRAPH_COLOR_COUNT")
 
 		color := &world.constraintGraph.colors[jnt.colorIndex]
 
@@ -401,17 +405,17 @@ func getJointSim(world *World, jnt *joint) *jointSim {
 
 func getJointSimCheckType(jointID Joint, jointType JointType) *jointSim {
 	world := jointID.world
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return nil
 	}
 
 	jnt := getJointFullID(world, jointID)
-	assert(jnt.jointType == jointType, "joint->type == type")
+	core.Assert(jnt.jointType == jointType, "joint->type == type")
 
 	sim := getJointSim(world, jnt)
-	assert(sim.jointType == jointType, "jointSim->type == type")
+	core.Assert(sim.jointType == jointType, "jointSim->type == type")
 
 	return sim
 }
@@ -461,11 +465,11 @@ func isValidJointDef(def *JointDef) bool {
 }
 
 func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
-	assert(def.LocalFrameA.IsValid(), "b2IsValidTransform( def->localFrameA )")
-	assert(def.LocalFrameB.IsValid(), "b2IsValidTransform( def->localFrameB )")
-	assert(world == def.BodyA.world, "world->worldId == def->bodyIdA.world")
-	assert(world == def.BodyB.world, "world->worldId == def->bodyIdB.world")
-	assert(def.BodyA != def.BodyB, "B2_ID_EQUALS( def->bodyIdA, def->bodyIdB ) == false")
+	core.Assert(def.LocalFrameA.IsValid(), "b2IsValidTransform( def->localFrameA )")
+	core.Assert(def.LocalFrameB.IsValid(), "b2IsValidTransform( def->localFrameB )")
+	core.Assert(world == def.BodyA.world, "world->worldId == def->bodyIdA.world")
+	core.Assert(world == def.BodyB.world, "world->worldId == def->bodyIdB.world")
+	core.Assert(def.BodyA != def.BodyB, "B2_ID_EQUALS( def->bodyIdA, def->bodyIdB ) == false")
 
 	var (
 		bodyA = getBodyFullID(world, def.BodyA)
@@ -485,11 +489,12 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 	)
 
 	// Create joint id and joint
-	jointID := allocIDWithGeneration(&world.jointIDPool, func(id int) uint16 {
+	jointID := idpool.AllocWithGeneration(&world.jointIDPool, func(id int) uint16 {
 		return world.joints[id].generation
 	})
+
 	if jointID == len(world.joints) {
-		world.joints = arrayPush(world.joints, joint{})
+		world.joints = array.Push(world.joints, joint{})
 	}
 
 	jnt := &world.joints[jointID]
@@ -557,15 +562,15 @@ func createJoint(world *World, def *JointDef, jointType JointType) jointPair {
 		impulseScale: 0.0,
 	}
 
-	assert(IsValidFloat(def.ForceThreshold) && def.ForceThreshold >= 0.0, "b2IsValidFloat( def->forceThreshold ) && def->forceThreshold >= 0.0f")
-	assert(IsValidFloat(def.TorqueThreshold) && def.TorqueThreshold >= 0.0, "b2IsValidFloat( def->torqueThreshold ) && def->torqueThreshold >= 0.0f")
+	core.Assert(IsValidFloat(def.ForceThreshold) && def.ForceThreshold >= 0.0, "b2IsValidFloat( def->forceThreshold ) && def->forceThreshold >= 0.0f")
+	core.Assert(IsValidFloat(def.TorqueThreshold) && def.TorqueThreshold >= 0.0, "b2IsValidFloat( def->torqueThreshold ) && def->torqueThreshold >= 0.0f")
 
 	sim.forceThreshold = def.ForceThreshold
 	sim.torqueThreshold = def.TorqueThreshold
 
-	assert(sim.jointID == jointID, "jointSim->jointId == jointId")
-	assert(sim.bodyIDA == bodyIDA, "jointSim->bodyIdA == bodyIdA")
-	assert(sim.bodyIDB == bodyIDB, "jointSim->bodyIdB == bodyIdB")
+	core.Assert(sim.jointID == jointID, "jointSim->jointId == jointId")
+	core.Assert(sim.bodyIDA == bodyIDA, "jointSim->bodyIdA == bodyIdA")
+	core.Assert(sim.bodyIDB == bodyIDB, "jointSim->bodyIdB == bodyIdB")
 
 	if jnt.setIndex > disabledSet {
 		// Add edge to island graph
@@ -590,11 +595,11 @@ func (w *World) CreateDistanceJoint(def *DistanceJointDef) DistanceJoint {
 	checkInput(IsValidFloat(def.MotorSpeed), "b2IsValidFloat( def->motorSpeed )")
 	checkInput(IsValidFloat(def.LowerSpringForce), "b2IsValidFloat( def->lowerSpringForce )")
 	checkInput(IsValidFloat(def.UpperSpringForce), "b2IsValidFloat( def->upperSpringForce )")
-	assert(def.LowerSpringForce <= def.UpperSpringForce, "def->lowerSpringForce <= def->upperSpringForce")
+	core.Assert(def.LowerSpringForce <= def.UpperSpringForce, "def->lowerSpringForce <= def->upperSpringForce")
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return DistanceJoint{}
@@ -640,7 +645,7 @@ func (w *World) CreateFilterJoint(def *FilterJointDef) FilterJoint {
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return FilterJoint{}
@@ -676,7 +681,7 @@ func (w *World) CreateMotorJoint(def *MotorJointDef) MotorJoint {
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return MotorJoint{}
@@ -717,7 +722,7 @@ func (w *World) CreateMoverJoint(def *MoverJointDef) MoverJoint {
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return MoverJoint{}
@@ -756,7 +761,7 @@ func (w *World) CreatePogoJoint(def *PogoJointDef) PogoJoint {
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return PogoJoint{}
@@ -800,11 +805,11 @@ func (w *World) CreatePrismaticJoint(def *PrismaticJointDef) PrismaticJoint {
 	checkInput(IsValidFloat(def.UpperTranslation), "b2IsValidFloat( def->upperTranslation )")
 	checkInput(IsValidFloat(def.MaxMotorForce), "b2IsValidFloat( def->maxMotorForce )")
 	checkInput(IsValidFloat(def.MotorSpeed), "b2IsValidFloat( def->motorSpeed )")
-	assert(def.LowerTranslation <= def.UpperTranslation, "def->lowerTranslation <= def->upperTranslation")
+	core.Assert(def.LowerTranslation <= def.UpperTranslation, "def->lowerTranslation <= def->upperTranslation")
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return PrismaticJoint{}
@@ -850,11 +855,11 @@ func (w *World) CreateRevoluteJoint(def *RevoluteJointDef) RevoluteJoint {
 	checkInput(IsValidFloat(def.UpperAngle), "b2IsValidFloat( def->upperAngle )")
 	checkInput(IsValidFloat(def.MaxMotorTorque), "b2IsValidFloat( def->maxMotorTorque )")
 	checkInput(IsValidFloat(def.MotorSpeed), "b2IsValidFloat( def->motorSpeed )")
-	assert(def.LowerAngle <= def.UpperAngle, "def->lowerAngle <= def->upperAngle")
+	core.Assert(def.LowerAngle <= def.UpperAngle, "def->lowerAngle <= def->upperAngle")
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return RevoluteJoint{}
@@ -906,7 +911,7 @@ func (w *World) CreateWeldJoint(def *WeldJointDef) WeldJoint {
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return WeldJoint{}
@@ -945,11 +950,11 @@ func (w *World) CreateWheelJoint(def *WheelJointDef) WheelJoint {
 	checkInput(IsValidFloat(def.UpperTranslation), "b2IsValidFloat( def->upperTranslation )")
 	checkInput(IsValidFloat(def.MaxMotorTorque), "b2IsValidFloat( def->maxMotorTorque )")
 	checkInput(IsValidFloat(def.MotorSpeed), "b2IsValidFloat( def->motorSpeed )")
-	assert(def.LowerTranslation <= def.UpperTranslation, "def->lowerTranslation <= def->upperTranslation")
+	core.Assert(def.LowerTranslation <= def.UpperTranslation, "def->lowerTranslation <= def->upperTranslation")
 
 	world := w
 
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return WheelJoint{}
@@ -1052,10 +1057,10 @@ func destroyJointInternal(world *World, jnt *joint) {
 	bodyB.jointCount -= 1
 
 	if jnt.islandID != nullIndex {
-		assert(jnt.setIndex > disabledSet, "joint->setIndex > b2_disabledSet")
+		core.Assert(jnt.setIndex > disabledSet, "joint->setIndex > b2_disabledSet")
 		unlinkJoint(world, jnt)
 	} else {
-		assert(jnt.setIndex <= disabledSet, "joint->setIndex <= b2_disabledSet")
+		core.Assert(jnt.setIndex <= disabledSet, "joint->setIndex <= b2_disabledSet")
 	}
 
 	// Remove joint from solver set that owns it
@@ -1072,7 +1077,7 @@ func destroyJointInternal(world *World, jnt *joint) {
 			movedIndex int
 		)
 
-		set.jointSims, movedIndex = arrayRemoveSwap(set.jointSims, localIndex)
+		set.jointSims, movedIndex = array.RemoveSwap(set.jointSims, localIndex)
 		if movedIndex != nullIndex {
 			// Fix moved joint
 			var (
@@ -1080,7 +1085,7 @@ func destroyJointInternal(world *World, jnt *joint) {
 				movedID       = movedJointSim.jointID
 				movedJoint    = &world.joints[movedID]
 			)
-			assert(movedJoint.localIndex == movedIndex, "movedJoint->localIndex == movedIndex")
+			core.Assert(movedJoint.localIndex == movedIndex, "movedJoint->localIndex == movedIndex")
 			movedJoint.localIndex = localIndex
 		}
 	}
@@ -1090,7 +1095,7 @@ func destroyJointInternal(world *World, jnt *joint) {
 	jnt.localIndex = nullIndex
 	jnt.colorIndex = nullIndex
 	jnt.jointID = nullIndex
-	freeID(&world.jointIDPool, jointID)
+	world.jointIDPool.Free(jointID)
 
 	wakeBody(world, bodyA)
 	wakeBody(world, bodyB)
@@ -1101,7 +1106,7 @@ func destroyJointInternal(world *World, jnt *joint) {
 // Destroy a joint.
 func (j Joint) Destroy() {
 	world := j.world
-	assert(!world.locked, "world->locked == false")
+	core.Assert(!world.locked, "world->locked == false")
 
 	if world.locked {
 		return
@@ -1518,7 +1523,7 @@ func getJointConstraintForce(world *World, jnt *joint) Vec2 {
 		return getWheelJointForce(world, base)
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 		return Vec2Zero
 	}
 }
@@ -1550,11 +1555,11 @@ func getJointConstraintTorque(world *World, jnt *joint) float32 {
 
 	case MoverJointType, PogoJointType:
 		// Preserve the C port's unsupported constraint-torque query.
-		assert(false, "false")
+		core.Assert(false, "false")
 		return 0.0
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 		return 0.0
 	}
 }
@@ -1633,11 +1638,11 @@ func (j Joint) LinearSeparation() float32 {
 
 	case MoverJointType, PogoJointType:
 		// Preserve the C port's unsupported linear-separation query.
-		assert(false, "false")
+		core.Assert(false, "false")
 		return 0.0
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 		return 0.0
 	}
 }
@@ -1689,11 +1694,11 @@ func (j Joint) AngularSeparation() float32 {
 
 	case MoverJointType, PogoJointType:
 		// Preserve the C port's unsupported angular-separation query.
-		assert(false, "false")
+		core.Assert(false, "false")
 		return 0.0
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 		return 0.0
 	}
 }
@@ -1822,7 +1827,7 @@ func prepareJoint(jnt *jointSim, context *stepContext) {
 		prepareWheelJoint(jnt, context)
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 	}
 }
 
@@ -1856,7 +1861,7 @@ func warmStartJoint(jnt *jointSim, context *stepContext) {
 		warmStartWheelJoint(jnt, context)
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 	}
 }
 
@@ -1890,7 +1895,7 @@ func solveJoint(jnt *jointSim, context *stepContext, useBias bool) {
 		solveWheelJoint(jnt, context, useBias)
 
 	default:
-		assert(false, "false")
+		core.Assert(false, "false")
 	}
 }
 
@@ -1957,7 +1962,7 @@ func prepareJointsTask(block solverBlock, context *stepContext) {
 
 		// Loop over color
 		for ; index < colorEndIndex; index++ {
-			assert(0 <= index-colorStart && index-colorStart < spans[colorIndex].count, "0 <= index - colorStart && index - colorStart < spans[colorIndex].count")
+			core.Assert(0 <= index-colorStart && index-colorStart < spans[colorIndex].count, "0 <= index - colorStart && index - colorStart < spans[colorIndex].count")
 
 			jnt := &joints[(index - colorStart)]
 			prepareJoint(jnt, context)
@@ -1986,7 +1991,7 @@ func solveJointsTask(block solverBlock, context *stepContext, useBias bool, work
 		joints = color.jointSims
 	)
 
-	assert(0 <= block.startIndex && block.startIndex+int(block.count) <= len(color.jointSims), "0 <= block.startIndex && block.startIndex + block.count <= color->jointSims.count")
+	core.Assert(0 <= block.startIndex && block.startIndex+int(block.count) <= len(color.jointSims), "0 <= block.startIndex && block.startIndex + block.count <= color->jointSims.count")
 
 	jointStateBitSet := &context.world.taskContexts[workerIndex].jointStateBitSet
 
@@ -1995,7 +2000,7 @@ func solveJointsTask(block solverBlock, context *stepContext, useBias bool, work
 		solveJoint(jnt, context, useBias)
 
 		if useBias && (jnt.forceThreshold < math.MaxFloat32 || jnt.torqueThreshold < math.MaxFloat32) &&
-			!getBit(jointStateBitSet, uint32(jnt.jointID)) {
+			!jointStateBitSet.GetBit(uint32(jnt.jointID)) {
 			var force, torque float32
 
 			force, torque = getJointReaction(jnt, context.invH)
@@ -2003,7 +2008,7 @@ func solveJointsTask(block solverBlock, context *stepContext, useBias bool, work
 			// Check thresholds. A zero threshold means all awake joints get reported.
 			if force >= jnt.forceThreshold || torque >= jnt.torqueThreshold {
 				// Flag this joint for processing.
-				setBit(jointStateBitSet, uint32(jnt.jointID))
+				jointStateBitSet.SetBit(uint32(jnt.jointID))
 			}
 		}
 	}
@@ -2063,7 +2068,7 @@ func placeJointInSolverSet(world *World, jnt *joint, bodyA, bodyB *body, maxSetI
 		jnt.setIndex = disabledSet
 		jnt.localIndex = len(set.jointSims)
 
-		set.jointSims, sim = arrayEmplace(set.jointSims)
+		set.jointSims, sim = array.Emplace(set.jointSims)
 		*sim = jointSim{}
 
 		sim.jointID = jointID
@@ -2076,7 +2081,7 @@ func placeJointInSolverSet(world *World, jnt *joint, bodyA, bodyB *body, maxSetI
 		jnt.setIndex = staticSet
 		jnt.localIndex = len(set.jointSims)
 
-		set.jointSims, sim = arrayEmplace(set.jointSims)
+		set.jointSims, sim = array.Emplace(set.jointSims)
 		*sim = jointSim{}
 
 		sim.jointID = jointID
@@ -2096,8 +2101,8 @@ func placeJointInSolverSet(world *World, jnt *joint, bodyA, bodyB *body, maxSetI
 		sim.bodyIDB = bodyIDB
 	} else {
 		// joint connected between sleeping and/or static bodies
-		assert(bodyA.setIndex >= firstSleepingSet || bodyB.setIndex >= firstSleepingSet, "bodyA->setIndex >= b2_firstSleepingSet || bodyB->setIndex >= b2_firstSleepingSet")
-		assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet")
+		core.Assert(bodyA.setIndex >= firstSleepingSet || bodyB.setIndex >= firstSleepingSet, "bodyA->setIndex >= b2_firstSleepingSet || bodyB->setIndex >= b2_firstSleepingSet")
+		core.Assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet")
 
 		// joint should go into the sleeping set (not static set)
 		setIndex := maxSetIndex
@@ -2107,7 +2112,7 @@ func placeJointInSolverSet(world *World, jnt *joint, bodyA, bodyB *body, maxSetI
 		jnt.setIndex = setIndex
 		jnt.localIndex = len(set.jointSims)
 
-		set.jointSims, sim = arrayEmplace(set.jointSims)
+		set.jointSims, sim = array.Emplace(set.jointSims)
 		*sim = jointSim{}
 
 		// These must be set to accommodate the merge below
@@ -2119,7 +2124,7 @@ func placeJointInSolverSet(world *World, jnt *joint, bodyA, bodyB *body, maxSetI
 			bodyB.setIndex >= firstSleepingSet {
 			// merge sleeping sets
 			mergeSolverSets(world, bodyA.setIndex, bodyB.setIndex)
-			assert(bodyA.setIndex == bodyB.setIndex, "bodyA->setIndex == bodyB->setIndex")
+			core.Assert(bodyA.setIndex == bodyB.setIndex, "bodyA->setIndex == bodyB->setIndex")
 
 			// fix potentially invalid set index
 			setIndex = bodyA.setIndex
@@ -2130,7 +2135,7 @@ func placeJointInSolverSet(world *World, jnt *joint, bodyA, bodyB *body, maxSetI
 			sim = &mergedSet.jointSims[jnt.localIndex]
 		}
 
-		assert(jnt.setIndex == setIndex, "joint->setIndex == setIndex")
+		core.Assert(jnt.setIndex == setIndex, "joint->setIndex == setIndex")
 	}
 
 	return sim

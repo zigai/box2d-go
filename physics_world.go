@@ -200,6 +200,8 @@ type World struct {
 	inUse                        bool
 }
 
+type eventSlice[E any] []E
+
 func NewWorld(def *WorldDef) *World {
 	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
 	checkInput(def.Logger != nil, "def.Logger != nil")
@@ -753,6 +755,7 @@ func collide(context *stepContext) {
 	parallelFor(w, func(start, end, worker int) { collideTask(start, end, worker, context) }, contactCount, minRange)
 
 	context.collideSpans = nil
+
 	clear(spans)
 	// Serially update contact state
 	// Bitwise OR all contact bits
@@ -834,6 +837,7 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 	context := &state.stepScratch
 	context.world = state
 	context.dt = timeStep
+
 	context.subStepCount = max(1, subStepCount)
 	if timeStep > 0 {
 		context.invDt = 1 / timeStep
@@ -976,8 +980,6 @@ func (w *World) JointEvents() iter.Seq[JointEvent] {
 	return eventSlice[JointEvent](checkedEventSlice(w, w.jointEvents)).values
 }
 
-type eventSlice[E any] []E
-
 func (events eventSlice[E]) values(yield func(E) bool) {
 	for _, event := range events {
 		if !yield(event) {
@@ -989,9 +991,11 @@ func (events eventSlice[E]) values(yield func(E) bool) {
 //go:noinline
 func checkedEventSlice[E any](w *World, events []E) []E {
 	core.Assert(!w.locked, "world->locked == false")
+
 	if w.locked {
 		return nil
 	}
+
 	return events
 }
 

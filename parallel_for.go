@@ -103,7 +103,9 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 			handles[i]()
 		}
 	}
+
 	clear(tasks)
 	clear(handles)
+
 	w.parallelForScratch = parallelForShared{}
 }

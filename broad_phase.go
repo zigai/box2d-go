@@ -408,7 +408,7 @@ func updateBroadPhasePairs(w *World) {
 
 		crossSeeds := bp.crossSeedScratch[:]
 
-		staticSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[StaticBody], crossSeeds[:])
+		staticSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[StaticBody], crossSeeds)
 		core.Assert(staticSeedCount <= crossSeedCount, "staticSeedCount <= B2_CROSS_SEED_COUNT")
 		kinematicSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[KinematicBody], crossSeeds[staticSeedCount:])
 		core.Assert(kinematicSeedCount <= crossSeedCount, "kinematicSeedCount <= B2_CROSS_SEED_COUNT")
@@ -417,8 +417,11 @@ func updateBroadPhasePairs(w *World) {
 		cross.world = w
 		cross.seeds = crossSeeds
 		cross.staticSeedCount = staticSeedCount
+
 		parallelFor(w, func(start, end, worker int) { crossPairsTask(start, end, worker, cross) }, crossMoveCount, 1)
+
 		bp.crossScratch = crossContext{}
+
 		parallelFor(w, func(start, end, worker int) { selfPairsTask(start, end, worker, w) }, dynamicMoveCount, 64)
 	}
 

@@ -467,6 +467,7 @@ func TestWorldOverlapStopsAcrossBodyTypes(t *testing.T) {
 
 	circle := Circle{Radius: 1}
 	sd := DefaultShapeDef()
+
 	for _, bodyType := range []BodyType{StaticBody, KinematicBody, DynamicBody} {
 		bd := DefaultBodyDef()
 		bd.Type = bodyType
@@ -476,6 +477,7 @@ func TestWorldOverlapStopsAcrossBodyTypes(t *testing.T) {
 
 	filter := DefaultQueryFilter()
 	proxy := MakeProxy([]Vec2{{}}, 1)
+
 	queries := []struct {
 		name  string
 		query func(OverlapResultFunc) TreeStats
@@ -490,16 +492,20 @@ func TestWorldOverlapStopsAcrossBodyTypes(t *testing.T) {
 	for _, tc := range queries {
 		t.Run(tc.name, func(t *testing.T) {
 			count := 0
+
 			tc.query(func(Shape) bool { count++; return true })
+
 			if count != 3 {
 				t.Fatalf("continuing callback saw %d shapes, want 3", count)
 			}
 
 			count = 0
 			stats := tc.query(func(Shape) bool { count++; return false })
+
 			if count != 1 {
 				t.Fatalf("stopping callback saw %d shapes, want 1", count)
 			}
+
 			if stats.NodeVisits != 1 || stats.LeafVisits != 1 {
 				t.Fatalf("stopping traversal visited %d nodes and %d leaves, want 1 each", stats.NodeVisits, stats.LeafVisits)
 			}

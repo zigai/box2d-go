@@ -362,44 +362,61 @@ func TestStepStorageRestoreAndIsolation(t *testing.T) {
 			w := NewWorld(&def)
 			t.Cleanup(w.Close)
 			addSolverArenaBody(w, Pos{})
+
 			for range 8 {
 				w.Step(1.0/60.0, 4)
 			}
+
 			image, err := w.MarshalBinary()
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			clone, err := NewWorldFromSnapshot(image, workers)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			t.Cleanup(clone.Close)
+
 			for range 8 {
 				before := clone.StateHash()
+
 				w.Step(1.0/60.0, 4)
+
 				if clone.StateHash() != before {
 					t.Fatal("stepping one world changed another world's state")
 				}
+
 				clone.Step(1.0/60.0, 4)
+
 				if w.StateHash() != clone.StateHash() {
 					t.Fatal("snapshot worlds diverged while reusing step storage")
 				}
 			}
+
 			if err := w.UnmarshalBinary(image); err != nil {
 				t.Fatal(err)
 			}
+
 			if err := clone.UnmarshalBinary(image); err != nil {
 				t.Fatal(err)
 			}
+
 			w.Step(0, 4)
 			clone.Step(0, 4)
+
 			for range 8 {
 				before := clone.StateHash()
+
 				w.Step(1.0/60.0, 4)
+
 				if clone.StateHash() != before {
 					t.Fatal("stepping a restored world changed another world's state")
 				}
+
 				clone.Step(1.0/60.0, 4)
+
 				if w.StateHash() != clone.StateHash() {
 					t.Fatal("restored worlds diverged while reusing step storage")
 				}
@@ -416,14 +433,18 @@ func BenchmarkNativeWarmStep(b *testing.B) {
 			def.Gravity = Vec2{}
 			w := NewWorld(&def)
 			b.Cleanup(w.Close)
+
 			for i := range 8 {
 				body, _ := addSolverArenaBody(w, Pos{X: posScalar(5 * i)})
 				body.SetLinearVelocity(Vec2{X: 0.01})
 			}
+
 			for range 120 {
 				w.Step(1.0/60.0, 4)
 			}
+
 			b.ReportAllocs()
+
 			for b.Loop() {
 				w.Step(1.0/60.0, 4)
 			}

@@ -75,10 +75,12 @@ func (w *World) Body(id uint64) Body {
 	if id&0xffff0000 != 0 {
 		return Body{}
 	}
+
 	b := Body{index1: int32(id >> 32), generation: uint16(id), world: w}
 	if !b.IsValid() {
 		return Body{}
 	}
+
 	return b
 }
 
@@ -88,9 +90,11 @@ func (w *World) Shape(id uint64) Shape {
 	if id&0xffff0000 != 0 {
 		return Shape{}
 	}
+
 	s := Shape{index1: int32(id >> 32), generation: uint16(id), world: w}
 	if !s.IsValid() {
 		return Shape{}
 	}
+
 	return s
 }

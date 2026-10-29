@@ -25,6 +25,7 @@ func TestCastMoverSkipsSensors(t *testing.T) {
 	body.CreatePolygonShape(&shapeDef, &box)
 
 	mover := box2d.Capsule{Center1: box2d.Vec2{Y: -0.2}, Center2: box2d.Vec2{Y: 0.2}, Radius: 0.3}
+
 	filter := box2d.DefaultQueryFilter()
 	if got := world.CastMover(box2d.Pos{}, &mover, box2d.Vec2{X: 6}, filter); got != 1 {
 		t.Fatalf("sensor-only cast fraction = %g, want 1", got)
@@ -34,6 +35,7 @@ func TestCastMoverSkipsSensors(t *testing.T) {
 	body = world.CreateBody(&bodyDef)
 	shapeDef.IsSensor = false
 	body.CreatePolygonShape(&shapeDef, &box)
+
 	if got := world.CastMover(box2d.Pos{}, &mover, box2d.Vec2{X: 6}, filter); math.Abs(float64(got-3.2/6)) > 0.01 {
 		t.Fatalf("solid behind sensor cast fraction = %g, want near %g", got, 3.2/6)
 	}
@@ -51,10 +53,12 @@ func TestCastMoverPreservesNearContactAndInitialOverlap(t *testing.T) {
 	body.CreatePolygonShape(&shapeDef, &box)
 
 	near := box2d.Capsule{Center1: box2d.Vec2{X: -0.9955, Y: -0.2}, Center2: box2d.Vec2{X: -0.9955, Y: 0.2}, Radius: 0.5}
+
 	filter := box2d.DefaultQueryFilter()
 	if got := world.CastMover(box2d.Pos{}, &near, box2d.Vec2{X: 1}, filter); got <= 0 || got >= 0.02 {
 		t.Fatalf("near-contact cast fraction = %g, want a small positive advance", got)
 	}
+
 	near.Center1.X, near.Center2.X = -0.9, -0.9
 	if got := world.CastMover(box2d.Pos{}, &near, box2d.Vec2{X: -1}, filter); got != 1 {
 		t.Fatalf("cast away from initial overlap = %g, want 1", got)

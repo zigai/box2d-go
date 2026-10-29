@@ -1150,15 +1150,18 @@ func TestShapeApplyWindOnDisabledBody(test *testing.T) {
 
 			body.Disable()
 			shape.ApplyWind(box2d.Vec2{X: 5, Y: 2}, 0.4, 0.2, wake)
+
 			if body.Enabled() || body.Awake() {
 				test.Fatal("wind changed the disabled body's state")
 			}
 
 			body.Enable()
 			world.Step(1.0/60, 4)
+
 			if got := body.LinearVelocity(); got != (box2d.Vec2{}) {
 				test.Fatalf("velocity after enabling = %v, want zero", got)
 			}
+
 			if got := body.AngularVelocity(); got != 0 {
 				test.Fatalf("angular velocity after enabling = %v, want zero", got)
 			}

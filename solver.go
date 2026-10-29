@@ -1018,6 +1018,145 @@ func clearSolverScratch(graph *constraintGraph) {
 	}
 }
 
+func startSplitIslandTask(world *World) func() {
+	if world.splitIslandID == nullIndex {
+		return nil
+	}
+
+	if world.taskCount >= MaxTasks {
+		splitIslandTask(world)
+		return nil
+	}
+
+	splitTask := world.enqueueTaskFcn(func() { splitIslandTask(world) })
+	world.taskCount += 1
+
+	if splitTask != nil {
+		world.activeTaskCount += 1
+	}
+
+	return splitTask
+}
+
+func runSolverWorkers(world *World, stepContext *stepContext, workerContexts []workerContext, workerCount int, splitTask func()) {
+	constraintTicks := timer.Ticks()
+	jointIDCapacity := world.jointIDPool.Capacity()
+	contactIDCapacity := world.contactIDPool.Capacity()
+
+	for i := range workerCount {
+		taskContext := &world.taskContexts[i]
+		taskContext.jointStateBitSet.SetBitCountAndClear(uint32(jointIDCapacity))
+		taskContext.hitEventBitSet.SetBitCountAndClear(uint32(contactIDCapacity))
+		taskContext.hasHitEvents = false
+
+		workerContexts[i].context = stepContext
+		workerContexts[i].workerIndex = i
+
+		if world.taskCount < MaxTasks {
+			workerContexts[i].userTask = world.enqueueTaskFcn(func() { solverTask(&workerContexts[i]) })
+			world.taskCount += 1
+
+			if workerContexts[i].userTask != nil {
+				world.activeTaskCount += 1
+			}
+		} else {
+			workerContexts[i].userTask = nil
+			solverTask(&workerContexts[i])
+		}
+	}
+
+	// The calling thread of b2World_Step also enters solverTask as worker 0 and races for the
+	// orchestrator slot via the CAS inside. This guarantees progress even when the user's task
+	// system can't run the queued worker 0 promptly: it might schedule out of order, have fewer
+	// threads than workerCount, or invert priority by parking the calling thread in finishTaskFcn.
+	// Whoever wins the CAS becomes the orchestrator; the loser returns and lets the spinner-only
+	// path handle workers >0.
+	callerContext := workerContext{context: stepContext}
+	solverTask(&callerContext)
+
+	// Finish constraint solve
+	for i := range workerCount {
+		if workerContexts[i].userTask != nil {
+			workerContexts[i].userTask()
+
+			world.activeTaskCount -= 1
+		}
+	}
+
+	// Finish island split
+	if splitTask != nil {
+		splitTask()
+
+		world.activeTaskCount -= 1
+	}
+
+	world.splitIslandID = nullIndex
+	world.profile.Constraints = timer.MillisecondsAndReset(&constraintTicks)
+}
+
+func prepareSolverBlocks(world *World, bodyCount, contactCount, jointCount, graphCount int) ([]syncBlock, []syncBlock, []syncBlock, []syncBlock) {
+	if bodyCount > cap(world.solverBodyBlockScratch) {
+		world.solverBodyBlockScratch = make([]syncBlock, bodyCount)
+	}
+
+	bodyBlocks := world.solverBodyBlockScratch[:bodyCount]
+	clear(bodyBlocks)
+
+	if contactCount > cap(world.solverContactBlockScratch) {
+		world.solverContactBlockScratch = make([]syncBlock, contactCount)
+	}
+
+	contactBlocks := world.solverContactBlockScratch[:contactCount]
+	clear(contactBlocks)
+
+	if jointCount > cap(world.solverJointBlockScratch) {
+		world.solverJointBlockScratch = make([]syncBlock, jointCount)
+	}
+
+	jointBlocks := world.solverJointBlockScratch[:jointCount]
+	clear(jointBlocks)
+
+	if graphCount > cap(world.solverGraphBlockScratch) {
+		world.solverGraphBlockScratch = make([]syncBlock, graphCount)
+	}
+
+	graphBlocks := world.solverGraphBlockScratch[:graphCount]
+	clear(graphBlocks)
+
+	return bodyBlocks, contactBlocks, jointBlocks, graphBlocks
+}
+
+func finalizeSolverBodies(world *World, stepContext *stepContext, awake *solverSet, awakeBodyCount int) {
+	transformTicks := timer.Ticks()
+
+	// Prepare contact, enlarged body, and island bit sets used in body finalization.
+	awakeIslandCount := len(awake.islandSims)
+
+	for i := range world.workerCount {
+		taskContext := &world.taskContexts[i]
+		taskContext.sensorHits = taskContext.sensorHits[:0]
+		taskContext.enlargedSimBitSet.SetBitCountAndClear(uint32(awakeBodyCount))
+		taskContext.awakeIslandBitSet.SetBitCountAndClear(uint32(awakeIslandCount))
+		taskContext.splitIslandID = nullIndex
+		taskContext.splitSleepTime = 0.0
+	}
+
+	// Finish the user tree task that was queued earlier in the time step. This must be complete before touching the
+	// broad-phase.
+	if world.userTreeTask != nil {
+		world.userTreeTask()
+		world.userTreeTask = nil
+		world.activeTaskCount -= 1
+	}
+
+	validateNoEnlarged(&world.broadPhase)
+
+	// Finalize bodies. Must happen after the constraint solver and after island splitting.
+	parallelFor(world, func(start, end, worker int) { finalizeBodiesTask(start, end, worker, stepContext) }, awakeBodyCount, 64)
+
+	world.profile.Transforms = timer.Milliseconds(transformTicks)
+}
+
 func solve(world *World, stepContext *stepContext) {
 	// Only count steps that advance the simulation
 	world.stepIndex += 1
@@ -1037,6 +1176,7 @@ func solve(world *World, stepContext *stepContext) {
 
 		// Prepare buffers for bullets
 		stepContext.bulletBodyCount.Store(int32(0))
+
 		world.solverBulletScratch = array.Reserve(world.solverBulletScratch, awakeBodyCount)
 		stepContext.bulletBodies = world.solverBulletScratch[:awakeBodyCount]
 
@@ -1125,7 +1265,7 @@ func solve(world *World, stepContext *stepContext) {
 		contactPrepareSpans := world.contactPrepareSpanScratch[:]
 		jointPrepareSpans := world.jointPrepareSpanScratch[:]
 
-		prepareSolverConstraintSpans(colors, activeColorCount, activeColorIndices[:], wideContactConstraints, wideContactCount, jointCount, contactPrepareSpans[:], jointPrepareSpans[:])
+		prepareSolverConstraintSpans(colors, activeColorCount, activeColorIndices[:], wideContactConstraints, wideContactCount, jointCount, contactPrepareSpans, jointPrepareSpans)
 
 		stageCount := 0
 
@@ -1151,27 +1291,9 @@ func solve(world *World, stepContext *stepContext) {
 		if stageCount > cap(world.solverStageScratch) {
 			world.solverStageScratch = make([]solverStage, stageCount)
 		}
+
 		stages := world.solverStageScratch[:stageCount]
-		if bodyDim.count > cap(world.solverBodyBlockScratch) {
-			world.solverBodyBlockScratch = make([]syncBlock, bodyDim.count)
-		}
-		bodyBlocks := world.solverBodyBlockScratch[:bodyDim.count]
-		clear(bodyBlocks)
-		if contactPrepareDim.count > cap(world.solverContactBlockScratch) {
-			world.solverContactBlockScratch = make([]syncBlock, contactPrepareDim.count)
-		}
-		contactBlocks := world.solverContactBlockScratch[:contactPrepareDim.count]
-		clear(contactBlocks)
-		if jointPrepareDim.count > cap(world.solverJointBlockScratch) {
-			world.solverJointBlockScratch = make([]syncBlock, jointPrepareDim.count)
-		}
-		jointBlocks := world.solverJointBlockScratch[:jointPrepareDim.count]
-		clear(jointBlocks)
-		if graphBlockCount > cap(world.solverGraphBlockScratch) {
-			world.solverGraphBlockScratch = make([]syncBlock, graphBlockCount)
-		}
-		graphBlocks := world.solverGraphBlockScratch[:graphBlockCount]
-		clear(graphBlocks)
+		bodyBlocks, contactBlocks, jointBlocks, graphBlocks := prepareSolverBlocks(world, bodyDim.count, contactPrepareDim.count, jointPrepareDim.count, graphBlockCount)
 
 		// Split an awake island. This modifies:
 		// - stack allocator
@@ -1179,20 +1301,7 @@ func solve(world *World, stepContext *stepContext) {
 		// - island indices on bodies, contacts, and joints
 		// I'm squeezing this task in here because it may be expensive and this is a safe place to put it.
 		// Note: cannot split islands in parallel with FinalizeBodies
-		var splitTask func()
-
-		if world.splitIslandID != nullIndex {
-			if world.taskCount < MaxTasks {
-				splitTask = world.enqueueTaskFcn(func() { splitIslandTask(world) })
-
-				world.taskCount += 1
-				if splitTask != nil {
-					world.activeTaskCount += 1
-				}
-			} else {
-				splitIslandTask(world)
-			}
-		}
+		splitTask := startSplitIslandTask(world)
 
 		// Prepare body blocks
 		initBlocks(bodyBlocks, bodyDim, awakeBodyCount, uint8(bodyBlock), 255)
@@ -1259,90 +1368,9 @@ func solve(world *World, stepContext *stepContext) {
 
 		world.profile.SolverSetup = timer.MillisecondsAndReset(&setupTicks)
 
-		constraintTicks := timer.Ticks()
+		runSolverWorkers(world, stepContext, workerContexts, workerCount, splitTask)
 
-		jointIDCapacity := world.jointIDPool.Capacity()
-
-		contactIDCapacity := world.contactIDPool.Capacity()
-		for i := range workerCount {
-			taskContext := &world.taskContexts[i]
-			taskContext.jointStateBitSet.SetBitCountAndClear(uint32(jointIDCapacity))
-			taskContext.hitEventBitSet.SetBitCountAndClear(uint32(contactIDCapacity))
-			taskContext.hasHitEvents = false
-
-			workerContexts[i].context = stepContext
-			workerContexts[i].workerIndex = i
-
-			if world.taskCount < MaxTasks {
-				workerContexts[i].userTask = world.enqueueTaskFcn(func() { solverTask(&workerContexts[i]) })
-
-				world.taskCount += 1
-				if workerContexts[i].userTask != nil {
-					world.activeTaskCount += 1
-				}
-			} else {
-				workerContexts[i].userTask = nil
-				solverTask(&workerContexts[i])
-			}
-		}
-
-		// The calling thread of b2World_Step also enters solverTask as worker 0 and races for the
-		// orchestrator slot via the CAS inside. This guarantees progress even when the user's task
-		// system can't run the queued worker 0 promptly: it might schedule out of order, have fewer
-		// threads than workerCount, or invert priority by parking the calling thread in finishTaskFcn.
-		// Whoever wins the CAS becomes the orchestrator; the loser returns and lets the spinner-only
-		// path handle workers >0.
-		callerContext := workerContext{context: stepContext}
-		solverTask(&callerContext)
-
-		// Finish constraint solve
-		for i := range workerCount {
-			if workerContexts[i].userTask != nil {
-				workerContexts[i].userTask()
-
-				world.activeTaskCount -= 1
-			}
-		}
-
-		// Finish island split
-		if splitTask != nil {
-			splitTask()
-
-			world.activeTaskCount -= 1
-		}
-
-		world.splitIslandID = nullIndex
-
-		world.profile.Constraints = timer.MillisecondsAndReset(&constraintTicks)
-
-		transformTicks := timer.Ticks()
-
-		// Prepare contact, enlarged body, and island bit sets used in body finalization.
-		awakeIslandCount := len(awake.islandSims)
-
-		for i := range world.workerCount {
-			taskContext := &world.taskContexts[i]
-			taskContext.sensorHits = taskContext.sensorHits[:0]
-			taskContext.enlargedSimBitSet.SetBitCountAndClear(uint32(awakeBodyCount))
-			taskContext.awakeIslandBitSet.SetBitCountAndClear(uint32(awakeIslandCount))
-			taskContext.splitIslandID = nullIndex
-			taskContext.splitSleepTime = 0.0
-		}
-
-		// Finish the user tree task that was queued earlier in the time step. This must be complete before touching the
-		// broad-phase.
-		if world.userTreeTask != nil {
-			world.userTreeTask()
-			world.userTreeTask = nil
-			world.activeTaskCount -= 1
-		}
-
-		validateNoEnlarged(&world.broadPhase)
-
-		// Finalize bodies. Must happen after the constraint solver and after island splitting.
-		parallelFor(world, func(start, end, worker int) { finalizeBodiesTask(start, end, worker, stepContext) }, awakeBodyCount, 64)
-
-		world.profile.Transforms = timer.Milliseconds(transformTicks)
+		finalizeSolverBodies(world, stepContext, awake, awakeBodyCount)
 	}
 
 	// Report joint events

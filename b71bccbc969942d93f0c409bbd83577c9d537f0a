@@ -1,0 +1,2 @@
+- Applying wind with both wake policies leaves disabled bodies disabled and their linear and angular velocities zero after reenabling.
+- The complete default and box2d_double test suites pass in the verified integration tree before the upstream lint-only fast-forward.

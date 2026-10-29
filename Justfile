@@ -34,6 +34,8 @@ mod-check:
     go -C internal/lint mod tidy -diff
 
 format:
+    golangci-lint run --fix --enable-only whitespace --issues-exit-code=0 --build-tags box2d_stress
+    golangci-lint run --fix --enable-only whitespace --issues-exit-code=0 --build-tags box2d_stress,{{ tags }}
     golangci-lint fmt
 
 fix:

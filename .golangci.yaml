@@ -424,3 +424,7 @@ linters:
         linters: [thelper]
         source: "^[\\t ]*func testSolverScratchSleepingContacts\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

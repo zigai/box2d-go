@@ -1,0 +1,2 @@
+samples/data/*.fs linguist-language=GLSL
+samples/data/*.vs linguist-language=GLSL

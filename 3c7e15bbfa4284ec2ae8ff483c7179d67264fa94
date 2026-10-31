@@ -1,4 +1,0 @@
-- Runs just check on the combined changes; module checks, float and double race suites, lint, vet and formatting pass.
-- Replays the split-island Junkyard scenario against C fixtures in float and double; both pass.
-- Runs just check on the combined changes; module checks, float and double race suites, lint, vet and formatting pass.
-- Replays the split-island Junkyard scenario against C fixtures in float and double; both pass.

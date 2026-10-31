@@ -9,3 +9,5 @@
 *.swp
 .DS_Store
 /bench/results/
+/samples/imgui.ini
+/samples/settings.ini

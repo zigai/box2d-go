@@ -2,7 +2,7 @@
 
 <p align="center"><img src="assets/logo.svg" alt="Box2D Go logo" width="248"></p>
 
-Go port of the [Box2D](https://github.com/erincatto/box2d) v3 physics engine. Results match the C engine at the commit in `UPSTREAM`.
+Go port of the [Box2D](https://github.com/erincatto/box2d) v3 physics engine.
 
 ## Installation
 
@@ -34,7 +34,7 @@ for range 60 {
 }
 ```
 
-The interactive app in `samples/` shows many more scenes.
+The interactive app in [`samples/`](samples) shows many more scenes.
 
 ## Build options
 

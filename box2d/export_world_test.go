@@ -40,7 +40,7 @@ func JointSetIndex(w *World, id Joint) int    { return getJointFullID(w, id).set
 func CountEnlargedNodes(tree *DynamicTree) int {
 	count := 0
 
-	for i := range int32(tree.nodeEnd) {
+	for i := range tree.nodeEnd {
 		if isNodeMoved(&tree.nodes[i]) {
 			count++
 		}
@@ -102,7 +102,12 @@ func (d *FuncDrawer) DrawPolygon(transform WorldTransform, vertices []Vec2, colo
 	}
 }
 
-func (d *FuncDrawer) DrawSolidPolygon(transform WorldTransform, vertices []Vec2, radius float32, color HexColor) {
+func (d *FuncDrawer) DrawSolidPolygon(
+	transform WorldTransform,
+	vertices []Vec2,
+	radius float32,
+	color HexColor,
+) {
 	if d.SolidPolygon != nil {
 		d.SolidPolygon(transform, vertices, radius, color)
 	}
@@ -114,19 +119,24 @@ func (d *FuncDrawer) DrawCircle(center Pos, radius float32, color HexColor) {
 	}
 }
 
-func (d *FuncDrawer) DrawSolidCircle(transform WorldTransform, center Vec2, radius float32, color HexColor) {
+func (d *FuncDrawer) DrawSolidCircle(
+	transform WorldTransform,
+	center Vec2,
+	radius float32,
+	color HexColor,
+) {
 	if d.SolidCircle != nil {
 		d.SolidCircle(transform, center, radius, color)
 	}
 }
 
-func (d *FuncDrawer) DrawSolidCapsule(p1, p2 Pos, radius float32, color HexColor) {
+func (d *FuncDrawer) DrawSolidCapsule(p1 Pos, p2 Pos, radius float32, color HexColor) {
 	if d.SolidCapsule != nil {
 		d.SolidCapsule(p1, p2, radius, color)
 	}
 }
 
-func (d *FuncDrawer) DrawLine(p1, p2 Pos, color HexColor) {
+func (d *FuncDrawer) DrawLine(p1 Pos, p2 Pos, color HexColor) {
 	if d.Line != nil {
 		d.Line(p1, p2, color)
 	}

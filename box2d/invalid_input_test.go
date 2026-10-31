@@ -15,10 +15,18 @@ import (
 var badInputValues = []float32{float32(math.NaN()), float32(math.Inf(1)), float32(math.Inf(-1))}
 
 func inputIsBodyFinite(bodyID box2d.Body) bool {
-	return bodyID.Position().IsValid() && bodyID.Rotation().IsValid() && bodyID.LinearVelocity().IsValid() && box2d.IsValidFloat(bodyID.AngularVelocity())
+	return bodyID.Position().IsValid() && bodyID.Rotation().IsValid() &&
+		bodyID.LinearVelocity().IsValid() &&
+		box2d.IsValidFloat(bodyID.AngularVelocity())
 }
 
-func inputReadBodyStep(r *oracle.Reader, trace *transformTrace, worldID *box2d.World, bodyID box2d.Body, step int) {
+func inputReadBodyStep(
+	r *oracle.Reader,
+	trace *transformTrace,
+	worldID *box2d.World,
+	bodyID box2d.Body,
+	step int,
+) {
 	trace.read(r, worldID, fmt.Sprintf("step.%d.hash", step), true)
 
 	p := bodyID.Position()
@@ -107,7 +115,12 @@ func inputReadRejectedJoint(r *oracle.Reader, joint box2d.RevoluteJoint) {
 	r.F32("joint.maxTorque", joint.MaxMotorTorque())
 }
 
-func inputReadConstructionCounts(t *testing.T, r *oracle.Reader, world *box2d.World, bodyCount int) {
+func inputReadConstructionCounts(
+	t *testing.T,
+	r *oracle.Reader,
+	world *box2d.World,
+	bodyCount int,
+) {
 	t.Helper()
 
 	counts := world.Counters()
@@ -117,8 +130,14 @@ func inputReadConstructionCounts(t *testing.T, r *oracle.Reader, world *box2d.Wo
 	r.I32("construction.contacts", int32(counts.ContactCount))
 	r.I32("construction.chains", int32(box2d.ChainCount(world)))
 
-	if counts.BodyCount != bodyCount || counts.ShapeCount != 1 || counts.JointCount != 0 || counts.ContactCount != 0 || box2d.ChainCount(world) != 0 {
-		t.Fatalf("failed construction leaked objects: %+v, chains=%d", counts, box2d.ChainCount(world))
+	if counts.BodyCount != bodyCount || counts.ShapeCount != 1 || counts.JointCount != 0 ||
+		counts.ContactCount != 0 ||
+		box2d.ChainCount(world) != 0 {
+		t.Fatalf(
+			"failed construction leaked objects: %+v, chains=%d",
+			counts,
+			box2d.ChainCount(world),
+		)
 	}
 
 	if len(box2d.BodiesInSlotOrder(world)) != bodyCount {
@@ -381,7 +400,11 @@ func checkBodyInputTest(t *testing.T) {
 		checkCall("reject", 1, func() { bodyID.SetTransform(badPos, box2d.RotIdentity) })
 		checkCall("reject", 1, func() { bodyID.SetTransform(box2d.PosZero, badRot) })
 		checkCall("reject", 1, func() { bodyID.SetTargetTransform(badTarget, 1.0/60.0, true) })
-		checkCall("reject", 1, func() { bodyID.SetTargetTransform(box2d.WorldTransformIdentity, bad, true) })
+		checkCall(
+			"reject",
+			1,
+			func() { bodyID.SetTargetTransform(box2d.WorldTransformIdentity, bad, true) },
+		)
 		checkCall("reject", 1, func() { bodyID.ApplyForce(badVec, box2d.PosZero, true) })
 		checkCall("reject", 1, func() { bodyID.ApplyForce(box2d.Vec2Zero, badPos, true) })
 		checkCall("reject", 1, func() { bodyID.ApplyForceToCenter(badVec, true) })
@@ -390,9 +413,21 @@ func checkBodyInputTest(t *testing.T) {
 		checkCall("reject", 1, func() { bodyID.ApplyLinearImpulse(box2d.Vec2Zero, badPos, true) })
 		checkCall("reject", 1, func() { bodyID.ApplyLinearImpulseToCenter(badVec, true) })
 		checkCall("reject", 1, func() { bodyID.ApplyAngularImpulse(bad, true) })
-		checkCall("reject", 1, func() { bodyID.SetMassData(box2d.MassData{Mass: bad, Center: box2d.Vec2Zero, RotationalInertia: 1.0}) })
-		checkCall("reject", 1, func() { bodyID.SetMassData(box2d.MassData{Mass: 1.0, Center: badVec, RotationalInertia: 1.0}) })
-		checkCall("reject", 1, func() { bodyID.SetMassData(box2d.MassData{Mass: 1.0, Center: box2d.Vec2Zero, RotationalInertia: bad}) })
+		checkCall(
+			"reject",
+			1,
+			func() { bodyID.SetMassData(box2d.MassData{Mass: bad, Center: box2d.Vec2Zero, RotationalInertia: 1.0}) },
+		)
+		checkCall(
+			"reject",
+			1,
+			func() { bodyID.SetMassData(box2d.MassData{Mass: 1.0, Center: badVec, RotationalInertia: 1.0}) },
+		)
+		checkCall(
+			"reject",
+			1,
+			func() { bodyID.SetMassData(box2d.MassData{Mass: 1.0, Center: box2d.Vec2Zero, RotationalInertia: bad}) },
+		)
 		checkCall("reject", 1, func() { bodyID.SetLinearDamping(bad) })
 		checkCall("reject", 1, func() { bodyID.SetAngularDamping(bad) })
 		checkCall("reject", 1, func() { bodyID.SetGravityScale(bad) })
@@ -456,9 +491,21 @@ func checkShapeInputTest(t *testing.T) {
 		badVec := box2d.Vec2{X: bad, Y: 0.0}
 
 		badCircle := box2d.Circle{Center: badVec, Radius: 1.0}
-		badCapsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: bad}
+		badCapsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  bad,
+		}
 		badSegment := box2d.Segment{Point1: badVec, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
-		badChainSegment := box2d.ChainSegment{Ghost1: badVec, Segment: box2d.Segment{Point1: box2d.Vec2{X: 0.0, Y: 0.0}, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}, Ghost2: box2d.Vec2{X: 2.0, Y: 0.0}, ChainID: -1}
+		badChainSegment := box2d.ChainSegment{
+			Ghost1: badVec,
+			Segment: box2d.Segment{
+				Point1: box2d.Vec2{X: 0.0, Y: 0.0},
+				Point2: box2d.Vec2{X: 1.0, Y: 0.0},
+			},
+			Ghost2:  box2d.Vec2{X: 2.0, Y: 0.0},
+			ChainID: -1,
+		}
 
 		badPolygon := box
 		badPolygon.Radius = bad
@@ -680,31 +727,76 @@ func checkCreateInputTest(t *testing.T) {
 		badBodyDef := box2d.DefaultBodyDef()
 		badBodyDef.Position = box2d.Pos{X: oracle.Real(bad), Y: 0.0}
 
-		checks.construction("check.357", "check.357.result", constructionHash, "failed body creation changed state", func() { worldID.CreateBody(&badBodyDef) })
+		checks.construction(
+			"check.357",
+			"check.357.result",
+			constructionHash,
+			"failed body creation changed state",
+			func() { worldID.CreateBody(&badBodyDef) },
+		)
 
 		badShapeDef := box2d.DefaultShapeDef()
 		badShapeDef.Density = bad
 
-		checks.construction("check.361", "check.361.result", constructionHash, "failed shape creation changed state", func() { bodyID.CreatePolygonShape(&badShapeDef, &box) })
+		checks.construction(
+			"check.361",
+			"check.361.result",
+			constructionHash,
+			"failed shape creation changed state",
+			func() { bodyID.CreatePolygonShape(&badShapeDef, &box) },
+		)
 
 		badCircle := box2d.Circle{Center: badVec, Radius: 1.0}
 
-		checks.construction("check.364", "check.364.result", constructionHash, "failed circle creation changed state", func() { bodyID.CreateCircleShape(&shapeDef, &badCircle) })
+		checks.construction(
+			"check.364",
+			"check.364.result",
+			constructionHash,
+			"failed circle creation changed state",
+			func() { bodyID.CreateCircleShape(&shapeDef, &badCircle) },
+		)
 
-		badCapsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: bad}
+		badCapsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  bad,
+		}
 
-		checks.construction("check.367", "check.367.result", constructionHash, "failed capsule creation changed state", func() { bodyID.CreateCapsuleShape(&shapeDef, &badCapsule) })
+		checks.construction(
+			"check.367",
+			"check.367.result",
+			constructionHash,
+			"failed capsule creation changed state",
+			func() { bodyID.CreateCapsuleShape(&shapeDef, &badCapsule) },
+		)
 
 		badSegment := box2d.Segment{Point1: badVec, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
 
-		checks.construction("check.370", "check.370.result", constructionHash, "failed segment creation changed state", func() { bodyID.CreateSegmentShape(&shapeDef, &badSegment) })
+		checks.construction(
+			"check.370",
+			"check.370.result",
+			constructionHash,
+			"failed segment creation changed state",
+			func() { bodyID.CreateSegmentShape(&shapeDef, &badSegment) },
+		)
 
 		badPolygon := box
 		badPolygon.Radius = bad
 
-		checks.construction("check.374", "check.374.result", constructionHash, "failed polygon creation changed state", func() { bodyID.CreatePolygonShape(&shapeDef, &badPolygon) })
+		checks.construction(
+			"check.374",
+			"check.374.result",
+			constructionHash,
+			"failed polygon creation changed state",
+			func() { bodyID.CreatePolygonShape(&shapeDef, &badPolygon) },
+		)
 
-		chainPoints := []box2d.Vec2{{X: -4.0, Y: 0.0}, {X: 0.0, Y: 0.0}, {X: 4.0, Y: 0.0}, {X: 8.0, Y: 0.0}}
+		chainPoints := []box2d.Vec2{
+			{X: -4.0, Y: 0.0},
+			{X: 0.0, Y: 0.0},
+			{X: 4.0, Y: 0.0},
+			{X: 8.0, Y: 0.0},
+		}
 		chainPoints[2] = badVec
 		material := box2d.DefaultSurfaceMaterial()
 		badChainDef := box2d.DefaultChainDef()
@@ -712,14 +804,26 @@ func checkCreateInputTest(t *testing.T) {
 		badChainDef.Materials = []box2d.SurfaceMaterial{material}
 		badChainDef.IsLoop = true
 
-		checks.construction("check.385", "check.385.result", constructionHash, "failed chain creation changed state", func() { bodyID.CreateChain(&badChainDef) })
+		checks.construction(
+			"check.385",
+			"check.385.result",
+			constructionHash,
+			"failed chain creation changed state",
+			func() { bodyID.CreateChain(&badChainDef) },
+		)
 
 		badJointDef := box2d.DefaultRevoluteJointDef()
 		badJointDef.Base.BodyA = bodyID
 		badJointDef.Base.BodyB = worldID.CreateBody(&bodyDef)
 		badJointDef.Hertz = bad
 		constructionHash = worldID.StateHash()
-		checks.construction("check.391", "check.391.result", constructionHash, "failed joint creation changed state", func() { worldID.CreateRevoluteJoint(&badJointDef) })
+		checks.construction(
+			"check.391",
+			"check.391.result",
+			constructionHash,
+			"failed joint creation changed state",
+			func() { worldID.CreateRevoluteJoint(&badJointDef) },
+		)
 
 		badExplosionDef := box2d.DefaultExplosionDef()
 		badExplosionDef.Radius = bad
@@ -776,7 +880,10 @@ func inputCheckRecordReplayTest(t *testing.T) {
 	groundID := worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	ground := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+	ground := box2d.Segment{
+		Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &ground)
 
 	bodyDef.Type = box2d.DynamicBody
@@ -793,13 +900,23 @@ func inputCheckRecordReplayTest(t *testing.T) {
 	for i := range 30 {
 		bad := float32(badInputValues[i%len(badInputValues)])
 
-		checkCall("reject", 1, func() { bodyID.ApplyForceToCenter(box2d.Vec2{X: bad, Y: 0.0}, true) })
+		checkCall(
+			"reject",
+			1,
+			func() { bodyID.ApplyForceToCenter(box2d.Vec2{X: bad, Y: 0.0}, true) },
+		)
 		checkCall("reject", 1, func() { bodyID.SetAngularVelocity(bad) })
 
 		badShapeDef := box2d.DefaultShapeDef()
 		badShapeDef.Density = bad
 		constructionHash := worldID.StateHash()
-		checks.construction("check.449", "check.449.result", constructionHash, "recorded failed creation changed state", func() { bodyID.CreatePolygonShape(&badShapeDef, &box) })
+		checks.construction(
+			"check.449",
+			"check.449.result",
+			constructionHash,
+			"recorded failed creation changed state",
+			func() { bodyID.CreatePolygonShape(&badShapeDef, &box) },
+		)
 
 		bodyID.ApplyForceToCenter(box2d.Vec2{X: 0.0, Y: 1.0}, true)
 		worldID.Step(1.0/60.0, 4)
@@ -850,7 +967,12 @@ func inputCheckRecordReplayTest(t *testing.T) {
 	}
 }
 
-func (c *inputCallChecks) construction(key, resultKey string, before uint64, changedMessage string, call func()) {
+func (c *inputCallChecks) construction(
+	key string, resultKey string,
+	before uint64,
+	changedMessage string,
+	call func(),
+) {
 	c.t.Helper()
 	ok := rejectedInput(c.count, call)
 	c.r.I32(key, int32(*c.count))

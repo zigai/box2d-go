@@ -13,7 +13,7 @@ import (
 	"github.com/zigai/box2d-go/internal/oracle"
 )
 
-func helperKey(family string, op, item int, field string) string {
+func helperKey(family string, op int, item int, field string) string {
 	return fmt.Sprintf("%s.%d.%d.%s", family, op, item, field)
 }
 
@@ -70,7 +70,10 @@ func observeHumanHelper(r *oracle.Reader, h *Human, op int) {
 						r.Vec2(key("vertex"), p.Vertices[v].X, p.Vertices[v].Y)
 						r.Vec2(key("normal"), p.Normals[v].X, p.Normals[v].Y)
 					}
-				case box2d.CircleShape, box2d.SegmentShape, box2d.ChainSegmentShape, box2d.ShapeTypeCount:
+				case box2d.CircleShape,
+					box2d.SegmentShape,
+					box2d.ChainSegmentShape,
+					box2d.ShapeTypeCount:
 					// Human fixtures contain only capsules and polygons.
 				}
 			}

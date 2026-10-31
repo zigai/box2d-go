@@ -34,23 +34,49 @@ func recordingIssueAllQueries(worldID *box2d.World, groundShapeID box2d.Shape) {
 	baseOffset := box2d.Vec2{X: 3.0, Y: -2.0}
 	base := baseOffset.Pos()
 
-	aabb := box2d.AABB{LowerBound: box2d.Vec2{X: -5.0 - baseOffset.X, Y: -15.0 - baseOffset.Y}, UpperBound: box2d.Vec2{X: 5.0 - baseOffset.X, Y: 5.0 - baseOffset.Y}}
+	aabb := box2d.AABB{
+		LowerBound: box2d.Vec2{X: -5.0 - baseOffset.X, Y: -15.0 - baseOffset.Y},
+		UpperBound: box2d.Vec2{X: 5.0 - baseOffset.X, Y: 5.0 - baseOffset.Y},
+	}
 	worldID.OverlapAABB(base, aabb, filter, recordingOverlap)
 
-	proxy := box2d.MakeProxy([]box2d.Vec2{{X: -0.5, Y: -0.5}, {X: 0.5, Y: -0.5}, {X: 0.5, Y: 0.5}, {X: -0.5, Y: 0.5}}, 0)
+	proxy := box2d.MakeProxy(
+		[]box2d.Vec2{{X: -0.5, Y: -0.5}, {X: 0.5, Y: -0.5}, {X: 0.5, Y: 0.5}, {X: -0.5, Y: 0.5}},
+		0,
+	)
 	worldID.OverlapShape(box2d.Pos{}, &proxy, filter, recordingOverlap)
 
 	rayOrigin := box2d.Pos{X: 0.0, Y: 10.0}
 	rayDir := box2d.Vec2{X: 0.0, Y: -20.0}
-	worldID.CastRay(rayOrigin, rayDir, filter, func(_ box2d.Shape, _ box2d.Pos, _ box2d.Vec2, fraction float32) float32 { return fraction })
+	worldID.CastRay(
+		rayOrigin,
+		rayDir,
+		filter,
+		func(_ box2d.Shape, _ box2d.Pos, _ box2d.Vec2, fraction float32) float32 { return fraction },
+	)
 
 	worldID.CastRayClosest(rayOrigin, rayDir, filter)
 
 	circProxy := box2d.MakeProxy([]box2d.Vec2{{X: -baseOffset.X, Y: -baseOffset.Y}}, 0.3)
-	worldID.CastShape(base, &circProxy, rayDir, filter, func(_ box2d.Shape, _ box2d.Pos, _ box2d.Vec2, fraction float32) float32 { return fraction })
+	worldID.CastShape(
+		base,
+		&circProxy,
+		rayDir,
+		filter,
+		func(_ box2d.Shape, _ box2d.Pos, _ box2d.Vec2, fraction float32) float32 { return fraction },
+	)
 
-	moverCap := box2d.Capsule{Center1: box2d.Vec2{X: -0.3 - baseOffset.X, Y: -baseOffset.Y}, Center2: box2d.Vec2{X: 0.3 - baseOffset.X, Y: -baseOffset.Y}, Radius: 0.5}
-	worldID.CollideMover(base, &moverCap, filter, func(box2d.Shape, *box2d.PlaneResult) bool { return true })
+	moverCap := box2d.Capsule{
+		Center1: box2d.Vec2{X: -0.3 - baseOffset.X, Y: -baseOffset.Y},
+		Center2: box2d.Vec2{X: 0.3 - baseOffset.X, Y: -baseOffset.Y},
+		Radius:  0.5,
+	}
+	worldID.CollideMover(
+		base,
+		&moverCap,
+		filter,
+		func(box2d.Shape, *box2d.PlaneResult) bool { return true },
+	)
 
 	moverTranslation := box2d.Vec2{X: 0.0, Y: -5.0}
 	worldID.CastMover(base, &moverCap, moverTranslation, filter)
@@ -136,7 +162,12 @@ func recordingMalformedPayload(t *testing.T, opcode byte, sizeDelta int) []byte 
 		world.CreateBody(&createdDef)
 	case 0xE0:
 		aabb := box2d.AABB{LowerBound: box2d.Vec2{X: -2, Y: -2}, UpperBound: box2d.Vec2{X: 2, Y: 2}}
-		world.OverlapAABB(box2d.Pos{}, aabb, box2d.DefaultQueryFilter(), func(box2d.Shape) bool { return true })
+		world.OverlapAABB(
+			box2d.Pos{},
+			aabb,
+			box2d.DefaultQueryFilter(),
+			func(box2d.Shape) bool { return true },
+		)
 	}
 
 	world.Step(1.0/60, 1)
@@ -307,7 +338,11 @@ func TestRecording(t *testing.T) {
 	capsuleBodyDef.Type = box2d.DynamicBody
 	capsuleBodyDef.Position = box2d.Pos{X: 2.0, Y: 6.0}
 	capsuleBodyID := worldID.CreateBody(&capsuleBodyDef)
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+		Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+		Radius:  0.25,
+	}
 	capsuleDef := box2d.DefaultShapeDef()
 	capsuleDef.Density = 1.0
 
@@ -318,7 +353,10 @@ func TestRecording(t *testing.T) {
 
 	r.Bool("check 213", capsuleShapeID.IsValid())
 
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+	}
 	segmentDef := box2d.DefaultShapeDef()
 
 	segmentShapeID := groundID.CreateSegmentShape(&segmentDef, &segment)
@@ -328,7 +366,15 @@ func TestRecording(t *testing.T) {
 
 	r.Bool("check 219", segmentShapeID.IsValid())
 
-	chainSeg := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -1.0, Y: 1.0}, Point2: box2d.Vec2{X: 1.0, Y: 1.0}}, Ghost2: box2d.Vec2{X: 2.0, Y: 1.0}, ChainID: -1}
+	chainSeg := box2d.ChainSegment{
+		Ghost1: box2d.Vec2{X: -2.0, Y: 1.0},
+		Segment: box2d.Segment{
+			Point1: box2d.Vec2{X: -1.0, Y: 1.0},
+			Point2: box2d.Vec2{X: 1.0, Y: 1.0},
+		},
+		Ghost2:  box2d.Vec2{X: 2.0, Y: 1.0},
+		ChainID: -1,
+	}
 
 	chainSegShapeID := groundID.CreateChainSegmentShape(&segmentDef, &chainSeg)
 	if !chainSegShapeID.IsValid() {
@@ -418,7 +464,11 @@ func TestRecording(t *testing.T) {
 	bodyID.UpdateMassFromShapes()
 	capsuleBodyID.SetType(box2d.KinematicBody)
 	capsuleBodyID.SetType(box2d.DynamicBody)
-	kinematicID.SetTargetTransform(box2d.WorldTransform{P: box2d.Pos{X: -2.0, Y: 5.0}, Q: box2d.Rot{C: 1}}, 1.0/60.0, true)
+	kinematicID.SetTargetTransform(
+		box2d.WorldTransform{P: box2d.Pos{X: -2.0, Y: 5.0}, Q: box2d.Rot{C: 1}},
+		1.0/60.0,
+		true,
+	)
 	disableID.Disable()
 	disableID.Enable()
 	bodyID.SetAwake(true)
@@ -516,7 +566,12 @@ func TestRecording(t *testing.T) {
 	}
 }
 
-func recordingCreateTestJoints(t *testing.T, r *oracle.Reader, worldID *box2d.World, shapeDef *box2d.ShapeDef) {
+func recordingCreateTestJoints(
+	t *testing.T,
+	r *oracle.Reader,
+	worldID *box2d.World,
+	shapeDef *box2d.ShapeDef,
+) {
 	t.Helper()
 
 	var jb [8]box2d.Body
@@ -755,7 +810,12 @@ func recordingCheckBounds(t *testing.T, r *oracle.Reader, player *box2d.Replay) 
 	r.Bool("check 565", recBounds.LowerBound.Y <= -20.0)
 }
 
-func recordingCheckRestart(t *testing.T, r *oracle.Reader, trace *recordingTrace, player *box2d.Replay) {
+func recordingCheckRestart(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	player *box2d.Replay,
+) {
 	t.Helper()
 	player.Restart()
 
@@ -874,7 +934,12 @@ func recordingCheckPlayback(t *testing.T, r *oracle.Reader, trace *recordingTrac
 	}
 }
 
-func recordingCheckSafetyFactors(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte) {
+func recordingCheckSafetyFactors(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	recData []byte,
+) {
 	t.Helper()
 	{
 		player, err := box2d.NewReplay(recData, 0)
@@ -1036,7 +1101,13 @@ func recordingReplayDeepHash(player *box2d.Replay) uint64 {
 	return box2d.RecordingHashWorldStateDeep(player.World())
 }
 
-func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte, workerCount, budgetBytes, minInterval int) int {
+func recordingCheckKeyframeSeek(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	recData []byte,
+	workerCount int, budgetBytes int, minInterval int,
+) int {
 	t.Helper()
 
 	ref, err := box2d.NewReplay(recData, workerCount)
@@ -1112,7 +1183,22 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 	r.Bool("check 751", player.Frame() == frameCount)
 	r.I32("value 751", int32(player.Frame()))
 
-	targets := []int{frameCount, 1, frameCount - 1, 290, 17, 271, 256, 128, 33, 200, 5, 300, 100, frameCount}
+	targets := []int{
+		frameCount,
+		1,
+		frameCount - 1,
+		290,
+		17,
+		271,
+		256,
+		128,
+		33,
+		200,
+		5,
+		300,
+		100,
+		frameCount,
+	}
 	for i := range targets {
 		target := min(targets[i], frameCount)
 
@@ -1135,8 +1221,13 @@ func recordingCheckKeyframeSeek(t *testing.T, r *oracle.Reader, trace *recording
 		trace.Check(t, r, player.World(), "seek 766", target)
 
 		if got != refHash[target] {
-			t.Logf("keyframe seek mismatch at frame %d (wc %d): got %d want %d\n", target, workerCount, got,
-				refHash[target])
+			t.Logf(
+				"keyframe seek mismatch at frame %d (wc %d): got %d want %d\n",
+				target,
+				workerCount,
+				got,
+				refHash[target],
+			)
 
 			destroyPlayer()
 
@@ -1284,14 +1375,34 @@ func recordingBuildPyramidScene(worldID *box2d.World) {
 func recordingIssuePileQueries(worldID *box2d.World) {
 	filter := box2d.DefaultQueryFilter()
 
-	aabb := box2d.AABB{LowerBound: box2d.Vec2{X: -12.0, Y: -2.0}, UpperBound: box2d.Vec2{X: 12.0, Y: 22.0}}
+	aabb := box2d.AABB{
+		LowerBound: box2d.Vec2{X: -12.0, Y: -2.0},
+		UpperBound: box2d.Vec2{X: 12.0, Y: 22.0},
+	}
 	worldID.OverlapAABB(box2d.Pos{}, aabb, filter, recordingOverlap)
 
-	worldID.CastRay(box2d.Pos{X: -12.0, Y: 10.0}, box2d.Vec2{X: 24.0, Y: 0.0}, filter, func(box2d.Shape, box2d.Pos, box2d.Vec2, float32) float32 { return 1 })
-	worldID.CastRay(box2d.Pos{X: 0.0, Y: 22.0}, box2d.Vec2{X: 0.0, Y: -24.0}, filter, func(box2d.Shape, box2d.Pos, box2d.Vec2, float32) float32 { return 1 })
+	worldID.CastRay(
+		box2d.Pos{X: -12.0, Y: 10.0},
+		box2d.Vec2{X: 24.0, Y: 0.0},
+		filter,
+		func(box2d.Shape, box2d.Pos, box2d.Vec2, float32) float32 { return 1 },
+	)
+	worldID.CastRay(
+		box2d.Pos{X: 0.0, Y: 22.0},
+		box2d.Vec2{X: 0.0, Y: -24.0},
+		filter,
+		func(box2d.Shape, box2d.Pos, box2d.Vec2, float32) float32 { return 1 },
+	)
 }
 
-func recordingRecordSceneEx(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(*box2d.World), workerCount, stepCount int, withQueries bool) *box2d.Recording {
+func recordingRecordSceneEx(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	build func(*box2d.World),
+	workerCount int, stepCount int,
+	withQueries bool,
+) *box2d.Recording {
 	t.Helper()
 
 	wd := box2d.DefaultWorldDef()
@@ -1318,12 +1429,24 @@ func recordingRecordSceneEx(t *testing.T, r *oracle.Reader, trace *recordingTrac
 	return rec
 }
 
-func recordingRecordScene(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(*box2d.World), workerCount, stepCount int) *box2d.Recording {
+func recordingRecordScene(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	build func(*box2d.World),
+	workerCount int, stepCount int,
+) *box2d.Recording {
 	t.Helper()
 	return recordingRecordSceneEx(t, r, trace, build, workerCount, stepCount, false)
 }
 
-func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordingTrace, recData []byte, workerCount, budgetBytes, minInterval int) int {
+func recordingCheckScrubAllFrames(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	recData []byte,
+	workerCount int, budgetBytes int, minInterval int,
+) int {
 	t.Helper()
 
 	ref, err := box2d.NewReplay(recData, workerCount)
@@ -1413,8 +1536,15 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 				kind = "query-order"
 			}
 
-			t.Logf("scrub mismatch at frame %d (wc %d budget %d): %s divergence (deep got %d want %d)\n", target, workerCount,
-				budgetBytes, kind, got, refHash[target])
+			t.Logf(
+				"scrub mismatch at frame %d (wc %d budget %d): %s divergence (deep got %d want %d)\n",
+				target,
+				workerCount,
+				budgetBytes,
+				kind,
+				got,
+				refHash[target],
+			)
 
 			destroyPlayer()
 
@@ -1427,7 +1557,13 @@ func recordingCheckScrubAllFrames(t *testing.T, r *oracle.Reader, trace *recordi
 	return 0
 }
 
-func recordingScrubRecording(t *testing.T, r *oracle.Reader, trace *recordingTrace, rec *box2d.Recording, workerCount int) int {
+func recordingScrubRecording(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	rec *box2d.Recording,
+	workerCount int,
+) int {
 	t.Helper()
 
 	recData := rec.Data()
@@ -1457,7 +1593,15 @@ func recordingScrubRecording(t *testing.T, r *oracle.Reader, trace *recordingTra
 
 	tightBudget := 4 * snapSize
 
-	check1011 := recordingCheckScrubAllFrames(t, r, trace, recData, workerCount, tightBudget, 8) == 0
+	check1011 := recordingCheckScrubAllFrames(
+		t,
+		r,
+		trace,
+		recData,
+		workerCount,
+		tightBudget,
+		8,
+	) == 0
 	if !check1011 {
 		t.Fatal("condition false")
 	}
@@ -1624,7 +1768,13 @@ func recordingDecodeHistory(data []byte) ([][14]uint64, error) {
 	return rows, nil
 }
 
-func (trace *recordingTrace) compareRow(t *testing.T, r *oracle.Reader, prefix string, frame int, row [14]uint64) {
+func (trace *recordingTrace) compareRow(
+	t *testing.T,
+	r *oracle.Reader,
+	prefix string,
+	frame int,
+	row [14]uint64,
+) {
 	t.Helper()
 
 	trace.reader = r
@@ -1672,7 +1822,12 @@ func recordingEncodeTransforms(transforms []box2d.RecordingBodyTransform) []byte
 	return raw
 }
 
-func (trace *recordingTrace) readTransformRecord(t *testing.T, key, kind, value string) {
+func (trace *recordingTrace) readTransformRecord(
+	t *testing.T,
+	key string,
+	kind string,
+	value string,
+) {
 	t.Helper()
 
 	if strings.HasSuffix(key, "/state/ref") {
@@ -1681,7 +1836,10 @@ func (trace *recordingTrace) readTransformRecord(t *testing.T, key, kind, value 
 			t.Fatal("condition false")
 		}
 
-		trace.expected = append(trace.expected, recordingTraceRecord{key: key, reference: int(reference)})
+		trace.expected = append(
+			trace.expected,
+			recordingTraceRecord{key: key, reference: int(reference)},
+		)
 
 		return
 	}
@@ -1759,7 +1917,13 @@ func recordingDecodeTransforms(raw []byte) ([]recordingTransformBits, error) {
 	return bodies, nil
 }
 
-func (trace *recordingTrace) Check(t *testing.T, r *oracle.Reader, world *box2d.World, prefix string, frame int) {
+func (trace *recordingTrace) Check(
+	t *testing.T,
+	r *oracle.Reader,
+	world *box2d.World,
+	prefix string,
+	frame int,
+) {
 	t.Helper()
 
 	trace.started = true
@@ -1791,7 +1955,13 @@ func (trace *recordingTrace) Check(t *testing.T, r *oracle.Reader, world *box2d.
 	}
 }
 
-func (trace *recordingTrace) checkTransforms(t *testing.T, r *oracle.Reader, transforms []box2d.RecordingBodyTransform, prefix string, frame int) {
+func (trace *recordingTrace) checkTransforms(
+	t *testing.T,
+	r *oracle.Reader,
+	transforms []box2d.RecordingBodyTransform,
+	prefix string,
+	frame int,
+) {
 	t.Helper()
 
 	key := fmt.Sprintf("%s/%d/state/ref", prefix, frame)
@@ -1834,7 +2004,12 @@ func (trace *recordingTrace) checkTransforms(t *testing.T, r *oracle.Reader, tra
 	}
 }
 
-func recordingCompareTransformBits(t *testing.T, key string, want, got []recordingTransformBits) {
+func recordingCompareTransformBits(
+	t *testing.T,
+	key string,
+	want []recordingTransformBits,
+	got []recordingTransformBits,
+) {
 	t.Helper()
 
 	if len(want) != len(got) {
@@ -1845,12 +2020,26 @@ func recordingCompareTransformBits(t *testing.T, key string, want, got []recordi
 
 	for ordinal := range want {
 		if want[ordinal].index != got[ordinal].index {
-			t.Fatalf("%s: body ordinal %d: oracle index %d, Go index %d", key, ordinal, want[ordinal].index, got[ordinal].index)
+			t.Fatalf(
+				"%s: body ordinal %d: oracle index %d, Go index %d",
+				key,
+				ordinal,
+				want[ordinal].index,
+				got[ordinal].index,
+			)
 		}
 
 		for component := range components {
 			if want[ordinal].bits[component] != got[ordinal].bits[component] {
-				t.Fatalf("%s: body ordinal %d index %d component %s: oracle bits %016x, Go bits %016x", key, ordinal, got[ordinal].index, components[component], want[ordinal].bits[component], got[ordinal].bits[component])
+				t.Fatalf(
+					"%s: body ordinal %d index %d component %s: oracle bits %016x, Go bits %016x",
+					key,
+					ordinal,
+					got[ordinal].index,
+					components[component],
+					want[ordinal].bits[component],
+					got[ordinal].bits[component],
+				)
 			}
 		}
 	}
@@ -1884,20 +2073,29 @@ func recordingCheckFixtureHashes(t *testing.T, trace *recordingTrace) {
 		}
 
 		if hash != record.hash {
-			t.Fatalf("%s: unpacked transforms hash %016x, C stream hash %016x", record.key, hash, record.hash)
+			t.Fatalf(
+				"%s: unpacked transforms hash %016x, C stream hash %016x",
+				record.key,
+				hash,
+				record.hash,
+			)
 		}
 	}
 }
 
 func TestRecordingTransformFixtures(t *testing.T) {
-	for _, name := range []string{"RecordingTest", "RecordingOutlinerTest", "RecordingKeyframeTest", "RecordingScrubTest", "RecordingQueryScrubTest", "ReStepRaceTest"} {
+	for _, name := range []string{
+		"RecordingTest", "RecordingOutlinerTest", "RecordingKeyframeTest",
+		"RecordingScrubTest", "RecordingQueryScrubTest", "ReStepRaceTest",
+	} {
 		t.Run(name, func(t *testing.T) {
 			trace := newRecordingTrace(t, name)
 			if trace.hashes <= 0 {
 				t.Fatal("condition false")
 			}
 
-			if name != "RecordingOutlinerTest" && (len(trace.expected) == 0 || len(trace.packets) == 0) {
+			if name != "RecordingOutlinerTest" &&
+				(len(trace.expected) == 0 || len(trace.packets) == 0) {
 				t.Fatal("condition false")
 			}
 

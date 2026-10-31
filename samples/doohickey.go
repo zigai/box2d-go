@@ -24,7 +24,11 @@ func (d *Doohickey) Spawn(worldID *box2d.World, position box2d.Pos, scale float3
 	shapeDef.Material.RollingResistance = 0.1
 
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 1.0 * scale}
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: -3.5 * scale, Y: 0.0}, Center2: box2d.Vec2{X: 3.5 * scale, Y: 0.0}, Radius: 0.15 * scale}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: -3.5 * scale, Y: 0.0},
+		Center2: box2d.Vec2{X: 3.5 * scale, Y: 0.0},
+		Radius:  0.15 * scale,
+	}
 
 	bodyDef.Position = position.Add(box2d.Vec2{X: -5.0, Y: 3.0}.Scale(scale))
 	d.wheelID1 = worldID.CreateBody(&bodyDef)

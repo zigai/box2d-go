@@ -51,7 +51,10 @@ func CreateHighMassRatio1(context *SampleContext) Sampler {
 					if count == 1 {
 						yy = y + 2.0
 					}
-					bodyDef.Position = box2d.Pos{X: posScalar(2.0*coeff*extent + offset), Y: posScalar(yy)}
+					bodyDef.Position = box2d.Pos{
+						X: posScalar(2.0*coeff*extent + offset),
+						Y: posScalar(yy),
+					}
 					bodyID := s.worldID.CreateBody(&bodyDef)
 
 					shapeDef.Density = 1.0
@@ -149,7 +152,11 @@ func CreateHighMassRatio3(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 
 		extent := float32(1.0)
-		points := []box2d.Vec2{{X: -0.5 * extent, Y: 0.0}, {X: 0.5 * extent, Y: 0.0}, {X: 0.0, Y: 1.0 * extent}}
+		points := []box2d.Vec2{
+			{X: -0.5 * extent, Y: 0.0},
+			{X: 0.5 * extent, Y: 0.0},
+			{X: 0.0, Y: 1.0 * extent},
+		}
 		hull := box2d.ComputeHull(points)
 		smallTriangle := box2d.MakePolygon(&hull, 0.0)
 		bigBox := box2d.MakeBox(10.0*extent, 10.0*extent)
@@ -207,7 +214,10 @@ func CreateOverlapRecovery(context *SampleContext) Sampler {
 	bodyDef := box2d.DefaultBodyDef()
 	groundID := s.worldID.CreateBody(&bodyDef)
 	shapeDef := box2d.DefaultShapeDef()
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	s.CreateScene()
@@ -312,7 +322,11 @@ func CreateTinyPyramid(context *SampleContext) Sampler {
 			y := (2.0*float32(i) + 1.0) * s.extent
 
 			for j := i; j < baseCount; j++ {
-				x := (float32(i)+1.0)*s.extent + 2.0*float32(j-i)*s.extent - float32(baseCount)*s.extent
+				x := (float32(i)+1.0)*s.extent + 2.0*float32(
+					j-i,
+				)*s.extent - float32(
+					baseCount,
+				)*s.extent
 				bodyDef.Position = box2d.Pos{X: posScalar(x), Y: posScalar(y)}
 
 				bodyID := s.worldID.CreateBody(&bodyDef)
@@ -453,7 +467,8 @@ func (s *Cart) DrawControls() bool {
 	changed := false
 	imgui.Text("Contact")
 	changed = changed || imgui.SliderFloatV("Hertz##contact", &s.contactHertz, 0.0, 240.0, "%.f", 0)
-	changed = changed || imgui.SliderFloatV("Damping Ratio##contact", &s.contactDampingRatio, 0.0, 100.0, "%.f", 0)
+	changed = changed ||
+		imgui.SliderFloatV("Damping Ratio##contact", &s.contactDampingRatio, 0.0, 100.0, "%.f", 0)
 	changed = changed || imgui.SliderFloatV("Speed", &s.contactSpeed, 0.0, 5.0, "%.1f", 0)
 
 	if changed {
@@ -465,8 +480,10 @@ func (s *Cart) DrawControls() bool {
 
 	changed = false
 	imgui.Text("Joint")
-	changed = changed || imgui.SliderFloatV("Hertz##joint", &s.constraintHertz, 0.0, 240.0, "%.f", 0)
-	changed = changed || imgui.SliderFloatV("Damping Ratio##joint", &s.constraintDampingRatio, 0.0, 20.0, "%.f", 0)
+	changed = changed ||
+		imgui.SliderFloatV("Hertz##joint", &s.constraintHertz, 0.0, 240.0, "%.f", 0)
+	changed = changed ||
+		imgui.SliderFloatV("Damping Ratio##joint", &s.constraintDampingRatio, 0.0, 20.0, "%.f", 0)
 
 	imgui.Separator()
 

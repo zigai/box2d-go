@@ -141,7 +141,13 @@ func testCollisionLargeWorldManifold(t *testing.T) {
 	checkCollisionTranslatedManifold(t, r, &boxA, &boxB, sep, &mOrigin)
 }
 
-func checkCollisionTranslatedManifold(t *testing.T, r *oracle.Reader, boxA, boxB *Polygon, sep Vec2, mOrigin *LocalManifold) {
+func checkCollisionTranslatedManifold(
+	t *testing.T,
+	r *oracle.Reader,
+	boxA *Polygon, boxB *Polygon,
+	sep Vec2,
+	mOrigin *LocalManifold,
+) {
 	t.Helper()
 
 	// Same relative configuration shifted far from the origin. The relative pose differences the
@@ -180,7 +186,11 @@ func checkCollisionTranslatedManifold(t *testing.T, r *oracle.Reader, boxA, boxB
 	checkCollisionTranslatedPoints(t, r, &mLarge, mOrigin)
 }
 
-func checkCollisionTranslatedPoints(t *testing.T, r *oracle.Reader, mLarge, mOrigin *LocalManifold) {
+func checkCollisionTranslatedPoints(
+	t *testing.T,
+	r *oracle.Reader,
+	mLarge *LocalManifold, mOrigin *LocalManifold,
+) {
 	t.Helper()
 
 	for i := range mLarge.PointCount {

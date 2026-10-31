@@ -48,7 +48,7 @@ func (s *Set) SetBitCountAndClear(bitCount uint32) {
 func (s *Set) InPlaceUnion(other *Set) {
 	core.Assert(s.BlockCount == other.BlockCount, "setA.blockCount == setB.blockCount")
 
-	for i := range uint32(s.BlockCount) {
+	for i := range s.BlockCount {
 		s.Bits[i] |= other.Bits[i]
 	}
 }
@@ -88,7 +88,7 @@ func (s *Set) GetBit(bitIndex uint32) bool {
 
 func (s *Set) CountSetBits() int {
 	popCount := 0
-	for i := range uint32(s.BlockCount) {
+	for i := range s.BlockCount {
 		popCount += bits.OnesCount64(s.Bits[i])
 	}
 

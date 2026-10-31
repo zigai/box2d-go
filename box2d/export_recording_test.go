@@ -23,7 +23,10 @@ func RecordingBodyTransforms(id *World) []RecordingBodyTransform {
 	transforms := make([]RecordingBodyTransform, 0, len(w.bodies))
 	for i := range w.bodies {
 		if w.bodies[i].id == i {
-			transforms = append(transforms, RecordingBodyTransform{Index: i, Transform: getBodyTransform(w, i)})
+			transforms = append(
+				transforms,
+				RecordingBodyTransform{Index: i, Transform: getBodyTransform(w, i)},
+			)
 		}
 	}
 
@@ -37,7 +40,7 @@ func RecordingQueryResults(p *Replay, index int) (bool, float32, WorldCastOutput
 	return q.boolResult, q.castFraction, q.castOut
 }
 
-func RecordingQueryPlane(p *Replay, query, hit int) PlaneResult {
+func RecordingQueryPlane(p *Replay, query int, hit int) PlaneResult {
 	return p.frameHits[p.frameQueries[query].hitStart+hit].plane
 }
 
@@ -79,7 +82,7 @@ func RecordingMismatch(source []byte, kind string) []byte {
 	return data
 }
 
-func recordingMutateRecord(data []byte, start, size int, kind string, op byte) bool {
+func recordingMutateRecord(data []byte, start int, size int, kind string, op byte) bool {
 	rdr := recReader{data: data, size: start + size, cursor: start, ok: true}
 	if kind == "state" && op == 0xf1 {
 		at := rdr.cursor
@@ -187,7 +190,10 @@ func RecordingShapes(id *World) []Shape {
 
 	for i := range w.shapes {
 		if w.shapes[i].id == i {
-			ids = append(ids, Shape{index1: int32(i + 1), world: id, generation: w.shapes[i].generation})
+			ids = append(
+				ids,
+				Shape{index1: int32(i + 1), world: id, generation: w.shapes[i].generation},
+			)
 		}
 	}
 
@@ -201,7 +207,10 @@ func RecordingJoints(id *World) []Joint {
 
 	for i := range w.joints {
 		if w.joints[i].jointID == i {
-			ids = append(ids, Joint{index1: int32(i + 1), world: id, generation: w.joints[i].generation})
+			ids = append(
+				ids,
+				Joint{index1: int32(i + 1), world: id, generation: w.joints[i].generation},
+			)
 		}
 	}
 

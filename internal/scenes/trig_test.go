@@ -34,13 +34,30 @@ func TestBoundedSceneTrig(t *testing.T) {
 	dump(1, box2d.Pi/float32(18))
 	dump(2, float32(0.1)*(box2d.Pi/float32(18)))
 	centers := []float32{
-		0, math.Float32frombits(1), 0x1p-126, 0x1p-12, 0.75, box2d.Pi / 4, box2d.Pi / 2,
-		float32(3) * box2d.Pi / 4, box2d.Pi, float32(5) * box2d.Pi / 4, float32(3) * box2d.Pi / 2, float32(7) * box2d.Pi / 4, float32(2) * box2d.Pi,
+		0,
+		math.Float32frombits(1),
+		0x1p-126,
+		0x1p-12,
+		0.75,
+		box2d.Pi / 4,
+		box2d.Pi / 2,
+		float32(
+			3,
+		) * box2d.Pi / 4,
+		box2d.Pi,
+		float32(5) * box2d.Pi / 4,
+		float32(3) * box2d.Pi / 2,
+		float32(7) * box2d.Pi / 4,
+		float32(2) * box2d.Pi,
 	}
 	index := 3
 
 	for _, center := range centers {
-		for _, value := range []float32{math.Nextafter32(center, float32(math.Inf(-1))), center, math.Nextafter32(center, float32(math.Inf(1)))} {
+		for _, value := range []float32{
+			math.Nextafter32(center, float32(math.Inf(-1))),
+			center,
+			math.Nextafter32(center, float32(math.Inf(1))),
+		} {
 			dump(index, value)
 			dump(index+1, -value)
 			index += 2

@@ -30,7 +30,12 @@ func runDifferential(t *testing.T, raw []byte) {
 		if !t.Failed() {
 			return
 		}
-		t.Logf("live differential input sha256=%x effective=%x original_bytes=%d; replay with go test -tags box2d_oracle ./test/integration -run 'FuzzDifferentialSequence/<saved-corpus-id>'", sum, input, len(raw))
+		t.Logf(
+			"live differential input sha256=%x effective=%x original_bytes=%d; replay with go test -tags box2d_oracle ./test/integration -run 'FuzzDifferentialSequence/<saved-corpus-id>'",
+			sum,
+			input,
+			len(raw),
+		)
 		if dir := os.Getenv("BOX2D_DIFFERENTIAL_FAILURE_DIR"); dir != "" {
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				t.Errorf("retaining differential failure: %v", err)
@@ -45,7 +50,11 @@ func runDifferential(t *testing.T, raw []byte) {
 	})
 	binary := filepath.Join(oracleBuildDir(t), "tools", "differential")
 	if info, err := os.Stat(binary); err != nil || info.IsDir() {
-		t.Fatalf("explicit box2d_oracle mode requires the pinned C runner %s: %v; build with just oracle", binary, err)
+		t.Fatalf(
+			"explicit box2d_oracle mode requires the pinned C runner %s: %v; build with just oracle",
+			binary,
+			err,
+		)
 	}
 	dir := t.TempDir()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -62,7 +71,14 @@ func runDifferential(t *testing.T, raw []byte) {
 	cmd.Env = append(cmd.Env, "ORACLE_OUT="+dir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("fresh pinned C execution sha256=%x input=%x: %v (context=%v)\n%s", sum, input, err, ctx.Err(), output)
+		t.Fatalf(
+			"fresh pinned C execution sha256=%x input=%x: %v (context=%v)\n%s",
+			sum,
+			input,
+			err,
+			ctx.Err(),
+			output,
+		)
 	}
 	path := filepath.Join(dir, "differential", "sequence.jsonl")
 	info, err := os.Stat(path)

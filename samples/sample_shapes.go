@@ -111,7 +111,11 @@ func (s *ChainShape) Launch() {
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 		s.shapeID = s.bodyID.CreateCircleShape(&shapeDef, &circle)
 	} else if s.shapeType == shapeChoiceCapsule {
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 		s.shapeID = s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	} else {
 		h := float32(0.5)
@@ -224,7 +228,11 @@ func (s *ChainSegmentShape) Launch() {
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.25}
 		s.bodyID.CreateCircleShape(&shapeDef, &circle)
 	} else if s.shapeType == shapeChoiceCapsule {
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 		s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	} else {
 		box := box2d.MakeSquare(0.5)
@@ -320,7 +328,10 @@ func CreateCompoundShapes(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 50.0, Y: 0.0}, Point2: box2d.Vec2{X: -50.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 50.0, Y: 0.0},
+			Point2: box2d.Vec2{X: -50.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -530,7 +541,10 @@ func CreateShapeFilter(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Filter.CategoryBits = shapeFilterGround
@@ -637,7 +651,10 @@ func CreateCustomFilter(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+		}
 
 		shapeDef := box2d.DefaultShapeDef()
 
@@ -707,7 +724,10 @@ func CreateFriction(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.2
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		box := box2d.MakeOffsetBox(13.0, 0.25, box2d.Vec2{X: -4.0, Y: 22.0}, box2d.MakeRot(-0.25))
@@ -778,7 +798,10 @@ func (s *RollingResistance) CreateScene() {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 2.0 * float32(i)}, Point2: box2d.Vec2{X: 40.0, Y: 2.0*float32(i) + s.lift}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -40.0, Y: 2.0 * float32(i)},
+			Point2: box2d.Vec2{X: 40.0, Y: 2.0*float32(i) + s.lift},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		bodyDef.Type = box2d.DynamicBody
@@ -818,7 +841,13 @@ func (s *RollingResistance) Step() {
 	s.Sample.Step()
 
 	for i := range 20 {
-		s.draw.DrawString(s.camera, box2d.Pos{X: -41.5, Y: posScalar(2.0*float32(i) + 1.0)}, box2d.ColorWhite, "%.2f", s.resistScale*float32(i))
+		s.draw.DrawString(
+			s.camera,
+			box2d.Pos{X: -41.5, Y: posScalar(2.0*float32(i) + 1.0)},
+			box2d.ColorWhite,
+			"%.2f",
+			s.resistScale*float32(i),
+		)
 	}
 }
 
@@ -841,7 +870,10 @@ func CreateConveyorBelt(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -1051,11 +1083,18 @@ func (s *ModifyGeometry) UpdateShape() {
 		s.shapeID.SetCircle(&s.circle)
 
 	case box2d.CapsuleShape:
-		s.capsule = box2d.Capsule{Center1: box2d.Vec2{X: -0.5 * s.scale, Y: 0.0}, Center2: box2d.Vec2{X: 0.0, Y: 0.5 * s.scale}, Radius: 0.5 * s.scale}
+		s.capsule = box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5 * s.scale, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.0, Y: 0.5 * s.scale},
+			Radius:  0.5 * s.scale,
+		}
 		s.shapeID.SetCapsule(&s.capsule)
 
 	case box2d.SegmentShape:
-		s.segment = box2d.Segment{Point1: box2d.Vec2{X: -0.5 * s.scale, Y: 0.0}, Point2: box2d.Vec2{X: 0.75 * s.scale, Y: 0.0}}
+		s.segment = box2d.Segment{
+			Point1: box2d.Vec2{X: -0.5 * s.scale, Y: 0.0},
+			Point2: box2d.Vec2{X: 0.75 * s.scale, Y: 0.0},
+		}
 		s.shapeID.SetSegment(&s.segment)
 
 	case box2d.PolygonShape:
@@ -1126,8 +1165,18 @@ func CreateChainLink(context *SampleContext) Sampler {
 		s.context.camera.zoom = 25.0 * 0.5
 	}
 
-	points1 := []box2d.Vec2{{X: 0.0, Y: 0.0}, {X: -40.0, Y: 0.0}, {X: -40.0, Y: -1.0}, {X: 0.0, Y: -1.0}}
-	points2 := []box2d.Vec2{{X: 0.0, Y: -1.0}, {X: 40.0, Y: -1.0}, {X: 40.0, Y: 0.0}, {X: 0.0, Y: 0.0}}
+	points1 := []box2d.Vec2{
+		{X: 0.0, Y: 0.0},
+		{X: -40.0, Y: 0.0},
+		{X: -40.0, Y: -1.0},
+		{X: 0.0, Y: -1.0},
+	}
+	points2 := []box2d.Vec2{
+		{X: 0.0, Y: -1.0},
+		{X: 40.0, Y: -1.0},
+		{X: 40.0, Y: 0.0},
+		{X: 0.0, Y: 0.0},
+	}
 
 	bodyDef := box2d.DefaultBodyDef()
 	groundID := s.worldID.CreateBody(&bodyDef)
@@ -1165,7 +1214,11 @@ func CreateChainLink(context *SampleContext) Sampler {
 	{
 		bodyDef.Position = box2d.Pos{X: 0.0, Y: 2.0}
 		bodyID := s.worldID.CreateBody(&bodyDef)
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 		bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	}
 
@@ -1268,7 +1321,15 @@ func CreateEllipseShape(context *SampleContext) Sampler {
 	}
 
 	points := []box2d.Vec2{
-		{X: 0.0, Y: -0.25}, {X: 0.0, Y: 0.25}, {X: 0.05, Y: 0.075}, {X: -0.05, Y: 0.075}, {X: 0.05, Y: -0.075}, {X: -0.05, Y: -0.075},
+		{
+			X: 0.0,
+			Y: -0.25,
+		},
+		{X: 0.0, Y: 0.25},
+		{X: 0.05, Y: 0.075},
+		{X: -0.05, Y: 0.075},
+		{X: 0.05, Y: -0.075},
+		{X: -0.05, Y: -0.075},
 	}
 	diamondHull := box2d.ComputeHull(points)
 	poly := box2d.MakePolygon(&diamondHull, 0.2)
@@ -1315,12 +1376,21 @@ func CreateOffsetShapes(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeOffsetBox(1.0, 1.0, box2d.Vec2{X: 10.0, Y: -2.0}, box2d.MakeRot(0.5*box2d.Pi))
+		box := box2d.MakeOffsetBox(
+			1.0,
+			1.0,
+			box2d.Vec2{X: 10.0, Y: -2.0},
+			box2d.MakeRot(0.5*box2d.Pi),
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
 	{
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -5.0, Y: 1.0}, Center2: box2d.Vec2{X: -4.0, Y: 1.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -5.0, Y: 1.0},
+			Center2: box2d.Vec2{X: -4.0, Y: 1.0},
+			Radius:  0.25,
+		}
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Position = box2d.Pos{X: 13.5, Y: -0.75}
 		bodyDef.Type = box2d.DynamicBody
@@ -1330,7 +1400,12 @@ func CreateOffsetShapes(context *SampleContext) Sampler {
 	}
 
 	{
-		box := box2d.MakeOffsetBox(0.75, 0.5, box2d.Vec2{X: 9.0, Y: 2.0}, box2d.MakeRot(0.5*box2d.Pi))
+		box := box2d.MakeOffsetBox(
+			0.75,
+			0.5,
+			box2d.Vec2{X: 9.0, Y: 2.0},
+			box2d.MakeRot(0.5*box2d.Pi),
+		)
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Position = box2d.Pos{X: 0.0, Y: 0.0}
 		bodyDef.Type = box2d.DynamicBody
@@ -1492,7 +1567,10 @@ func (s *RecreateStatic) Step() {
 	// on a static body.
 	shapeDef.InvokeContactCreation = true
 
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+	}
 	s.groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	s.Sample.Step()
@@ -1548,7 +1626,11 @@ func (s *Wind) CreateScene() {
 
 	radius := float32(0.1)
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: radius}
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -radius}, Center2: box2d.Vec2{X: 0.0, Y: radius}, Radius: 0.25 * radius}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: 0.0, Y: -radius},
+		Center2: box2d.Vec2{X: 0.0, Y: radius},
+		Radius:  0.25 * radius,
+	}
 	box := box2d.MakeBox(0.25*radius, 1.25*radius)
 
 	jointDef := box2d.DefaultRevoluteJointDef()

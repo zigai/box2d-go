@@ -46,7 +46,7 @@ func RandomInt() int {
 	return int(x % (randLimit + 1))
 }
 
-func RandomIntRange(lo, hi int) int { return lo + RandomInt()%(hi-lo+1) }
+func RandomIntRange(lo int, hi int) int { return lo + RandomInt()%(hi-lo+1) }
 
 func RandomFloat() float32 {
 	r := float32(RandomInt() & randLimit)
@@ -56,7 +56,7 @@ func RandomFloat() float32 {
 	return r
 }
 
-func RandomFloatRange(lo, hi float32) float32 {
+func RandomFloatRange(lo float32, hi float32) float32 {
 	r := float32(RandomInt() & randLimit)
 	r /= randLimit
 	r = float32((hi-lo)*r) + lo
@@ -64,7 +64,7 @@ func RandomFloatRange(lo, hi float32) float32 {
 	return r
 }
 
-func RandomVec2(lo, hi float32) box2d.Vec2 {
+func RandomVec2(lo float32, hi float32) box2d.Vec2 {
 	var v box2d.Vec2
 
 	v.X = RandomFloatRange(lo, hi)
@@ -73,7 +73,7 @@ func RandomVec2(lo, hi float32) box2d.Vec2 {
 	return v
 }
 
-func RandomPos(lo, hi float32) box2d.Pos {
+func RandomPos(lo float32, hi float32) box2d.Pos {
 	var v box2d.Vec2
 
 	v.X = RandomFloatRange(lo, hi)

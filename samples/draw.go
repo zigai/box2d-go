@@ -147,8 +147,14 @@ func GetViewBounds(camera *Camera) box2d.AABB {
 	upper := ConvertScreenToWorld(camera, box2d.Vec2{X: camera.width, Y: 0.0})
 
 	var bounds box2d.AABB
-	bounds.LowerBound = box2d.Vec2{X: box2d.RoundDownFloat(float64(lower.X)), Y: box2d.RoundDownFloat(float64(lower.Y))}
-	bounds.UpperBound = box2d.Vec2{X: box2d.RoundUpFloat(float64(upper.X)), Y: box2d.RoundUpFloat(float64(upper.Y))}
+	bounds.LowerBound = box2d.Vec2{
+		X: box2d.RoundDownFloat(float64(lower.X)),
+		Y: box2d.RoundDownFloat(float64(lower.Y)),
+	}
+	bounds.UpperBound = box2d.Vec2{
+		X: box2d.RoundUpFloat(float64(upper.X)),
+		Y: box2d.RoundUpFloat(float64(upper.Y)),
+	}
 	return bounds
 }
 
@@ -195,9 +201,19 @@ func createBackground() background {
 	gl.BindVertexArray(b.vaoID)
 	gl.EnableVertexAttribArray(vertexAttribute)
 
-	vertices := []box2d.Vec2{{X: -1.0, Y: 1.0}, {X: -1.0, Y: -1.0}, {X: 1.0, Y: 1.0}, {X: 1.0, Y: -1.0}}
+	vertices := []box2d.Vec2{
+		{X: -1.0, Y: 1.0},
+		{X: -1.0, Y: -1.0},
+		{X: 1.0, Y: 1.0},
+		{X: 1.0, Y: -1.0},
+	}
 	gl.BindBuffer(gl.ARRAY_BUFFER, b.vboID)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*int(unsafe.Sizeof(vertices[0])), unsafe.Pointer(&vertices[0]), gl.STATIC_DRAW)
+	gl.BufferData(
+		gl.ARRAY_BUFFER,
+		len(vertices)*int(unsafe.Sizeof(vertices[0])),
+		unsafe.Pointer(&vertices[0]),
+		gl.STATIC_DRAW,
+	)
 	gl.VertexAttribPointerWithOffset(vertexAttribute, 2, gl.FLOAT, false, 0, 0)
 
 	checkOpenGL()
@@ -262,7 +278,10 @@ func createPointDrawData() pointRender {
 	var render pointRender
 	render.points = make([]pointData, 0, pointBatchSize)
 	render.programID = createProgramFromStrings(pointVS, pointFS)
-	render.projectionUniform = gl.GetUniformLocation(render.programID, gl.Str("projectionMatrix\x00"))
+	render.projectionUniform = gl.GetUniformLocation(
+		render.programID,
+		gl.Str("projectionMatrix\x00"),
+	)
 	var vertexAttribute uint32 = 0
 	var sizeAttribute uint32 = 1
 	var colorAttribute uint32 = 2
@@ -280,9 +299,30 @@ func createPointDrawData() pointRender {
 	gl.BindBuffer(gl.ARRAY_BUFFER, render.vboID)
 	gl.BufferData(gl.ARRAY_BUFFER, pointBatchSize*int(stride), nil, gl.DYNAMIC_DRAW)
 
-	gl.VertexAttribPointerWithOffset(vertexAttribute, 2, gl.FLOAT, false, stride, unsafe.Offsetof(data.position))
-	gl.VertexAttribPointerWithOffset(sizeAttribute, 1, gl.FLOAT, false, stride, unsafe.Offsetof(data.size))
-	gl.VertexAttribPointerWithOffset(colorAttribute, 4, gl.UNSIGNED_BYTE, true, stride, unsafe.Offsetof(data.rgba))
+	gl.VertexAttribPointerWithOffset(
+		vertexAttribute,
+		2,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.position),
+	)
+	gl.VertexAttribPointerWithOffset(
+		sizeAttribute,
+		1,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.size),
+	)
+	gl.VertexAttribPointerWithOffset(
+		colorAttribute,
+		4,
+		gl.UNSIGNED_BYTE,
+		true,
+		stride,
+		unsafe.Offsetof(data.rgba),
+	)
 
 	checkOpenGL()
 
@@ -330,7 +370,12 @@ func (render *pointRender) flush(camera *Camera) {
 	base := 0
 	for count > 0 {
 		batchCount := min(count, pointBatchSize)
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, batchCount*stride, unsafe.Pointer(&render.points[base]))
+		gl.BufferSubData(
+			gl.ARRAY_BUFFER,
+			0,
+			batchCount*stride,
+			unsafe.Pointer(&render.points[base]),
+		)
 		gl.DrawArrays(gl.POINTS, 0, int32(batchCount))
 
 		checkOpenGL()
@@ -366,7 +411,10 @@ func createLineRender() lineRender {
 	var render lineRender
 	render.points = make([]vertexData, 0, lineBatchSize)
 	render.programID = createProgramFromStrings(lineVS, lineFS)
-	render.projectionUniform = gl.GetUniformLocation(render.programID, gl.Str("projectionMatrix\x00"))
+	render.projectionUniform = gl.GetUniformLocation(
+		render.programID,
+		gl.Str("projectionMatrix\x00"),
+	)
 	var vertexAttribute uint32 = 0
 	var colorAttribute uint32 = 1
 
@@ -382,8 +430,22 @@ func createLineRender() lineRender {
 	gl.BindBuffer(gl.ARRAY_BUFFER, render.vboID)
 	gl.BufferData(gl.ARRAY_BUFFER, lineBatchSize*int(stride), nil, gl.DYNAMIC_DRAW)
 
-	gl.VertexAttribPointerWithOffset(vertexAttribute, 2, gl.FLOAT, false, stride, unsafe.Offsetof(data.position))
-	gl.VertexAttribPointerWithOffset(colorAttribute, 4, gl.UNSIGNED_BYTE, true, stride, unsafe.Offsetof(data.rgba))
+	gl.VertexAttribPointerWithOffset(
+		vertexAttribute,
+		2,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.position),
+	)
+	gl.VertexAttribPointerWithOffset(
+		colorAttribute,
+		4,
+		gl.UNSIGNED_BYTE,
+		true,
+		stride,
+		unsafe.Offsetof(data.rgba),
+	)
 
 	checkOpenGL()
 
@@ -435,7 +497,12 @@ func (render *lineRender) flush(camera *Camera) {
 	base := 0
 	for count > 0 {
 		batchCount := min(count, lineBatchSize)
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, batchCount*stride, unsafe.Pointer(&render.points[base]))
+		gl.BufferSubData(
+			gl.ARRAY_BUFFER,
+			0,
+			batchCount*stride,
+			unsafe.Pointer(&render.points[base]),
+		)
 
 		gl.DrawArrays(gl.LINES, 0, int32(batchCount))
 
@@ -454,11 +521,23 @@ func (render *lineRender) flush(camera *Camera) {
 	render.points = render.points[:0]
 }
 
-var quadVertices = [6]box2d.Vec2{{X: -1.1, Y: -1.1}, {X: 1.1, Y: -1.1}, {X: -1.1, Y: 1.1}, {X: 1.1, Y: -1.1}, {X: 1.1, Y: 1.1}, {X: -1.1, Y: 1.1}}
+var quadVertices = [6]box2d.Vec2{
+	{X: -1.1, Y: -1.1},
+	{X: 1.1, Y: -1.1},
+	{X: -1.1, Y: 1.1},
+	{X: 1.1, Y: -1.1},
+	{X: 1.1, Y: 1.1},
+	{X: -1.1, Y: 1.1},
+}
 
 func bufferQuad(vboID uint32, vertexAttribute uint32) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, vboID)
-	gl.BufferData(gl.ARRAY_BUFFER, int(unsafe.Sizeof(quadVertices)), unsafe.Pointer(&quadVertices[0]), gl.STATIC_DRAW)
+	gl.BufferData(
+		gl.ARRAY_BUFFER,
+		int(unsafe.Sizeof(quadVertices)),
+		unsafe.Pointer(&quadVertices[0]),
+		gl.STATIC_DRAW,
+	)
 	gl.VertexAttribPointerWithOffset(vertexAttribute, 2, gl.FLOAT, false, 0, 0)
 }
 
@@ -483,7 +562,10 @@ func createCircles() circleRender {
 	var render circleRender
 	render.circles = make([]circleData, 0, circleBatchSize)
 	render.programID = createProgramFromStrings(circleVS, circleFS)
-	render.projectionUniform = gl.GetUniformLocation(render.programID, gl.Str("projectionMatrix\x00"))
+	render.projectionUniform = gl.GetUniformLocation(
+		render.programID,
+		gl.Str("projectionMatrix\x00"),
+	)
 	render.pixelScaleUniform = gl.GetUniformLocation(render.programID, gl.Str("pixelScale\x00"))
 	var vertexAttribute uint32 = 0
 	var positionInstance uint32 = 1
@@ -506,9 +588,30 @@ func createCircles() circleRender {
 	gl.BindBuffer(gl.ARRAY_BUFFER, render.vboIDs[1])
 	gl.BufferData(gl.ARRAY_BUFFER, circleBatchSize*int(stride), nil, gl.DYNAMIC_DRAW)
 
-	gl.VertexAttribPointerWithOffset(positionInstance, 2, gl.FLOAT, false, stride, unsafe.Offsetof(data.position))
-	gl.VertexAttribPointerWithOffset(radiusInstance, 1, gl.FLOAT, false, stride, unsafe.Offsetof(data.radius))
-	gl.VertexAttribPointerWithOffset(colorInstance, 4, gl.UNSIGNED_BYTE, true, stride, unsafe.Offsetof(data.rgba))
+	gl.VertexAttribPointerWithOffset(
+		positionInstance,
+		2,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.position),
+	)
+	gl.VertexAttribPointerWithOffset(
+		radiusInstance,
+		1,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.radius),
+	)
+	gl.VertexAttribPointerWithOffset(
+		colorInstance,
+		4,
+		gl.UNSIGNED_BYTE,
+		true,
+		stride,
+		unsafe.Offsetof(data.rgba),
+	)
 
 	gl.VertexAttribDivisor(positionInstance, 1)
 	gl.VertexAttribDivisor(radiusInstance, 1)
@@ -564,7 +667,12 @@ func (render *circleRender) flush(camera *Camera) {
 	for count > 0 {
 		batchCount := min(count, circleBatchSize)
 
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, batchCount*stride, unsafe.Pointer(&render.circles[base]))
+		gl.BufferSubData(
+			gl.ARRAY_BUFFER,
+			0,
+			batchCount*stride,
+			unsafe.Pointer(&render.circles[base]),
+		)
 		gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, int32(batchCount))
 
 		checkOpenGL()
@@ -603,7 +711,10 @@ func createSolidCircles() solidCircles {
 	var render solidCircles
 	render.circles = make([]solidCircle, 0, solidCircleBatchSize)
 	render.programID = createProgramFromStrings(solidCircleVS, solidCircleFS)
-	render.projectionUniform = gl.GetUniformLocation(render.programID, gl.Str("projectionMatrix\x00"))
+	render.projectionUniform = gl.GetUniformLocation(
+		render.programID,
+		gl.Str("projectionMatrix\x00"),
+	)
 	render.pixelScaleUniform = gl.GetUniformLocation(render.programID, gl.Str("pixelScale\x00"))
 
 	gl.GenVertexArrays(1, &render.vaoID)
@@ -627,9 +738,30 @@ func createSolidCircles() solidCircles {
 	gl.BindBuffer(gl.ARRAY_BUFFER, render.vboIDs[1])
 	gl.BufferData(gl.ARRAY_BUFFER, solidCircleBatchSize*int(stride), nil, gl.DYNAMIC_DRAW)
 
-	gl.VertexAttribPointerWithOffset(transformInstance, 4, gl.FLOAT, false, stride, unsafe.Offsetof(data.transform))
-	gl.VertexAttribPointerWithOffset(radiusInstance, 1, gl.FLOAT, false, stride, unsafe.Offsetof(data.radius))
-	gl.VertexAttribPointerWithOffset(colorInstance, 4, gl.UNSIGNED_BYTE, true, stride, unsafe.Offsetof(data.rgba))
+	gl.VertexAttribPointerWithOffset(
+		transformInstance,
+		4,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.transform),
+	)
+	gl.VertexAttribPointerWithOffset(
+		radiusInstance,
+		1,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.radius),
+	)
+	gl.VertexAttribPointerWithOffset(
+		colorInstance,
+		4,
+		gl.UNSIGNED_BYTE,
+		true,
+		stride,
+		unsafe.Offsetof(data.rgba),
+	)
 
 	gl.VertexAttribDivisor(transformInstance, 1)
 	gl.VertexAttribDivisor(radiusInstance, 1)
@@ -685,7 +817,12 @@ func (render *solidCircles) flush(camera *Camera) {
 	for count > 0 {
 		batchCount := min(count, solidCircleBatchSize)
 
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, batchCount*stride, unsafe.Pointer(&render.circles[base]))
+		gl.BufferSubData(
+			gl.ARRAY_BUFFER,
+			0,
+			batchCount*stride,
+			unsafe.Pointer(&render.circles[base]),
+		)
 		gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, int32(batchCount))
 
 		checkOpenGL()
@@ -725,7 +862,10 @@ func createCapsules() capsules {
 	var render capsules
 	render.capsules = make([]capsuleData, 0, capsuleBatchSize)
 	render.programID = createProgramFromStrings(solidCapsuleVS, solidCapsuleFS)
-	render.projectionUniform = gl.GetUniformLocation(render.programID, gl.Str("projectionMatrix\x00"))
+	render.projectionUniform = gl.GetUniformLocation(
+		render.programID,
+		gl.Str("projectionMatrix\x00"),
+	)
 	render.pixelScaleUniform = gl.GetUniformLocation(render.programID, gl.Str("pixelScale\x00"))
 
 	var vertexAttribute uint32 = 0
@@ -751,10 +891,38 @@ func createCapsules() capsules {
 	gl.BindBuffer(gl.ARRAY_BUFFER, render.vboIDs[1])
 	gl.BufferData(gl.ARRAY_BUFFER, capsuleBatchSize*int(stride), nil, gl.DYNAMIC_DRAW)
 
-	gl.VertexAttribPointerWithOffset(transformInstance, 4, gl.FLOAT, false, stride, unsafe.Offsetof(data.transform))
-	gl.VertexAttribPointerWithOffset(radiusInstance, 1, gl.FLOAT, false, stride, unsafe.Offsetof(data.radius))
-	gl.VertexAttribPointerWithOffset(lengthInstance, 1, gl.FLOAT, false, stride, unsafe.Offsetof(data.length))
-	gl.VertexAttribPointerWithOffset(colorInstance, 4, gl.UNSIGNED_BYTE, true, stride, unsafe.Offsetof(data.rgba))
+	gl.VertexAttribPointerWithOffset(
+		transformInstance,
+		4,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.transform),
+	)
+	gl.VertexAttribPointerWithOffset(
+		radiusInstance,
+		1,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.radius),
+	)
+	gl.VertexAttribPointerWithOffset(
+		lengthInstance,
+		1,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.length),
+	)
+	gl.VertexAttribPointerWithOffset(
+		colorInstance,
+		4,
+		gl.UNSIGNED_BYTE,
+		true,
+		stride,
+		unsafe.Offsetof(data.rgba),
+	)
 
 	gl.VertexAttribDivisor(transformInstance, 1)
 	gl.VertexAttribDivisor(radiusInstance, 1)
@@ -796,7 +964,10 @@ func (render *capsules) add(p1, p2 box2d.Vec2, radius float32, c box2d.HexColor)
 	transform.Q.C = axis.X
 	transform.Q.S = axis.Y
 
-	render.capsules = append(render.capsules, capsuleData{transform, radius, length, makeRGBA8(c, 1.0)})
+	render.capsules = append(
+		render.capsules,
+		capsuleData{transform, radius, length, makeRGBA8(c, 1.0)},
+	)
 }
 
 func (render *capsules) flush(camera *Camera) {
@@ -824,7 +995,12 @@ func (render *capsules) flush(camera *Camera) {
 	for count > 0 {
 		batchCount := min(count, capsuleBatchSize)
 
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, batchCount*stride, unsafe.Pointer(&render.capsules[base]))
+		gl.BufferSubData(
+			gl.ARRAY_BUFFER,
+			0,
+			batchCount*stride,
+			unsafe.Pointer(&render.capsules[base]),
+		)
 		gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, int32(batchCount))
 
 		checkOpenGL()
@@ -865,7 +1041,10 @@ func createPolygons() polygons {
 	var render polygons
 	render.polygons = make([]polygonData, 0, 10*polygonBatchSize)
 	render.programID = createProgramFromStrings(solidPolygonVS, solidPolygonFS)
-	render.projectionUniform = gl.GetUniformLocation(render.programID, gl.Str("projectionMatrix\x00"))
+	render.projectionUniform = gl.GetUniformLocation(
+		render.programID,
+		gl.Str("projectionMatrix\x00"),
+	)
 	render.pixelScaleUniform = gl.GetUniformLocation(render.programID, gl.Str("pixelScale\x00"))
 
 	var vertexAttribute uint32 = 0
@@ -900,14 +1079,62 @@ func createPolygons() polygons {
 	pointSize := unsafe.Sizeof(data.points[0])
 	gl.BindBuffer(gl.ARRAY_BUFFER, render.vboIDs[1])
 	gl.BufferData(gl.ARRAY_BUFFER, polygonBatchSize*int(stride), nil, gl.DYNAMIC_DRAW)
-	gl.VertexAttribPointerWithOffset(instanceTransform, 4, gl.FLOAT, false, stride, unsafe.Offsetof(data.transform))
+	gl.VertexAttribPointerWithOffset(
+		instanceTransform,
+		4,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.transform),
+	)
 	gl.VertexAttribPointerWithOffset(instancePoint12, 4, gl.FLOAT, false, stride, pointOffset)
-	gl.VertexAttribPointerWithOffset(instancePoint34, 4, gl.FLOAT, false, stride, pointOffset+2*pointSize)
-	gl.VertexAttribPointerWithOffset(instancePoint56, 4, gl.FLOAT, false, stride, pointOffset+4*pointSize)
-	gl.VertexAttribPointerWithOffset(instancePoint78, 4, gl.FLOAT, false, stride, pointOffset+6*pointSize)
-	gl.VertexAttribIPointerWithOffset(instancePointCount, 1, gl.INT, stride, unsafe.Offsetof(data.count))
-	gl.VertexAttribPointerWithOffset(instanceRadius, 1, gl.FLOAT, false, stride, unsafe.Offsetof(data.radius))
-	gl.VertexAttribPointerWithOffset(instanceColor, 4, gl.UNSIGNED_BYTE, true, stride, unsafe.Offsetof(data.color))
+	gl.VertexAttribPointerWithOffset(
+		instancePoint34,
+		4,
+		gl.FLOAT,
+		false,
+		stride,
+		pointOffset+2*pointSize,
+	)
+	gl.VertexAttribPointerWithOffset(
+		instancePoint56,
+		4,
+		gl.FLOAT,
+		false,
+		stride,
+		pointOffset+4*pointSize,
+	)
+	gl.VertexAttribPointerWithOffset(
+		instancePoint78,
+		4,
+		gl.FLOAT,
+		false,
+		stride,
+		pointOffset+6*pointSize,
+	)
+	gl.VertexAttribIPointerWithOffset(
+		instancePointCount,
+		1,
+		gl.INT,
+		stride,
+		unsafe.Offsetof(data.count),
+	)
+	gl.VertexAttribPointerWithOffset(
+		instanceRadius,
+		1,
+		gl.FLOAT,
+		false,
+		stride,
+		unsafe.Offsetof(data.radius),
+	)
+	gl.VertexAttribPointerWithOffset(
+		instanceColor,
+		4,
+		gl.UNSIGNED_BYTE,
+		true,
+		stride,
+		unsafe.Offsetof(data.color),
+	)
 
 	gl.VertexAttribDivisor(instanceTransform, 1)
 	gl.VertexAttribDivisor(instancePoint12, 1)
@@ -939,7 +1166,12 @@ func (render *polygons) destroy() {
 	*render = polygons{}
 }
 
-func (render *polygons) add(transform box2d.Transform, points []box2d.Vec2, radius float32, color box2d.HexColor) {
+func (render *polygons) add(
+	transform box2d.Transform,
+	points []box2d.Vec2,
+	radius float32,
+	color box2d.HexColor,
+) {
 	var data polygonData
 	data.transform = transform
 
@@ -977,7 +1209,12 @@ func (render *polygons) flush(camera *Camera) {
 	for count > 0 {
 		batchCount := min(count, polygonBatchSize)
 
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, batchCount*stride, unsafe.Pointer(&render.polygons[base]))
+		gl.BufferSubData(
+			gl.ARRAY_BUFFER,
+			0,
+			batchCount*stride,
+			unsafe.Pointer(&render.polygons[base]),
+		)
 		gl.DrawArraysInstanced(gl.TRIANGLES, 0, 6, int32(batchCount))
 		checkOpenGL()
 
@@ -1048,7 +1285,11 @@ func (draw *Draw) DrawCapsule(p1, p2 box2d.Pos, radius float32, color box2d.HexC
 	draw.capsules.add(p1.Sub(draw.origin), p2.Sub(draw.origin), radius, color)
 }
 
-func (draw *Draw) DrawPolygon(transform box2d.WorldTransform, vertices []box2d.Vec2, color box2d.HexColor) {
+func (draw *Draw) DrawPolygon(
+	transform box2d.WorldTransform,
+	vertices []box2d.Vec2,
+	color box2d.HexColor,
+) {
 	xf := transform.Relative(draw.origin)
 	p1 := xf.Apply(vertices[len(vertices)-1])
 	for _, v := range vertices {
@@ -1058,12 +1299,22 @@ func (draw *Draw) DrawPolygon(transform box2d.WorldTransform, vertices []box2d.V
 	}
 }
 
-func (draw *Draw) DrawSolidCircle(transform box2d.WorldTransform, center box2d.Vec2, radius float32, color box2d.HexColor) {
+func (draw *Draw) DrawSolidCircle(
+	transform box2d.WorldTransform,
+	center box2d.Vec2,
+	radius float32,
+	color box2d.HexColor,
+) {
 	xf := box2d.WorldTransform{P: transform.Apply(center), Q: transform.Q}
 	draw.circles.add(xf.Relative(draw.origin), radius, color)
 }
 
-func (draw *Draw) DrawSolidPolygon(transform box2d.WorldTransform, vertices []box2d.Vec2, radius float32, color box2d.HexColor) {
+func (draw *Draw) DrawSolidPolygon(
+	transform box2d.WorldTransform,
+	vertices []box2d.Vec2,
+	radius float32,
+	color box2d.HexColor,
+) {
 	draw.polygons.add(transform.Relative(draw.origin), vertices, radius, color)
 }
 

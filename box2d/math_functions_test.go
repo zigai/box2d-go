@@ -18,8 +18,20 @@ func TestVectorProductRounding(t *testing.T) {
 		s    uint32
 		want [2]uint32
 	}{
-		{"MulSV", [2]uint32{0x3f6ceba4, 0x3f5e42b3}, [2]uint32{0xbf46a876, 0xbf2a855d}, 0xbf4fc718, [2]uint32{0x3fc7142e, 0x3fb45494}},
-		{"CrossSV", [2]uint32{0xbf279f97, 0x3f47380a}, [2]uint32{0xbf5ac7e1, 0x3f27bfcc}, 0xbf4af8bb, [2]uint32{0xbe0a7d10, 0x3fba572a}},
+		{
+			"MulSV",
+			[2]uint32{0x3f6ceba4, 0x3f5e42b3},
+			[2]uint32{0xbf46a876, 0xbf2a855d},
+			0xbf4fc718,
+			[2]uint32{0x3fc7142e, 0x3fb45494},
+		},
+		{
+			"CrossSV",
+			[2]uint32{0xbf279f97, 0x3f47380a},
+			[2]uint32{0xbf5ac7e1, 0x3f27bfcc},
+			0xbf4af8bb,
+			[2]uint32{0xbe0a7d10, 0x3fba572a},
+		},
 	}
 	checks := oracle.Open(t, "vector_rounding")
 	checks.I32("count", int32(len(cases)))
@@ -105,7 +117,10 @@ func TestAbsFloatBitEquivalence(t *testing.T) {
 		}
 	}
 
-	for _, magnitude := range []uint32{0, 1, 0x007fffff, 0x00800000, 0x3f800000, 0x7f7fffff, 0x7f800000, 0x7f800001, 0x7fbfffff, 0x7fc00000, 0x7fffffff} {
+	for _, magnitude := range []uint32{
+		0, 1, 0x007fffff, 0x00800000, 0x3f800000, 0x7f7fffff,
+		0x7f800000, 0x7f800001, 0x7fbfffff, 0x7fc00000, 0x7fffffff,
+	} {
 		check(magnitude)
 		check(magnitude | 0x80000000)
 	}

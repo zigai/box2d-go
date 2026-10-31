@@ -42,7 +42,10 @@ func TestRecordingRejectsPreinstalledCustomFilter(t *testing.T) {
 	world.StopRecording()
 
 	if recording.Size() != 0 {
-		t.Errorf("recording with unsupported custom filter contains %d bytes, want 0", recording.Size())
+		t.Errorf(
+			"recording with unsupported custom filter contains %d bytes, want 0",
+			recording.Size(),
+		)
 	}
 
 	if !filterCalled {
@@ -194,9 +197,15 @@ func TestRecordingMutationParity(t *testing.T) {
 	for phase := range 18 {
 		switch phase {
 		case 0:
-			capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.4}, Center2: box2d.Vec2{X: 0.6}, Radius: 0.3}
+			capsule := box2d.Capsule{
+				Center1: box2d.Vec2{X: -0.4},
+				Center2: box2d.Vec2{X: 0.6},
+				Radius:  0.3,
+			}
 			shape.SetCapsule(&capsule)
-			body.SetMassData(box2d.MassData{Mass: 7, Center: box2d.Vec2{X: 0.2}, RotationalInertia: 2})
+			body.SetMassData(
+				box2d.MassData{Mass: 7, Center: box2d.Vec2{X: 0.2}, RotationalInertia: 2},
+			)
 			body.SetName("mutated name")
 			body.SetContactEventsEnabled(true)
 			body.SetHitEventsEnabled(true)
@@ -220,7 +229,9 @@ func TestRecordingMutationParity(t *testing.T) {
 			pogo.SetRestLength(2.5)
 			pogo.SetSpringHertz(2)
 			pogo.SetSpringDampingRatio(0.8)
-			mover.SetLocalFrameA(box2d.Transform{P: box2d.Vec2{X: 0.1, Y: 0.2}, Q: box2d.MakeRot(0.1)})
+			mover.SetLocalFrameA(
+				box2d.Transform{P: box2d.Vec2{X: 0.1, Y: 0.2}, Q: box2d.MakeRot(0.1)},
+			)
 			mover.SetLocalFrameB(box2d.Transform{P: box2d.Vec2{X: -0.2}, Q: box2d.MakeRot(-0.2)})
 			mover.SetCollideConnected(true)
 			mover.SetConstraintTuning(17, 0.3)
@@ -243,12 +254,20 @@ func TestRecordingMutationParity(t *testing.T) {
 		case 2:
 			body.SetType(box2d.KinematicBody)
 			body.SetLinearVelocity(box2d.Vec2{X: 0.25})
-			segment := box2d.Segment{Point1: box2d.Vec2{X: -0.6}, Point2: box2d.Vec2{X: 0.8, Y: 0.3}}
+			segment := box2d.Segment{
+				Point1: box2d.Vec2{X: -0.6},
+				Point2: box2d.Vec2{X: 0.8, Y: 0.3},
+			}
 			shape.SetSegment(&segment)
 		case 3:
 			body.SetType(box2d.DynamicBody)
 
-			chainSeg := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -2}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -1}, Point2: box2d.Vec2{X: 1}}, Ghost2: box2d.Vec2{X: 2}, ChainID: -1}
+			chainSeg := box2d.ChainSegment{
+				Ghost1:  box2d.Vec2{X: -2},
+				Segment: box2d.Segment{Point1: box2d.Vec2{X: -1}, Point2: box2d.Vec2{X: 1}},
+				Ghost2:  box2d.Vec2{X: 2},
+				ChainID: -1,
+			}
 			shape.SetChainSegment(&chainSeg)
 		case 4:
 			shape.SetCircle(&circle)

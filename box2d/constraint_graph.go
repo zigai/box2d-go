@@ -63,7 +63,10 @@ func destroyGraph(graph *constraintGraph) {
 		color := &graph.colors[i]
 
 		// The bit set should never be used on the overflow color
-		core.Assert(i != overflowIndex || color.bodySet.Bits == nil, "i != B2_OVERFLOW_INDEX || color->bodySet.bits == NULL")
+		core.Assert(
+			i != overflowIndex || color.bodySet.Bits == nil,
+			"i != B2_OVERFLOW_INDEX || color->bodySet.bits == NULL",
+		)
 
 		color.bodySet.Destroy()
 		color.contactSims = nil
@@ -73,7 +76,10 @@ func destroyGraph(graph *constraintGraph) {
 
 func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 	core.Assert(contactSim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
-	core.Assert((contactSim.simFlags&simTouchingFlag) != 0, "contactSim->simFlags & b2_simTouchingFlag")
+	core.Assert(
+		(contactSim.simFlags&simTouchingFlag) != 0,
+		"contactSim->simFlags & b2_simTouchingFlag",
+	)
 	core.Assert((contact.flags&contactTouchingFlag) != 0, "contact->flags & b2_contactTouchingFlag")
 
 	graph := &world.constraintGraph
@@ -85,7 +91,10 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 
 	typeA := bodyA.bodyType
 	typeB := bodyB.bodyType
-	core.Assert(typeA == DynamicBody || typeB == DynamicBody, "typeA == b2_dynamicBody || typeB == b2_dynamicBody")
+	core.Assert(
+		typeA == DynamicBody || typeB == DynamicBody,
+		"typeA == b2_dynamicBody || typeB == b2_dynamicBody",
+	)
 
 	colorIndex := assignConstraintColor(graph, bodyIDA, bodyIDB, typeA, typeB)
 	color := &graph.colors[colorIndex]
@@ -131,10 +140,19 @@ func addContactToGraph(world *World, contactSim *contactSim, contact *contact) {
 	}
 }
 
-func removeContactFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex int, localIndex int) {
+func removeContactFromGraph(
+	world *World,
+	bodyIDA int,
+	bodyIDB int,
+	colorIndex int,
+	localIndex int,
+) {
 	graph := &world.constraintGraph
 
-	core.Assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+	core.Assert(
+		0 <= colorIndex && colorIndex < GraphColorCount,
+		"0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT",
+	)
 	color := &graph.colors[colorIndex]
 
 	if colorIndex != overflowIndex {
@@ -160,8 +178,17 @@ func removeContactFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex i
 	}
 }
 
-func assignConstraintColor(graph *constraintGraph, bodyIDA int, bodyIDB int, typeA BodyType, typeB BodyType) int {
-	core.Assert(typeA == DynamicBody || typeB == DynamicBody, "typeA == b2_dynamicBody || typeB == b2_dynamicBody")
+func assignConstraintColor(
+	graph *constraintGraph,
+	bodyIDA int,
+	bodyIDB int,
+	typeA BodyType,
+	typeB BodyType,
+) int {
+	core.Assert(
+		typeA == DynamicBody || typeB == DynamicBody,
+		"typeA == b2_dynamicBody || typeB == b2_dynamicBody",
+	)
 
 	if typeA == DynamicBody && typeB == DynamicBody {
 		// Dynamic constraint colors cannot encroach on colors reserved for static constraints
@@ -229,7 +256,10 @@ func addJointToGraph(world *World, jointSim *jointSim, joint *joint) {
 func removeJointFromGraph(world *World, bodyIDA int, bodyIDB int, colorIndex int, localIndex int) {
 	graph := &world.constraintGraph
 
-	core.Assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+	core.Assert(
+		0 <= colorIndex && colorIndex < GraphColorCount,
+		"0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT",
+	)
 	color := &graph.colors[colorIndex]
 
 	if colorIndex != overflowIndex {

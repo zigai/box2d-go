@@ -28,7 +28,14 @@ func BenchmarkScenes(b *testing.B) {
 		precision = "double"
 	}
 
-	if _, err := fmt.Fprintf(os.Stdout, "box2d-bench: precision=%s scene-config=release steps=%d timestep=1/60 substeps=4 seed=12345 continuous=true rebuild-static=false cpus=%d\n", precision, steps, runtime.GOMAXPROCS(0)); err != nil {
+	if _, err := fmt.Fprintf(
+		os.Stdout,
+		"box2d-bench: precision=%s scene-config=release steps=%d timestep=1/60 substeps=4 "+
+			"seed=12345 continuous=true rebuild-static=false cpus=%d\n",
+		precision,
+		steps,
+		runtime.GOMAXPROCS(0),
+	); err != nil {
 		b.Fatalf("write benchmark configuration: %v", err)
 	}
 
@@ -84,7 +91,7 @@ func BenchmarkScenes(b *testing.B) {
 	}
 }
 
-func benchmarkJointGrid(b *testing.B, workers, steps int) {
+func benchmarkJointGrid(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -111,7 +118,7 @@ func benchmarkJointGrid(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkLargePyramid(b *testing.B, workers, steps int) {
+func benchmarkLargePyramid(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -138,7 +145,7 @@ func benchmarkLargePyramid(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkManyPyramids(b *testing.B, workers, steps int) {
+func benchmarkManyPyramids(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -165,7 +172,7 @@ func benchmarkManyPyramids(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkRain(b *testing.B, workers, steps int) {
+func benchmarkRain(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -193,7 +200,7 @@ func benchmarkRain(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkSpinner(b *testing.B, workers, steps int) {
+func benchmarkSpinner(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -221,7 +228,7 @@ func benchmarkSpinner(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkSmash(b *testing.B, workers, steps int) {
+func benchmarkSmash(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -248,7 +255,7 @@ func benchmarkSmash(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkTumbler(b *testing.B, workers, steps int) {
+func benchmarkTumbler(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -275,7 +282,7 @@ func benchmarkTumbler(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkWasher(b *testing.B, workers, steps int) {
+func benchmarkWasher(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -302,7 +309,7 @@ func benchmarkWasher(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkJunkyard(b *testing.B, workers, steps int) {
+func benchmarkJunkyard(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -330,7 +337,7 @@ func benchmarkJunkyard(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkSleep(b *testing.B, workers, steps int) {
+func benchmarkSleep(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -358,7 +365,7 @@ func benchmarkSleep(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkCompounds(b *testing.B, workers, steps int) {
+func benchmarkCompounds(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -385,7 +392,7 @@ func benchmarkCompounds(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkQueries(b *testing.B, workers, steps int) {
+func benchmarkQueries(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -413,7 +420,7 @@ func benchmarkQueries(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkTreeCast(b *testing.B, workers, steps int) {
+func benchmarkTreeCast(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -442,7 +449,7 @@ func benchmarkTreeCast(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkTileWorld(b *testing.B, workers, steps int) {
+func benchmarkTileWorld(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -471,7 +478,7 @@ func benchmarkTileWorld(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkFallingHinges(b *testing.B, workers, steps int) {
+func benchmarkFallingHinges(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 
@@ -501,7 +508,7 @@ func benchmarkFallingHinges(b *testing.B, workers, steps int) {
 	}
 }
 
-func benchmarkHuman(b *testing.B, workers, steps int) {
+func benchmarkHuman(b *testing.B, workers int, steps int) {
 	b.Helper()
 	b.ReportAllocs()
 

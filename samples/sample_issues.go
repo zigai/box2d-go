@@ -22,7 +22,10 @@ func CreateUnstablePrismaticJoints(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -100.0, Y: 0.0}, Point2: box2d.Vec2{X: 100.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -100.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 100.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -109,7 +112,10 @@ func CreateUnstableWindmill(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -100.0, Y: -10.0}, Point2: box2d.Vec2{X: 100.0, Y: -10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -100.0, Y: -10.0},
+			Point2: box2d.Vec2{X: 100.0, Y: -10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 

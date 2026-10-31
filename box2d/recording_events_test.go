@@ -10,7 +10,7 @@ import (
 func recordingEventValues(w *box2d.World) [11]uint64 {
 	var row [11]uint64
 
-	hash := uint64(oracle.HashInit)
+	hash := oracle.HashInit
 	id := func(packed uint64, world *box2d.World) {
 		hash = oracle.HashU32(hash, uint32(packed>>32))
 		hash = oracle.HashU32(hash, uint32(uint16(packed)))
@@ -40,7 +40,13 @@ func recordingEventValues(w *box2d.World) [11]uint64 {
 		count++
 
 		id(e.Body.ID(), e.Body.World())
-		hash = oracle.HashTransform(hash, oracle.Real(e.Transform.P.X), oracle.Real(e.Transform.P.Y), e.Transform.Q.C, e.Transform.Q.S)
+		hash = oracle.HashTransform(
+			hash,
+			oracle.Real(e.Transform.P.X),
+			oracle.Real(e.Transform.P.Y),
+			e.Transform.Q.C,
+			e.Transform.Q.S,
+		)
 
 		asleep := uint32(0)
 		if e.FellAsleep {
@@ -51,7 +57,7 @@ func recordingEventValues(w *box2d.World) [11]uint64 {
 	}
 
 	row[0] = uint64(count)
-	row[1] = uint64(hash)
+	row[1] = hash
 	hash = oracle.HashInit
 
 	begin, end := 0, 0
@@ -71,7 +77,7 @@ func recordingEventValues(w *box2d.World) [11]uint64 {
 
 	row[2] = uint64(begin)
 	row[3] = uint64(end)
-	row[4] = uint64(hash)
+	row[4] = hash
 	hash = oracle.HashInit
 
 	begin, end, hits := 0, 0, 0
@@ -106,7 +112,7 @@ func recordingEventValues(w *box2d.World) [11]uint64 {
 	row[5] = uint64(begin)
 	row[6] = uint64(end)
 	row[7] = uint64(hits)
-	row[8] = uint64(hash)
+	row[8] = hash
 	hash = oracle.HashInit
 
 	count = 0
@@ -117,7 +123,7 @@ func recordingEventValues(w *box2d.World) [11]uint64 {
 	}
 
 	row[9] = uint64(count)
-	row[10] = uint64(hash)
+	row[10] = hash
 
 	return row
 }

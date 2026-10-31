@@ -22,7 +22,9 @@ func loadAABBV(aabb *AABB) aabbV {
 func overlapNode(av aabbV, node *TreeNode) bool {
 	if !simdEnabled {
 		bounds := &node.AABB
-		return av[0] <= bounds.UpperBound.X && av[1] <= bounds.UpperBound.Y && bounds.LowerBound.X <= av[2] && bounds.LowerBound.Y <= av[3]
+		return av[0] <= bounds.UpperBound.X && av[1] <= bounds.UpperBound.Y &&
+			bounds.LowerBound.X <= av[2] &&
+			bounds.LowerBound.Y <= av[3]
 	}
 
 	leftVector := archsimd.LoadFloat32x4Array((*[4]float32)(&av))
@@ -34,7 +36,9 @@ func overlapNode(av aabbV, node *TreeNode) bool {
 
 func overlapV(left, right *AABB) bool {
 	if !simdEnabled {
-		return left.LowerBound.X <= right.UpperBound.X && left.LowerBound.Y <= right.UpperBound.Y && right.LowerBound.X <= left.UpperBound.X && right.LowerBound.Y <= left.UpperBound.Y
+		return left.LowerBound.X <= right.UpperBound.X && left.LowerBound.Y <= right.UpperBound.Y &&
+			right.LowerBound.X <= left.UpperBound.X &&
+			right.LowerBound.Y <= left.UpperBound.Y
 	}
 
 	leftVector := archsimd.LoadFloat32x4Array((*[4]float32)(unsafe.Pointer(left)))

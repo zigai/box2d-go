@@ -289,8 +289,11 @@ func (s *ReplayViewer) DrawLoadPopup() {
 	}
 
 	fontSize := imgui.FontSize()
-	imgui.SetNextWindowPosV(imgui.Vec2{X: s.context.camera.width * 0.5, Y: s.context.camera.height * 0.35}, imgui.CondAppearing,
-		imgui.Vec2{X: 0.5, Y: 0.5})
+	imgui.SetNextWindowPosV(
+		imgui.Vec2{X: s.context.camera.width * 0.5, Y: s.context.camera.height * 0.35},
+		imgui.CondAppearing,
+		imgui.Vec2{X: 0.5, Y: 0.5},
+	)
 	imgui.SetNextWindowSizeV(imgui.Vec2{X: 26.0 * fontSize, Y: 0.0}, imgui.CondAppearing)
 
 	if !imgui.BeginPopupModalV(popupID, nil, imgui.WindowFlagsAlwaysAutoResize) {
@@ -770,8 +773,11 @@ func (s *ReplayViewer) DrawOutlinePanel() {
 
 	imgui.SetNextWindowPos(imgui.Vec2{X: 0.5 * fontSize, Y: top})
 	imgui.SetNextWindowSize(imgui.Vec2{X: 22.0 * fontSize, Y: bottom - top})
-	imgui.BeginV("Outline", nil,
-		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar)
+	imgui.BeginV(
+		"Outline",
+		nil,
+		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar,
+	)
 
 	imTextColored(imgui.Vec4{X: 0.9, Y: 0.6, Z: 0.2, W: 1.0}, "Outline")
 	imgui.BeginChildStr("tree")
@@ -795,7 +801,8 @@ func (s *ReplayViewer) DrawOutlineTree() {
 			continue
 		}
 
-		ownsSelection := s.selBodyOrdinal == ord && (s.selKind == selBody || s.selKind == selShape || s.selKind == selJoint)
+		ownsSelection := s.selBodyOrdinal == ord &&
+			(s.selKind == selBody || s.selKind == selShape || s.selKind == selJoint)
 
 		name := body.Name()
 		if name == "" {
@@ -969,8 +976,13 @@ func (s *ReplayViewer) DrawShapeDetail(shape box2d.Shape) {
 	mat := shape.SurfaceMaterial()
 	imText("custom color 0x%06x", mat.CustomColor)
 	aabb := shape.AABB()
-	imText("aabb (%.2f, %.2f)-(%.2f, %.2f)", aabb.LowerBound.X, aabb.LowerBound.Y, aabb.UpperBound.X,
-		aabb.UpperBound.Y)
+	imText(
+		"aabb (%.2f, %.2f)-(%.2f, %.2f)",
+		aabb.LowerBound.X,
+		aabb.LowerBound.Y,
+		aabb.UpperBound.X,
+		aabb.UpperBound.Y,
+	)
 }
 
 func (s *ReplayViewer) DrawContactDetail(body box2d.Body) {
@@ -1034,7 +1046,8 @@ func (s *ReplayViewer) DrawQueryDetail() {
 	}
 
 	imText("type     %s", replayQueryTypeName(q.Type))
-	shapeLocal := q.Type == box2d.ReplayQueryShapeTestPoint || q.Type == box2d.ReplayQueryShapeRayCast
+	shapeLocal := q.Type == box2d.ReplayQueryShapeTestPoint ||
+		q.Type == box2d.ReplayQueryShapeRayCast
 	if !shapeLocal {
 		imText("category 0x%016x", q.Filter.CategoryBits)
 		imText("mask     0x%016x", q.Filter.MaskBits)
@@ -1133,7 +1146,8 @@ func (s *ReplayViewer) DrawMetricsTab() {
 		hi := imgui.ItemRectMax()
 		t := float32(divergeFrame) / float32(s.info.FrameCount)
 		x := lo.X + t*(hi.X-lo.X)
-		imgui.WindowDrawList().AddLineArgs(imgui.Vec2{X: x, Y: lo.Y}, imgui.Vec2{X: x, Y: hi.Y}, imCol32(220, 60, 60, 255), 2.0)
+		imgui.WindowDrawList().
+			AddLineArgs(imgui.Vec2{X: x, Y: lo.Y}, imgui.Vec2{X: x, Y: hi.Y}, imCol32(220, 60, 60, 255), 2.0)
 	}
 
 	// Info row: recording metadata, live counts, divergence
@@ -1149,12 +1163,21 @@ func (s *ReplayViewer) DrawMetricsTab() {
 	if s.worldID != nil {
 		c := s.worldID.Counters()
 		imgui.SameLine()
-		imText("   bodies %d  shapes %d  contacts %d  joints %d", c.BodyCount, c.ShapeCount, c.ContactCount,
-			c.JointCount)
+		imText(
+			"   bodies %d  shapes %d  contacts %d  joints %d",
+			c.BodyCount,
+			c.ShapeCount,
+			c.ContactCount,
+			c.JointCount,
+		)
 	}
 	if divergeFrame >= 0 {
 		imgui.SameLine()
-		imTextColored(imgui.Vec4{X: 0.85, Y: 0.30, Z: 0.30, W: 1.0}, "   diverged at frame %d", divergeFrame)
+		imTextColored(
+			imgui.Vec4{X: 0.85, Y: 0.30, Z: 0.30, W: 1.0},
+			"   diverged at frame %d",
+			divergeFrame,
+		)
 	}
 
 	imgui.EndTabItem()

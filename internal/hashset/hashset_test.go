@@ -677,7 +677,12 @@ func runTableHashSetTest(t *testing.T) {
 		checks = checks[:0]
 
 		ms := timer.Milliseconds(ticks)
-		t.Logf("set: count = %d, containsKey = %.5f ms, ave = %.5f us\n", itemCount, ms, 1000.0*ms/float32(itemCount))
+		t.Logf(
+			"set: count = %d, containsKey = %.5f ms, ave = %.5f us\n",
+			itemCount,
+			ms,
+			1000.0*ms/float32(itemCount),
+		)
 
 		for i := range n {
 			for j := i + 1; j < n; j++ {

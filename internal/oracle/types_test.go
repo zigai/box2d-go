@@ -94,7 +94,12 @@ func TestTypesRealCaptureComparisonIsReadOnly(t *testing.T) {
 	checkRealCaptureUnchanged(t, path, before, capture, data)
 }
 
-func checkRealCaptureUnchanged(t *testing.T, path string, before os.FileInfo, capture, data []byte) {
+func checkRealCaptureUnchanged(
+	t *testing.T,
+	path string,
+	before os.FileInfo,
+	capture []byte, data []byte,
+) {
 	t.Helper()
 
 	afterData, err := os.ReadFile(path)
@@ -111,7 +116,8 @@ func checkRealCaptureUnchanged(t *testing.T, path string, before os.FileInfo, ca
 		t.Fatal("comparison modified real C capture or caller-owned input bytes")
 	}
 
-	if !os.SameFile(before, after) || before.Mode() != after.Mode() || !before.ModTime().Equal(after.ModTime()) {
+	if !os.SameFile(before, after) || before.Mode() != after.Mode() ||
+		!before.ModTime().Equal(after.ModTime()) {
 		t.Fatal("comparison replaced or modified read-only real C capture")
 	}
 }

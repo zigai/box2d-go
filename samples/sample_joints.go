@@ -108,7 +108,10 @@ func (s *DistanceJoint) CreateScene(newCount int32) {
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
 		bodyDef.AngularDamping = 1.0
-		bodyDef.Position = box2d.Pos{X: posScalar(s.length * (float32(i) + 1.0)), Y: posScalar(yOffset)}
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(s.length * (float32(i) + 1.0)),
+			Y: posScalar(yOffset),
+		}
 		s.bodyIDs[i] = s.worldID.CreateBody(&bodyDef)
 		s.bodyIDs[i].CreateCircleShape(&shapeDef, &circle)
 
@@ -234,7 +237,10 @@ func CreateMotorJoint(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID = s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -382,16 +388,28 @@ func CreateTopDownFriction(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID = s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		segment = box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: -10.0, Y: 20.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: -10.0, Y: 20.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		segment = box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 20.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 20.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		segment = box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 20.0}, Point2: box2d.Vec2{X: 10.0, Y: 20.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 20.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 20.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -401,7 +419,11 @@ func CreateTopDownFriction(context *SampleContext) Sampler {
 	jointDef.MaxVelocityForce = 10.0
 	jointDef.MaxVelocityTorque = 10.0
 
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.25, Y: 0.0}, Center2: box2d.Vec2{X: 0.25, Y: 0.0}, Radius: 0.25}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: -0.25, Y: 0.0},
+		Center2: box2d.Vec2{X: 0.25, Y: 0.0},
+		Radius:  0.25,
+	}
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.35}
 	square := box2d.MakeSquare(0.35)
 
@@ -477,7 +499,10 @@ func CreateFilterJoint(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -559,7 +584,11 @@ func CreateRevoluteJoint(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 1.0
 
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -1.0}, Center2: box2d.Vec2{X: 0.0, Y: 6.0}, Radius: 0.5}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -1.0},
+			Center2: box2d.Vec2{X: 0.0, Y: 6.0},
+			Radius:  0.5,
+		}
 		bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
 		pivot := box2d.Pos{X: -10.0, Y: 20.5}
@@ -874,7 +903,11 @@ func CreateWheelJoint(context *SampleContext) Sampler {
 	bodyID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5}, Center2: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.5}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: 0.0, Y: -0.5},
+		Center2: box2d.Vec2{X: 0.0, Y: 0.5},
+		Radius:  0.5,
+	}
 	bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
 	pivot := box2d.Pos{X: 0.0, Y: 10.0}
@@ -1062,7 +1095,14 @@ func CreateBridge(context *SampleContext) Sampler {
 func (s *Bridge) DrawControls() bool {
 	imgui.PushItemWidth(6.0 * imgui.FontSize())
 
-	updateFriction := imgui.SliderFloatV("Joint Friction", &s.frictionTorque, 0.0, 10000.0, "%2.f", 0)
+	updateFriction := imgui.SliderFloatV(
+		"Joint Friction",
+		&s.frictionTorque,
+		0.0,
+		10000.0,
+		"%2.f",
+		0,
+	)
 	if updateFriction {
 		for i := 0; i <= bridgeCount; i++ {
 			s.jointIDs[i].SetMaxMotorTorque(s.frictionTorque)
@@ -1126,7 +1166,11 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 
 	{
 		hx := float32(0.5)
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -hx, Y: 0.0}, Center2: box2d.Vec2{X: hx, Y: 0.0}, Radius: 0.125}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -hx, Y: 0.0},
+			Center2: box2d.Vec2{X: hx, Y: 0.0},
+			Radius:  0.125,
+		}
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 20.0
@@ -1140,11 +1184,17 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 		for i := range ballAndChainCount {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.Pos{X: posScalar((1.0 + 2.0*float32(i)) * hx), Y: posScalar(ballAndChainCount * hx)}
+			bodyDef.Position = box2d.Pos{
+				X: posScalar((1.0 + 2.0*float32(i)) * hx),
+				Y: posScalar(ballAndChainCount * hx),
+			}
 			bodyID := s.worldID.CreateBody(&bodyDef)
 			bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
-			pivot := box2d.Pos{X: posScalar((2.0 * float32(i)) * hx), Y: posScalar(ballAndChainCount * hx)}
+			pivot := box2d.Pos{
+				X: posScalar((2.0 * float32(i)) * hx),
+				Y: posScalar(ballAndChainCount * hx),
+			}
 			jointDef.Base.BodyA = prevBodyID
 			jointDef.Base.BodyB = bodyID
 			jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
@@ -1163,14 +1213,20 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: posScalar((1.0+2.0*ballAndChainCount)*hx + circle.Radius - hx), Y: posScalar(ballAndChainCount * hx)}
+		bodyDef.Position = box2d.Pos{
+			X: posScalar((1.0+2.0*ballAndChainCount)*hx + circle.Radius - hx),
+			Y: posScalar(ballAndChainCount * hx),
+		}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef.Filter.CategoryBits = 0x2
 		shapeDef.Filter.MaskBits = 0x1
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 
-		pivot := box2d.Pos{X: posScalar((2.0 * ballAndChainCount) * hx), Y: posScalar(ballAndChainCount * hx)}
+		pivot := box2d.Pos{
+			X: posScalar((2.0 * ballAndChainCount) * hx),
+			Y: posScalar(ballAndChainCount * hx),
+		}
 		jointDef.Base.BodyA = prevBodyID
 		jointDef.Base.BodyB = bodyID
 		jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
@@ -1186,7 +1242,14 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 
 func (s *BallAndChain) DrawControls() bool {
 	imgui.PushItemWidth(6.0 * imgui.FontSize())
-	updateFriction := imgui.SliderFloatV("Joint Friction", &s.frictionTorque, 0.0, 1000.0, "%2.f", 0)
+	updateFriction := imgui.SliderFloatV(
+		"Joint Friction",
+		&s.frictionTorque,
+		0.0,
+		1000.0,
+		"%2.f",
+		0,
+	)
 	imgui.PopItemWidth()
 	if updateFriction {
 		for i := 0; i <= ballAndChainCount; i++ {
@@ -1239,7 +1302,11 @@ func CreateCantilever(context *SampleContext) Sampler {
 		s.collideConnected = false
 
 		hx := float32(0.5)
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -hx, Y: 0.0}, Center2: box2d.Vec2{X: hx, Y: 0.0}, Radius: 0.125}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -hx, Y: 0.0},
+			Center2: box2d.Vec2{X: hx, Y: 0.0},
+			Radius:  0.125,
+		}
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 20.0
 
@@ -1539,7 +1606,10 @@ func CreateBreakableJoint(context *SampleContext) Sampler {
 	groundID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	position := box2d.Pos{X: -12.5, Y: 10.0}
@@ -1703,7 +1773,14 @@ func (s *BreakableJoint) Step() {
 			s.jointIDs[i] = box2d.Joint{}
 		} else {
 			localFrame := s.jointIDs[i].LocalFrameA()
-			s.draw.DrawString(s.camera, localFrame.P.Pos(), box2d.ColorWhite, "(%.1f, %.1f)", force.X, force.Y)
+			s.draw.DrawString(
+				s.camera,
+				localFrame.P.Pos(),
+				box2d.ColorWhite,
+				"(%.1f, %.1f)",
+				force.X,
+				force.Y,
+			)
 		}
 	}
 
@@ -1736,7 +1813,10 @@ func CreateJointSeparation(context *SampleContext) Sampler {
 	groundID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	position := box2d.Pos{X: -20.0, Y: 10.0}
@@ -1899,7 +1979,14 @@ func (s *JointSeparation) Step() {
 		linear := s.jointIDs[i].LinearSeparation()
 		angular := s.jointIDs[i].AngularSeparation()
 		localFrame := s.jointIDs[i].LocalFrameA()
-		s.draw.DrawString(s.camera, localFrame.P.Pos(), box2d.ColorWhite, "%.2f m, %.1f deg", linear, 180.0*angular/box2d.Pi)
+		s.draw.DrawString(
+			s.camera,
+			localFrame.P.Pos(),
+			box2d.ColorWhite,
+			"%.2f m, %.1f deg",
+			linear,
+			180.0*angular/box2d.Pi,
+		)
 	}
 
 	s.Sample.Step()
@@ -2027,7 +2114,11 @@ func (s *UserConstraint) Step() {
 	s.bodyID.SetLinearVelocity(vB)
 	s.bodyID.SetAngularVelocity(omegaB)
 
-	s.DrawScreenTextLine("forces = %.6g, %.6g", s.impulses[0]*invTimeStep, s.impulses[1]*invTimeStep)
+	s.DrawScreenTextLine(
+		"forces = %.6g, %.6g",
+		s.impulses[0]*invTimeStep,
+		s.impulses[1]*invTimeStep,
+	)
 }
 
 // This is a fun demo that shows off the wheel joint
@@ -2094,17 +2185,26 @@ func CreateDriving(context *SampleContext) Sampler {
 		// flat after bridge
 		x += 80.0
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: x, Y: 0.0}, Point2: box2d.Vec2{X: x + 40.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: x, Y: 0.0},
+			Point2: box2d.Vec2{X: x + 40.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		// jump ramp
 		x += 40.0
-		segment = box2d.Segment{Point1: box2d.Vec2{X: x, Y: 0.0}, Point2: box2d.Vec2{X: x + 10.0, Y: 5.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: x, Y: 0.0},
+			Point2: box2d.Vec2{X: x + 10.0, Y: 5.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		// final corner
 		x += 20.0
-		segment = box2d.Segment{Point1: box2d.Vec2{X: x, Y: 0.0}, Point2: box2d.Vec2{X: x + 40.0, Y: 0.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: x, Y: 0.0},
+			Point2: box2d.Vec2{X: x + 40.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		x += 40.0
@@ -2140,7 +2240,11 @@ func CreateDriving(context *SampleContext) Sampler {
 	{
 		N := 20
 		shapeDef := box2d.DefaultShapeDef()
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -1.0, Y: 0.0}, Center2: box2d.Vec2{X: 1.0, Y: 0.0}, Radius: 0.125}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -1.0, Y: 0.0},
+			Center2: box2d.Vec2{X: 1.0, Y: 0.0},
+			Radius:  0.125,
+		}
 
 		jointDef := box2d.DefaultRevoluteJointDef()
 
@@ -2275,7 +2379,10 @@ func CreateRagdoll(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -2292,8 +2399,18 @@ func CreateRagdoll(context *SampleContext) Sampler {
 }
 
 func (s *Ragdoll) Spawn() {
-	scenes.CreateHuman(&s.human, s.worldID, box2d.Pos{X: 0.0, Y: 25.0}, 1.0, s.jointFrictionTorque, s.jointHertz, s.jointDampingRatio, 1,
-		nil, false)
+	scenes.CreateHuman(
+		&s.human,
+		s.worldID,
+		box2d.Pos{X: 0.0, Y: 25.0},
+		1.0,
+		s.jointFrictionTorque,
+		s.jointHertz,
+		s.jointDampingRatio,
+		1,
+		nil,
+		false,
+	)
 }
 
 func (s *Ragdoll) DrawControls() bool {
@@ -2340,7 +2457,10 @@ func CreateSoftBody(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -2366,7 +2486,10 @@ func CreateDoohickeyFarm(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		box := box2d.MakeOffsetBox(1.0, 1.0, box2d.Vec2{X: 0.0, Y: 1.0}, box2d.RotIdentity)
@@ -2409,7 +2532,10 @@ func CreateScissorLift(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -2418,7 +2544,11 @@ func CreateScissorLift(context *SampleContext) Sampler {
 	bodyDef.SleepThreshold = 0.01
 
 	shapeDef := box2d.DefaultShapeDef()
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: -2.5, Y: 0.0}, Center2: box2d.Vec2{X: 2.5, Y: 0.0}, Radius: 0.15}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: -2.5, Y: 0.0},
+		Center2: box2d.Vec2{X: 2.5, Y: 0.0},
+		Radius:  0.15,
+	}
 
 	baseID1 := groundID
 	baseID2 := groundID
@@ -2594,7 +2724,10 @@ type GearLift struct {
 	enableMotor bool
 }
 
-func createGear(bodyID box2d.Body, gearRadius, toothOffset, toothHalfWidth, toothHalfHeight, toothRadius float32) {
+func createGear(
+	bodyID box2d.Body,
+	gearRadius, toothOffset, toothHalfWidth, toothHalfHeight, toothRadius float32,
+) {
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Material.Friction = 0.1
 	shapeDef.Material.CustomColor = uint32(box2d.ColorSaddleBrown)
@@ -2608,7 +2741,13 @@ func createGear(bodyID box2d.Body, gearRadius, toothOffset, toothHalfWidth, toot
 	rotation := box2d.RotIdentity
 
 	for range count {
-		tooth := box2d.MakeOffsetRoundedBox(toothHalfWidth, toothHalfHeight, center, rotation, toothRadius)
+		tooth := box2d.MakeOffsetRoundedBox(
+			toothHalfWidth,
+			toothHalfHeight,
+			center,
+			rotation,
+			toothRadius,
+		)
 		shapeDef.Material.CustomColor = uint32(box2d.ColorGray)
 		bodyID.CreatePolygonShape(&shapeDef, &tooth)
 
@@ -2660,8 +2799,12 @@ func CreateGearLift(context *SampleContext) Sampler {
 
 	gearPosition1 := box2d.Pos{X: -4.25, Y: 9.75}
 	gearPosition2 := gearPosition1.Add(box2d.Vec2{X: 2.0, Y: 1.0})
-	linkAttachPosition := gearPosition2.Add(box2d.Vec2{X: gearRadius + 2.0*toothHalfWidth + toothRadius, Y: 0.0})
-	doorPosition := linkAttachPosition.Add(box2d.Vec2{X: 0.0, Y: 2.0*linkCount*linkHalfLength + doorHalfHeight}.Neg())
+	linkAttachPosition := gearPosition2.Add(
+		box2d.Vec2{X: gearRadius + 2.0*toothHalfWidth + toothRadius, Y: 0.0},
+	)
+	doorPosition := linkAttachPosition.Add(
+		box2d.Vec2{X: 0.0, Y: 2.0*linkCount*linkHalfLength + doorHalfHeight}.Neg(),
+	)
 
 	{
 		position := gearPosition1
@@ -2671,7 +2814,14 @@ func CreateGearLift(context *SampleContext) Sampler {
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
-		createGear(bodyID, gearRadius, toothHalfHeight, toothHalfWidth, toothHalfHeight, toothRadius)
+		createGear(
+			bodyID,
+			gearRadius,
+			toothHalfHeight,
+			toothHalfWidth,
+			toothHalfHeight,
+			toothRadius,
+		)
 
 		revoluteDef := box2d.DefaultRevoluteJointDef()
 
@@ -2699,7 +2849,14 @@ func CreateGearLift(context *SampleContext) Sampler {
 
 		followerID = s.worldID.CreateBody(&bodyDef)
 
-		createGear(followerID, gearRadius, toothHalfWidth, toothHalfWidth, toothHalfHeight, toothRadius)
+		createGear(
+			followerID,
+			gearRadius,
+			toothHalfWidth,
+			toothHalfWidth,
+			toothHalfHeight,
+			toothRadius,
+		)
 
 		revoluteDef := box2d.DefaultRevoluteJointDef()
 
@@ -2718,7 +2875,11 @@ func CreateGearLift(context *SampleContext) Sampler {
 
 	var lastLinkID box2d.Body
 	{
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -linkHalfLength}, Center2: box2d.Vec2{X: 0.0, Y: linkHalfLength}, Radius: linkRadius}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -linkHalfLength},
+			Center2: box2d.Vec2{X: 0.0, Y: linkHalfLength},
+			Radius:  linkRadius,
+		}
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 2.0
@@ -2803,7 +2964,11 @@ func CreateGearLift(context *SampleContext) Sampler {
 		shapeDef.Material.RollingResistance = 0.3
 
 		colors := [5]box2d.HexColor{
-			box2d.ColorGray, box2d.ColorGainsboro, box2d.ColorLightGray, box2d.ColorLightSlateGray, box2d.ColorDarkGray,
+			box2d.ColorGray,
+			box2d.ColorGainsboro,
+			box2d.ColorLightGray,
+			box2d.ColorLightSlateGray,
+			box2d.ColorDarkGray,
 		}
 
 		y := float32(4.25)
@@ -3017,8 +3182,18 @@ func (s *ScaleRagdoll) Spawn() {
 	jointFrictionTorque := float32(0.03)
 	jointHertz := float32(1.0)
 	jointDampingRatio := float32(0.5)
-	scenes.CreateHuman(&s.human, s.worldID, box2d.Pos{X: 0.0, Y: 5.0}, s.scale, jointFrictionTorque, jointHertz, jointDampingRatio, 1, nil,
-		false)
+	scenes.CreateHuman(
+		&s.human,
+		s.worldID,
+		box2d.Pos{X: 0.0, Y: 5.0},
+		s.scale,
+		jointFrictionTorque,
+		jointHertz,
+		jointDampingRatio,
+		1,
+		nil,
+		false,
+	)
 	s.human.ApplyRandomAngularImpulse(0.1)
 }
 
@@ -3068,13 +3243,22 @@ func CreateTheoJansen(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -50.0, Y: 0.0}, Point2: box2d.Vec2{X: 50.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -50.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 50.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		segment = box2d.Segment{Point1: box2d.Vec2{X: -50.0, Y: 0.0}, Point2: box2d.Vec2{X: -50.0, Y: 10.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: -50.0, Y: 0.0},
+			Point2: box2d.Vec2{X: -50.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		segment = box2d.Segment{Point1: box2d.Vec2{X: 50.0, Y: 0.0}, Point2: box2d.Vec2{X: 50.0, Y: 10.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: 50.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 50.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -3314,7 +3498,10 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -20.0, Y: 0.0}, Point2: box2d.Vec2{X: 20.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -3385,9 +3572,19 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		bodyDef.Rotation = box2d.RotIdentity
 		baseID = s.worldID.CreateBody(&bodyDef)
 
-		plinth := box2d.MakeOffsetBox(baseHalfWidth, baseHalfHeight, box2d.Vec2{X: 0.0, Y: baseHalfHeight}, box2d.RotIdentity)
+		plinth := box2d.MakeOffsetBox(
+			baseHalfWidth,
+			baseHalfHeight,
+			box2d.Vec2{X: 0.0, Y: baseHalfHeight},
+			box2d.RotIdentity,
+		)
 		postHalfHeight := 0.5 * (pivotHeight - 2.0*baseHalfHeight)
-		post := box2d.MakeOffsetBox(postHalfWidth, postHalfHeight, box2d.Vec2{X: 0.0, Y: pivotHeight - postHalfHeight}, box2d.RotIdentity)
+		post := box2d.MakeOffsetBox(
+			postHalfWidth,
+			postHalfHeight,
+			box2d.Vec2{X: 0.0, Y: pivotHeight - postHalfHeight},
+			box2d.RotIdentity,
+		)
 
 		baseID.CreatePolygonShape(&shapeDef, &plinth)
 		baseID.CreatePolygonShape(&shapeDef, &post)
@@ -3402,7 +3599,11 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		bodyDef.Rotation = topRotation
 		s.topLinkID = s.worldID.CreateBody(&bodyDef)
 
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -topLeverLength}, Center2: box2d.Vec2{X: 0.0, Y: topLinkLength}, Radius: tubeRadius}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -topLeverLength},
+			Center2: box2d.Vec2{X: 0.0, Y: topLinkLength},
+			Radius:  tubeRadius,
+		}
 		s.topLinkID.CreateCapsuleShape(&shapeDef, &capsule)
 	}
 
@@ -3412,7 +3613,11 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		bodyDef.Rotation = topRotation
 		lowerLinkID = s.worldID.CreateBody(&bodyDef)
 
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -lowerLeverLength}, Center2: box2d.Vec2{X: 0.0, Y: lowerLinkLength}, Radius: tubeRadius}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -lowerLeverLength},
+			Center2: box2d.Vec2{X: 0.0, Y: lowerLinkLength},
+			Radius:  tubeRadius,
+		}
 		lowerLinkID.CreateCapsuleShape(&shapeDef, &capsule)
 	}
 
@@ -3422,7 +3627,11 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		bodyDef.Rotation = silverRotation
 		silverID = s.worldID.CreateBody(&bodyDef)
 
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: 0.0}, Center2: box2d.Vec2{X: 0.0, Y: silverLength}, Radius: 1.4 * tubeRadius}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.0, Y: silverLength},
+			Radius:  1.4 * tubeRadius,
+		}
 		shapeDef.Material.CustomColor = uint32(box2d.ColorSilver)
 		silverID.CreateCapsuleShape(&shapeDef, &capsule)
 		shapeDef.Material.CustomColor = 0
@@ -3434,11 +3643,19 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		bodyDef.Rotation = upperRotation
 		upperArmID = s.worldID.CreateBody(&bodyDef)
 
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: 0.0}, Center2: box2d.Vec2{X: 0.0, Y: upperArmLength}, Radius: 0.8 * tubeRadius}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.0, Y: upperArmLength},
+			Radius:  0.8 * tubeRadius,
+		}
 		upperArmID.CreateCapsuleShape(&shapeDef, &capsule)
 
 		// The coupler span reaches back to the lower link pin
-		bracket := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: 0.0}, Center2: upperArmID.LocalPoint(lowerPin), Radius: tubeRadius}
+		bracket := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
+			Center2: upperArmID.LocalPoint(lowerPin),
+			Radius:  tubeRadius,
+		}
 		upperArmID.CreateCapsuleShape(&shapeDef, &bracket)
 	}
 

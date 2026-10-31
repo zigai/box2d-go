@@ -25,10 +25,19 @@ func testReference(t *testing.T) (string, string, referenceManifest, []byte) {
 	}
 
 	reference := referenceManifest{
-		Schema: 1, Upstream: pin, Precision: config, Scalar: true, Assertions: true, Contraction: "off",
-		Compiler: "unit transport fixture", CompilerVersion: "1", CompilerTarget: "unit",
-		BuildType: "RelWithDebInfo", Flags: "-ffp-contract=off",
-		Sources: make(map[string]string), Fixtures: make(map[string]fixtureIdentity),
+		Schema:          1,
+		Upstream:        pin,
+		Precision:       config,
+		Scalar:          true,
+		Assertions:      true,
+		Contraction:     "off",
+		Compiler:        "unit transport fixture",
+		CompilerVersion: "1",
+		CompilerTarget:  "unit",
+		BuildType:       "RelWithDebInfo",
+		Flags:           "-ffp-contract=off",
+		Sources:         make(map[string]string),
+		Fixtures:        make(map[string]fixtureIdentity),
 	}
 
 	for _, name := range files {
@@ -49,7 +58,10 @@ func testReference(t *testing.T) (string, string, referenceManifest, []byte) {
 	capture := []byte("{\"k\":\"result\",\"t\":\"f32\",\"v\":\"3f000000\"}\n")
 	digest := sha256.Sum256(capture)
 	reference.Fixtures["unit"] = fixtureIdentity{
-		Producer: "unit transport", Records: 1, SHA256: hex.EncodeToString(digest[:]), Completed: true,
+		Producer:  "unit transport",
+		Records:   1,
+		SHA256:    hex.EncodeToString(digest[:]),
+		Completed: true,
 	}
 	file := filepath.Join(root, "manifest.json")
 	storeReference(t, file, reference)
@@ -82,18 +94,40 @@ func TestReferenceRejectsStalePinProfileAndAdapters(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
-		{"pin", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Upstream = strings.Repeat("b", 40) }},
+		{
+			"pin",
+			func(_ *testing.T, _, _ string, r *referenceManifest) { r.Upstream = strings.Repeat("b", 40) },
+		},
 		{"schema", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Schema = 2 }},
-		{"precision", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Precision = "wrong" }},
+		{
+			"precision",
+			func(_ *testing.T, _, _ string, r *referenceManifest) { r.Precision = "wrong" },
+		},
 		{"SIMD", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Scalar = false }},
-		{"assertions", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Assertions = false }},
-		{"build_type", func(_ *testing.T, _, _ string, r *referenceManifest) { r.BuildType = "Release" }},
-		{"contraction", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Contraction = "fast" }},
-		{"compiler", func(_ *testing.T, _, _ string, r *referenceManifest) { r.CompilerVersion = "" }},
+		{
+			"assertions",
+			func(_ *testing.T, _, _ string, r *referenceManifest) { r.Assertions = false },
+		},
+		{
+			"build_type",
+			func(_ *testing.T, _, _ string, r *referenceManifest) { r.BuildType = "Release" },
+		},
+		{
+			"contraction",
+			func(_ *testing.T, _, _ string, r *referenceManifest) { r.Contraction = "fast" },
+		},
+		{
+			"compiler",
+			func(_ *testing.T, _, _ string, r *referenceManifest) { r.CompilerVersion = "" },
+		},
 		{"adapter_changed", func(t *testing.T, root, _ string, _ *referenceManifest) {
 			t.Helper()
 
-			if err := os.WriteFile(filepath.Join(root, "oracle", "oracle.c"), []byte("changed adapter"), 0o600); err != nil {
+			if err := os.WriteFile(
+				filepath.Join(root, "oracle", "oracle.c"),
+				[]byte("changed adapter"),
+				0o600,
+			); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -104,7 +138,11 @@ func TestReferenceRejectsStalePinProfileAndAdapters(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := os.WriteFile(filepath.Join(root, "oracle", "tests", "added.c"), []byte("new case"), 0o600); err != nil {
+			if err := os.WriteFile(
+				filepath.Join(root, "oracle", "tests", "added.c"),
+				[]byte("new case"),
+				0o600,
+			); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -115,7 +153,10 @@ func TestReferenceRejectsStalePinProfileAndAdapters(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
-		{"empty_captures", func(_ *testing.T, _, _ string, r *referenceManifest) { r.Fixtures = nil }},
+		{
+			"empty_captures",
+			func(_ *testing.T, _, _ string, r *referenceManifest) { r.Fixtures = nil },
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

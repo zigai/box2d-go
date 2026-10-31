@@ -62,8 +62,16 @@ func TestReaderComponents(t *testing.T) {
 		check func(r *Reader)
 		wants []string
 	}{
-		{"vec2 x", func(r *Reader) { r.Vec2("v", 1.5, 2) }, []string{"type:     vec2", "field:    x"}},
-		{"vec2 y", func(r *Reader) { r.Vec2("v", 1, 2.5) }, []string{"type:     vec2", "field:    y", "ulp distance: 2097152"}},
+		{
+			"vec2 x",
+			func(r *Reader) { r.Vec2("v", 1.5, 2) },
+			[]string{"type:     vec2", "field:    x"},
+		},
+		{
+			"vec2 y",
+			func(r *Reader) { r.Vec2("v", 1, 2.5) },
+			[]string{"type:     vec2", "field:    y", "ulp distance: 2097152"},
+		},
 		{"rot c", func(r *Reader) { r.Rot("v", 0.5, 2) }, []string{"type:     rot", "field:    c"}},
 		{"rot s", func(r *Reader) { r.Rot("v", 1, 2.5) }, []string{"type:     rot", "field:    s"}},
 		{"pos x", func(r *Reader) { r.Pos("v", 9, 2) }, []string{"type:     pos", "field:    x"}},
@@ -99,7 +107,13 @@ func TestReaderSignedZeroIsOneUlp(t *testing.T) {
 	f.run(func() {
 		readerOf(f, `{"k":"z","t":"f32","v":"00000000"}`).F32("z", float32(math.Copysign(0, -1)))
 	})
-	mustContain(t, f.fatal, "expected: 0 (0x00000000)", "got:      -0 (0x80000000)", "ulp distance: 1")
+	mustContain(
+		t,
+		f.fatal,
+		"expected: 0 (0x00000000)",
+		"got:      -0 (0x80000000)",
+		"ulp distance: 1",
+	)
 }
 
 func TestReaderNaN(t *testing.T) {
@@ -107,7 +121,13 @@ func TestReaderNaN(t *testing.T) {
 	f.run(func() {
 		readerOf(f, `{"k":"n","t":"f32","v":"7fc00000"}`).F32("n", math.Float32frombits(0x7fc00001))
 	})
-	mustContain(t, f.fatal, "expected: NaN (0x7fc00000)", "got:      NaN (0x7fc00001)", "ulp distance: n/a (NaN)")
+	mustContain(
+		t,
+		f.fatal,
+		"expected: NaN (0x7fc00000)",
+		"got:      NaN (0x7fc00001)",
+		"ulp distance: n/a (NaN)",
+	)
 }
 
 func TestReaderUlpDistance(t *testing.T) {
@@ -137,7 +157,13 @@ func TestReaderKeyAndTypeMismatch(t *testing.T) {
 
 	f := &fakeTB{}
 	f.run(func() { readerOf(f, line).F32("b", 1) })
-	mustContain(t, f.fatal, "record 1 does not match the order of checks", `key "a", type f32`, `key "b", type f32`)
+	mustContain(
+		t,
+		f.fatal,
+		"record 1 does not match the order of checks",
+		`key "a", type f32`,
+		`key "b", type f32`,
+	)
 
 	f = &fakeTB{}
 	f.run(func() { readerOf(f, line).U32("a", 1) })
@@ -151,7 +177,11 @@ func TestReaderPastTheEnd(t *testing.T) {
 		r.Bool("a", true)
 		r.Bool("b", true)
 	})
-	mustContain(t, f.fatal, `checked key "b" (bool) as record 2, but the fixture has only 1 records`)
+	mustContain(
+		t,
+		f.fatal,
+		`checked key "b" (bool) as record 2, but the fixture has only 1 records`,
+	)
 }
 
 func TestReaderUnreadRecordsFailAtCleanup(t *testing.T) {
@@ -219,17 +249,34 @@ func TestReaderIntegersBoolsBytes(t *testing.T) {
 		r.U64("x", 2)
 	})
 
-	mustContain(t, f.fatal, `key:      "x"`, "expected: 1 (0x0000000000000001)", "got:      2 (0x0000000000000002)")
+	mustContain(
+		t,
+		f.fatal,
+		`key:      "x"`,
+		"expected: 1 (0x0000000000000001)",
+		"got:      2 (0x0000000000000002)",
+	)
 
 	f = &fakeTB{}
 	f.run(func() {
 		readerOf(f, `{"k":"b","t":"bytes","v":"00017f"}`).Bytes("b", []byte{0, 1, 0x7e, 9})
 	})
-	mustContain(t, f.fatal, "expected: 3 bytes 0x00017f", "got:      4 bytes 0x00017e09", "first difference at byte 2; lengths 3 (C) and 4 (Go)")
+	mustContain(
+		t,
+		f.fatal,
+		"expected: 3 bytes 0x00017f",
+		"got:      4 bytes 0x00017e09",
+		"first difference at byte 2; lengths 3 (C) and 4 (Go)",
+	)
 
 	f = &fakeTB{}
 	f.run(func() { readerOf(f, `{"k":"i","t":"i32","v":"80000000"}`).I32("i", math.MaxInt32) })
-	mustContain(t, f.fatal, "expected: -2147483648 (0x80000000)", "got:      2147483647 (0x7fffffff)")
+	mustContain(
+		t,
+		f.fatal,
+		"expected: -2147483648 (0x80000000)",
+		"got:      2147483647 (0x7fffffff)",
+	)
 
 	f = &fakeTB{}
 	f.run(func() { readerOf(f, `{"k":"t","t":"bool","v":"0"}`).Bool("t", true) })
@@ -279,7 +326,11 @@ func TestReaderRejectsMalformedRecordGrammar(t *testing.T) {
 			})
 
 			if f.fatal == "" {
-				t.Fatalf("accepted malformed record %s; cleanup errors are not schema rejection: %v", tt.line, f.errors)
+				t.Fatalf(
+					"accepted malformed record %s; cleanup errors are not schema rejection: %v",
+					tt.line,
+					f.errors,
+				)
 			}
 
 			mustContain(t, f.fatal, "capture.jsonl:2:")
@@ -319,11 +370,23 @@ func TestHashKnownAnswers(t *testing.T) {
 		}
 	}
 
-	if got, want := HashU32(HashInit, 0x01020304), HashBytes(HashInit, []byte{4, 3, 2, 1}); got != want {
+	if got, want := HashU32(
+		HashInit,
+		0x01020304,
+	), HashBytes(
+		HashInit,
+		[]byte{4, 3, 2, 1},
+	); got != want {
 		t.Errorf("HashU32 = %#x, want %#x", got, want)
 	}
 
-	if got, want := HashU64(HashInit, 0x0102030405060708), HashBytes(HashInit, []byte{8, 7, 6, 5, 4, 3, 2, 1}); got != want {
+	if got, want := HashU64(
+		HashInit,
+		0x0102030405060708,
+	), HashBytes(
+		HashInit,
+		[]byte{8, 7, 6, 5, 4, 3, 2, 1},
+	); got != want {
 		t.Errorf("HashU64 = %#x, want %#x", got, want)
 	}
 }
@@ -345,7 +408,12 @@ func TestReaderRejectsMalformedValues(t *testing.T) {
 		{"f32 short", "f32", "3f80", func(r *Reader) { r.F32("value", 1) }},
 		{"f32 long", "f32", "03f800000", func(r *Reader) { r.F32("value", 1) }},
 		{"f32 nonhex", "f32", "gg800000", func(r *Reader) { r.F32("value", 1) }},
-		{"f32 signed", "f32", "+0000001", func(r *Reader) { r.F32("value", math.Float32frombits(1)) }},
+		{
+			"f32 signed",
+			"f32",
+			"+0000001",
+			func(r *Reader) { r.F32("value", math.Float32frombits(1)) },
+		},
 		{"f32 prefix", "f32", "0x800000", func(r *Reader) { r.F32("value", 0) }},
 		{"i32 short", "i32", "fffffff", func(r *Reader) { r.I32("value", -1) }},
 		{"i32 overflow", "i32", "100000000", func(r *Reader) { r.I32("value", 0) }},
@@ -360,16 +428,41 @@ func TestReaderRejectsMalformedValues(t *testing.T) {
 		{"bytes odd", "bytes", "0", func(r *Reader) { r.Bytes("value", nil) }},
 		{"bytes nonhex", "bytes", "0g", func(r *Reader) { r.Bytes("value", nil) }},
 		{"vec2 one component", "vec2", "3f800000", func(r *Reader) { r.Vec2("value", 1, 1) }},
-		{"vec2 three components", "vec2", "3f800000,3f800000,3f800000", func(r *Reader) { r.Vec2("value", 1, 1) }},
+		{
+			"vec2 three components",
+			"vec2",
+			"3f800000,3f800000,3f800000",
+			func(r *Reader) { r.Vec2("value", 1, 1) },
+		},
 		{"vec2 empty x", "vec2", ",3f800000", func(r *Reader) { r.Vec2("value", 1, 1) }},
 		{"vec2 bad y", "vec2", "3f800000,gg800000", func(r *Reader) { r.Vec2("value", 1, 1) }},
 		{"rot one component", "rot", "3f800000", func(r *Reader) { r.Rot("value", 1, 1) }},
-		{"rot three components", "rot", "3f800000,3f800000,3f800000", func(r *Reader) { r.Rot("value", 1, 1) }},
+		{
+			"rot three components",
+			"rot",
+			"3f800000,3f800000,3f800000",
+			func(r *Reader) { r.Rot("value", 1, 1) },
+		},
 		{"rot empty s", "rot", "3f800000,", func(r *Reader) { r.Rot("value", 1, 1) }},
 		{"pos one component", "pos", posOne, func(r *Reader) { r.Pos("value", 1, 1) }},
-		{"pos three components", "pos", posOne + "," + posOne + "," + posOne, func(r *Reader) { r.Pos("value", 1, 1) }},
-		{"pos wrong precision x", "pos", posWrongWidth + "," + posOne, func(r *Reader) { r.Pos("value", 1, 1) }},
-		{"pos wrong precision y", "pos", posOne + "," + posWrongWidth, func(r *Reader) { r.Pos("value", 1, 1) }},
+		{
+			"pos three components",
+			"pos",
+			posOne + "," + posOne + "," + posOne,
+			func(r *Reader) { r.Pos("value", 1, 1) },
+		},
+		{
+			"pos wrong precision x",
+			"pos",
+			posWrongWidth + "," + posOne,
+			func(r *Reader) { r.Pos("value", 1, 1) },
+		},
+		{
+			"pos wrong precision y",
+			"pos",
+			posOne + "," + posWrongWidth,
+			func(r *Reader) { r.Pos("value", 1, 1) },
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -407,7 +500,11 @@ func TestReaderAcceptsRepeatedKeysAndCompletedFinalLine(t *testing.T) {
 			})
 
 			if f.fatal != "" || len(f.errors) != 0 {
-				t.Fatalf("valid repeated keys/empty bytes rejected: fatal=%q errors=%v", f.fatal, f.errors)
+				t.Fatalf(
+					"valid repeated keys/empty bytes rejected: fatal=%q errors=%v",
+					f.fatal,
+					f.errors,
+				)
 			}
 		})
 	}
@@ -459,7 +556,11 @@ func TestReaderRejectsInteriorRecordMutationsWithRepeatedKeys(t *testing.T) {
 		})
 
 		if f.fatal != "" || len(f.errors) != 1 {
-			t.Fatalf("extra record should fail exhaustion once: fatal=%q errors=%v", f.fatal, f.errors)
+			t.Fatalf(
+				"extra record should fail exhaustion once: fatal=%q errors=%v",
+				f.fatal,
+				f.errors,
+			)
 		}
 
 		mustContain(t, f.errors[0], "1 of 6 records", "record 6", `"sample"`, "i32")
@@ -475,7 +576,13 @@ func TestReaderPositionExactBits(t *testing.T) {
 		{"finite one bit", 0x3f800000, 0x3f800001, 0x3ff0000000000000, 0x3ff0000000000001},
 		{"signed zero", 0, 0x80000000, 0, 0x8000000000000000},
 		{"NaN payload", 0x7fc00000, 0x7fc00001, 0x7ff8000000000000, 0x7ff8000000000001},
-		{"infinity versus largest finite", 0x7f800000, 0x7f7fffff, 0x7ff0000000000000, 0x7fefffffffffffff},
+		{
+			"infinity versus largest finite",
+			0x7f800000,
+			0x7f7fffff,
+			0x7ff0000000000000,
+			0x7fefffffffffffff,
+		},
 		{"subnormal one bit", 1, 2, 1, 2},
 	}
 	for _, tt := range tests {
@@ -505,9 +612,21 @@ func TestReaderPositionExactBits(t *testing.T) {
 
 				f := &fakeTB{}
 				f.run(func() {
-					readerOf(f, fmt.Sprintf(`{"k":"position","t":"pos","v":%q}`, value)).Pos("position", x, y)
+					readerOf(
+						f,
+						fmt.Sprintf(`{"k":"position","t":"pos","v":%q}`, value),
+					).Pos("position", x, y)
 				})
-				mustContain(t, f.fatal, "record 1", `"position"`, "type:     pos", "field:    "+component, "0x"+wantHex, "0x"+gotHex)
+				mustContain(
+					t,
+					f.fatal,
+					"record 1",
+					`"position"`,
+					"type:     pos",
+					"field:    "+component,
+					"0x"+wantHex,
+					"0x"+gotHex,
+				)
 
 				x, y = want, 0
 				if component == "y" {
@@ -516,11 +635,18 @@ func TestReaderPositionExactBits(t *testing.T) {
 
 				f = &fakeTB{}
 				f.run(func() {
-					readerOf(f, fmt.Sprintf(`{"k":"position","t":"pos","v":%q}`, value)).Pos("position", x, y)
+					readerOf(
+						f,
+						fmt.Sprintf(`{"k":"position","t":"pos","v":%q}`, value),
+					).Pos("position", x, y)
 				})
 
 				if f.fatal != "" || len(f.errors) != 0 {
-					t.Fatalf("identical position bits rejected: fatal=%q errors=%v", f.fatal, f.errors)
+					t.Fatalf(
+						"identical position bits rejected: fatal=%q errors=%v",
+						f.fatal,
+						f.errors,
+					)
 				}
 			})
 		}
@@ -534,7 +660,12 @@ func TestReaderBytesDistinguishesLongSuffixAndPrefixLength(t *testing.T) {
 		got    []byte
 		offset int
 	}{
-		{"suffix beyond display limit", append(bytes.Repeat([]byte{0x12}, 64), 0x34), append(bytes.Repeat([]byte{0x12}, 64), 0x35), 64},
+		{
+			"suffix beyond display limit",
+			append(bytes.Repeat([]byte{0x12}, 64), 0x34),
+			append(bytes.Repeat([]byte{0x12}, 64), 0x35),
+			64,
+		},
 		{"missing last byte", []byte{1, 2, 3}, []byte{1, 2}, 2},
 		{"extra last byte", []byte{1, 2}, []byte{1, 2, 3}, 2},
 	}
@@ -542,10 +673,19 @@ func TestReaderBytesDistinguishesLongSuffixAndPrefixLength(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &fakeTB{}
 			f.run(func() {
-				readerOf(f, fmt.Sprintf(`{"k":"bytes","t":"bytes","v":%q}`, hex.EncodeToString(tt.want))).Bytes("bytes", tt.got)
+				readerOf(
+					f,
+					fmt.Sprintf(`{"k":"bytes","t":"bytes","v":%q}`, hex.EncodeToString(tt.want)),
+				).Bytes("bytes", tt.got)
 			})
-			mustContain(t, f.fatal, "record 1", `"bytes"`, fmt.Sprintf("first difference at byte %d", tt.offset),
-				fmt.Sprintf("lengths %d (C) and %d (Go)", len(tt.want), len(tt.got)))
+			mustContain(
+				t,
+				f.fatal,
+				"record 1",
+				`"bytes"`,
+				fmt.Sprintf("first difference at byte %d", tt.offset),
+				fmt.Sprintf("lengths %d (C) and %d (Go)", len(tt.want), len(tt.got)),
+			)
 		})
 	}
 }
@@ -582,7 +722,12 @@ func TestReadComparisonLeavesRealBaselineUnchanged(t *testing.T) {
 			f.run(func() { Read(f, path, data).U32("sample", tt.got) })
 
 			if (f.fatal != "") != tt.fails || len(f.errors) != 0 {
-				t.Fatalf("comparison outcome: fatal=%q errors=%v, want failure=%v", f.fatal, f.errors, tt.fails)
+				t.Fatalf(
+					"comparison outcome: fatal=%q errors=%v, want failure=%v",
+					f.fatal,
+					f.errors,
+					tt.fails,
+				)
 			}
 
 			if tt.fails {
@@ -594,7 +739,12 @@ func TestReadComparisonLeavesRealBaselineUnchanged(t *testing.T) {
 	}
 }
 
-func checkComparisonInputsUnchanged(t *testing.T, path string, before os.FileInfo, baseline, data, inputCopy []byte) {
+func checkComparisonInputsUnchanged(
+	t *testing.T,
+	path string,
+	before os.FileInfo,
+	baseline []byte, data []byte, inputCopy []byte,
+) {
 	t.Helper()
 
 	afterData, err := os.ReadFile(path)
@@ -611,7 +761,8 @@ func checkComparisonInputsUnchanged(t *testing.T, path string, before os.FileInf
 		t.Fatal("comparison rewrote the baseline or modified caller-owned capture bytes")
 	}
 
-	if !os.SameFile(before, after) || before.Mode() != after.Mode() || !before.ModTime().Equal(after.ModTime()) {
+	if !os.SameFile(before, after) || before.Mode() != after.Mode() ||
+		!before.ModTime().Equal(after.ModTime()) {
 		t.Fatal("comparison replaced or modified the read-only baseline")
 	}
 }

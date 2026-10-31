@@ -22,10 +22,17 @@ func (draw *Draw) DrawScreenString(x, y float32, color box2d.HexColor, format st
 	}
 	vp := imgui.MainViewport()
 	pos := vp.Pos()
-	imgui.BackgroundDrawListV(vp).AddTextVec2(imgui.Vec2{X: pos.X + x, Y: pos.Y + y - ascent}, col, text)
+	imgui.BackgroundDrawListV(vp).
+		AddTextVec2(imgui.Vec2{X: pos.X + x, Y: pos.Y + y - ascent}, col, text)
 }
 
-func (draw *Draw) DrawString(camera *Camera, p box2d.Pos, color box2d.HexColor, format string, args ...any) {
+func (draw *Draw) DrawString(
+	camera *Camera,
+	p box2d.Pos,
+	color box2d.HexColor,
+	format string,
+	args ...any,
+) {
 	ps := ConvertWorldToScreen(camera, p)
 	draw.DrawScreenString(ps.X, ps.Y, color, format, args...)
 }

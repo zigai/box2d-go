@@ -107,8 +107,16 @@ func sensorQueryCallback(userData uint64, context *sensorQueryContext) bool {
 	if sensorShape.enableCustomFiltering || otherShape.enableCustomFiltering {
 		customFilterFcn := world.customFilterFcn
 		if customFilterFcn != nil {
-			idA := Shape{index1: int32(sensorShapeID + 1), world: world, generation: sensorShape.generation}
-			idB := Shape{index1: int32(shapeID + 1), world: world, generation: otherShape.generation}
+			idA := Shape{
+				index1:     int32(sensorShapeID + 1),
+				world:      world,
+				generation: sensorShape.generation,
+			}
+			idB := Shape{
+				index1:     int32(shapeID + 1),
+				world:      world,
+				generation: otherShape.generation,
+			}
 
 			shouldCollide := customFilterFcn(idA, idB)
 			if !shouldCollide {
@@ -197,7 +205,10 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 			sensorShape: sensorShape,
 			transform:   transform,
 		}
-		core.Assert(sensorShape.sensorIndex == sensorIndex, "sensorShape->sensorIndex == sensorIndex")
+		core.Assert(
+			sensorShape.sensorIndex == sensorIndex,
+			"sensorShape->sensorIndex == sensorIndex",
+		)
 		queryBounds := sensorShape.aabb
 		// Query all trees
 		callback := func(_ int, userData uint64) bool {
@@ -228,13 +239,14 @@ func sensorTask(startIndex int, endIndex int, threadIndex int, context *World) {
 	}
 }
 
-func sensorOverlapsChanged(previous, current []visitor) bool {
+func sensorOverlapsChanged(previous []visitor, current []visitor) bool {
 	if len(previous) != len(current) {
 		return true
 	}
 
 	for i := range previous {
-		if previous[i].shapeID != current[i].shapeID || previous[i].generation != current[i].generation {
+		if previous[i].shapeID != current[i].shapeID ||
+			previous[i].generation != current[i].generation {
 			return true
 		}
 	}
@@ -283,7 +295,11 @@ func overlapSensors(world *World) {
 func publishSensorEvents(world *World, sensorIndex int) {
 	sensor := &world.sensors[sensorIndex]
 	sensorShape := &world.shapes[sensor.shapeID]
-	sensorID := Shape{index1: int32(sensor.shapeID + 1), world: world, generation: sensorShape.generation}
+	sensorID := Shape{
+		index1:     int32(sensor.shapeID + 1),
+		world:      world,
+		generation: sensorShape.generation,
+	}
 	count1 := len(sensor.overlaps1)
 	count2 := len(sensor.overlaps2)
 	refs1 := sensor.overlaps1
@@ -303,13 +319,24 @@ func publishSensorEvents(world *World, sensorIndex int) {
 		switch order {
 		case -1:
 			// end
-			visitorID := Shape{index1: int32(r1.shapeID + 1), world: world, generation: r1.generation}
+			visitorID := Shape{
+				index1:     int32(r1.shapeID + 1),
+				world:      world,
+				generation: r1.generation,
+			}
 			event := SensorEndTouchEvent{SensorShape: sensorID, VisitorShape: visitorID}
-			world.sensorEndEvents[world.endEventArrayIndex] = array.Push(world.sensorEndEvents[world.endEventArrayIndex], event)
+			world.sensorEndEvents[world.endEventArrayIndex] = array.Push(
+				world.sensorEndEvents[world.endEventArrayIndex],
+				event,
+			)
 			index1++
 		case 1:
 			// begin
-			visitorID := Shape{index1: int32(r2.shapeID + 1), world: world, generation: r2.generation}
+			visitorID := Shape{
+				index1:     int32(r2.shapeID + 1),
+				world:      world,
+				generation: r2.generation,
+			}
 			event := SensorBeginTouchEvent{SensorShape: sensorID, VisitorShape: visitorID}
 			world.sensorBeginEvents = array.Push(world.sensorBeginEvents, event)
 			index2++
@@ -325,7 +352,10 @@ func publishSensorEvents(world *World, sensorIndex int) {
 		r1 := &refs1[index1]
 		visitorID := Shape{index1: int32(r1.shapeID + 1), world: world, generation: r1.generation}
 		event := SensorEndTouchEvent{SensorShape: sensorID, VisitorShape: visitorID}
-		world.sensorEndEvents[world.endEventArrayIndex] = array.Push(world.sensorEndEvents[world.endEventArrayIndex], event)
+		world.sensorEndEvents[world.endEventArrayIndex] = array.Push(
+			world.sensorEndEvents[world.endEventArrayIndex],
+			event,
+		)
 		index1++
 	}
 
@@ -344,10 +374,21 @@ func destroySensor(world *World, sensorShape *shape) {
 	for i := range len(sensor.overlaps2) {
 		ref := &sensor.overlaps2[i]
 		event := SensorEndTouchEvent{
-			SensorShape:  Shape{index1: int32(sensorShape.id + 1), world: world, generation: sensorShape.generation},
-			VisitorShape: Shape{index1: int32(ref.shapeID + 1), world: world, generation: ref.generation},
+			SensorShape: Shape{
+				index1:     int32(sensorShape.id + 1),
+				world:      world,
+				generation: sensorShape.generation,
+			},
+			VisitorShape: Shape{
+				index1:     int32(ref.shapeID + 1),
+				world:      world,
+				generation: ref.generation,
+			},
 		}
-		world.sensorEndEvents[world.endEventArrayIndex] = array.Push(world.sensorEndEvents[world.endEventArrayIndex], event)
+		world.sensorEndEvents[world.endEventArrayIndex] = array.Push(
+			world.sensorEndEvents[world.endEventArrayIndex],
+			event,
+		)
 	}
 	// Destroy sensor
 	sensor.hits = nil

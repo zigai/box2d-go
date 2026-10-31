@@ -30,7 +30,11 @@ type GeometricMoverDef struct {
 
 func DefaultGeometricMoverDef() GeometricMoverDef {
 	return GeometricMoverDef{
-		capsule:              box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5}, Center2: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.3},
+		capsule: box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
+			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
+			Radius:  0.3,
+		},
 		filter:               box2d.DefaultQueryFilter(),
 		jumpSpeed:            10.0,
 		maxSpeed:             6.0,
@@ -145,7 +149,11 @@ func NewGeometricMover() GeometricMover {
 		pogoGroundForce:  50.0,
 		pushBodies:       true,
 
-		capsule: box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5}, Center2: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.3},
+		capsule: box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
+			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
+			Radius:  0.3,
+		},
 
 		filter: box2d.DefaultQueryFilter(),
 
@@ -300,14 +308,19 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 	origin := m.position.Add(m.capsule.Center1)
 
 	var castResult DynamicMoverCastResult
-	m.worldID.CastRay(origin, translation, m.filter, func(shapeID box2d.Shape, point box2d.Pos, normal box2d.Vec2, fraction float32) float32 {
-		castResult.point = point
-		castResult.normal = normal
-		castResult.bodyID = shapeID.Body()
-		castResult.fraction = fraction
-		castResult.hit = true
-		return fraction
-	})
+	m.worldID.CastRay(
+		origin,
+		translation,
+		m.filter,
+		func(shapeID box2d.Shape, point box2d.Pos, normal box2d.Vec2, fraction float32) float32 {
+			castResult.point = point
+			castResult.normal = normal
+			castResult.bodyID = shapeID.Body()
+			castResult.fraction = fraction
+			castResult.hit = true
+			return fraction
+		},
+	)
 
 	m.pogoOrigin = origin
 	m.pogoTranslation = translation
@@ -335,12 +348,23 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 		pogoCurrentLength := castResult.fraction * rayLength
 
 		offset := pogoCurrentLength - m.pogoRestLength
-		m.pogoVelocity = box2d.SpringDamper(m.pogoHertz, m.pogoDampingRatio, offset, m.pogoVelocity, timeStep)
+		m.pogoVelocity = box2d.SpringDamper(
+			m.pogoHertz,
+			m.pogoDampingRatio,
+			offset,
+			m.pogoVelocity,
+			timeStep,
+		)
 
-		castResult.bodyID.ApplyForce(box2d.Vec2{X: 0.0, Y: -m.pogoGroundForce}, castResult.point, true)
+		castResult.bodyID.ApplyForce(
+			box2d.Vec2{X: 0.0, Y: -m.pogoGroundForce},
+			castResult.point,
+			true,
+		)
 	}
 
-	target := m.position.Add(m.velocity.Scale(timeStep)).Add(box2d.Vec2{X: 0.0, Y: 1.0}.Scale(timeStep * m.pogoVelocity))
+	target := m.position.Add(m.velocity.Scale(timeStep)).
+		Add(box2d.Vec2{X: 0.0, Y: 1.0}.Scale(timeStep * m.pogoVelocity))
 
 	m.totalIterations = 0
 	tolerance := float32(0.01)
@@ -386,7 +410,12 @@ func (m *GeometricMover) collectPlane(shapeID box2d.Shape, planeResult *box2d.Pl
 	}
 
 	if m.planeCount < geometricMoverPlaneCapacity {
-		m.planes[m.planeCount] = box2d.CollisionPlane{Plane: planeResult.Plane, PushLimit: maxPush, Push: 0.0, ClipVelocity: clipVelocity}
+		m.planes[m.planeCount] = box2d.CollisionPlane{
+			Plane:        planeResult.Plane,
+			PushLimit:    maxPush,
+			Push:         0.0,
+			ClipVelocity: clipVelocity,
+		}
 
 		// The plane point is relative to the origin passed to the collide call
 		m.planeExtras[m.planeCount] = PlaneExtra{

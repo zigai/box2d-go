@@ -117,7 +117,11 @@ func TestMathPublicVectors(t *testing.T) {
 		mathPublicVec(r, mathPublicKey(i, "abs"), c.a.Abs())
 		mathPublicVec(r, mathPublicKey(i, "min"), c.a.Min(c.b))
 		mathPublicVec(r, mathPublicKey(i, "max"), c.a.Max(c.b))
-		mathPublicVec(r, mathPublicKey(i, "clamp"), c.a.Clamp(box2d.Vec2{X: -1, Y: -2}, box2d.Vec2{X: 1, Y: 2}))
+		mathPublicVec(
+			r,
+			mathPublicKey(i, "clamp"),
+			c.a.Clamp(box2d.Vec2{X: -1, Y: -2}, box2d.Vec2{X: 1, Y: 2}),
+		)
 		r.F32(mathPublicKey(i, "length"), c.a.Length())
 		r.F32(mathPublicKey(i, "length-squared"), c.a.LengthSquared())
 		r.F32(mathPublicKey(i, "distance"), c.a.Distance(c.b))
@@ -172,7 +176,11 @@ func TestMathPublicRotations(t *testing.T) {
 		mathPublicRot(r, mathPublicKey(i, "b"), b)
 		mathPublicRot(r, mathPublicKey(i, "integrate"), a.Integrate(c.delta))
 		mathPublicRot(r, mathPublicKey(i, "from-vector"), box2d.MakeRotFromUnitVector(a.XAxis()))
-		mathPublicRot(r, mathPublicKey(i, "between-vectors"), box2d.ComputeRotationBetweenUnitVectors(a.XAxis(), b.XAxis()))
+		mathPublicRot(
+			r,
+			mathPublicKey(i, "between-vectors"),
+			box2d.ComputeRotationBetweenUnitVectors(a.XAxis(), b.XAxis()),
+		)
 		mathPublicRot(r, mathPublicKey(i, "inverse"), a.Invert())
 		mathPublicRot(r, mathPublicKey(i, "nlerp"), a.NLerp(b, c.t))
 		r.F32(mathPublicKey(i, "angular-velocity"), a.AngularVelocity(b, c.invH))
@@ -254,7 +262,10 @@ func TestMathPublicMatrixSpring(t *testing.T) {
 	r.I32("spring/count", int32(len(springs)))
 
 	for i, input := range springs {
-		r.F32(fmt.Sprintf("spring/%d", i), box2d.SpringDamper(input[0], input[1], input[2], input[3], input[4]))
+		r.F32(
+			fmt.Sprintf("spring/%d", i),
+			box2d.SpringDamper(input[0], input[1], input[2], input[3], input[4]),
+		)
 	}
 }
 
@@ -267,9 +278,33 @@ func TestMathPublicTransforms(t *testing.T) {
 		worldX, worldY float64
 	}{
 		{box2d.Vec2{}, box2d.Vec2{}, box2d.Vec2{Y: negativeZero}, 0, 0, 0, math.Copysign(0, -1)},
-		{box2d.Vec2{X: 2.5, Y: -3.75}, box2d.Vec2{X: -0.25, Y: 4.125}, box2d.Vec2{X: 1.25, Y: -2}, 0.25, -0.7, 16.125, -32.25},
-		{box2d.Vec2{X: -100, Y: 20}, box2d.Vec2{X: 13, Y: -7}, box2d.Vec2{X: -3.5, Y: 8.25}, -2.5, 2.75, 10000000.125, -10000000.25},
-		{box2d.Vec2{X: 1024.125, Y: -2048.5}, box2d.Vec2{X: -1.25, Y: 3.5}, box2d.Vec2{X: 0.125, Y: -0.25}, 1.5, -0.5, 1000000000.125, -1000000000.25},
+		{
+			box2d.Vec2{X: 2.5, Y: -3.75},
+			box2d.Vec2{X: -0.25, Y: 4.125},
+			box2d.Vec2{X: 1.25, Y: -2},
+			0.25,
+			-0.7,
+			16.125,
+			-32.25,
+		},
+		{
+			box2d.Vec2{X: -100, Y: 20},
+			box2d.Vec2{X: 13, Y: -7},
+			box2d.Vec2{X: -3.5, Y: 8.25},
+			-2.5,
+			2.75,
+			10000000.125,
+			-10000000.25,
+		},
+		{
+			box2d.Vec2{X: 1024.125, Y: -2048.5},
+			box2d.Vec2{X: -1.25, Y: 3.5},
+			box2d.Vec2{X: 0.125, Y: -0.25},
+			1.5,
+			-0.5,
+			1000000000.125,
+			-1000000000.25,
+		},
 	}
 	r.I32("count", int32(len(cases)))
 
@@ -325,8 +360,24 @@ func TestMathPublicValidity(t *testing.T) {
 	r := oracle.Open(t, "math/PublicValidity")
 	fb := math.Float32frombits
 	negativeZero := fb(0x80000000)
-	nan, positiveInfinity, negativeInfinity := fb(0x7fc00001), float32(math.Inf(1)), float32(math.Inf(-1))
-	values := []float32{0, negativeZero, 1, -1, 0x1p-126, math.MaxFloat32, nan, positiveInfinity, negativeInfinity}
+	nan, positiveInfinity, negativeInfinity := fb(
+		0x7fc00001,
+	), float32(
+		math.Inf(1),
+	), float32(
+		math.Inf(-1),
+	)
+	values := []float32{
+		0,
+		negativeZero,
+		1,
+		-1,
+		0x1p-126,
+		math.MaxFloat32,
+		nan,
+		positiveInfinity,
+		negativeInfinity,
+	}
 	r.I32("numbers/count", int32(len(values)))
 
 	for i, x := range values {
@@ -335,12 +386,29 @@ func TestMathPublicValidity(t *testing.T) {
 		r.Bool(fmt.Sprintf("numbers/%d/vector-y", i), box2d.Vec2{Y: x}.IsValid())
 		r.Bool(fmt.Sprintf("numbers/%d/position-x", i), box2d.Pos{X: oracle.Real(x)}.IsValid())
 		r.Bool(fmt.Sprintf("numbers/%d/position-y", i), box2d.Pos{Y: oracle.Real(x)}.IsValid())
-		r.Bool(fmt.Sprintf("numbers/%d/transform", i), (box2d.Transform{P: box2d.Vec2{X: x}, Q: box2d.Rot{C: 1}}).IsValid())
-		r.Bool(fmt.Sprintf("numbers/%d/world-transform", i), (box2d.WorldTransform{P: box2d.Pos{Y: oracle.Real(x)}, Q: box2d.Rot{C: 1}}).IsValid())
-		r.Bool(fmt.Sprintf("numbers/%d/plane-offset", i), (box2d.Plane{Normal: box2d.Vec2{X: 1}, Offset: x}).IsValid())
+		r.Bool(
+			fmt.Sprintf("numbers/%d/transform", i),
+			(box2d.Transform{P: box2d.Vec2{X: x}, Q: box2d.Rot{C: 1}}).IsValid(),
+		)
+		r.Bool(
+			fmt.Sprintf("numbers/%d/world-transform", i),
+			(box2d.WorldTransform{P: box2d.Pos{Y: oracle.Real(x)}, Q: box2d.Rot{C: 1}}).IsValid(),
+		)
+		r.Bool(
+			fmt.Sprintf("numbers/%d/plane-offset", i),
+			(box2d.Plane{Normal: box2d.Vec2{X: 1}, Offset: x}).IsValid(),
+		)
 	}
 
-	worldValues := []float64{0, math.Copysign(0, -1), math.MaxFloat32, -math.MaxFloat32, math.NaN(), math.Inf(1), math.Inf(-1)}
+	worldValues := []float64{
+		0,
+		math.Copysign(0, -1),
+		math.MaxFloat32,
+		-math.MaxFloat32,
+		math.NaN(),
+		math.Inf(1),
+		math.Inf(-1),
+	}
 	if oracle.DoublePrecision {
 		worldValues = append(worldValues, 1e100, -1e100, math.MaxFloat64, -math.MaxFloat64)
 	}
@@ -353,7 +421,10 @@ func TestMathPublicValidity(t *testing.T) {
 
 		r.Bool(fmt.Sprintf("world-numbers/%d/x", i), px.IsValid())
 		r.Bool(fmt.Sprintf("world-numbers/%d/y", i), py.IsValid())
-		r.Bool(fmt.Sprintf("world-numbers/%d/transform", i), (box2d.WorldTransform{P: px, Q: box2d.Rot{C: 1}}).IsValid())
+		r.Bool(
+			fmt.Sprintf("world-numbers/%d/transform", i),
+			(box2d.WorldTransform{P: px, Q: box2d.Rot{C: 1}}).IsValid(),
+		)
 	}
 
 	rotations := []box2d.Rot{
@@ -376,7 +447,10 @@ func TestMathPublicValidity(t *testing.T) {
 		r.Bool(fmt.Sprintf("rotation/%d/valid", i), q.IsValid())
 		r.Bool(fmt.Sprintf("rotation/%d/transform", i), box2d.Transform{Q: q}.IsValid())
 		r.Bool(fmt.Sprintf("rotation/%d/world-transform", i), box2d.WorldTransform{Q: q}.IsValid())
-		r.Bool(fmt.Sprintf("rotation/%d/plane-normal", i), (box2d.Plane{Normal: box2d.Vec2{X: q.C, Y: q.S}}).IsValid())
+		r.Bool(
+			fmt.Sprintf("rotation/%d/plane-normal", i),
+			(box2d.Plane{Normal: box2d.Vec2{X: q.C, Y: q.S}}).IsValid(),
+		)
 	}
 
 	boxes := []box2d.AABB{
@@ -409,18 +483,29 @@ func TestMathPublicValidity(t *testing.T) {
 		r.F32(fmt.Sprintf("ray/%d/huge", scaleIndex), huge)
 		r.F32(fmt.Sprintf("ray/%d/linear-slop", scaleIndex), box2d.LinearSlop())
 		r.F32(fmt.Sprintf("ray/%d/speculative-distance", scaleIndex), box2d.SpeculativeDistance())
-		r.F32(fmt.Sprintf("ray/%d/contact-recycle-distance", scaleIndex), box2d.ContactRecycleDistance())
+		r.F32(
+			fmt.Sprintf("ray/%d/contact-recycle-distance", scaleIndex),
+			box2d.ContactRecycleDistance(),
+		)
 		r.F32(fmt.Sprintf("ray/%d/max-aabb-margin", scaleIndex), box2d.MaxAABBMargin())
 
 		rays := []box2d.RayCastInput{
 			{},
-			{Origin: box2d.Vec2{X: negativeZero}, Translation: box2d.Vec2{X: 1, Y: negativeZero}, MaxFraction: negativeZero},
+			{
+				Origin:      box2d.Vec2{X: negativeZero},
+				Translation: box2d.Vec2{X: 1, Y: negativeZero},
+				MaxFraction: negativeZero,
+			},
 			{Origin: box2d.Vec2{X: 1, Y: 2}, Translation: box2d.Vec2{X: -3, Y: 4}, MaxFraction: 1},
 			{Translation: box2d.Vec2{X: 1}, MaxFraction: -0x1p-149},
 			{Translation: box2d.Vec2{X: 1}, MaxFraction: math.Nextafter32(huge, 0)},
 			{Translation: box2d.Vec2{X: 1}, MaxFraction: huge},
 			{Translation: box2d.Vec2{X: 1}, MaxFraction: math.Nextafter32(huge, positiveInfinity)},
-			{Origin: box2d.Vec2{X: positiveInfinity}, Translation: box2d.Vec2{X: 1}, MaxFraction: 1},
+			{
+				Origin:      box2d.Vec2{X: positiveInfinity},
+				Translation: box2d.Vec2{X: 1},
+				MaxFraction: 1,
+			},
 			{Translation: box2d.Vec2{Y: nan}, MaxFraction: 1},
 			{Translation: box2d.Vec2{X: 1}, MaxFraction: positiveInfinity},
 			{Translation: box2d.Vec2{X: 1}, MaxFraction: nan},
@@ -456,8 +541,14 @@ func TestMathPublicBoundsPlanes(t *testing.T) {
 			box2d.AABB{LowerBound: box2d.Vec2{X: negativeZero, Y: negativeZero}},
 		},
 		{
-			box2d.AABB{LowerBound: box2d.Vec2{X: 1024.125, Y: -2048.5}, UpperBound: box2d.Vec2{X: 1025.25, Y: -2046.25}},
-			box2d.AABB{LowerBound: box2d.Vec2{X: 1023.5, Y: -2048}, UpperBound: box2d.Vec2{X: 1026, Y: -2047}},
+			box2d.AABB{
+				LowerBound: box2d.Vec2{X: 1024.125, Y: -2048.5},
+				UpperBound: box2d.Vec2{X: 1025.25, Y: -2046.25},
+			},
+			box2d.AABB{
+				LowerBound: box2d.Vec2{X: 1023.5, Y: -2048},
+				UpperBound: box2d.Vec2{X: 1026, Y: -2047},
+			},
 		},
 	}
 	r.I32("bounds/count", int32(len(cases)))
@@ -493,8 +584,14 @@ func TestMathPublicBoundsPlanes(t *testing.T) {
 		{box2d.Plane{Normal: box2d.Vec2{X: 1}, Offset: 2}, box2d.Vec2{X: 2, Y: -3}},
 		{box2d.Plane{Normal: box2d.Vec2{X: 1}, Offset: 2}, box2d.Vec2{X: 3, Y: -3}},
 		{box2d.Plane{Normal: box2d.Vec2{Y: -1}, Offset: -2}, box2d.Vec2{X: 3, Y: 4}},
-		{box2d.Plane{Normal: box2d.Vec2{X: 0.6, Y: 0.8}, Offset: 0.25}, box2d.Vec2{X: -1.25, Y: 2.5}},
-		{box2d.Plane{Normal: box2d.Vec2{X: -1, Y: negativeZero}, Offset: negativeZero}, box2d.Vec2{X: negativeZero}},
+		{
+			box2d.Plane{Normal: box2d.Vec2{X: 0.6, Y: 0.8}, Offset: 0.25},
+			box2d.Vec2{X: -1.25, Y: 2.5},
+		},
+		{
+			box2d.Plane{Normal: box2d.Vec2{X: -1, Y: negativeZero}, Offset: negativeZero},
+			box2d.Vec2{X: negativeZero},
+		},
 	}
 	r.I32("plane/count", int32(len(planes)))
 

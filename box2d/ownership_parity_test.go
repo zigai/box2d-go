@@ -22,7 +22,11 @@ type ownershipScene struct {
 	joint  box2d.Joint
 }
 
-func newOwnershipScene(t *testing.T, variant, workers int, enqueue box2d.EnqueueTaskFunc) ownershipScene {
+func newOwnershipScene(
+	t *testing.T,
+	variant int, workers int,
+	enqueue box2d.EnqueueTaskFunc,
+) ownershipScene {
 	t.Helper()
 
 	var s ownershipScene
@@ -274,8 +278,14 @@ func TestOwnershipAsyncStepWaitsForExplicitRelease(t *testing.T) {
 	ownershipWait(t, returned, "Step after task release")
 	work.tasks.Wait()
 
-	if work.enqueued.Load() != work.completed.Load() || work.enqueued.Load() != work.finished.Load() {
-		t.Fatalf("task completion: enqueued=%d completed=%d finished=%d", work.enqueued.Load(), work.completed.Load(), work.finished.Load())
+	if work.enqueued.Load() != work.completed.Load() ||
+		work.enqueued.Load() != work.finished.Load() {
+		t.Fatalf(
+			"task completion: enqueued=%d completed=%d finished=%d",
+			work.enqueued.Load(),
+			work.completed.Load(),
+			work.finished.Load(),
+		)
 	}
 
 	observeOwnershipScene(r, s, 0)
@@ -284,7 +294,8 @@ func TestOwnershipAsyncStepWaitsForExplicitRelease(t *testing.T) {
 		s.w.Step(1.0/60, 4)
 		work.tasks.Wait()
 
-		if work.enqueued.Load() != work.completed.Load() || work.enqueued.Load() != work.finished.Load() {
+		if work.enqueued.Load() != work.completed.Load() ||
+			work.enqueued.Load() != work.finished.Load() {
 			t.Fatalf("step %d incomplete or unowned work", step)
 		}
 
@@ -321,7 +332,12 @@ func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
 				if step%6 == 0 {
 					tasks.Wait()
 
-					ownershipCheckCompletedTasks(t, &enqueued, &completed, "reconfiguration with incomplete work")
+					ownershipCheckCompletedTasks(
+						t,
+						&enqueued,
+						&completed,
+						"reconfiguration with incomplete work",
+					)
 
 					s.w.SetWorkerCount(ownershipWorkerCounts[step/6])
 				}
@@ -329,7 +345,12 @@ func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
 				s.w.Step(1.0/60, 4)
 				tasks.Wait()
 
-				ownershipCheckCompletedTasks(t, &enqueued, &completed, "Step returned with incomplete owned work")
+				ownershipCheckCompletedTasks(
+					t,
+					&enqueued,
+					&completed,
+					"Step returned with incomplete owned work",
+				)
 
 				observeOwnershipScene(r, s, step)
 			}
@@ -338,7 +359,11 @@ func TestOwnershipRepeatedShutdownWithCompletedWork(t *testing.T) {
 			tasks.Wait()
 
 			if enqueued.Load() == 0 || enqueued.Load() != completed.Load() {
-				t.Fatalf("destroy completion: enqueued=%d completed=%d", enqueued.Load(), completed.Load())
+				t.Fatalf(
+					"destroy completion: enqueued=%d completed=%d",
+					enqueued.Load(),
+					completed.Load(),
+				)
 			}
 		})
 	}
@@ -485,7 +510,12 @@ func (work *ownershipHeldTasks) enqueue(task func()) func() {
 	}
 }
 
-func ownershipCheckCompletedTasks(t *testing.T, enqueued, completed *atomic.Int64, message string) {
+func ownershipCheckCompletedTasks(
+	t *testing.T,
+	enqueued *atomic.Int64,
+	completed *atomic.Int64,
+	message string,
+) {
 	t.Helper()
 
 	if enqueued.Load() != completed.Load() {
@@ -493,7 +523,12 @@ func ownershipCheckCompletedTasks(t *testing.T, enqueued, completed *atomic.Int6
 	}
 }
 
-func ownershipStepWorker(w *box2d.World, requests <-chan struct{}, done chan<- struct{}, joined chan struct{}) {
+func ownershipStepWorker(
+	w *box2d.World,
+	requests <-chan struct{},
+	done chan<- struct{},
+	joined chan struct{},
+) {
 	defer close(joined)
 
 	for range requests {

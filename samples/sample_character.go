@@ -85,8 +85,15 @@ func CreateGeometryMoverSample(context *SampleContext) Sampler {
 
 	moverDef := DefaultGeometricMoverDef()
 	moverDef.position = box2d.Pos{X: 0.0, Y: 8.0}
-	moverDef.capsule = box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5}, Center2: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.3}
-	moverDef.filter = box2d.QueryFilter{CategoryBits: characterMoverBit, MaskBits: characterStaticBit | characterDynamicBit | characterMoverBit}
+	moverDef.capsule = box2d.Capsule{
+		Center1: box2d.Vec2{X: 0.0, Y: -0.5},
+		Center2: box2d.Vec2{X: 0.0, Y: 0.5},
+		Radius:  0.3,
+	}
+	moverDef.filter = box2d.QueryFilter{
+		CategoryBits: characterMoverBit,
+		MaskBits:     characterStaticBit | characterDynamicBit | characterMoverBit,
+	}
 	s.mover.Create(s.worldID, &moverDef)
 
 	var groundID1 box2d.Body
@@ -138,7 +145,11 @@ func CreateGeometryMoverSample(context *SampleContext) Sampler {
 		s.friendlyShape.maxPush = 0.025
 		s.friendlyShape.clipVelocity = false
 
-		shapeDef.Filter = box2d.Filter{CategoryBits: characterMoverBit, MaskBits: characterAllBits, GroupIndex: 0}
+		shapeDef.Filter = box2d.Filter{
+			CategoryBits: characterMoverBit,
+			MaskBits:     characterAllBits,
+			GroupIndex:   0,
+		}
 		shapeDef.UserData = &s.friendlyShape
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		bodyID.CreateCapsuleShape(&shapeDef, &s.mover.capsule)
@@ -163,7 +174,10 @@ func CreateGeometryMoverSample(context *SampleContext) Sampler {
 		for i := range count {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.Pos{X: posScalar(xBase + 0.5 + 1.0*float32(i)), Y: posScalar(yBase)}
+			bodyDef.Position = box2d.Pos{
+				X: posScalar(xBase + 0.5 + 1.0*float32(i)),
+				Y: posScalar(yBase),
+			}
 			bodyDef.AngularDamping = 0.2
 			bodyID := s.worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
@@ -193,7 +207,11 @@ func CreateGeometryMoverSample(context *SampleContext) Sampler {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Filter = box2d.Filter{CategoryBits: characterDynamicBit, MaskBits: characterAllBits, GroupIndex: 0}
+		shapeDef.Filter = box2d.Filter{
+			CategoryBits: characterDynamicBit,
+			MaskBits:     characterAllBits,
+			GroupIndex:   0,
+		}
 		shapeDef.Material.Restitution = 0.7
 		shapeDef.Material.RollingResistance = 0.2
 
@@ -204,7 +222,10 @@ func CreateGeometryMoverSample(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.KinematicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(characterElevatorBase.X), Y: posScalar(characterElevatorBase.Y - characterElevatorAmplitude)}
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(characterElevatorBase.X),
+			Y: posScalar(characterElevatorBase.Y - characterElevatorAmplitude),
+		}
 		s.elevatorID = s.worldID.CreateBody(&bodyDef)
 
 		s.elevatorShape = MoverShapeUserData{
@@ -212,7 +233,11 @@ func CreateGeometryMoverSample(context *SampleContext) Sampler {
 			clipVelocity: true,
 		}
 		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Filter = box2d.Filter{CategoryBits: characterDynamicBit, MaskBits: characterAllBits, GroupIndex: 0}
+		shapeDef.Filter = box2d.Filter{
+			CategoryBits: characterDynamicBit,
+			MaskBits:     characterAllBits,
+			GroupIndex:   0,
+		}
 		shapeDef.UserData = &s.elevatorShape
 
 		box := box2d.MakeBox(2.0, 0.1)
@@ -226,7 +251,11 @@ func CreateGeometryMoverSample(context *SampleContext) Sampler {
 		a := float32(0.25)
 		square := box2d.MakeSquare(a)
 		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Filter = box2d.Filter{CategoryBits: characterDynamicBit, MaskBits: characterAllBits, GroupIndex: 0}
+		shapeDef.Filter = box2d.Filter{
+			CategoryBits: characterDynamicBit,
+			MaskBits:     characterAllBits,
+			GroupIndex:   0,
+		}
 		for i := range 10 {
 			bodyDef.Position.Y = posScalar((2.0*float32(i)+1.0)*a + 1.0)
 			bodyID := s.worldID.CreateBody(&bodyDef)
@@ -303,11 +332,17 @@ func (s *GeometryMoverSample) Step() {
 	if timeStep > 0.0 {
 		point := box2d.Pos{
 			X: posScalar(characterElevatorBase.X),
-			Y: posScalar(characterElevatorAmplitude*cosf(1.0*s.time+box2d.Pi) + characterElevatorBase.Y),
+			Y: posScalar(
+				characterElevatorAmplitude*cosf(1.0*s.time+box2d.Pi) + characterElevatorBase.Y,
+			),
 		}
 
 		wake := true
-		s.elevatorID.SetTargetTransform(box2d.WorldTransform{P: point, Q: box2d.RotIdentity}, timeStep, wake)
+		s.elevatorID.SetTargetTransform(
+			box2d.WorldTransform{P: point, Q: box2d.RotIdentity},
+			timeStep,
+			wake,
+		)
 	}
 
 	s.time += timeStep
@@ -336,7 +371,13 @@ func (s *GeometryMoverSample) Step() {
 		s.mover.Update(timeStep, throttle)
 	}
 
-	drawPogo(s.draw, s.mover.pogoOrigin, s.mover.pogoTranslation, s.mover.pogoFraction, s.mover.pogoHit)
+	drawPogo(
+		s.draw,
+		s.mover.pogoOrigin,
+		s.mover.pogoTranslation,
+		s.mover.pogoFraction,
+		s.mover.pogoHit,
+	)
 
 	s.draw.DrawTransform(box2d.WorldTransform{P: s.mover.position, Q: box2d.RotIdentity}, 0.25)
 
@@ -397,8 +438,15 @@ func CreateDynamicMoverSample(context *SampleContext) Sampler {
 	{
 		def := DefaultDynamicMoverDef()
 		def.position = box2d.Pos{X: 0.0, Y: 8.0}
-		def.capsule = box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5}, Center2: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.3}
-		def.filter = box2d.Filter{CategoryBits: characterMoverBit, MaskBits: characterStaticBit | characterDynamicBit}
+		def.capsule = box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
+			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
+			Radius:  0.3,
+		}
+		def.filter = box2d.Filter{
+			CategoryBits: characterMoverBit,
+			MaskBits:     characterStaticBit | characterDynamicBit,
+		}
 		def.enablePreSolveEvents = true
 		s.mover.Create(s.worldID, &def)
 	}
@@ -464,7 +512,10 @@ func CreateDynamicMoverSample(context *SampleContext) Sampler {
 		for i := range count {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.Pos{X: posScalar(xBase + 0.5 + 1.0*float32(i)), Y: posScalar(yBase)}
+			bodyDef.Position = box2d.Pos{
+				X: posScalar(xBase + 0.5 + 1.0*float32(i)),
+				Y: posScalar(yBase),
+			}
 			bodyDef.AngularDamping = 0.2
 			bodyID := s.worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
@@ -494,7 +545,11 @@ func CreateDynamicMoverSample(context *SampleContext) Sampler {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Filter = box2d.Filter{CategoryBits: characterDynamicBit, MaskBits: characterAllBits, GroupIndex: 0}
+		shapeDef.Filter = box2d.Filter{
+			CategoryBits: characterDynamicBit,
+			MaskBits:     characterAllBits,
+			GroupIndex:   0,
+		}
 		shapeDef.Material.Restitution = 0.7
 		shapeDef.Material.RollingResistance = 0.2
 
@@ -505,11 +560,18 @@ func CreateDynamicMoverSample(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.KinematicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(characterElevatorBase.X), Y: posScalar(characterElevatorBase.Y - characterElevatorAmplitude)}
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(characterElevatorBase.X),
+			Y: posScalar(characterElevatorBase.Y - characterElevatorAmplitude),
+		}
 		s.elevatorID = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Filter = box2d.Filter{CategoryBits: characterDynamicBit, MaskBits: characterAllBits, GroupIndex: 0}
+		shapeDef.Filter = box2d.Filter{
+			CategoryBits: characterDynamicBit,
+			MaskBits:     characterAllBits,
+			GroupIndex:   0,
+		}
 
 		box := box2d.MakeBox(2.0, 0.1)
 		s.elevatorID.CreatePolygonShape(&shapeDef, &box)
@@ -522,7 +584,11 @@ func CreateDynamicMoverSample(context *SampleContext) Sampler {
 		a := float32(0.25)
 		square := box2d.MakeSquare(a)
 		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Filter = box2d.Filter{CategoryBits: characterDynamicBit, MaskBits: characterAllBits, GroupIndex: 0}
+		shapeDef.Filter = box2d.Filter{
+			CategoryBits: characterDynamicBit,
+			MaskBits:     characterAllBits,
+			GroupIndex:   0,
+		}
 		for i := range 10 {
 			bodyDef.Position.Y = posScalar((2.0*float32(i)+1.0)*a + 1.0)
 			bodyID := s.worldID.CreateBody(&bodyDef)
@@ -582,7 +648,11 @@ func (s *DynamicMoverSample) PreSolve(shapeIDA, shapeIDB box2d.Shape, manifold *
 	}
 }
 
-func (s *DynamicMoverSample) PreContinuous(shapeIDA, shapeIDB box2d.Shape, point box2d.Pos, normal box2d.Vec2) bool {
+func (s *DynamicMoverSample) PreContinuous(
+	shapeIDA, shapeIDB box2d.Shape,
+	point box2d.Pos,
+	normal box2d.Vec2,
+) bool {
 	idA := shapeIDA.Body()
 	idB := shapeIDB.Body()
 
@@ -655,11 +725,17 @@ func (s *DynamicMoverSample) Step() {
 	if timeStep > 0.0 && s.elevatorID != (box2d.Body{}) {
 		point := box2d.Pos{
 			X: posScalar(characterElevatorBase.X),
-			Y: posScalar(characterElevatorAmplitude*cosf(1.0*s.time+box2d.Pi) + characterElevatorBase.Y),
+			Y: posScalar(
+				characterElevatorAmplitude*cosf(1.0*s.time+box2d.Pi) + characterElevatorBase.Y,
+			),
 		}
 
 		wake := true
-		s.elevatorID.SetTargetTransform(box2d.WorldTransform{P: point, Q: box2d.RotIdentity}, timeStep, wake)
+		s.elevatorID.SetTargetTransform(
+			box2d.WorldTransform{P: point, Q: box2d.RotIdentity},
+			timeStep,
+			wake,
+		)
 	}
 
 	s.time += timeStep
@@ -688,7 +764,13 @@ func (s *DynamicMoverSample) Step() {
 
 	s.Sample.Step()
 
-	drawPogo(s.draw, s.mover.pogoOrigin, s.mover.pogoTranslation, s.mover.pogoFraction, s.mover.pogoHit)
+	drawPogo(
+		s.draw,
+		s.mover.pogoOrigin,
+		s.mover.pogoTranslation,
+		s.mover.pogoFraction,
+		s.mover.pogoHit,
+	)
 
 	position := s.mover.moverID.Position()
 
@@ -700,14 +782,23 @@ func (s *DynamicMoverSample) Step() {
 
 	s.DrawScreenTextLine("position %.2f %.2f", position.X, position.Y)
 	s.DrawScreenTextLine("velocity %.2f %.2f", s.mover.velocity.X, s.mover.velocity.Y)
-	s.DrawScreenTextLine("pogo: impulse %.3f, velocity %.3f", s.mover.pogoImpulse, s.mover.pogoVelocity)
+	s.DrawScreenTextLine(
+		"pogo: impulse %.3f, velocity %.3f",
+		s.mover.pogoImpulse,
+		s.mover.pogoVelocity,
+	)
 	s.DrawScreenTextLine("pogo: length = %.2f/%.2f", s.mover.pogoLength, s.mover.pogoRestLength)
 	s.DrawScreenTextLine("on ground: %d", boolToInt(s.mover.onGround))
 	normalY := float32(0.0)
 	if s.mover.castResult.hit {
 		normalY = s.mover.castResult.normal.Y
 	}
-	s.DrawScreenTextLine("walkable: %d, normal y: %.3f/%.3f", boolToInt(s.mover.walkable), normalY, s.mover.minGroundNormalY)
+	s.DrawScreenTextLine(
+		"walkable: %d, normal y: %.3f/%.3f",
+		boolToInt(s.mover.walkable),
+		normalY,
+		s.mover.minGroundNormalY,
+	)
 	s.DrawScreenTextLine("jumping/ticks: %d/%d", boolToInt(s.mover.jumping), s.mover.jumpTicks)
 
 	if s.lockCamera {
@@ -741,7 +832,12 @@ func CreateGhostCollisionSample(context *SampleContext) Sampler {
 	for _, surfaceHeight := range surfaceHeights {
 		for i := range 10 {
 			x := -9.0 + 2.0*float32(i)
-			tile := box2d.MakeOffsetBox(1.0, 0.25, box2d.Vec2{X: x, Y: surfaceHeight - 0.25}, box2d.RotIdentity)
+			tile := box2d.MakeOffsetBox(
+				1.0,
+				0.25,
+				box2d.Vec2{X: x, Y: surfaceHeight - 0.25},
+				box2d.RotIdentity,
+			)
 
 			shapeDef := box2d.DefaultShapeDef()
 			shapeDef.Material.Friction = 0.0
@@ -752,7 +848,12 @@ func CreateGhostCollisionSample(context *SampleContext) Sampler {
 			groundID.CreatePolygonShape(&shapeDef, &tile)
 		}
 
-		wall := box2d.MakeOffsetBox(0.25, 1.25, box2d.Vec2{X: 10.25, Y: surfaceHeight + 1.25}, box2d.RotIdentity)
+		wall := box2d.MakeOffsetBox(
+			0.25,
+			1.25,
+			box2d.Vec2{X: 10.25, Y: surfaceHeight + 1.25},
+			box2d.RotIdentity,
+		)
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.0
 		shapeDef.Material.CustomColor = uint32(box2d.ColorDarkGray)
@@ -847,7 +948,12 @@ func (s *GhostCollisionSample) Step() {
 	s.Sample.Step()
 
 	s.draw.DrawString(s.camera, box2d.Pos{X: -9.8, Y: 4.2}, box2d.ColorWhite, "unfiltered")
-	s.draw.DrawString(s.camera, box2d.Pos{X: -9.8, Y: 1.2}, box2d.ColorWhite, "shallow contacts rejected")
+	s.draw.DrawString(
+		s.camera,
+		box2d.Pos{X: -9.8, Y: 1.2},
+		box2d.ColorWhite,
+		"shallow contacts rejected",
+	)
 	s.DrawScreenTextLine("Rejected contacts: %d", s.rejectedCount.Load())
 }
 

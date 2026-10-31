@@ -44,7 +44,10 @@ func (s *FallingHinges) Step() {
 		s.done = scenes.UpdateFallingHinges(s.worldID, &s.data)
 
 		filter := box2d.DefaultQueryFilter()
-		scanBox := box2d.AABB{LowerBound: box2d.Vec2{X: 5.0, Y: 1.0}, UpperBound: box2d.Vec2{X: 7.0, Y: 2.5}}
+		scanBox := box2d.AABB{
+			LowerBound: box2d.Vec2{X: 5.0, Y: 1.0},
+			UpperBound: box2d.Vec2{X: 7.0, Y: 2.5},
+		}
 		s.worldID.OverlapAABB(box2d.Pos{}, scanBox, filter, func(box2d.Shape) bool { return true })
 
 		origin := box2d.Pos{X: 0.0, Y: 12.0}
@@ -57,7 +60,12 @@ func (s *FallingHinges) Step() {
 		if s.stepCount < 5 || 100 < s.stepCount {
 			origin = box2d.Pos{X: -10.0, Y: 2.0}
 			translation = box2d.Vec2{X: 20.0, Y: 0.0}
-			s.worldID.CastRay(origin, translation, filter, func(box2d.Shape, box2d.Pos, box2d.Vec2, float32) float32 { return 1.0 })
+			s.worldID.CastRay(
+				origin,
+				translation,
+				filter,
+				func(box2d.Shape, box2d.Pos, box2d.Vec2, float32) float32 { return 1.0 },
+			)
 		}
 
 		if s.done {
@@ -162,9 +170,16 @@ func (s *Rollback) DrawControls() bool {
 	}
 	imTextDisabled("%d snapshots, %.0f kB", len(s.snapshots), float32(totalSize)/1024.0)
 
-	if imgui.BeginListBoxV("##snapshots", imgui.Vec2{X: -fltMin, Y: 8.0 * imgui.TextLineHeightWithSpacing()}) {
+	if imgui.BeginListBoxV(
+		"##snapshots",
+		imgui.Vec2{X: -fltMin, Y: 8.0 * imgui.TextLineHeightWithSpacing()},
+	) {
 		for i := range s.snapshots {
-			label := fmt.Sprintf("step %d, %d kB", s.snapshots[i].step, len(s.snapshots[i].image)/1024)
+			label := fmt.Sprintf(
+				"step %d, %d kB",
+				s.snapshots[i].step,
+				len(s.snapshots[i].image)/1024,
+			)
 
 			if imgui.SelectableBoolV(label, i == s.selected, 0, imgui.Vec2{}) {
 				s.selected = i
@@ -182,11 +197,23 @@ func (s *Rollback) DrawControls() bool {
 	case rollbackRunning:
 		imText("resimulating from step %d", s.rollbackStep)
 	case rollbackMatch:
-		imTextColored(imgui.Vec4{X: 0.4, Y: 0.8, Z: 0.4, W: 1.0}, "match: sleep step %d", s.data.SleepStep)
+		imTextColored(
+			imgui.Vec4{X: 0.4, Y: 0.8, Z: 0.4, W: 1.0},
+			"match: sleep step %d",
+			s.data.SleepStep,
+		)
 		imTextColored(imgui.Vec4{X: 0.4, Y: 0.8, Z: 0.4, W: 1.0}, "match: hash 0x%08X", s.data.Hash)
 	default:
-		imTextColored(imgui.Vec4{X: 0.9, Y: 0.3, Z: 0.3, W: 1.0}, "MISMATCH: sleep step %d", s.data.SleepStep)
-		imTextColored(imgui.Vec4{X: 0.9, Y: 0.3, Z: 0.3, W: 1.0}, "MISMATCH: hash 0x%08X", s.data.Hash)
+		imTextColored(
+			imgui.Vec4{X: 0.9, Y: 0.3, Z: 0.3, W: 1.0},
+			"MISMATCH: sleep step %d",
+			s.data.SleepStep,
+		)
+		imTextColored(
+			imgui.Vec4{X: 0.9, Y: 0.3, Z: 0.3, W: 1.0},
+			"MISMATCH: hash 0x%08X",
+			s.data.Hash,
+		)
 	}
 
 	return true
@@ -216,7 +243,12 @@ func (s *Rollback) Step() {
 				s.result = rollbackMismatch
 			}
 
-			fmt.Printf("sleep step = %d, hash = 0x%08X%s\n", s.data.SleepStep, s.data.Hash, mismatchSuffix(s.result))
+			fmt.Printf(
+				"sleep step = %d, hash = 0x%08X%s\n",
+				s.data.SleepStep,
+				s.data.Hash,
+				mismatchSuffix(s.result),
+			)
 		}
 	}
 
@@ -225,7 +257,12 @@ func (s *Rollback) Step() {
 	} else if s.result == rollbackRunning {
 		s.DrawScreenTextLine("rolled back to step %d", s.rollbackStep)
 	} else {
-		s.DrawScreenTextLine("sleep step = %d, hash = 0x%08X%s", s.data.SleepStep, s.data.Hash, mismatchSuffix(s.result))
+		s.DrawScreenTextLine(
+			"sleep step = %d, hash = 0x%08X%s",
+			s.data.SleepStep,
+			s.data.Hash,
+			mismatchSuffix(s.result),
+		)
 	}
 }
 

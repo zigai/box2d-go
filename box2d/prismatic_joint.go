@@ -44,7 +44,10 @@ type PrismaticJointDef struct {
 func (p PrismaticJoint) SetSpringEnabled(enableSpring bool) {
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointEnableSpring(world.recording, &recArgsPrismaticJointEnableSpring{joint: p.Joint, enableSpring: enableSpring})
+		recWritePrismaticJointEnableSpring(
+			world.recording,
+			&recArgsPrismaticJointEnableSpring{joint: p.Joint, enableSpring: enableSpring},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -68,7 +71,10 @@ func (p PrismaticJoint) SetSpringHertz(hertz float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointSetSpringHertz(world.recording, &recArgsPrismaticJointSetSpringHertz{joint: p.Joint, hertz: hertz})
+		recWritePrismaticJointSetSpringHertz(
+			world.recording,
+			&recArgsPrismaticJointSetSpringHertz{joint: p.Joint, hertz: hertz},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -87,7 +93,10 @@ func (p PrismaticJoint) SetSpringDampingRatio(dampingRatio float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointSetSpringDampingRatio(world.recording, &recArgsPrismaticJointSetSpringDampingRatio{joint: p.Joint, dampingRatio: dampingRatio})
+		recWritePrismaticJointSetSpringDampingRatio(
+			world.recording,
+			&recArgsPrismaticJointSetSpringDampingRatio{joint: p.Joint, dampingRatio: dampingRatio},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -106,7 +115,10 @@ func (p PrismaticJoint) SetTargetTranslation(translation float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointSetTargetTranslation(world.recording, &recArgsPrismaticJointSetTargetTranslation{joint: p.Joint, translation: translation})
+		recWritePrismaticJointSetTargetTranslation(
+			world.recording,
+			&recArgsPrismaticJointSetTargetTranslation{joint: p.Joint, translation: translation},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -123,7 +135,10 @@ func (p PrismaticJoint) TargetTranslation() float32 {
 func (p PrismaticJoint) SetLimitEnabled(enableLimit bool) {
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointEnableLimit(world.recording, &recArgsPrismaticJointEnableLimit{joint: p.Joint, enableLimit: enableLimit})
+		recWritePrismaticJointEnableLimit(
+			world.recording,
+			&recArgsPrismaticJointEnableLimit{joint: p.Joint, enableLimit: enableLimit},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -159,7 +174,10 @@ func (p PrismaticJoint) SetLimits(lower float32, upper float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointSetLimits(world.recording, &recArgsPrismaticJointSetLimits{joint: p.Joint, lower: lower, upper: upper})
+		recWritePrismaticJointSetLimits(
+			world.recording,
+			&recArgsPrismaticJointSetLimits{joint: p.Joint, lower: lower, upper: upper},
+		)
 	}
 
 	core.Assert(lower <= upper, "lower <= upper")
@@ -173,7 +191,10 @@ func (p PrismaticJoint) SetLimits(lower float32, upper float32) {
 func (p PrismaticJoint) SetMotorEnabled(enableMotor bool) {
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointEnableMotor(world.recording, &recArgsPrismaticJointEnableMotor{joint: p.Joint, enableMotor: enableMotor})
+		recWritePrismaticJointEnableMotor(
+			world.recording,
+			&recArgsPrismaticJointEnableMotor{joint: p.Joint, enableMotor: enableMotor},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -195,7 +216,10 @@ func (p PrismaticJoint) SetMotorSpeed(motorSpeed float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointSetMotorSpeed(world.recording, &recArgsPrismaticJointSetMotorSpeed{joint: p.Joint, motorSpeed: motorSpeed})
+		recWritePrismaticJointSetMotorSpeed(
+			world.recording,
+			&recArgsPrismaticJointSetMotorSpeed{joint: p.Joint, motorSpeed: motorSpeed},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -222,7 +246,10 @@ func (p PrismaticJoint) SetMaxMotorForce(force float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePrismaticJointSetMaxMotorForce(world.recording, &recArgsPrismaticJointSetMaxMotorForce{joint: p.Joint, force: force})
+		recWritePrismaticJointSetMaxMotorForce(
+			world.recording,
+			&recArgsPrismaticJointSetMaxMotorForce{joint: p.Joint, force: force},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PrismaticJointType)
@@ -309,7 +336,8 @@ func (p PrismaticJoint) Speed() float32 {
 		wB = float32(0.0)
 	}
 
-	vRel := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
+	vRel := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).
+		Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 	speed := d.Dot(Vec2{X: float32(-wA * axisA.Y), Y: float32(wA * axisA.X)}) + axisA.Dot(vRel)
 
 	return speed
@@ -328,7 +356,12 @@ func getPrismaticJointForce(world *World, base *jointSim) Vec2 {
 	perpForce := float32(invH * joint.impulse.X)
 	axialForce := float32(invH * (joint.motorImpulse + joint.lowerImpulse - joint.upperImpulse))
 
-	force := Vec2{X: float32(perpForce * perpA.X), Y: float32(perpForce * perpA.Y)}.Add(Vec2{X: float32(axialForce * axisA.X), Y: float32(axialForce * axisA.Y)})
+	force := Vec2{
+		X: float32(perpForce * perpA.X),
+		Y: float32(perpForce * perpA.Y),
+	}.Add(
+		Vec2{X: float32(axialForce * axisA.X), Y: float32(axialForce * axisA.Y)},
+	)
 
 	return force
 }
@@ -390,7 +423,10 @@ func preparePrismaticJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
 
@@ -480,7 +516,12 @@ func warmStartPrismaticJoint(base *jointSim, context *stepContext) {
 	perpImpulse := joint.impulse.X
 	angleImpulse := joint.impulse.Y
 
-	impulseVector := Vec2{X: float32(axialImpulse * axisA.X), Y: float32(axialImpulse * axisA.Y)}.Add(Vec2{X: float32(perpImpulse * perpA.X), Y: float32(perpImpulse * perpA.Y)})
+	impulseVector := Vec2{
+		X: float32(axialImpulse * axisA.X),
+		Y: float32(axialImpulse * axisA.Y),
+	}.Add(
+		Vec2{X: float32(perpImpulse * perpA.X), Y: float32(perpImpulse * perpA.Y)},
+	)
 	angularImpulseA := float32(axialImpulse*a1) + float32(perpImpulse*s1) + angleImpulse
 	angularImpulseB := float32(axialImpulse*a2) + float32(perpImpulse*s2) + angleImpulse
 
@@ -555,10 +596,17 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulseScale := joint.springSoftness.impulseScale
 
 		velocityError := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
-		deltaImpulse := float32(float32(-massScale*axialMass)*(velocityError+bias)) - float32(impulseScale*joint.springImpulse)
+		deltaImpulse := float32(
+			float32(-massScale*axialMass)*(velocityError+bias),
+		) - float32(
+			impulseScale*joint.springImpulse,
+		)
 		joint.springImpulse += deltaImpulse
 
-		impulseVector := Vec2{X: float32(deltaImpulse * axisA.X), Y: float32(deltaImpulse * axisA.Y)}
+		impulseVector := Vec2{
+			X: float32(deltaImpulse * axisA.X),
+			Y: float32(deltaImpulse * axisA.Y),
+		}
 		angularImpulseA := float32(deltaImpulse * a1)
 		angularImpulseB := float32(deltaImpulse * a2)
 
@@ -589,22 +637,36 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 
 	if joint.enableLimit {
 		// Clamp the speculative distance to a reasonable value
-		speculativeDistance := float32(float32(0.25) * (joint.upperTranslation - joint.lowerTranslation))
+		speculativeDistance := float32(
+			float32(0.25) * (joint.upperTranslation - joint.lowerTranslation),
+		)
 
 		// Lower limit
 		{
 			separation := translation - joint.lowerTranslation
 
 			if separation < speculativeDistance {
-				bias, massScale, impulseScale := prismaticLimitBias(separation, context.invH, useBias, softness)
+				bias, massScale, impulseScale := prismaticLimitBias(
+					separation,
+					context.invH,
+					useBias,
+					softness,
+				)
 
 				oldImpulse := joint.lowerImpulse
 				velocityError := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
-				deltaImpulse := float32(float32(-axialMass*massScale)*(velocityError+bias)) - float32(impulseScale*oldImpulse)
+				deltaImpulse := float32(
+					float32(-axialMass*massScale)*(velocityError+bias),
+				) - float32(
+					impulseScale*oldImpulse,
+				)
 				joint.lowerImpulse = maxFloat(oldImpulse+deltaImpulse, float32(0.0))
 				deltaImpulse = joint.lowerImpulse - oldImpulse
 
-				impulseVector := Vec2{X: float32(deltaImpulse * axisA.X), Y: float32(deltaImpulse * axisA.Y)}
+				impulseVector := Vec2{
+					X: float32(deltaImpulse * axisA.X),
+					Y: float32(deltaImpulse * axisA.Y),
+				}
 				angularImpulseA := float32(deltaImpulse * a1)
 				angularImpulseB := float32(deltaImpulse * a2)
 
@@ -625,17 +687,29 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 			separation := joint.upperTranslation - translation
 
 			if separation < speculativeDistance {
-				bias, massScale, impulseScale := prismaticLimitBias(separation, context.invH, useBias, softness)
+				bias, massScale, impulseScale := prismaticLimitBias(
+					separation,
+					context.invH,
+					useBias,
+					softness,
+				)
 
 				oldImpulse := joint.upperImpulse
 
 				// sign flipped
 				velocityError := axisA.Dot(vA.Sub(vB)) + float32(a1*wA) - float32(a2*wB)
-				deltaImpulse := float32(float32(-axialMass*massScale)*(velocityError+bias)) - float32(impulseScale*oldImpulse)
+				deltaImpulse := float32(
+					float32(-axialMass*massScale)*(velocityError+bias),
+				) - float32(
+					impulseScale*oldImpulse,
+				)
 				joint.upperImpulse = maxFloat(oldImpulse+deltaImpulse, float32(0.0))
 				deltaImpulse = joint.upperImpulse - oldImpulse
 
-				impulseVector := Vec2{X: float32(deltaImpulse * axisA.X), Y: float32(deltaImpulse * axisA.Y)}
+				impulseVector := Vec2{
+					X: float32(deltaImpulse * axisA.X),
+					Y: float32(deltaImpulse * axisA.Y),
+				}
 				angularImpulseA := float32(deltaImpulse * a1)
 				angularImpulseB := float32(deltaImpulse * a2)
 
@@ -673,7 +747,10 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 			separation.X = perpA.Dot(d)
 			separation.Y = relQ.Angle()
 
-			bias = Vec2{X: float32(softness.biasRate * separation.X), Y: float32(softness.biasRate * separation.Y)}
+			bias = Vec2{
+				X: float32(softness.biasRate * separation.X),
+				Y: float32(softness.biasRate * separation.Y),
+			}
 			massScale = softness.massScale
 			impulseScale = softness.impulseScale
 		}
@@ -701,7 +778,10 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 		joint.impulse.X += deltaImpulse.X
 		joint.impulse.Y += deltaImpulse.Y
 
-		impulseVector := Vec2{X: float32(deltaImpulse.X * perpA.X), Y: float32(deltaImpulse.X * perpA.Y)}
+		impulseVector := Vec2{
+			X: float32(deltaImpulse.X * perpA.X),
+			Y: float32(deltaImpulse.X * perpA.Y),
+		}
 		angularImpulseA := float32(deltaImpulse.X*s1) + deltaImpulse.Y
 		angularImpulseB := float32(deltaImpulse.X*s2) + deltaImpulse.Y
 
@@ -727,7 +807,13 @@ func solvePrismaticJoint(base *jointSim, context *stepContext, useBias bool) {
 	}
 }
 
-func drawPrismaticJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform, drawScale float32) {
+func drawPrismaticJoint(
+	draw *DebugDraw,
+	base *jointSim,
+	transformA WorldTransform,
+	transformB WorldTransform,
+	drawScale float32,
+) {
 	core.Assert(base.jointType == PrismaticJointType, "base->type == b2_prismaticJoint")
 
 	joint := &base.prismaticJoint
@@ -740,19 +826,42 @@ func drawPrismaticJoint(draw *DebugDraw, base *jointSim, transformA WorldTransfo
 
 	if joint.enableLimit {
 		b := float32(float32(0.25) * drawScale)
-		lower := frameA.P.Add(Vec2{X: float32(joint.lowerTranslation * axisA.X), Y: float32(joint.lowerTranslation * axisA.Y)})
-		upper := frameA.P.Add(Vec2{X: float32(joint.upperTranslation * axisA.X), Y: float32(joint.upperTranslation * axisA.Y)})
+		lower := frameA.P.Add(
+			Vec2{
+				X: float32(joint.lowerTranslation * axisA.X),
+				Y: float32(joint.lowerTranslation * axisA.Y),
+			},
+		)
+		upper := frameA.P.Add(
+			Vec2{
+				X: float32(joint.upperTranslation * axisA.X),
+				Y: float32(joint.upperTranslation * axisA.Y),
+			},
+		)
 		perp := axisA.LeftPerp()
 
 		draw.DrawLine(lower, upper, ColorGray)
-		draw.DrawLine(lower.Add(Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}), lower.Add(Vec2{X: float32(b * perp.X), Y: float32(b * perp.Y)}), ColorGreen)
-		draw.DrawLine(upper.Add(Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}), upper.Add(Vec2{X: float32(b * perp.X), Y: float32(b * perp.Y)}), ColorRed)
+		draw.DrawLine(
+			lower.Add(Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}),
+			lower.Add(Vec2{X: float32(b * perp.X), Y: float32(b * perp.Y)}),
+			ColorGreen,
+		)
+		draw.DrawLine(
+			upper.Add(Vec2{X: float32((-b) * perp.X), Y: float32((-b) * perp.Y)}),
+			upper.Add(Vec2{X: float32(b * perp.X), Y: float32(b * perp.Y)}),
+			ColorRed,
+		)
 	} else {
 		draw.DrawLine(frameA.P.Add(axisA.Neg()), frameA.P.Add(axisA), ColorGray)
 	}
 
 	if joint.enableSpring {
-		p := frameA.P.Add(Vec2{X: float32(joint.targetTranslation * axisA.X), Y: float32(joint.targetTranslation * axisA.Y)})
+		p := frameA.P.Add(
+			Vec2{
+				X: float32(joint.targetTranslation * axisA.X),
+				Y: float32(joint.targetTranslation * axisA.Y),
+			},
+		)
 		draw.DrawPoint(p, float32(8.0), ColorViolet)
 	}
 
@@ -760,7 +869,11 @@ func drawPrismaticJoint(draw *DebugDraw, base *jointSim, transformA WorldTransfo
 	draw.DrawPoint(frameB.P, float32(5.0), ColorBlue)
 }
 
-func prismaticLimitBias(separation, invH float32, useBias bool, constraintSoftness softness) (float32, float32, float32) {
+func prismaticLimitBias(
+	separation float32, invH float32,
+	useBias bool,
+	constraintSoftness softness,
+) (float32, float32, float32) {
 	if separation > 0.0 {
 		// speculation
 		safe := LengthUnitsPerMeter()
@@ -768,7 +881,9 @@ func prismaticLimitBias(separation, invH float32, useBias bool, constraintSoftne
 	}
 
 	if useBias {
-		return float32(constraintSoftness.biasRate * separation), constraintSoftness.massScale, constraintSoftness.impulseScale
+		return float32(
+			constraintSoftness.biasRate * separation,
+		), constraintSoftness.massScale, constraintSoftness.impulseScale
 	}
 
 	return 0.0, 1.0, 0.0

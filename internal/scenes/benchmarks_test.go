@@ -86,7 +86,12 @@ func TestSceneHelperBoundaries(t *testing.T) {
 	cleanupWorld(world)
 	CreateQueries(world)
 
-	positions := [4]float32{gQueryBenchmark.paddleMaxX + 1, gQueryBenchmark.paddleMaxX, gQueryBenchmark.paddleMinX - 1, gQueryBenchmark.paddleMinX}
+	positions := [4]float32{
+		gQueryBenchmark.paddleMaxX + 1,
+		gQueryBenchmark.paddleMaxX,
+		gQueryBenchmark.paddleMinX - 1,
+		gQueryBenchmark.paddleMinX,
+	}
 	for i, x := range positions {
 		velocity := float32(5)
 		if i >= 2 {

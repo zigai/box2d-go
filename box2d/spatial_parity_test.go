@@ -20,7 +20,14 @@ func spatialStats(r *oracle.Reader, s TreeStats) {
 	r.I32("leaves", int32(s.LeafVisits))
 }
 
-func observeTreeQuery(r *oracle.Reader, tree *DynamicTree, a AABB, mask uint64, all, stop bool) {
+func observeTreeQuery(
+	r *oracle.Reader,
+	tree *DynamicTree,
+	a AABB,
+	mask uint64,
+	all bool,
+	stop bool,
+) {
 	type hit struct {
 		id   int
 		data uint64
@@ -74,7 +81,11 @@ func TestPublicTreeHistory(t *testing.T) {
 			}
 		}
 
-		queries := []AABB{{Vec2{-10, -10}, Vec2{10, 10}}, {Vec2{-.25, -.25}, Vec2{.25, .25}}, {Vec2{20, 20}, Vec2{21, 21}}}
+		queries := []AABB{
+			{Vec2{-10, -10}, Vec2{10, 10}},
+			{Vec2{-.25, -.25}, Vec2{.25, .25}},
+			{Vec2{20, 20}, Vec2{21, 21}},
+		}
 		masks := []uint64{math.MaxUint64, 1, 2, 1 << 63}
 
 		query := func(a AABB, mask uint64, all, stop bool) {
@@ -97,7 +108,11 @@ func TestPublicTreeHistory(t *testing.T) {
 			category = 1 << 63
 		}
 
-		ids[i] = tree.CreateProxy(AABB{Vec2{float32(i) - .5, -.5}, Vec2{float32(i) + .5, .5}}, category, uint64(100+i))
+		ids[i] = tree.CreateProxy(
+			AABB{Vec2{float32(i) - .5, -.5}, Vec2{float32(i) + .5, .5}},
+			category,
+			uint64(100+i),
+		)
 		live[i] = true
 
 		observe()
@@ -131,7 +146,11 @@ func TestTreeCallbackForwarding(t *testing.T) {
 
 	tree := NewDynamicTree(4)
 	for i := range 3 {
-		tree.CreateProxy(AABB{Vec2{.5 + float32(.25*float32(i)), -1}, Vec2{.75 + float32(.25*float32(i)), 1}}, 1, uint64(100+i))
+		tree.CreateProxy(
+			AABB{Vec2{.5 + float32(.25*float32(i)), -1}, Vec2{.75 + float32(.25*float32(i)), 1}},
+			1,
+			uint64(100+i),
+		)
 	}
 
 	tree.CreateProxy(AABB{Vec2{3, -1}, Vec2{3.25, 1}}, 1, 200)
@@ -224,7 +243,10 @@ func spatialIdentity(r *oracle.Reader, id Shape, w *World) {
 
 func (h *spatialHits) observe(r *oracle.Reader, payload int) {
 	if h.policy < 2 {
-		slices.SortStableFunc(h.hits, func(a, b spatialHit) int { return int(a.id.index1 - b.id.index1) })
+		slices.SortStableFunc(
+			h.hits,
+			func(a, b spatialHit) int { return int(a.id.index1 - b.id.index1) },
+		)
 	}
 
 	r.I32("count", int32(len(h.hits)))
@@ -315,7 +337,13 @@ func populateSpatialWorld(r *oracle.Reader, w *World, base Pos, bodies *[5]Body,
 	}
 }
 
-func observeFilteredSpatialCasts(r *oracle.Reader, w *World, base Pos, filter QueryFilter, proxy *ShapeProxy) {
+func observeFilteredSpatialCasts(
+	r *oracle.Reader,
+	w *World,
+	base Pos,
+	filter QueryFilter,
+	proxy *ShapeProxy,
+) {
 	var h spatialHits
 
 	for start := range 3 {
@@ -352,7 +380,13 @@ func observeFilteredSpatialCasts(r *oracle.Reader, w *World, base Pos, filter Qu
 	}
 }
 
-func observeFilteredSpatialQueries(r *oracle.Reader, w *World, base Pos, all QueryFilter, proxy *ShapeProxy) {
+func observeFilteredSpatialQueries(
+	r *oracle.Reader,
+	w *World,
+	base Pos,
+	all QueryFilter,
+	proxy *ShapeProxy,
+) {
 	var h spatialHits
 
 	for _, filter := range []QueryFilter{all, {1, 31}, {2, 31}, {1, 2}} {
@@ -421,14 +455,25 @@ func observeMoverSpatialQueries(r *oracle.Reader, w *World, base Pos, all QueryF
 
 		h = spatialHits{world: w}
 		w.CollideMover(origin, &mover, all, h.plane)
-		slices.SortStableFunc(h.hits, func(a, b spatialHit) int { return int(a.id.index1 - b.id.index1) })
+		slices.SortStableFunc(
+			h.hits,
+			func(a, b spatialHit) int { return int(a.id.index1 - b.id.index1) },
+		)
 		observeSpatialPlaneLimits(r, h.hits, Vec2{-1, .2}, Vec2{-2, .3})
 
-		r.F32("mover/fraction", w.CastMover(base.Add(Vec2{float32(3*float32(i)) - 2, 0}), &mover, Vec2{4, 0}, all))
+		r.F32(
+			"mover/fraction",
+			w.CastMover(base.Add(Vec2{float32(3*float32(i)) - 2, 0}), &mover, Vec2{4, 0}, all),
+		)
 	}
 }
 
-func observeSpatialPlaneLimits(r *oracle.Reader, hits []spatialHit, translation, velocity Vec2) {
+func observeSpatialPlaneLimits(
+	r *oracle.Reader,
+	hits []spatialHit,
+	translation Vec2,
+	velocity Vec2,
+) {
 	for limit := range 3 {
 		pushLimit := float32(math.MaxFloat32)
 		if limit == 0 {
@@ -443,7 +488,14 @@ func observeSpatialPlaneLimits(r *oracle.Reader, hits []spatialHit, translation,
 
 		for _, hit := range hits {
 			if hit.plane.Hit {
-				planes = append(planes, CollisionPlane{Plane: hit.plane.Plane, PushLimit: pushLimit, ClipVelocity: limit != 1})
+				planes = append(
+					planes,
+					CollisionPlane{
+						Plane:        hit.plane.Plane,
+						PushLimit:    pushLimit,
+						ClipVelocity: limit != 1,
+					},
+				)
 			}
 		}
 
@@ -483,7 +535,12 @@ func TestWorldOverlapStopsAcrossBodyTypes(t *testing.T) {
 		query func(OverlapResultFunc) TreeStats
 	}{
 		{"AABB", func(callback OverlapResultFunc) TreeStats {
-			return w.OverlapAABB(Pos{}, AABB{LowerBound: Vec2{-2, -2}, UpperBound: Vec2{2, 2}}, filter, callback)
+			return w.OverlapAABB(
+				Pos{},
+				AABB{LowerBound: Vec2{-2, -2}, UpperBound: Vec2{2, 2}},
+				filter,
+				callback,
+			)
 		}},
 		{"shape", func(callback OverlapResultFunc) TreeStats {
 			return w.OverlapShape(Pos{}, &proxy, filter, callback)
@@ -507,7 +564,11 @@ func TestWorldOverlapStopsAcrossBodyTypes(t *testing.T) {
 			}
 
 			if stats.NodeVisits != 1 || stats.LeafVisits != 1 {
-				t.Fatalf("stopping traversal visited %d nodes and %d leaves, want 1 each", stats.NodeVisits, stats.LeafVisits)
+				t.Fatalf(
+					"stopping traversal visited %d nodes and %d leaves, want 1 each",
+					stats.NodeVisits,
+					stats.LeafVisits,
+				)
 			}
 		})
 	}

@@ -109,7 +109,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/65", &tree)
 		s.check(67, uint64(proxyHit), proxyHit == proxyID)
 
@@ -128,7 +132,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/78", &tree)
 		s.check(80, uint64(proxyHit), proxyHit == proxyID)
 
@@ -147,7 +155,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/91", &tree)
 		s.check(93, uint64(proxyHit), proxyHit == proxyID)
 
@@ -166,7 +178,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/104", &tree)
 		s.check(106, uint64(proxyHit), proxyHit == proxyID)
 
@@ -185,7 +201,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/117", &tree)
 		s.check(119, uint64(proxyHit), proxyHit == -1)
 
@@ -204,7 +224,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/130", &tree)
 		s.check(132, uint64(proxyHit), proxyHit == -1)
 
@@ -223,7 +247,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/143", &tree)
 		s.check(145, uint64(proxyHit), proxyHit == proxyID)
 
@@ -242,7 +270,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/156", &tree)
 		s.check(158, uint64(proxyHit), proxyHit == proxyID)
 
@@ -261,7 +293,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/169", &tree)
 		s.check(171, uint64(proxyHit), proxyHit == -1)
 
@@ -280,7 +316,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/182", &tree)
 		s.check(184, uint64(proxyHit), proxyHit == proxyID)
 
@@ -299,7 +339,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/195", &tree)
 		s.check(197, uint64(proxyHit), proxyHit == -1)
 
@@ -318,7 +362,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/208", &tree)
 		s.check(210, uint64(proxyHit), proxyHit == proxyID)
 
@@ -337,7 +385,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/221", &tree)
 		s.check(223, uint64(proxyHit), proxyHit == proxyID)
 
@@ -361,7 +413,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/239", &tree)
 		s.check(241, uint64(proxyHit), proxyHit == proxyIDB)
 
@@ -380,7 +436,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/252", &tree)
 		s.check(254, uint64(proxyHit), proxyHit == proxyIDB)
 
@@ -399,7 +459,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/265", &tree)
 		s.check(267, uint64(proxyHit), proxyHit == -1)
 
@@ -418,7 +482,11 @@ func runDynamicTreeTreeRayCastTest(t *testing.T) {
 		input.Translation = p2.Sub(p1)
 		proxyHit := -1
 
-		tree.CastRay(&input, 1, func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 })
+		tree.CastRay(
+			&input,
+			1,
+			func(_ *RayCastInput, proxyID int, _ uint64) float32 { proxyHit = proxyID; return 0 },
+		)
 		s.tree("step/278", &tree)
 		s.check(280, uint64(proxyHit), proxyHit == -1)
 
@@ -459,7 +527,7 @@ func runDynamicTreeTreeMultipleProxiesTest(t *testing.T) {
 
 	s.flush("check/318")
 	s.tree("check-state/318", &tree)
-	s.check(320, uint64(tree.UserData(id1)), tree.UserData(id1) == 42)
+	s.check(320, tree.UserData(id1), tree.UserData(id1) == 42)
 
 	if tree.UserData(id1) != 42 {
 		t.Fatal("condition false")
@@ -467,7 +535,7 @@ func runDynamicTreeTreeMultipleProxiesTest(t *testing.T) {
 
 	s.flush("check/320")
 	s.tree("check-state/320", &tree)
-	s.check(321, uint64(tree.UserData(id2)), tree.UserData(id2) == 43)
+	s.check(321, tree.UserData(id2), tree.UserData(id2) == 43)
 
 	if tree.UserData(id2) != 43 {
 		t.Fatal("condition false")
@@ -475,7 +543,7 @@ func runDynamicTreeTreeMultipleProxiesTest(t *testing.T) {
 
 	s.flush("check/321")
 	s.tree("check-state/321", &tree)
-	s.check(322, uint64(tree.UserData(id3)), tree.UserData(id3) == 44)
+	s.check(322, tree.UserData(id3), tree.UserData(id3) == 44)
 
 	if tree.UserData(id3) != 44 {
 		t.Fatal("condition false")
@@ -483,7 +551,7 @@ func runDynamicTreeTreeMultipleProxiesTest(t *testing.T) {
 
 	s.flush("check/322")
 	s.tree("check-state/322", &tree)
-	s.check(324, uint64(tree.CategoryBits(id1)), tree.CategoryBits(id1) == 0x1)
+	s.check(324, tree.CategoryBits(id1), tree.CategoryBits(id1) == 0x1)
 
 	if tree.CategoryBits(id1) != 0x1 {
 		t.Fatal("condition false")
@@ -491,7 +559,7 @@ func runDynamicTreeTreeMultipleProxiesTest(t *testing.T) {
 
 	s.flush("check/324")
 	s.tree("check-state/324", &tree)
-	s.check(325, uint64(tree.CategoryBits(id2)), tree.CategoryBits(id2) == 0x2)
+	s.check(325, tree.CategoryBits(id2), tree.CategoryBits(id2) == 0x2)
 
 	if tree.CategoryBits(id2) != 0x2 {
 		t.Fatal("condition false")
@@ -499,7 +567,7 @@ func runDynamicTreeTreeMultipleProxiesTest(t *testing.T) {
 
 	s.flush("check/325")
 	s.tree("check-state/325", &tree)
-	s.check(326, uint64(tree.CategoryBits(id3)), tree.CategoryBits(id3) == 0x4)
+	s.check(326, tree.CategoryBits(id3), tree.CategoryBits(id3) == 0x4)
 
 	if tree.CategoryBits(id3) != 0x4 {
 		t.Fatal("condition false")
@@ -634,7 +702,11 @@ func runDynamicTreeTreeMoveAndEnlargeTest(t *testing.T) {
 	tree.enlargeProxy(id, enlarge)
 	s.tree("step/383", &tree)
 	got2 := tree.AABB(id)
-	s.check(386, uint64(math.Float32bits(got2.LowerBound.X)), got2.LowerBound.X <= enlarge.LowerBound.X+1e-6)
+	s.check(
+		386,
+		uint64(math.Float32bits(got2.LowerBound.X)),
+		got2.LowerBound.X <= enlarge.LowerBound.X+1e-6,
+	)
 
 	if !(got2.LowerBound.X <= enlarge.LowerBound.X+1e-6) {
 		t.Fatal("condition false")
@@ -642,7 +714,11 @@ func runDynamicTreeTreeMoveAndEnlargeTest(t *testing.T) {
 
 	s.flush("check/386")
 	s.tree("check-state/386", &tree)
-	s.check(387, uint64(math.Float32bits(got2.UpperBound.X)), got2.UpperBound.X >= enlarge.UpperBound.X-1e-6)
+	s.check(
+		387,
+		uint64(math.Float32bits(got2.UpperBound.X)),
+		got2.UpperBound.X >= enlarge.UpperBound.X-1e-6,
+	)
 
 	if !(got2.UpperBound.X >= enlarge.UpperBound.X-1e-6) {
 		t.Fatal("condition false")
@@ -902,7 +978,7 @@ func runDynamicTreeTreeOneProxyTest(t *testing.T) {
 
 	s.flush("check/808")
 	s.tree("check-state/808", &tree)
-	s.check(809, uint64(tree.UserData(proxyID)), tree.UserData(proxyID) == 7)
+	s.check(809, tree.UserData(proxyID), tree.UserData(proxyID) == 7)
 
 	if tree.UserData(proxyID) != 7 {
 		t.Fatal("condition false")
@@ -910,7 +986,7 @@ func runDynamicTreeTreeOneProxyTest(t *testing.T) {
 
 	s.flush("check/809")
 	s.tree("check-state/809", &tree)
-	s.check(810, uint64(tree.CategoryBits(proxyID)), tree.CategoryBits(proxyID) == 1)
+	s.check(810, tree.CategoryBits(proxyID), tree.CategoryBits(proxyID) == 1)
 
 	if tree.CategoryBits(proxyID) != 1 {
 		t.Fatal("condition false")
@@ -918,7 +994,11 @@ func runDynamicTreeTreeOneProxyTest(t *testing.T) {
 
 	s.flush("check/810")
 	s.tree("check-state/810", &tree)
-	s.check(811, uint64(treeBool(treeBoxEquals(tree.AABB(proxyID), box))), treeBoxEquals(tree.AABB(proxyID), box))
+	s.check(
+		811,
+		uint64(treeBool(treeBoxEquals(tree.AABB(proxyID), box))),
+		treeBoxEquals(tree.AABB(proxyID), box),
+	)
 
 	if !treeBoxEquals(tree.AABB(proxyID), box) {
 		t.Fatal("condition false")
@@ -926,7 +1006,11 @@ func runDynamicTreeTreeOneProxyTest(t *testing.T) {
 
 	s.flush("check/811")
 	s.tree("check-state/811", &tree)
-	s.check(812, uint64(treeBool(treeBoxEquals(tree.RootBounds(), box))), treeBoxEquals(tree.RootBounds(), box))
+	s.check(
+		812,
+		uint64(treeBool(treeBoxEquals(tree.RootBounds(), box))),
+		treeBoxEquals(tree.RootBounds(), box),
+	)
 
 	if !treeBoxEquals(tree.RootBounds(), box) {
 		t.Fatal("condition false")
@@ -1053,7 +1137,11 @@ func runDynamicTreeTreeOneProxyTest(t *testing.T) {
 	tree.refit()
 	s.tree("step/845", &tree)
 	tree.Validate()
-	s.check(847, uint64(treeBool(treeBoxEquals(tree.AABB(proxyID), enlarged))), treeBoxEquals(tree.AABB(proxyID), enlarged))
+	s.check(
+		847,
+		uint64(treeBool(treeBoxEquals(tree.AABB(proxyID), enlarged))),
+		treeBoxEquals(tree.AABB(proxyID), enlarged),
+	)
 
 	if !treeBoxEquals(tree.AABB(proxyID), enlarged) {
 		t.Fatal("condition false")
@@ -1061,7 +1149,11 @@ func runDynamicTreeTreeOneProxyTest(t *testing.T) {
 
 	s.flush("check/847")
 	s.tree("check-state/847", &tree)
-	s.check(848, uint64(treeBool(treeBoxEquals(tree.RootBounds(), enlarged))), treeBoxEquals(tree.RootBounds(), enlarged))
+	s.check(
+		848,
+		uint64(treeBool(treeBoxEquals(tree.RootBounds(), enlarged))),
+		treeBoxEquals(tree.RootBounds(), enlarged),
+	)
 
 	if !treeBoxEquals(tree.RootBounds(), enlarged) {
 		t.Fatal("condition false")
@@ -1106,7 +1198,11 @@ func runDynamicTreeTreeOneProxyTest(t *testing.T) {
 
 	s.flush("check/856")
 	s.tree("check-state/856", &tree)
-	s.check(857, uint64(treeBool(isEmptyNode(&tree.nodes[rootNode]))), isEmptyNode(&tree.nodes[rootNode]))
+	s.check(
+		857,
+		uint64(treeBool(isEmptyNode(&tree.nodes[rootNode]))),
+		isEmptyNode(&tree.nodes[rootNode]),
+	)
 
 	if !isEmptyNode(&tree.nodes[rootNode]) {
 		t.Fatal("condition false")
@@ -1169,7 +1265,11 @@ func runDynamicTreeTreeLeafRootTest(t *testing.T) {
 
 	s.flush("check/880")
 	s.tree("check-state/880", &tree)
-	s.check(881, uint64(treeBool(isLeaf(&tree.nodes[rootNode]))), isLeaf(&tree.nodes[rootNode]) == false)
+	s.check(
+		881,
+		uint64(treeBool(isLeaf(&tree.nodes[rootNode]))),
+		isLeaf(&tree.nodes[rootNode]) == false,
+	)
 
 	if isLeaf(&tree.nodes[rootNode]) != false {
 		t.Fatal("condition false")
@@ -1407,7 +1507,11 @@ func runDynamicTreeTreeLeafRootTest(t *testing.T) {
 
 	s.flush("check/931")
 	s.tree("check-state/931", &tree)
-	s.check(932, uint64(treeBool(isEmptyNode(&tree.nodes[rootNode]))), isEmptyNode(&tree.nodes[rootNode]))
+	s.check(
+		932,
+		uint64(treeBool(isEmptyNode(&tree.nodes[rootNode]))),
+		isEmptyNode(&tree.nodes[rootNode]),
+	)
 
 	if !isEmptyNode(&tree.nodes[rootNode]) {
 		t.Fatal("condition false")
@@ -1544,7 +1648,15 @@ func runDynamicTreeTreeCastBruteForceTest(t *testing.T) {
 		components := s.fixtureFloats("translation", i)
 		translation := Vec2{components[0], components[1]}
 		s.r.Vec2("translation", translation.X, translation.Y)
-		result996 := treeCompareRayCast(t, s, &tree, proxyIDs[:], treeProxyCount, origin, translation)
+		result996 := treeCompareRayCast(
+			t,
+			s,
+			&tree,
+			proxyIDs[:],
+			treeProxyCount,
+			origin,
+			translation,
+		)
 		s.check(996, uint64(result996), result996 == 0)
 
 		if result996 != 0 {
@@ -1660,7 +1772,11 @@ func runDynamicTreeTreeMarkAndRefitTest(t *testing.T) {
 	// The leaf records took the fat boxes before the refit
 	for i := range treeProxyCount {
 		if marked[i] {
-			s.check(1042, uint64(treeBool(treeBoxEquals(tree.AABB(i), enlarged[i]))), treeBoxEquals(tree.AABB(i), enlarged[i]))
+			s.check(
+				1042,
+				uint64(treeBool(treeBoxEquals(tree.AABB(i), enlarged[i]))),
+				treeBoxEquals(tree.AABB(i), enlarged[i]),
+			)
 
 			if !treeBoxEquals(tree.AABB(i), enlarged[i]) {
 				t.Fatal("condition false")
@@ -1686,7 +1802,11 @@ func runDynamicTreeTreeMarkAndRefitTest(t *testing.T) {
 
 	s.flush("check/1049")
 	s.tree("check-state/1049", &tree)
-	s.check(1050, uint64(treeBool(treeBoxEquals(bounds, tree.RootBounds()))), treeBoxEquals(bounds, tree.RootBounds()))
+	s.check(
+		1050,
+		uint64(treeBool(treeBoxEquals(bounds, tree.RootBounds()))),
+		treeBoxEquals(bounds, tree.RootBounds()),
+	)
 
 	if !treeBoxEquals(bounds, tree.RootBounds()) {
 		t.Fatal("condition false")
@@ -1888,7 +2008,13 @@ func runDynamicTreeTreeDfsOrderTest(t *testing.T) {
 	s.tree("check-state/1104", &tree)
 	// A fresh pair lands above everything, so the order survives when the sibling is a leaf.
 	// Validate checks the flag against the array either way.
-	proxyIDs[proxyCount] = createTreeProxyInternal(&tree, s.randomBox(2.0), 1, uint64(proxyCount), false)
+	proxyIDs[proxyCount] = createTreeProxyInternal(
+		&tree,
+		s.randomBox(2.0),
+		1,
+		uint64(proxyCount),
+		false,
+	)
 	s.tree("step/1108", &tree)
 
 	proxyCount += 1
@@ -1993,7 +2119,11 @@ func runDynamicTreeTreeDfsOrderTest(t *testing.T) {
 
 	s.flush("check/1139")
 	s.tree("check-state/1139", &tree)
-	s.check(1140, uint64(treeBool(treeBoxEquals(bounds, tree.RootBounds()))), treeBoxEquals(bounds, tree.RootBounds()))
+	s.check(
+		1140,
+		uint64(treeBool(treeBoxEquals(bounds, tree.RootBounds()))),
+		treeBoxEquals(bounds, tree.RootBounds()),
+	)
 
 	if !treeBoxEquals(bounds, tree.RootBounds()) {
 		t.Fatal("condition false")
@@ -2154,7 +2284,10 @@ func runDynamicTreeTreeStaleAfterInsertRemoveTest(t *testing.T) {
 	var ids [16]int
 
 	for i := range 16 {
-		box := AABB{Vec2{float32(2) * float32(i), 0.0}, Vec2{float32(float32(2)*float32(i)) + 1.0, 1.0}}
+		box := AABB{
+			Vec2{float32(2) * float32(i), 0.0},
+			Vec2{float32(float32(2)*float32(i)) + 1.0, 1.0},
+		}
 		ids[i] = createTreeProxyInternal(&tree, box, 1, uint64(i), true)
 		s.tree("step/1193", &tree)
 	}
@@ -2174,7 +2307,11 @@ func runDynamicTreeTreeStaleAfterInsertRemoveTest(t *testing.T) {
 	s.tree("step/1200", &tree)
 	tree.refit()
 	s.tree("step/1201", &tree)
-	s.check(1202, uint64(treeBool(tree.RootBounds().Contains(big))), tree.RootBounds().Contains(big))
+	s.check(
+		1202,
+		uint64(treeBool(tree.RootBounds().Contains(big))),
+		tree.RootBounds().Contains(big),
+	)
 
 	if !tree.RootBounds().Contains(big) {
 		t.Fatal("condition false")
@@ -2214,7 +2351,11 @@ func runDynamicTreeTreeStaleAfterInsertRemoveTest(t *testing.T) {
 	s.tree("step/1214", &tree)
 	tree.refit()
 	s.tree("step/1215", &tree)
-	s.check(1216, uint64(treeBool(tree.RootBounds().Contains(bigger))), tree.RootBounds().Contains(bigger))
+	s.check(
+		1216,
+		uint64(treeBool(tree.RootBounds().Contains(bigger))),
+		tree.RootBounds().Contains(bigger),
+	)
 
 	if !tree.RootBounds().Contains(bigger) {
 		t.Fatal("condition false")
@@ -2252,7 +2393,7 @@ func treeHashU32(hash uint64, value uint32) uint64 {
 	return hash
 }
 
-func treeHashU64(hash, value uint64) uint64 {
+func treeHashU64(hash uint64, value uint64) uint64 {
 	return treeHashU32(treeHashU32(hash, uint32(value)), uint32(value>>32))
 }
 
@@ -2301,7 +2442,14 @@ func treeHashNode(hash uint64, tree *DynamicTree, index int) uint64 {
 
 func (s *treeOracle) tree(key string, tree *DynamicTree) {
 	hash := treeHashInit
-	for _, value := range [...]int32{tree.nodeEnd, tree.nodeCapacity, tree.pairFreeList, tree.proxyCount, tree.proxyCapacity, tree.proxyFreeList} {
+	for _, value := range [...]int32{
+		tree.nodeEnd,
+		tree.nodeCapacity,
+		tree.pairFreeList,
+		tree.proxyCount,
+		tree.proxyCapacity,
+		tree.proxyFreeList,
+	} {
 		hash = treeHashU32(hash, uint32(value))
 	}
 
@@ -2333,8 +2481,15 @@ func treeOpen(t *testing.T, name string, seed uint32) *treeOracle {
 	}
 
 	s := &treeOracle{
-		r: oracle.Open(t, "dynamic_tree/"+name), t: t, randomState: seed,
-		occurrences: make(map[uint32]int), packed: make(map[string][][]byte), packedNext: make(map[string]int), inputs: make(map[string][]string),
+		r:           oracle.Open(t, "dynamic_tree/"+name),
+		t:           t,
+		randomState: seed,
+		occurrences: make(
+			map[uint32]int,
+		),
+		packed:     make(map[string][][]byte),
+		packedNext: make(map[string]int),
+		inputs:     make(map[string][]string),
 	}
 
 	for line := range bytes.SplitSeq(data, []byte{'\n'}) {
@@ -2368,7 +2523,7 @@ func treeOpen(t *testing.T, name string, seed uint32) *treeOracle {
 	return s
 }
 
-func (s *treeOracle) loadPackedRecord(key, encoded string) {
+func (s *treeOracle) loadPackedRecord(key string, encoded string) {
 	s.t.Helper()
 
 	packed, err := hex.DecodeString(encoded)
@@ -2408,8 +2563,19 @@ func (s *treeOracle) check(line uint32, value uint64, outcome bool) {
 
 	want := s.expected[s.checkpoint]
 	if want.line != line || want.value != value || want.outcome != outcome {
-		s.t.Fatalf("first differing upstream observation: test_dynamic_tree.c:%d occurrence %d, checkpoint %d; C line %d value 0x%x, Go line %d value 0x%x; C outcome %t, Go outcome %t",
-			want.line, s.occurrences[line], s.checkpoint+1, want.line, want.value, line, value, want.outcome, outcome)
+		s.t.Fatalf(
+			"first differing upstream observation: test_dynamic_tree.c:%d occurrence %d, checkpoint %d; "+
+				"C line %d value 0x%x, Go line %d value 0x%x; C outcome %t, Go outcome %t",
+			want.line,
+			s.occurrences[line],
+			s.checkpoint+1,
+			want.line,
+			want.value,
+			line,
+			value,
+			want.outcome,
+			outcome,
+		)
 	}
 
 	s.checkpoint++
@@ -2439,19 +2605,29 @@ func (s *treeOracle) packedBytes(key string, got []byte) {
 		if key == "query/hits" && len(want) == 30 && len(got) == 30 {
 			for i := range treeProxyCount {
 				if (want[i/8]^got[i/8])&(1<<(i%8)) != 0 {
-					s.t.Fatalf("first differing query/hits observation at upstream CompareQuery, call %d, proxy %d", index+1, i)
+					s.t.Fatalf(
+						"first differing query/hits observation at upstream CompareQuery, call %d, proxy %d",
+						index+1,
+						i,
+					)
 				}
 			}
 		}
 
-		s.t.Fatalf("first differing packed %s observation, call %d: C %x, Go %x", key, index+1, want, got)
+		s.t.Fatalf(
+			"first differing packed %s observation, call %d: C %x, Go %x",
+			key,
+			index+1,
+			want,
+			got,
+		)
 	}
 
 	s.r.Bytes(key, got)
 }
 
 // Small generator so the random tests repeat run to run.
-func (s *treeOracle) randomFloat(lower, upper float32) float32 {
+func (s *treeOracle) randomFloat(lower float32, upper float32) float32 {
 	s.randomState = 1664525*s.randomState + 1013904223
 	unit := float32(s.randomState>>8) * (float32(1) / float32(16777216))
 
@@ -2467,14 +2643,19 @@ func (s *treeOracle) randomBox(maxHalfExtent float32) AABB {
 	return AABB{Vec2{x - hx, y - hy}, Vec2{x + hx, y + hy}}
 }
 
-func treeBoxEquals(a, b AABB) bool {
-	return a.LowerBound.X == b.LowerBound.X && a.LowerBound.Y == b.LowerBound.Y && a.UpperBound.X == b.UpperBound.X && a.UpperBound.Y == b.UpperBound.Y
+func treeBoxEquals(a AABB, b AABB) bool {
+	return a.LowerBound.X == b.LowerBound.X && a.LowerBound.Y == b.LowerBound.Y &&
+		a.UpperBound.X == b.UpperBound.X &&
+		a.UpperBound.Y == b.UpperBound.Y
 }
 
 func treeEnlargeBox(a AABB) AABB {
 	const margin float32 = 0.5
 
-	return AABB{Vec2{a.LowerBound.X - margin, a.LowerBound.Y - margin}, Vec2{a.UpperBound.X + margin, a.UpperBound.Y + margin}}
+	return AABB{
+		Vec2{a.LowerBound.X - margin, a.LowerBound.Y - margin},
+		Vec2{a.UpperBound.X + margin, a.UpperBound.Y + margin},
+	}
 }
 
 func treeCollectFlags(out []int) TreeQueryCallbackFunc {
@@ -2513,7 +2694,14 @@ func treeCollectHit(hits *treeHitSet) TreeQueryCallbackFunc {
 }
 
 // Query the tree and compare against every live proxy box.
-func treeCompareQuery(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs []int, proxyCount int, box AABB) int {
+func treeCompareQuery(
+	t *testing.T,
+	s *treeOracle,
+	tree *DynamicTree,
+	proxyIDs []int,
+	proxyCount int,
+	box AABB,
+) int {
 	t.Helper()
 
 	var hits treeHitSet
@@ -2569,7 +2757,7 @@ type treeCastHit struct {
 }
 
 // Entry fraction along the full translation, negative for a miss.
-func treeRayBoxFraction(box AABB, origin, translation Vec2) float32 {
+func treeRayBoxFraction(box AABB, origin Vec2, translation Vec2) float32 {
 	output := aabbRayCast(box, origin, origin.Add(translation))
 	if output.Hit {
 		return output.Fraction
@@ -2621,7 +2809,14 @@ func treeClosestBox(hit *treeCastHit) TreeBoxCastCallbackFunc {
 }
 
 // Closest ray hit from the tree against the closest over every live proxy.
-func treeCompareRayCast(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs []int, proxyCount int, origin, translation Vec2) int {
+func treeCompareRayCast(
+	t *testing.T,
+	s *treeOracle,
+	tree *DynamicTree,
+	proxyIDs []int,
+	proxyCount int,
+	origin Vec2, translation Vec2,
+) int {
 	t.Helper()
 
 	hit := treeCastHit{tree, nullIndex, 1}
@@ -2670,7 +2865,15 @@ func treeCompareRayCast(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs
 	return 0
 }
 
-func treeCompareBoxCast(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs []int, proxyCount int, box AABB, translation Vec2) int {
+func treeCompareBoxCast(
+	t *testing.T,
+	s *treeOracle,
+	tree *DynamicTree,
+	proxyIDs []int,
+	proxyCount int,
+	box AABB,
+	translation Vec2,
+) int {
 	t.Helper()
 
 	hit := treeCastHit{tree, nullIndex, 1}
@@ -2721,7 +2924,14 @@ func treeCompareBoxCast(t *testing.T, s *treeOracle, tree *DynamicTree, proxyIDs
 
 // A node is marked exactly when a leaf below it is marked. Leaves are checked against the
 // set the test marked itself.
-func treeCheckMarks(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex int, markedProxies []bool, markedBelow *bool) int {
+func treeCheckMarks(
+	t *testing.T,
+	s *treeOracle,
+	tree *DynamicTree,
+	nodeIndex int,
+	markedProxies []bool,
+	markedBelow *bool,
+) int {
 	t.Helper()
 
 	node := &tree.nodes[nodeIndex]
@@ -2767,7 +2977,13 @@ func treeCheckMarks(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex in
 }
 
 // Every internal node holds exactly the union of its children.
-func treeCheckBounds(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex int, bounds *AABB) int {
+func treeCheckBounds(
+	t *testing.T,
+	s *treeOracle,
+	tree *DynamicTree,
+	nodeIndex int,
+	bounds *AABB,
+) int {
 	t.Helper()
 
 	node := &tree.nodes[nodeIndex]
@@ -2783,7 +2999,11 @@ func treeCheckBounds(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex i
 			return 1
 		}
 
-		s.check(784, uint64(treeBool(treeBoxEquals(below1.Union(below2), node.AABB))), treeBoxEquals(below1.Union(below2), node.AABB))
+		s.check(
+			784,
+			uint64(treeBool(treeBoxEquals(below1.Union(below2), node.AABB))),
+			treeBoxEquals(below1.Union(below2), node.AABB),
+		)
 
 		if !treeBoxEquals(below1.Union(below2), node.AABB) {
 			t.Fatal("condition false")
@@ -2793,7 +3013,12 @@ func treeCheckBounds(t *testing.T, s *treeOracle, tree *DynamicTree, nodeIndex i
 	*bounds = node.AABB
 
 	packed := make([]byte, 0, 16)
-	for _, value := range [...]float32{bounds.LowerBound.X, bounds.LowerBound.Y, bounds.UpperBound.X, bounds.UpperBound.Y} {
+	for _, value := range [...]float32{
+		bounds.LowerBound.X,
+		bounds.LowerBound.Y,
+		bounds.UpperBound.X,
+		bounds.UpperBound.Y,
+	} {
 		packed = binary.LittleEndian.AppendUint32(packed, math.Float32bits(value))
 	}
 

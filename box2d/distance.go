@@ -200,7 +200,7 @@ func (sweep *Sweep) Transform(time float32) Transform {
 }
 
 // Compute the distance between two line segments, clamping at the end points if needed.
-func SegmentDistance(p1, q1, p2, q2 Vec2) SegmentDistanceResult {
+func SegmentDistance(p1 Vec2, q1 Vec2, p2 Vec2, q2 Vec2) SegmentDistanceResult {
 	var result SegmentDistanceResult
 
 	d1 := q1.Sub(p1)
@@ -294,7 +294,10 @@ func MakeOffsetProxy(points []Vec2, radius float32, position Vec2, rotation Rot)
 // Passing a simplex buffer records the initial, reduced iteration, and final simplexes
 // up to its length. Pass nil to skip the debug history.
 func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simplex) DistanceOutput {
-	core.Assert(input.ProxyA.Count > 0 && input.ProxyB.Count > 0, "input->proxyA.count > 0 && input->proxyB.count > 0")
+	core.Assert(
+		input.ProxyA.Count > 0 && input.ProxyB.Count > 0,
+		"input->proxyA.count > 0 && input->proxyB.count > 0",
+	)
 	core.Assert(input.ProxyA.Radius >= 0.0, "input->proxyA.radius >= 0.0f")
 	core.Assert(input.ProxyB.Radius >= 0.0, "input->proxyB.radius >= 0.0f")
 
@@ -323,7 +326,13 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 		simplexIndex += 1
 	}
 
-	nonUnitNormal, iteration, overlap := runGJK(&simplex, proxyA, &localProxyB, simplexes, &simplexIndex)
+	nonUnitNormal, iteration, overlap := runGJK(
+		&simplex,
+		proxyA,
+		&localProxyB,
+		simplexes,
+		&simplexIndex,
+	)
 	if overlap {
 		*cache = makeSimplexCache(&simplex)
 
@@ -373,7 +382,8 @@ func ShapeDistance(input *DistanceInput, cache *SimplexCache, simplexes []Simple
 	return output
 }
 
-// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal, and translation fraction.
+// Perform a linear shape cast of shape B moving and shape A fixed. Determines the hit point, normal,
+// and translation fraction.
 // The query runs in frame A, so the hit point and normal are returned in frame A. Initially touching shapes are a miss.
 func ShapeCast(input *ShapeCastPairInput) CastOutput {
 	// Compute tolerance
@@ -412,10 +422,16 @@ func ShapeCast(input *ShapeCastPairInput) CastOutput {
 		if distanceOutput.Distance < target+tolerance {
 			if iteration != 0 {
 				// Regular hit
-				core.Assert(distanceOutput.Distance > 0.0 && distanceOutput.Normal.IsNormalized(), "distanceOutput.distance > 0.0f && b2IsNormalized( distanceOutput.normal )")
+				core.Assert(
+					distanceOutput.Distance > 0.0 && distanceOutput.Normal.IsNormalized(),
+					"distanceOutput.distance > 0.0f && b2IsNormalized( distanceOutput.normal )",
+				)
 
 				output.Fraction = fraction
-				output.Point = distanceOutput.PointA.MulAdd(input.ProxyA.Radius, distanceOutput.Normal)
+				output.Point = distanceOutput.PointA.MulAdd(
+					input.ProxyA.Radius,
+					distanceOutput.Normal,
+				)
 				output.Normal = distanceOutput.Normal
 				output.Hit = true
 
@@ -471,8 +487,14 @@ func TimeOfImpact(input *TOIInput) TOIOutput {
 	sweepA := input.SweepA
 	sweepB := input.SweepB
 
-	core.Assert(sweepA.Q1.IsNormalized() && sweepA.Q2.IsNormalized(), "b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 )")
-	core.Assert(sweepB.Q1.IsNormalized() && sweepB.Q2.IsNormalized(), "b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 )")
+	core.Assert(
+		sweepA.Q1.IsNormalized() && sweepA.Q2.IsNormalized(),
+		"b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 )",
+	)
+	core.Assert(
+		sweepB.Q1.IsNormalized() && sweepB.Q2.IsNormalized(),
+		"b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 )",
+	)
 	// todo_erin
 	// c1 can be at the origin yet the points are far away
 	// Vec2 origin = Add(sweepA.C1, input.ProxyA.Points[0])
@@ -600,7 +622,10 @@ func weight2(a1 float32, w1 Vec2, a2 float32, w2 Vec2) Vec2 {
 }
 
 func weight3(a1 float32, w1 Vec2, a2 float32, w2 Vec2, a3 float32, w3 Vec2) Vec2 {
-	return Vec2{float32(a1*w1.X) + float32(a2*w2.X) + float32(a3*w3.X), float32(a1*w1.Y) + float32(a2*w2.Y) + float32(a3*w3.Y)}
+	return Vec2{
+		float32(a1*w1.X) + float32(a2*w2.X) + float32(a3*w3.X),
+		float32(a1*w1.Y) + float32(a2*w2.Y) + float32(a3*w3.Y),
+	}
 }
 
 func findSupport(proxy *ShapeProxy, direction Vec2) int {
@@ -621,7 +646,7 @@ func findSupport(proxy *ShapeProxy, direction Vec2) int {
 	return bestIndex
 }
 
-func makeSimplexFromCache(cache SimplexCache, proxyA, proxyB *ShapeProxy) Simplex {
+func makeSimplexFromCache(cache SimplexCache, proxyA *ShapeProxy, proxyB *ShapeProxy) Simplex {
 	core.Assert(cache.Count <= 3, "cache.count <= 3")
 
 	var s Simplex
@@ -670,7 +695,7 @@ func makeSimplexCache(simplex *Simplex) SimplexCache {
 	return cache
 }
 
-func computeWitnessPoints(s *Simplex, a, b *Vec2) {
+func computeWitnessPoints(s *Simplex, a *Vec2, b *Vec2) {
 	switch s.Count {
 	case 1:
 		*a = s.V1.WA
@@ -855,15 +880,26 @@ func solveSimplex3(s *Simplex) Vec2 {
 	return Vec2Zero
 }
 
-func simplexVertexRegionContainsOrigin(edgeWeightA, edgeWeightB float32) bool {
+func simplexVertexRegionContainsOrigin(edgeWeightA float32, edgeWeightB float32) bool {
 	return edgeWeightA <= 0 && edgeWeightB <= 0
 }
 
-func simplexEdgeRegionContainsOrigin(edgeWeightA, edgeWeightB, triangleWeight float32) bool {
+func simplexEdgeRegionContainsOrigin(
+	edgeWeightA float32,
+	edgeWeightB float32,
+	triangleWeight float32,
+) bool {
 	return edgeWeightA > 0 && edgeWeightB > 0 && triangleWeight <= 0
 }
 
-func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Sweep, proxyB *ShapeProxy, sweepB *Sweep, t1 float32) separationFunction {
+func makeSeparationFunction(
+	cache SimplexCache,
+	proxyA *ShapeProxy,
+	sweepA *Sweep,
+	proxyB *ShapeProxy,
+	sweepB *Sweep,
+	t1 float32,
+) separationFunction {
 	var f separationFunction
 
 	f.proxyA = proxyA
@@ -898,7 +934,10 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 		f.axis = f.axis.Normalize()
 		normal := xfB.Q.Rotate(f.axis)
 
-		f.localPoint = Vec2{0.5 * (localPointB1.X + localPointB2.X), 0.5 * (localPointB1.Y + localPointB2.Y)}
+		f.localPoint = Vec2{
+			0.5 * (localPointB1.X + localPointB2.X),
+			0.5 * (localPointB1.Y + localPointB2.Y),
+		}
 		pointB := xfB.Apply(f.localPoint)
 
 		localPointA := proxyA.Points[cache.IndexA[0]]
@@ -921,7 +960,10 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 	f.axis = f.axis.Normalize()
 	normal := xfA.Q.Rotate(f.axis)
 
-	f.localPoint = Vec2{0.5 * (localPointA1.X + localPointA2.X), 0.5 * (localPointA1.Y + localPointA2.Y)}
+	f.localPoint = Vec2{
+		0.5 * (localPointA1.X + localPointA2.X),
+		0.5 * (localPointA1.Y + localPointA2.Y),
+	}
 	pointA := xfA.Apply(f.localPoint)
 
 	localPointB := proxyB.Points[cache.IndexB[0]]
@@ -935,7 +977,7 @@ func makeSeparationFunction(cache SimplexCache, proxyA *ShapeProxy, sweepA *Swee
 	return f
 }
 
-func findMinSeparation(f *separationFunction, indexA, indexB *int, t float32) float32 {
+func findMinSeparation(f *separationFunction, indexA *int, indexB *int, t float32) float32 {
 	xfA := f.sweepA.Transform(t)
 	xfB := f.sweepB.Transform(t)
 
@@ -1002,7 +1044,7 @@ func findMinSeparation(f *separationFunction, indexA, indexB *int, t float32) fl
 	}
 }
 
-func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) float32 {
+func evaluateSeparation(f *separationFunction, indexA int, indexB int, t float32) float32 {
 	xfA := f.sweepA.Transform(t)
 	xfB := f.sweepB.Transform(t)
 
@@ -1052,7 +1094,11 @@ func evaluateSeparation(f *separationFunction, indexA, indexB int, t float32) fl
 	}
 }
 
-func (bracket *separationRootBracket) refine(fcn *separationFunction, indexA, indexB int, target, tolerance float32) float32 {
+func (bracket *separationRootBracket) refine(
+	fcn *separationFunction,
+	indexA int, indexB int,
+	target float32, tolerance float32,
+) float32 {
 	rootIterationCount := 0
 	rootTime := bracket.upper
 
@@ -1061,7 +1107,9 @@ func (bracket *separationRootBracket) refine(fcn *separationFunction, indexA, in
 		var t float32
 		if rootIterationCount&1 != 0 {
 			// False position to improve convergence.
-			t = bracket.lower + float32((target-bracket.lowerSeparation)*(bracket.upper-bracket.lower))/(bracket.upperSeparation-bracket.lowerSeparation)
+			t = bracket.lower + float32(
+				(target-bracket.lowerSeparation)*(bracket.upper-bracket.lower),
+			)/(bracket.upperSeparation-bracket.lowerSeparation)
 		} else {
 			// Bisection to guarantee progress.
 			t = 0.5 * (bracket.lower + bracket.upper)
@@ -1091,7 +1139,10 @@ func (bracket *separationRootBracket) refine(fcn *separationFunction, indexA, in
 	return rootTime
 }
 
-func advanceSeparationAxis(fcn *separationFunction, t1, tMax, target, tolerance float32) (TOIState, float32) {
+func advanceSeparationAxis(
+	fcn *separationFunction,
+	t1 float32, tMax float32, target float32, tolerance float32,
+) (TOIState, float32) {
 	t2 := tMax
 	pushBackIterations := 0
 
@@ -1130,7 +1181,12 @@ func advanceSeparationAxis(fcn *separationFunction, t1, tMax, target, tolerance 
 	}
 }
 
-func runGJK(simplex *Simplex, proxyA, proxyB *ShapeProxy, simplexes []Simplex, simplexIndex *int) (Vec2, int, bool) {
+func runGJK(
+	simplex *Simplex,
+	proxyA *ShapeProxy, proxyB *ShapeProxy,
+	simplexes []Simplex,
+	simplexIndex *int,
+) (Vec2, int, bool) {
 	// Get simplex vertices as an array.
 	vertices := [3]*SimplexVertex{&simplex.V1, &simplex.V2, &simplex.V3}
 
@@ -1222,7 +1278,12 @@ func (simplex *Simplex) searchDirection() Vec2 {
 	}
 }
 
-func degenerateSegmentFractions(dd1, dd2, rd1, rd2 float32) (float32, float32) {
+func degenerateSegmentFractions(
+	dd1 float32,
+	dd2 float32,
+	rd1 float32,
+	rd2 float32,
+) (float32, float32) {
 	const epsSqr = float32(0x1p-23) * float32(0x1p-23)
 	if dd1 >= epsSqr {
 		// Segment 2 is degenerate

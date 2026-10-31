@@ -83,7 +83,12 @@ func CreateTileWorld(context *SampleContext) Sampler {
 			ycount := int(float32(math.Round(float64(height*cosf(omega*xBody))))) + 12
 
 			for range ycount {
-				square := box2d.MakeOffsetBox(0.4*s.gridSize, 0.4*s.gridSize, box2d.Vec2{X: xShape, Y: y}, box2d.RotIdentity)
+				square := box2d.MakeOffsetBox(
+					0.4*s.gridSize,
+					0.4*s.gridSize,
+					box2d.Vec2{X: xShape, Y: y},
+					box2d.RotIdentity,
+				)
 				square.Radius = 0.1
 				groundID.CreatePolygonShape(&shapeDef, &square)
 
@@ -121,7 +126,18 @@ func CreateTileWorld(context *SampleContext) Sampler {
 			position := box2d.Pos{X: posScalar(xbase - 2.0), Y: 10.0}
 			for range 5 {
 				human := scenes.Human{}
-				scenes.CreateHuman(&human, s.worldID, position, 1.5, 0.05, 0.0, 0.0, humanIndex+1, nil, false)
+				scenes.CreateHuman(
+					&human,
+					s.worldID,
+					position,
+					1.5,
+					0.05,
+					0.0,
+					0.0,
+					humanIndex+1,
+					nil,
+					false,
+				)
 				humanIndex++
 				position.X += 1.0
 			}
@@ -136,11 +152,22 @@ func CreateTileWorld(context *SampleContext) Sampler {
 		}
 	}
 
-	s.car.Spawn(s.worldID, box2d.Pos{X: posScalar(xStart + 20.0), Y: 40.0}, 10.0, 2.0, 0.7, 2000.0, nil)
+	s.car.Spawn(
+		s.worldID,
+		box2d.Pos{X: posScalar(xStart + 20.0), Y: 40.0},
+		10.0,
+		2.0,
+		0.7,
+		2000.0,
+		nil,
+	)
 
 	s.cycleIndex = 0
 	s.speed = 0.0
-	s.explosionPosition = box2d.Pos{X: posScalar((0.5+float32(s.cycleIndex))*s.period + xStart), Y: 7.0}
+	s.explosionPosition = box2d.Pos{
+		X: posScalar((0.5+float32(s.cycleIndex))*s.period + xStart),
+		Y: 7.0,
+	}
 	s.explode = true
 	s.followCar = false
 	return s
@@ -245,7 +272,10 @@ func CreateFarPyramid(context *SampleContext) Sampler {
 	groundID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	box := box2d.MakeBox(h, h)
@@ -318,10 +348,24 @@ func CreateFarRagdolls(context *SampleContext) Sampler {
 	index := 0
 	for i := range farRagdollsRowCount {
 		for j := range farRagdollsColumnCount {
-			x := 2.4*scale*(float32(j)-0.5*(farRagdollsColumnCount-1)) + scenes.RandomFloatRange(-0.3, 0.3)
+			x := 2.4*scale*(float32(j)-0.5*(farRagdollsColumnCount-1)) + scenes.RandomFloatRange(
+				-0.3,
+				0.3,
+			)
 			y := 2.0 + 2.2*scale*float32(i)
 			p := origin.Add(box2d.Vec2{X: x, Y: y})
-			scenes.CreateHuman(&s.humans[index], s.worldID, p, scale, 0.05, 1.0, 0.5, index+1, nil, false)
+			scenes.CreateHuman(
+				&s.humans[index],
+				s.worldID,
+				p,
+				scale,
+				0.05,
+				1.0,
+				0.5,
+				index+1,
+				nil,
+				false,
+			)
 			index++
 		}
 	}
@@ -340,7 +384,11 @@ func (s *FarRagdolls) Step() {
 	}
 
 	c := s.context.camera.center
-	s.DrawScreenTextLine("%d ragdolls piled %.0f km from the world origin", s.humanCount, 0.001*float32(c.X))
+	s.DrawScreenTextLine(
+		"%d ragdolls piled %.0f km from the world origin",
+		s.humanCount,
+		0.001*float32(c.X),
+	)
 }
 
 // The Gear Lift mechanism from the Joints samples, rebuilt 1000 km from the origin. This sample is
@@ -407,8 +455,12 @@ func CreateFarGate(context *SampleContext) Sampler {
 
 	gearPosition1 := origin.Add(box2d.Vec2{X: -4.25, Y: 9.75})
 	gearPosition2 := gearPosition1.Add(box2d.Vec2{X: 2.0, Y: 1.0})
-	linkAttachPosition := gearPosition2.Add(box2d.Vec2{X: gearRadius + 2.0*toothHalfWidth + toothRadius, Y: 0.0})
-	doorPosition := linkAttachPosition.Add(box2d.Vec2{X: 0.0, Y: 2.0*linkCount*linkHalfLength + doorHalfHeight}.Neg())
+	linkAttachPosition := gearPosition2.Add(
+		box2d.Vec2{X: gearRadius + 2.0*toothHalfWidth + toothRadius, Y: 0.0},
+	)
+	doorPosition := linkAttachPosition.Add(
+		box2d.Vec2{X: 0.0, Y: 2.0*linkCount*linkHalfLength + doorHalfHeight}.Neg(),
+	)
 
 	{
 		position := gearPosition1
@@ -418,7 +470,14 @@ func CreateFarGate(context *SampleContext) Sampler {
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
-		createGear(bodyID, gearRadius, toothHalfHeight, toothHalfWidth, toothHalfHeight, toothRadius)
+		createGear(
+			bodyID,
+			gearRadius,
+			toothHalfHeight,
+			toothHalfWidth,
+			toothHalfHeight,
+			toothRadius,
+		)
 
 		revoluteDef := box2d.DefaultRevoluteJointDef()
 
@@ -446,7 +505,14 @@ func CreateFarGate(context *SampleContext) Sampler {
 
 		followerID = s.worldID.CreateBody(&bodyDef)
 
-		createGear(followerID, gearRadius, toothHalfWidth, toothHalfWidth, toothHalfHeight, toothRadius)
+		createGear(
+			followerID,
+			gearRadius,
+			toothHalfWidth,
+			toothHalfWidth,
+			toothHalfHeight,
+			toothRadius,
+		)
 
 		revoluteDef := box2d.DefaultRevoluteJointDef()
 
@@ -465,7 +531,11 @@ func CreateFarGate(context *SampleContext) Sampler {
 
 	var lastLinkID box2d.Body
 	{
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -linkHalfLength}, Center2: box2d.Vec2{X: 0.0, Y: linkHalfLength}, Radius: linkRadius}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -linkHalfLength},
+			Center2: box2d.Vec2{X: 0.0, Y: linkHalfLength},
+			Radius:  linkRadius,
+		}
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 2.0
@@ -550,7 +620,11 @@ func CreateFarGate(context *SampleContext) Sampler {
 		shapeDef.Material.RollingResistance = 0.3
 
 		colors := [5]box2d.HexColor{
-			box2d.ColorGray, box2d.ColorGainsboro, box2d.ColorLightGray, box2d.ColorLightSlateGray, box2d.ColorDarkGray,
+			box2d.ColorGray,
+			box2d.ColorGainsboro,
+			box2d.ColorLightGray,
+			box2d.ColorLightSlateGray,
+			box2d.ColorDarkGray,
 		}
 
 		y := float32(4.25)

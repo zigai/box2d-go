@@ -41,7 +41,10 @@ type WheelJointDef struct {
 func (w WheelJoint) SetSpringEnabled(enableSpring bool) {
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointEnableSpring(world.recording, &recArgsWheelJointEnableSpring{joint: w.Joint, enableSpring: enableSpring})
+		recWriteWheelJointEnableSpring(
+			world.recording,
+			&recArgsWheelJointEnableSpring{joint: w.Joint, enableSpring: enableSpring},
+		)
 	}
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -64,7 +67,10 @@ func (w WheelJoint) SetSpringHertz(hertz float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointSetSpringHertz(world.recording, &recArgsWheelJointSetSpringHertz{joint: w.Joint, hertz: hertz})
+		recWriteWheelJointSetSpringHertz(
+			world.recording,
+			&recArgsWheelJointSetSpringHertz{joint: w.Joint, hertz: hertz},
+		)
 	}
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -83,7 +89,10 @@ func (w WheelJoint) SetSpringDampingRatio(dampingRatio float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointSetSpringDampingRatio(world.recording, &recArgsWheelJointSetSpringDampingRatio{joint: w.Joint, dampingRatio: dampingRatio})
+		recWriteWheelJointSetSpringDampingRatio(
+			world.recording,
+			&recArgsWheelJointSetSpringDampingRatio{joint: w.Joint, dampingRatio: dampingRatio},
+		)
 	}
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -100,7 +109,10 @@ func (w WheelJoint) SpringDampingRatio() float32 {
 func (w WheelJoint) SetLimitEnabled(enableLimit bool) {
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointEnableLimit(world.recording, &recArgsWheelJointEnableLimit{joint: w.Joint, enableLimit: enableLimit})
+		recWriteWheelJointEnableLimit(
+			world.recording,
+			&recArgsWheelJointEnableLimit{joint: w.Joint, enableLimit: enableLimit},
+		)
 	}
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -136,7 +148,10 @@ func (w WheelJoint) SetLimits(lower float32, upper float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointSetLimits(world.recording, &recArgsWheelJointSetLimits{joint: w.Joint, lower: lower, upper: upper})
+		recWriteWheelJointSetLimits(
+			world.recording,
+			&recArgsWheelJointSetLimits{joint: w.Joint, lower: lower, upper: upper},
+		)
 	}
 
 	core.Assert(lower <= upper, "lower <= upper")
@@ -150,7 +165,10 @@ func (w WheelJoint) SetLimits(lower float32, upper float32) {
 func (w WheelJoint) SetMotorEnabled(enableMotor bool) {
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointEnableMotor(world.recording, &recArgsWheelJointEnableMotor{joint: w.Joint, enableMotor: enableMotor})
+		recWriteWheelJointEnableMotor(
+			world.recording,
+			&recArgsWheelJointEnableMotor{joint: w.Joint, enableMotor: enableMotor},
+		)
 	}
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -172,7 +190,10 @@ func (w WheelJoint) SetMotorSpeed(motorSpeed float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointSetMotorSpeed(world.recording, &recArgsWheelJointSetMotorSpeed{joint: w.Joint, motorSpeed: motorSpeed})
+		recWriteWheelJointSetMotorSpeed(
+			world.recording,
+			&recArgsWheelJointSetMotorSpeed{joint: w.Joint, motorSpeed: motorSpeed},
+		)
 	}
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -199,7 +220,10 @@ func (w WheelJoint) SetMaxMotorTorque(torque float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWheelJointSetMaxMotorTorque(world.recording, &recArgsWheelJointSetMaxMotorTorque{joint: w.Joint, torque: torque})
+		recWriteWheelJointSetMaxMotorTorque(
+			world.recording,
+			&recArgsWheelJointSetMaxMotorTorque{joint: w.Joint, torque: torque},
+		)
 	}
 
 	joint := getJointSimCheckType(w.Joint, WheelJointType)
@@ -222,9 +246,16 @@ func getWheelJointForce(world *World, base *jointSim) Vec2 {
 	joint := &base.wheelJoint
 
 	perpForce := float32(world.invH * joint.perpImpulse)
-	axialForce := float32(world.invH * (joint.springImpulse + joint.lowerImpulse - joint.upperImpulse))
+	axialForce := float32(
+		world.invH * (joint.springImpulse + joint.lowerImpulse - joint.upperImpulse),
+	)
 
-	force := Vec2{X: float32(perpForce * perpA.X), Y: float32(perpForce * perpA.Y)}.Add(Vec2{X: float32(axialForce * axisA.X), Y: float32(axialForce * axisA.Y)})
+	force := Vec2{
+		X: float32(perpForce * perpA.X),
+		Y: float32(perpForce * perpA.Y),
+	}.Add(
+		Vec2{X: float32(axialForce * axisA.X), Y: float32(axialForce * axisA.Y)},
+	)
 
 	return force
 }
@@ -258,7 +289,10 @@ func prepareWheelJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
 
@@ -380,7 +414,12 @@ func warmStartWheelJoint(base *jointSim, context *stepContext) {
 
 	axialImpulse := joint.springImpulse + joint.lowerImpulse - joint.upperImpulse
 
-	impulseVector := Vec2{X: float32(axialImpulse * axisA.X), Y: float32(axialImpulse * axisA.Y)}.Add(Vec2{X: float32(joint.perpImpulse * perpA.X), Y: float32(joint.perpImpulse * perpA.Y)})
+	impulseVector := Vec2{
+		X: float32(axialImpulse * axisA.X),
+		Y: float32(axialImpulse * axisA.Y),
+	}.Add(
+		Vec2{X: float32(joint.perpImpulse * perpA.X), Y: float32(joint.perpImpulse * perpA.Y)},
+	)
 	angularImpulseA := float32(axialImpulse*a1) + float32(joint.perpImpulse*s1) + joint.motorImpulse
 	angularImpulseB := float32(axialImpulse*a2) + float32(joint.perpImpulse*s2) + joint.motorImpulse
 
@@ -453,7 +492,11 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulseScale := joint.springSoftness.impulseScale
 
 		velocityError := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
-		impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.springImpulse)
+		impulse := float32(
+			float32(-massScale*joint.axialMass)*(velocityError+bias),
+		) - float32(
+			impulseScale*joint.springImpulse,
+		)
 		joint.springImpulse += impulse
 
 		impulseVector := Vec2{X: float32(impulse * axisA.X), Y: float32(impulse * axisA.Y)}
@@ -470,10 +513,19 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		// Lower limit
 		{
 			separation := translation - joint.lowerTranslation
-			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
+			bias, massScale, impulseScale := jointLimitBias(
+				separation,
+				context.invH,
+				useBias,
+				base.constraintSoftness,
+			)
 
 			velocityError := axisA.Dot(vB.Sub(vA)) + float32(a2*wB) - float32(a1*wA)
-			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.lowerImpulse)
+			impulse := float32(
+				float32(-massScale*joint.axialMass)*(velocityError+bias),
+			) - float32(
+				impulseScale*joint.lowerImpulse,
+			)
 			oldImpulse := joint.lowerImpulse
 			joint.lowerImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.lowerImpulse - oldImpulse
@@ -494,11 +546,20 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		{
 			// sign flipped
 			separation := joint.upperTranslation - translation
-			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
+			bias, massScale, impulseScale := jointLimitBias(
+				separation,
+				context.invH,
+				useBias,
+				base.constraintSoftness,
+			)
 
 			// sign flipped on velocityError
 			velocityError := axisA.Dot(vA.Sub(vB)) + float32(a1*wA) - float32(a2*wB)
-			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.upperImpulse)
+			impulse := float32(
+				float32(-massScale*joint.axialMass)*(velocityError+bias),
+			) - float32(
+				impulseScale*joint.upperImpulse,
+			)
 			oldImpulse := joint.upperImpulse
 			joint.upperImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.upperImpulse - oldImpulse
@@ -534,7 +595,11 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 		s2 := rB.Cross(perpA)
 		velocityError := perpA.Dot(vB.Sub(vA)) + float32(s2*wB) - float32(s1*wA)
 
-		impulse := float32(float32(-massScale*joint.perpMass)*(velocityError+bias)) - float32(impulseScale*joint.perpImpulse)
+		impulse := float32(
+			float32(-massScale*joint.perpMass)*(velocityError+bias),
+		) - float32(
+			impulseScale*joint.perpImpulse,
+		)
 		joint.perpImpulse += impulse
 
 		impulseVector := Vec2{X: float32(impulse * perpA.X), Y: float32(impulse * perpA.Y)}
@@ -558,7 +623,13 @@ func solveWheelJoint(base *jointSim, context *stepContext, useBias bool) {
 	}
 }
 
-func drawWheelJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform, drawScale float32) {
+func drawWheelJoint(
+	draw *DebugDraw,
+	base *jointSim,
+	transformA WorldTransform,
+	transformB WorldTransform,
+	drawScale float32,
+) {
 	core.Assert(base.jointType == WheelJointType, "base->type == b2_wheelJoint")
 
 	joint := &base.wheelJoint
@@ -576,15 +647,51 @@ func drawWheelJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, 
 	draw.DrawLine(frameA.P, frameB.P, c5)
 
 	if joint.enableLimit {
-		lower := frameA.P.Add(Vec2{X: float32(joint.lowerTranslation * axisA.X), Y: float32(joint.lowerTranslation * axisA.Y)})
-		upper := frameA.P.Add(Vec2{X: float32(joint.upperTranslation * axisA.X), Y: float32(joint.upperTranslation * axisA.Y)})
+		lower := frameA.P.Add(
+			Vec2{
+				X: float32(joint.lowerTranslation * axisA.X),
+				Y: float32(joint.lowerTranslation * axisA.Y),
+			},
+		)
+		upper := frameA.P.Add(
+			Vec2{
+				X: float32(joint.upperTranslation * axisA.X),
+				Y: float32(joint.upperTranslation * axisA.Y),
+			},
+		)
 		perp := axisA.LeftPerp()
 
 		draw.DrawLine(lower, upper, c1)
-		draw.DrawLine(lower.Add(Vec2{X: float32(float32(-float32(0.1)*drawScale) * perp.X), Y: float32(float32(-float32(0.1)*drawScale) * perp.Y)}),
-			lower.Add(Vec2{X: float32(float32(float32(0.1)*drawScale) * perp.X), Y: float32(float32(float32(0.1)*drawScale) * perp.Y)}), c2)
-		draw.DrawLine(upper.Add(Vec2{X: float32(float32(-float32(0.1)*drawScale) * perp.X), Y: float32(float32(-float32(0.1)*drawScale) * perp.Y)}),
-			upper.Add(Vec2{X: float32(float32(float32(0.1)*drawScale) * perp.X), Y: float32(float32(float32(0.1)*drawScale) * perp.Y)}), c3)
+		draw.DrawLine(
+			lower.Add(
+				Vec2{
+					X: float32(float32(-float32(0.1)*drawScale) * perp.X),
+					Y: float32(float32(-float32(0.1)*drawScale) * perp.Y),
+				},
+			),
+			lower.Add(
+				Vec2{
+					X: float32(float32(float32(0.1)*drawScale) * perp.X),
+					Y: float32(float32(float32(0.1)*drawScale) * perp.Y),
+				},
+			),
+			c2,
+		)
+		draw.DrawLine(
+			upper.Add(
+				Vec2{
+					X: float32(float32(-float32(0.1)*drawScale) * perp.X),
+					Y: float32(float32(-float32(0.1)*drawScale) * perp.Y),
+				},
+			),
+			upper.Add(
+				Vec2{
+					X: float32(float32(float32(0.1)*drawScale) * perp.X),
+					Y: float32(float32(float32(0.1)*drawScale) * perp.Y),
+				},
+			),
+			c3,
+		)
 	} else {
 		draw.DrawLine(frameA.P.Add(axisA.Neg()), frameA.P.Add(axisA), c1)
 	}

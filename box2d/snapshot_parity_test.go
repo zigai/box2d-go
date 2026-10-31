@@ -46,17 +46,22 @@ func snapshotQuery(t *testing.T, r *oracle.Reader, w *World, origin Pos, key str
 
 	count := 0
 
-	w.OverlapAABB(origin, AABB{LowerBound: Vec2{-30, -5}, UpperBound: Vec2{30, 15}}, DefaultQueryFilter(), func(s Shape) bool {
-		if s.index1 <= 0 || s.index1 >= 64 {
-			t.Fatalf("%s query shape index %d outside bounded observation", key, s.index1)
-		}
+	w.OverlapAABB(
+		origin,
+		AABB{LowerBound: Vec2{-30, -5}, UpperBound: Vec2{30, 15}},
+		DefaultQueryFilter(),
+		func(s Shape) bool {
+			if s.index1 <= 0 || s.index1 >= 64 {
+				t.Fatalf("%s query shape index %d outside bounded observation", key, s.index1)
+			}
 
-		mask |= uint64(1) << s.index1
-		count++
-		generations[s.index1] = uint32(s.generation)
+			mask |= uint64(1) << s.index1
+			count++
+			generations[s.index1] = uint32(s.generation)
 
-		return true
-	})
+			return true
+		},
+	)
 	r.I32(key+"/queryCount", int32(count))
 	r.U64(key+"/querySet", mask)
 
@@ -99,7 +104,11 @@ func TestSnapshotRejectsDuplicateFreeBodyIDs(t *testing.T) {
 	CleanupWorld(t, loaded)
 
 	if !errors.Is(err, ErrCorrupt) || loaded != nil {
-		t.Fatalf("duplicate free body IDs: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+		t.Fatalf(
+			"duplicate free body IDs: world = %p, error = %v, want nil and ErrCorrupt",
+			loaded,
+			err,
+		)
 	}
 }
 
@@ -121,7 +130,11 @@ func TestSnapshotRejectsFreeIDOfLiveBody(t *testing.T) {
 	CleanupWorld(t, loaded)
 
 	if loaded != nil || !errors.Is(err, ErrCorrupt) {
-		t.Fatalf("free ID of live body: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+		t.Fatalf(
+			"free ID of live body: world = %p, error = %v, want nil and ErrCorrupt",
+			loaded,
+			err,
+		)
 	}
 }
 
@@ -142,7 +155,11 @@ func TestSnapshotRejectsLiveProxyOnFreeList(t *testing.T) {
 	CleanupWorld(t, loaded)
 
 	if loaded != nil || !errors.Is(err, ErrCorrupt) {
-		t.Fatalf("live proxy on free list: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+		t.Fatalf(
+			"live proxy on free list: world = %p, error = %v, want nil and ErrCorrupt",
+			loaded,
+			err,
+		)
 	}
 }
 
@@ -186,7 +203,11 @@ func TestSnapshotRejectsDuplicatePairKeys(t *testing.T) {
 	CleanupWorld(t, loaded)
 
 	if loaded != nil || !errors.Is(err, ErrCorrupt) {
-		t.Fatalf("duplicate pair keys: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
+		t.Fatalf(
+			"duplicate pair keys: world = %p, error = %v, want nil and ErrCorrupt",
+			loaded,
+			err,
+		)
 	}
 }
 
@@ -361,7 +382,12 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 				scene.step(i)
 
 				if w.StateHash() != tail[i] {
-					t.Fatalf("rollback canonical state at step %d: got %x reference %x", i, w.StateHash(), tail[i])
+					t.Fatalf(
+						"rollback canonical state at step %d: got %x reference %x",
+						i,
+						w.StateHash(),
+						tail[i],
+					)
 				}
 
 				key := fmt.Sprintf("rollback/%d", i)
@@ -529,7 +555,14 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 		name     string
 		offset   int
 		category error
-	}{{"nil", -2, nil}, {"short", -1, nil}, {"magic", 0, ErrBadMagic}, {"version", 4, ErrVersion}, {"layout", 8, ErrLayout}, {"precision", 12, ErrLayout}}
+	}{
+		{"nil", -2, nil},
+		{"short", -1, nil},
+		{"magic", 0, ErrBadMagic},
+		{"version", 4, ErrVersion},
+		{"layout", 8, ErrLayout},
+		{"precision", 12, ErrLayout},
+	}
 	for _, tc := range cases {
 		bad := snapshotCorruptHeader(image, tc.offset)
 
@@ -617,8 +650,12 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	r := oracle.Open(t, "snapshot/Wiring")
 
 	var (
-		oldTag, liveTag                                                                                                     int
-		tasks, finishes, oldFilter, liveFilter, oldPre, livePre, oldFriction, liveFriction, oldRestitution, liveRestitution int
+		oldTag, liveTag                 int
+		tasks, finishes                 int
+		oldFilter, liveFilter           int
+		oldPre, livePre                 int
+		oldFriction, liveFriction       int
+		oldRestitution, liveRestitution int
 	)
 
 	wd := DefaultWorldDef()
@@ -659,8 +696,12 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	joint.SetUserData(&liveTag)
 	w.SetCustomFilterCallback(func(Shape, Shape) bool { liveFilter++; return true })
 	w.SetPreSolveCallback(func(_ Shape, _ Shape, m *Manifold) { livePre++; m.PointCount = 0 }, nil)
-	w.SetFrictionCallback(func(float32, uint64, float32, uint64) float32 { liveFriction++; return 0.125 })
-	w.SetRestitutionCallback(func(float32, uint64, float32, uint64) float32 { liveRestitution++; return 0.375 })
+	w.SetFrictionCallback(
+		func(float32, uint64, float32, uint64) float32 { liveFriction++; return 0.125 },
+	)
+	w.SetRestitutionCallback(
+		func(float32, uint64, float32, uint64) float32 { liveRestitution++; return 0.375 },
+	)
 
 	if err := w.UnmarshalBinary(image); err != nil {
 		t.Fatalf("restore wired destination: %v", err)
@@ -676,7 +717,15 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	snapshotRequireTasksComplete(t, tasks, finishes)
 
 	if liveFilter == 0 || livePre == 0 || liveFriction == 0 || liveRestitution == 0 {
-		t.Fatalf("restored wiring inactive: tasks %d finished %d filter %d pre %d friction %d restitution %d", tasks, finishes, liveFilter, livePre, liveFriction, liveRestitution)
+		t.Fatalf(
+			"restored wiring inactive: tasks %d finished %d filter %d pre %d friction %d restitution %d",
+			tasks,
+			finishes,
+			liveFilter,
+			livePre,
+			liveFriction,
+			liveRestitution,
+		)
 	}
 
 	r.Bool("live/tasks", tasks > 0)
@@ -693,7 +742,8 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	r.U64("live/state", w.StateHash())
 	snapshotContactMaterials(r, w, "live")
 
-	beforeFilter, beforePre, beforeFriction, beforeRestitution, beforeTasks := liveFilter, livePre, liveFriction, liveRestitution, tasks
+	beforeFilter, beforePre, beforeFriction, beforeRestitution, beforeTasks :=
+		liveFilter, livePre, liveFriction, liveRestitution, tasks
 
 	clone, err := NewWorldFromSnapshot(image, 0)
 	if err != nil {
@@ -714,7 +764,12 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	r.Bool("new/jointData", cj.UserData() == nil)
 	r.I32("new/workers", int32(clone.workerCount))
 	clone.Step(float32(1.0)/60, 4)
-	r.Bool("new/noLiveCalls", liveFilter == beforeFilter && livePre == beforePre && liveFriction == beforeFriction && liveRestitution == beforeRestitution && tasks == beforeTasks)
+	r.Bool(
+		"new/noLiveCalls",
+		liveFilter == beforeFilter && livePre == beforePre && liveFriction == beforeFriction &&
+			liveRestitution == beforeRestitution &&
+			tasks == beforeTasks,
+	)
 	snapshotPos(r, "new/position", cb.Position())
 	r.U64("new/state", clone.StateHash())
 	snapshotContactMaterials(r, clone, "new")
@@ -846,7 +901,7 @@ func snapshotCorruptHeader(image []byte, offset int) []byte {
 	}
 }
 
-func snapshotRequireError(t *testing.T, err, category error, name, operation string) {
+func snapshotRequireError(t *testing.T, err error, category error, name string, operation string) {
 	t.Helper()
 
 	var snapshotErr *SnapshotError
@@ -1007,7 +1062,7 @@ func (scene *snapshotFamilyScene) step(i int) {
 	scene.world.Step(float32(1.0)/60, 4)
 }
 
-func snapshotRequireTasksComplete(t *testing.T, tasks, finishes int) {
+func snapshotRequireTasksComplete(t *testing.T, tasks int, finishes int) {
 	t.Helper()
 
 	if tasks == 0 || tasks != finishes {

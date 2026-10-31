@@ -54,7 +54,11 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 				t.Fatal(err)
 			}
 			writeAppliedFile(t, mainFile, source)
-			writeAppliedFile(t, filepath.Join(dir, "go.mod"), []byte("module roundingfixture\n\ngo 1.27\n"))
+			writeAppliedFile(
+				t,
+				filepath.Join(dir, "go.mod"),
+				[]byte("module roundingfixture\n\ngo 1.27\n"),
+			)
 			if err := os.Mkdir(filepath.Join(dir, "measures"), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -67,12 +71,21 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 			pkg := loadAppliedPackage(t, dir)
 			diagnostics := analyzeAppliedPackage(t, pkg)
 			if len(diagnostics) != tc.diagnostics {
-				t.Fatalf("original diagnostics = %d, want %d; %+v", len(diagnostics), tc.diagnostics, diagnostics)
+				t.Fatalf(
+					"original diagnostics = %d, want %d; %+v",
+					len(diagnostics),
+					tc.diagnostics,
+					diagnostics,
+				)
 			}
 			var edits []analysis.TextEdit
 			for i, diagnostic := range diagnostics {
 				if len(diagnostic.SuggestedFixes) != 1 {
-					t.Fatalf("diagnostic %d has %d fixes, want one applicable rounding fix", i, len(diagnostic.SuggestedFixes))
+					t.Fatalf(
+						"diagnostic %d has %d fixes, want one applicable rounding fix",
+						i,
+						len(diagnostic.SuggestedFixes),
+					)
 				}
 				fix := diagnostic.SuggestedFixes[0]
 				if len(fix.TextEdits) == 0 {
@@ -89,9 +102,17 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 				}
 				start, end := file.Offset(edit.Pos), file.Offset(edit.End)
 				if start > end || end > lastStart {
-					t.Fatalf("fix has reversed or overlapping ranges: [%d,%d), previous start %d", start, end, lastStart)
+					t.Fatalf(
+						"fix has reversed or overlapping ranges: [%d,%d), previous start %d",
+						start,
+						end,
+						lastStart,
+					)
 				}
-				source = append(append(append([]byte(nil), source[:start]...), edit.NewText...), source[end:]...)
+				source = append(
+					append(append([]byte(nil), source[:start]...), edit.NewText...),
+					source[end:]...,
+				)
 				lastStart = start
 			}
 			writeAppliedFile(t, mainFile, source)

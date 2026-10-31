@@ -121,11 +121,20 @@ type debugDrawer struct {
 	context *SampleContext
 }
 
-func (d debugDrawer) DrawPolygon(transform box2d.WorldTransform, vertices []box2d.Vec2, color box2d.HexColor) {
+func (d debugDrawer) DrawPolygon(
+	transform box2d.WorldTransform,
+	vertices []box2d.Vec2,
+	color box2d.HexColor,
+) {
 	d.context.draw.DrawPolygon(transform, vertices, color)
 }
 
-func (d debugDrawer) DrawSolidPolygon(transform box2d.WorldTransform, vertices []box2d.Vec2, radius float32, color box2d.HexColor) {
+func (d debugDrawer) DrawSolidPolygon(
+	transform box2d.WorldTransform,
+	vertices []box2d.Vec2,
+	radius float32,
+	color box2d.HexColor,
+) {
 	d.context.draw.DrawSolidPolygon(transform, vertices, radius, color)
 }
 
@@ -133,7 +142,12 @@ func (d debugDrawer) DrawCircle(center box2d.Pos, radius float32, color box2d.He
 	d.context.draw.DrawCircle(center, radius, color)
 }
 
-func (d debugDrawer) DrawSolidCircle(transform box2d.WorldTransform, center box2d.Vec2, radius float32, color box2d.HexColor) {
+func (d debugDrawer) DrawSolidCircle(
+	transform box2d.WorldTransform,
+	center box2d.Vec2,
+	radius float32,
+	color box2d.HexColor,
+) {
 	d.context.draw.DrawSolidCircle(transform, center, radius, color)
 }
 
@@ -477,7 +491,11 @@ func (s *Sample) Step() {
 
 	if s.mouseBodyID != (box2d.Body{}) && timeStep > 0.0 {
 		wake := true
-		s.mouseBodyID.SetTargetTransform(box2d.WorldTransform{P: s.mousePoint, Q: box2d.RotIdentity}, timeStep, wake)
+		s.mouseBodyID.SetTargetTransform(
+			box2d.WorldTransform{P: s.mousePoint, Q: box2d.RotIdentity},
+			timeStep,
+			wake,
+		)
 	}
 
 	s.context.debugDraw.DrawingBounds = GetViewBounds(&s.context.camera)
@@ -532,10 +550,21 @@ type rowDef struct {
 	color  uint32
 }
 
-func addSegment(dl *imgui.DrawList, availWidth, t, stepNow float32, col uint32, x float32, cursor imgui.Vec2, barHeight float32) float32 {
+func addSegment(
+	dl *imgui.DrawList,
+	availWidth, t, stepNow float32,
+	col uint32,
+	x float32,
+	cursor imgui.Vec2,
+	barHeight float32,
+) float32 {
 	w := availWidth * (t / stepNow)
 	if w > 0.0 {
-		dl.AddRectFilled(imgui.Vec2{X: x, Y: cursor.Y}, imgui.Vec2{X: x + w, Y: cursor.Y + barHeight}, col)
+		dl.AddRectFilled(
+			imgui.Vec2{X: x, Y: cursor.Y},
+			imgui.Vec2{X: x + w, Y: cursor.Y + barHeight},
+			col,
+		)
 		x += w
 	}
 
@@ -588,10 +617,15 @@ func (s *Sample) DrawProfile() {
 	panelWidth := s.GetProfilePanelWidth()
 
 	imgui.SetNextWindowPos(imgui.Vec2{X: 0.5 * fontSize, Y: menuBarHeight + 0.5*fontSize})
-	imgui.SetNextWindowSize(imgui.Vec2{X: panelWidth, Y: s.camera.height - menuBarHeight - fontSize})
+	imgui.SetNextWindowSize(
+		imgui.Vec2{X: panelWidth, Y: s.camera.height - menuBarHeight - fontSize},
+	)
 
-	imgui.BeginV("Profile", nil,
-		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar)
+	imgui.BeginV(
+		"Profile",
+		nil,
+		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar,
+	)
 
 	count := int(s.profileWriteIndex - s.profileReadIndex)
 
@@ -719,10 +753,30 @@ func (s *Sample) DrawProfile() {
 	tableFlags := imgui.TableFlagsBordersInnerV | imgui.TableFlagsRowBg | imgui.TableFlagsSizingFixedFit
 
 	if imgui.BeginTableV("profile", profileColumnCount, tableFlags, imgui.Vec2{}, 0.0) {
-		imgui.TableSetupColumnV("section", imgui.TableColumnFlagsWidthFixed, profileSectionWidth*fontSize, 0)
-		imgui.TableSetupColumnV("now", imgui.TableColumnFlagsWidthFixed, profileValueWidth*fontSize, 0)
-		imgui.TableSetupColumnV("avg", imgui.TableColumnFlagsWidthFixed, profileValueWidth*fontSize, 0)
-		imgui.TableSetupColumnV("max", imgui.TableColumnFlagsWidthFixed, profileValueWidth*fontSize, 0)
+		imgui.TableSetupColumnV(
+			"section",
+			imgui.TableColumnFlagsWidthFixed,
+			profileSectionWidth*fontSize,
+			0,
+		)
+		imgui.TableSetupColumnV(
+			"now",
+			imgui.TableColumnFlagsWidthFixed,
+			profileValueWidth*fontSize,
+			0,
+		)
+		imgui.TableSetupColumnV(
+			"avg",
+			imgui.TableColumnFlagsWidthFixed,
+			profileValueWidth*fontSize,
+			0,
+		)
+		imgui.TableSetupColumnV(
+			"max",
+			imgui.TableColumnFlagsWidthFixed,
+			profileValueWidth*fontSize,
+			0,
+		)
 		imgui.TableSetupColumnV("%", imgui.TableColumnFlagsWidthFixed, profileBarWidth*fontSize, 0)
 		imgui.TableHeadersRow()
 
@@ -740,7 +794,10 @@ func (s *Sample) DrawProfile() {
 
 			idle := avg[r] < 0.005
 			if idle {
-				imgui.PushStyleColorVec4(imgui.ColText, *imgui.StyleColorVec4(imgui.ColTextDisabled))
+				imgui.PushStyleColorVec4(
+					imgui.ColText,
+					*imgui.StyleColorVec4(imgui.ColTextDisabled),
+				)
 			}
 			imgui.TableNextColumn()
 			imText("%6.2f", now[r])
@@ -765,7 +822,11 @@ func (s *Sample) DrawProfile() {
 			p := imgui.CursorScreenPos()
 			drawList := imgui.WindowDrawList()
 			drawList.AddRectFilled(p, imgui.Vec2{X: p.X + barWidth, Y: p.Y + barHeight}, colorTrack)
-			drawList.AddRectFilled(p, imgui.Vec2{X: p.X + frac*barWidth, Y: p.Y + barHeight}, d.color)
+			drawList.AddRectFilled(
+				p,
+				imgui.Vec2{X: p.X + frac*barWidth, Y: p.Y + barHeight},
+				d.color,
+			)
 			imgui.Dummy(imgui.Vec2{X: barWidth, Y: barHeight})
 			if isBudget {
 				imSetItemTooltip("%.0f%% of %.1f ms frame", 100.0*now[r]/reference, reference)
@@ -796,8 +857,11 @@ func (s *Sample) DrawMetrics() {
 	imgui.SetNextWindowPos(imgui.Vec2{X: drawerX, Y: s.camera.height - drawerHeight - 0.5*fontSize})
 	imgui.SetNextWindowSize(imgui.Vec2{X: drawerWidth, Y: drawerHeight})
 
-	imgui.BeginV("Metrics", nil,
-		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar)
+	imgui.BeginV(
+		"Metrics",
+		nil,
+		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar,
+	)
 
 	if imgui.BeginTabBarV("MetricsTabs", imgui.TabBarFlagsNone) {
 		if s.self.HasProfile() && imgui.BeginTabItem("Frame Time") {
@@ -826,7 +890,13 @@ func (s *Sample) DrawMetrics() {
 			plotSize := imgui.ContentRegionAvail()
 			if implot.BeginPlotV("Profile", plotSize, implot.FlagsNoTitle) {
 				implot.SetupAxesV("", "ms", 0, 0)
-				implot.SetupAxesLimitsV(0, profileCapacity/60.0, 0.0, float64(maxValue), implot.CondAlways)
+				implot.SetupAxesLimitsV(
+					0,
+					profileCapacity/60.0,
+					0.0,
+					float64(maxValue),
+					implot.CondAlways,
+				)
 				plotProfileLine("step", colorStep, times[:count], stepTimes[:count])
 				plotProfileLine("pairs", colorPairs, times[:count], pairsTimes[:count])
 				plotProfileLine("collide", colorCollide, times[:count], collideTimes[:count])
@@ -850,15 +920,39 @@ func (s *Sample) DrawMetrics() {
 				colorCount := len(c.ColorCounts)
 				overflowIndex := colorCount - 1
 
-				if imgui.BeginTableV("counters_layout", 3, imgui.TableFlagsSizingFixedFit, imgui.Vec2{}, 0.0) {
-					imgui.TableSetupColumnV("world", imgui.TableColumnFlagsWidthFixed, 14.0*fontSize, 0)
-					imgui.TableSetupColumnV("memory", imgui.TableColumnFlagsWidthFixed, 11.0*fontSize, 0)
+				if imgui.BeginTableV(
+					"counters_layout",
+					3,
+					imgui.TableFlagsSizingFixedFit,
+					imgui.Vec2{},
+					0.0,
+				) {
+					imgui.TableSetupColumnV(
+						"world",
+						imgui.TableColumnFlagsWidthFixed,
+						14.0*fontSize,
+						0,
+					)
+					imgui.TableSetupColumnV(
+						"memory",
+						imgui.TableColumnFlagsWidthFixed,
+						11.0*fontSize,
+						0,
+					)
 					imgui.TableSetupColumnV("solver", imgui.TableColumnFlagsWidthStretch, 0.0, 0)
 					imgui.TableNextRow()
 					imgui.TableNextColumn()
 
-					imText("bodies   %d / %d", c.BodyCount, capacity.StaticBodyCount+capacity.DynamicBodyCount)
-					imText("shapes   %d / %d", c.ShapeCount, capacity.StaticShapeCount+capacity.DynamicShapeCount)
+					imText(
+						"bodies   %d / %d",
+						c.BodyCount,
+						capacity.StaticBodyCount+capacity.DynamicBodyCount,
+					)
+					imText(
+						"shapes   %d / %d",
+						c.ShapeCount,
+						capacity.StaticShapeCount+capacity.DynamicShapeCount,
+					)
 					imText("contacts %d / %d", c.ContactCount, capacity.ContactCount)
 					imText("joints   %d", c.JointCount)
 					imText("islands  %d", c.IslandCount)
@@ -890,7 +984,11 @@ func (s *Sample) DrawMetrics() {
 					dl := imgui.WindowDrawList()
 
 					cursor := imgui.CursorScreenPos()
-					dl.AddRectFilled(cursor, imgui.Vec2{X: cursor.X + availWidth, Y: cursor.Y + barHeight}, imCol32(40, 40, 40, 255))
+					dl.AddRectFilled(
+						cursor,
+						imgui.Vec2{X: cursor.X + availWidth, Y: cursor.Y + barHeight},
+						imCol32(40, 40, 40, 255),
+					)
 					if normalCount > 0 {
 						x := cursor.X
 						invTotal := 1.0 / float32(normalCount)
@@ -902,7 +1000,11 @@ func (s *Sample) DrawMetrics() {
 							segW := availWidth * float32(cnt) * invTotal
 							hex := box2d.GraphColor(i)
 							col := imCol32(uint8(hex>>16), uint8(hex>>8), uint8(hex), 255)
-							dl.AddRectFilled(imgui.Vec2{X: x, Y: cursor.Y}, imgui.Vec2{X: x + segW, Y: cursor.Y + barHeight}, col)
+							dl.AddRectFilled(
+								imgui.Vec2{X: x, Y: cursor.Y},
+								imgui.Vec2{X: x + segW, Y: cursor.Y + barHeight},
+								col,
+							)
 							x += segW
 						}
 					}
@@ -914,15 +1016,31 @@ func (s *Sample) DrawMetrics() {
 						overflowFrac = float32(overflowCount) / float32(totalCount)
 					}
 					imgui.PushStyleColorU32(imgui.ColPlotHistogram, imCol32(220, 60, 60, 255))
-					imgui.ProgressBarV(overflowFrac, imgui.Vec2{X: -fltMin, Y: 0.0}, fmt.Sprintf("overflow %d", overflowCount))
+					imgui.ProgressBarV(
+						overflowFrac,
+						imgui.Vec2{X: -fltMin, Y: 0.0},
+						fmt.Sprintf("overflow %d", overflowCount),
+					)
 					imgui.PopStyleColor()
 
 					var recycledFrac float32
 					if c.AwakeContactCount > 0 {
-						recycledFrac = clampFloat(float32(c.RecycledContactCount)/float32(c.AwakeContactCount), 0.0, 1.0)
+						recycledFrac = clampFloat(
+							float32(c.RecycledContactCount)/float32(c.AwakeContactCount),
+							0.0,
+							1.0,
+						)
 					}
-					recycledOverlay := fmt.Sprintf("recycled %d / %d", c.RecycledContactCount, c.AwakeContactCount)
-					imgui.ProgressBarV(recycledFrac, imgui.Vec2{X: -fltMin, Y: 0.0}, recycledOverlay)
+					recycledOverlay := fmt.Sprintf(
+						"recycled %d / %d",
+						c.RecycledContactCount,
+						c.AwakeContactCount,
+					)
+					imgui.ProgressBarV(
+						recycledFrac,
+						imgui.Vec2{X: -fltMin, Y: 0.0},
+						recycledOverlay,
+					)
 
 					imgui.EndTable()
 				}
@@ -955,8 +1073,20 @@ func (s *Sample) DrawHud(frameTime float32) {
 	entry := &sampleEntries[s.context.sampleIndex]
 	fontSize := imgui.FontSize()
 
-	s.context.draw.DrawScreenString(5.0, 1.5*fontSize, box2d.ColorYellow, "%s : %s", entry.category, entry.name)
-	s.context.draw.DrawScreenString(5.0, 3.0*fontSize, box2d.ColorForestGreen, "Press TAB to show UI")
+	s.context.draw.DrawScreenString(
+		5.0,
+		1.5*fontSize,
+		box2d.ColorYellow,
+		"%s : %s",
+		entry.category,
+		entry.name,
+	)
+	s.context.draw.DrawScreenString(
+		5.0,
+		3.0*fontSize,
+		box2d.ColorForestGreen,
+		"Press TAB to show UI",
+	)
 	s.screenTextY += 1.5 * fontSize
 
 	if s.context.pause {
@@ -964,11 +1094,23 @@ func (s *Sample) DrawHud(frameTime float32) {
 		s.screenTextY += 1.5 * fontSize
 	}
 
-	s.context.draw.DrawScreenString(5.0, s.camera.height-0.5*fontSize, box2d.ColorSeaGreen, "%.1f ms  step %d",
-		1000.0*frameTime, s.stepCount)
+	s.context.draw.DrawScreenString(
+		5.0,
+		s.camera.height-0.5*fontSize,
+		box2d.ColorSeaGreen,
+		"%.1f ms  step %d",
+		1000.0*frameTime,
+		s.stepCount,
+	)
 }
 
-func ParsePath(svgPath string, offset box2d.Vec2, points []box2d.Vec2, scale float32, reverseOrder bool) int {
+func ParsePath(
+	svgPath string,
+	offset box2d.Vec2,
+	points []box2d.Vec2,
+	scale float32,
+	reverseOrder bool,
+) int {
 	pointCount := 0
 	var currentPoint box2d.Vec2
 	ptr := 0
@@ -1041,7 +1183,10 @@ func ParsePath(svgPath string, offset box2d.Vec2, points []box2d.Vec2, scale flo
 			panic("ParsePath: unknown command")
 		}
 
-		points[pointCount] = box2d.Vec2{X: scale * (currentPoint.X + offset.X), Y: -scale * (currentPoint.Y + offset.Y)}
+		points[pointCount] = box2d.Vec2{
+			X: scale * (currentPoint.X + offset.X),
+			Y: -scale * (currentPoint.Y + offset.Y),
+		}
 		pointCount += 1
 		if pointCount == len(points) {
 			break
@@ -1131,7 +1276,11 @@ func RegisterSample(category, name string, fcn SampleCreateFcn) {
 	sampleEntries = append(sampleEntries, SampleEntry{category, name, fcn, nil, false})
 }
 
-func RegisterSampleWithCapacity(category, name string, fcn SampleCreateFcn, capacityFcn SampleCapacityFcn) {
+func RegisterSampleWithCapacity(
+	category, name string,
+	fcn SampleCreateFcn,
+	capacityFcn SampleCapacityFcn,
+) {
 	sampleEntries = append(sampleEntries, SampleEntry{category, name, fcn, capacityFcn, false})
 }
 
@@ -1253,7 +1402,12 @@ func drawMenuBar(context *SampleContext) {
 			}
 			imgui.Separator()
 			imgui.MenuItemBoolPtr("Metrics", "M", &context.showMetrics)
-			imgui.MenuItemBoolPtrV("Profile", "I", &context.showProfile, context.sample.HasProfile())
+			imgui.MenuItemBoolPtrV(
+				"Profile",
+				"I",
+				&context.showProfile,
+				context.sample.HasProfile(),
+			)
 			imgui.Separator()
 			if imgui.BeginMenu("Scale") {
 				imgui.PushItemWidth(6.0 * fontSize)
@@ -1289,7 +1443,9 @@ func drawMenuBar(context *SampleContext) {
 
 		if replayIndex >= 0 && imgui.BeginMenu("Replay") {
 			if imgui.MenuItemBool("Open...") {
-				outPath, err := zenity.SelectFile(zenity.FileFilter{Name: "Box2D recording", Patterns: []string{"*.b2rec"}})
+				outPath, err := zenity.SelectFile(
+					zenity.FileFilter{Name: "Box2D recording", Patterns: []string{"*.b2rec"}},
+				)
 				if err == nil {
 					context.replayFile = outPath
 					SelectSample(context, replayIndex, false)
@@ -1312,16 +1468,24 @@ func drawMenuBar(context *SampleContext) {
 			menuBarBottom := imgui.FrameHeight()
 			borderColor := imgui.ColorU32Col(imgui.ColBorder)
 			displaySize := imgui.CurrentIO().DisplaySize()
-			imgui.ForegroundDrawListViewportPtr().AddLineArgs(imgui.Vec2{X: 0.0, Y: menuBarBottom}, imgui.Vec2{X: displaySize.X, Y: menuBarBottom},
-				borderColor, 1.0)
+			imgui.ForegroundDrawListViewportPtr().
+				AddLineArgs(imgui.Vec2{X: 0.0, Y: menuBarBottom}, imgui.Vec2{X: displaySize.X, Y: menuBarBottom},
+					borderColor, 1.0)
 		}
 
 		if context.showControls {
-			imgui.SetNextWindowPosV(imgui.Vec2{X: context.camera.width * 0.5, Y: context.camera.height * 0.5}, imgui.CondAppearing,
-				imgui.Vec2{X: 0.5, Y: 0.5})
+			imgui.SetNextWindowPosV(
+				imgui.Vec2{X: context.camera.width * 0.5, Y: context.camera.height * 0.5},
+				imgui.CondAppearing,
+				imgui.Vec2{X: 0.5, Y: 0.5},
+			)
 			imgui.SetNextWindowSizeV(imgui.Vec2{X: 24.0 * fontSize, Y: 0.0}, imgui.CondAppearing)
 
-			if imgui.BeginV("Controls", &context.showControls, imgui.WindowFlagsNoCollapse|imgui.WindowFlagsAlwaysAutoResize) {
+			if imgui.BeginV(
+				"Controls",
+				&context.showControls,
+				imgui.WindowFlagsNoCollapse|imgui.WindowFlagsAlwaysAutoResize,
+			) {
 				imgui.SeparatorText("Keyboard")
 				if imgui.BeginTableV("keys", 2, imgui.TableFlagsSizingFixedFit, imgui.Vec2{}, 0.0) {
 					drawRow("Tab", "Show / hide UI")
@@ -1343,7 +1507,13 @@ func drawMenuBar(context *SampleContext) {
 				}
 
 				imgui.SeparatorText("Mouse")
-				if imgui.BeginTableV("mouse", 2, imgui.TableFlagsSizingFixedFit, imgui.Vec2{}, 0.0) {
+				if imgui.BeginTableV(
+					"mouse",
+					2,
+					imgui.TableFlagsSizingFixedFit,
+					imgui.Vec2{},
+					0.0,
+				) {
 					drawRow("Left drag", "Move bodies (mouse joint)")
 					drawRow("Right drag", "Pan camera")
 					drawRow("Scroll wheel", "Zoom")
@@ -1354,16 +1524,26 @@ func drawMenuBar(context *SampleContext) {
 		}
 
 		if showAbout {
-			imgui.SetNextWindowPosV(imgui.Vec2{X: context.camera.width * 0.5, Y: context.camera.height * 0.5}, imgui.CondAppearing,
-				imgui.Vec2{X: 0.5, Y: 0.5})
+			imgui.SetNextWindowPosV(
+				imgui.Vec2{X: context.camera.width * 0.5, Y: context.camera.height * 0.5},
+				imgui.CondAppearing,
+				imgui.Vec2{X: 0.5, Y: 0.5},
+			)
 			imgui.SetNextWindowSizeV(imgui.Vec2{X: 22.0 * fontSize, Y: 0.0}, imgui.CondAppearing)
 
-			if imgui.BeginV("About", &showAbout, imgui.WindowFlagsNoCollapse|imgui.WindowFlagsAlwaysAutoResize) {
+			if imgui.BeginV(
+				"About",
+				&showAbout,
+				imgui.WindowFlagsNoCollapse|imgui.WindowFlagsAlwaysAutoResize,
+			) {
 				version := box2d.CurrentVersion()
 				imText("Box2D %d.%d.%d", version.Major, version.Minor, version.Revision)
 				imgui.Spacing()
 				imgui.TextLinkOpenURLV("box2d.org", "https://box2d.org/")
-				imgui.TextLinkOpenURLV("github.com/erincatto/box2d", "https://github.com/erincatto/box2d")
+				imgui.TextLinkOpenURLV(
+					"github.com/erincatto/box2d",
+					"https://github.com/erincatto/box2d",
+				)
 			}
 			imgui.End()
 		}
@@ -1435,12 +1615,17 @@ func drawSamplePicker(context *SampleContext) {
 		picker.forceScroll = true
 	}
 
-	imgui.SetNextWindowPosV(imgui.Vec2{X: context.camera.width * 0.5, Y: context.camera.height * 0.35}, imgui.CondAppearing,
-		imgui.Vec2{X: 0.5, Y: 0.5})
+	imgui.SetNextWindowPosV(
+		imgui.Vec2{X: context.camera.width * 0.5, Y: context.camera.height * 0.35},
+		imgui.CondAppearing,
+		imgui.Vec2{X: 0.5, Y: 0.5},
+	)
 	imgui.SetNextWindowSizeV(imgui.Vec2{X: 32.0 * fontSize, Y: 0.0}, imgui.CondAppearing)
 
-	if imgui.BeginPopupV("##sample_picker",
-		imgui.WindowFlagsAlwaysAutoResize|imgui.WindowFlagsNoTitleBar|imgui.WindowFlagsNoSavedSettings) {
+	if imgui.BeginPopupV(
+		"##sample_picker",
+		imgui.WindowFlagsAlwaysAutoResize|imgui.WindowFlagsNoTitleBar|imgui.WindowFlagsNoSavedSettings,
+	) {
 		if picker.justOpened {
 			imgui.SetKeyboardFocusHere()
 			picker.justOpened = false
@@ -1469,9 +1654,15 @@ func drawSamplePicker(context *SampleContext) {
 				picker.highlight = (picker.highlight + filteredCount - 1) % filteredCount
 			}
 		}
-		commit := imgui.IsKeyPressedBoolV(imgui.KeyEnter, false) || imgui.IsKeyPressedBoolV(imgui.KeyKeypadEnter, false)
+		commit := imgui.IsKeyPressedBoolV(imgui.KeyEnter, false) ||
+			imgui.IsKeyPressedBoolV(imgui.KeyKeypadEnter, false)
 
-		imgui.BeginChildStrV("##results", imgui.Vec2{X: 0.0, Y: 14.0 * fontSize}, imgui.ChildFlagsBorders, 0)
+		imgui.BeginChildStrV(
+			"##results",
+			imgui.Vec2{X: 0.0, Y: 14.0 * fontSize},
+			imgui.ChildFlagsBorders,
+			0,
+		)
 		for row := range filteredCount {
 			i := picker.filtered[row]
 			label := fmt.Sprintf("%s  >  %s", sampleEntries[i].category, sampleEntries[i].name)
@@ -1525,11 +1716,21 @@ func drawInfoPanel(context *SampleContext, frameTime float32) {
 	menuWidth := context.sample.InfoPanelWidthEm() * fontSize
 	menuBarHeight := imgui.FrameHeight()
 
-	imgui.SetNextWindowPos(imgui.Vec2{X: context.camera.width - menuWidth - 0.5*fontSize, Y: menuBarHeight + 0.5*fontSize})
-	imgui.SetNextWindowSize(imgui.Vec2{X: menuWidth, Y: context.camera.height - menuBarHeight - fontSize})
+	imgui.SetNextWindowPos(
+		imgui.Vec2{
+			X: context.camera.width - menuWidth - 0.5*fontSize,
+			Y: menuBarHeight + 0.5*fontSize,
+		},
+	)
+	imgui.SetNextWindowSize(
+		imgui.Vec2{X: menuWidth, Y: context.camera.height - menuBarHeight - fontSize},
+	)
 
-	imgui.BeginV("Info", nil,
-		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar)
+	imgui.BeginV(
+		"Info",
+		nil,
+		imgui.WindowFlagsNoMove|imgui.WindowFlagsNoResize|imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoTitleBar,
+	)
 
 	imTextColored(MakeColor(box2d.ColorGoldenRod), "%s", entry.name)
 	imTextColored(MakeColor(box2d.ColorLightGray), "%s", entry.category)
@@ -1545,7 +1746,12 @@ func drawInfoPanel(context *SampleContext, frameTime float32) {
 	imTextColored(MakeColor(box2d.ColorSeaGreen), "frame %.1f ms", 1000.0*frameTime)
 	imTextColored(MakeColor(box2d.ColorSeaGreen), "step %d", sample.stepCount)
 	imgui.Separator()
-	imTextColored(MakeColor(box2d.ColorSeaGreen), "cam (%.1f, %.1f)", context.camera.center.X, context.camera.center.Y)
+	imTextColored(
+		MakeColor(box2d.ColorSeaGreen),
+		"cam (%.1f, %.1f)",
+		context.camera.center.X,
+		context.camera.center.Y,
+	)
 	imTextColored(MakeColor(box2d.ColorSeaGreen), "zoom %.2f", context.camera.zoom)
 
 	imgui.Separator()
@@ -1556,11 +1762,14 @@ func drawInfoPanel(context *SampleContext, frameTime float32) {
 	}
 	imgui.PopItemWidth()
 
-	if context.sample.HasSolverControls() && imgui.CollapsingHeaderTreeNodeFlagsV("Solver", imgui.TreeNodeFlagsDefaultOpen) {
+	if context.sample.HasSolverControls() &&
+		imgui.CollapsingHeaderTreeNodeFlagsV("Solver", imgui.TreeNodeFlagsDefaultOpen) {
 		imgui.PushItemWidth(6.0 * fontSize)
 
 		imgui.SliderInt("Sub-steps##Solver", &context.subStepCount, 1, 32)
-		helpMarker("The solver breaks the full step into several sub-steps.\nMore sub-steps usually lead to more accurate results.")
+		helpMarker(
+			"The solver breaks the full step into several sub-steps.\nMore sub-steps usually lead to more accurate results.",
+		)
 
 		imgui.SliderInt("Bounce Iters##Solver", &context.restitutionIterations, 0, 8)
 		helpMarker("Iterations for the restitution solver.")
@@ -1597,7 +1806,8 @@ func drawInfoPanel(context *SampleContext, frameTime float32) {
 		helpMarker("Enable restitution solver propagation across all touching contacts points")
 	}
 
-	if context.sample.HasSolverControls() && imgui.CollapsingHeaderTreeNodeFlagsV("Recording", imgui.TreeNodeFlagsDefaultOpen) {
+	if context.sample.HasSolverControls() &&
+		imgui.CollapsingHeaderTreeNodeFlagsV("Recording", imgui.TreeNodeFlagsDefaultOpen) {
 		imgui.PushItemWidth(9.0 * fontSize)
 		imgui.InputTextWithHint("File##Recording", "", &context.recordingFile, 0, nil)
 		imgui.PopItemWidth()
@@ -1634,9 +1844,19 @@ func drawInfoPanel(context *SampleContext, frameTime float32) {
 			kilobytes := float32(sample.recording.Size()) / 1024.0
 			steps := sample.stepCount - sample.recordStartStep
 			if kilobytes < 1024.0 {
-				imTextColored(MakeColor(box2d.ColorRed), "recording %d steps, %.0f KB", steps, kilobytes)
+				imTextColored(
+					MakeColor(box2d.ColorRed),
+					"recording %d steps, %.0f KB",
+					steps,
+					kilobytes,
+				)
 			} else {
-				imTextColored(MakeColor(box2d.ColorRed), "recording %d steps, %.1f MB", steps, kilobytes/1024.0)
+				imTextColored(
+					MakeColor(box2d.ColorRed),
+					"recording %d steps, %.1f MB",
+					steps,
+					kilobytes/1024.0,
+				)
 			}
 		}
 	}
@@ -1657,7 +1877,9 @@ func imCol32(r, g, b, a uint8) uint32 {
 }
 
 func MakeColor(hexColor box2d.HexColor) imgui.Vec4 {
-	return imgui.ColorConvertU32ToFloat4(imCol32(uint8(hexColor>>16), uint8(hexColor>>8), uint8(hexColor), 255))
+	return imgui.ColorConvertU32ToFloat4(
+		imCol32(uint8(hexColor>>16), uint8(hexColor>>8), uint8(hexColor), 255),
+	)
 }
 
 func clampFloat(a, lower, upper float32) float32 {

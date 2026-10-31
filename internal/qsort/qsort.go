@@ -67,7 +67,7 @@ func Sort[T any](s []T, less func(a, b T) bool) {
 	}
 }
 
-func orderQuickSortPivot[T any](s []T, less func(a, b T) bool, l, m, r int) {
+func orderQuickSortPivot[T any](s []T, less func(a, b T) bool, l int, m int, r int) {
 	a1, a2, a3 := l+1, m, r
 	if less(s[a2], s[a1]) {
 		if less(s[a3], s[a2]) {
@@ -91,7 +91,7 @@ func orderQuickSortPivot[T any](s []T, less func(a, b T) bool, l, m, r int) {
 	}
 }
 
-func partitionQuickSort[T any](s []T, less func(a, b T) bool, l, r int) int {
+func partitionQuickSort[T any](s []T, less func(a, b T) bool, l int, r int) int {
 	m := l + ((r - l) >> 1)
 	orderQuickSortPivot(s, less, l, m, r)
 	s[l], s[m] = s[m], s[l]
@@ -120,7 +120,7 @@ func partitionQuickSort[T any](s []T, less func(a, b T) bool, l, r int) int {
 	return j
 }
 
-func insertionSortRange[T any](s []T, less func(a, b T) bool, l, r int) {
+func insertionSortRange[T any](s []T, less func(a, b T) bool, l int, r int) {
 	for i := l + 1; i <= r; i++ {
 		for j := i; j > l && less(s[j], s[j-1]); j-- {
 			s[j], s[j-1] = s[j-1], s[j]

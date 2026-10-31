@@ -66,7 +66,9 @@ func aabbRayCast(a AABB, p1 Vec2, p2 Vec2) CastOutput {
 	return output
 }
 
-func (interval *aabbRayInterval) clip(lower, upper, origin, direction float32) (float32, bool, bool) {
+func (interval *aabbRayInterval) clip(
+	lower float32, upper float32, origin float32, direction float32,
+) (float32, bool, bool) {
 	var changed bool
 
 	if absFloat(direction) < float32(0x1p-23) {

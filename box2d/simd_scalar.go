@@ -36,8 +36,10 @@ func overlapNode(av aabbV, node *TreeNode) bool {
 	return lowerX&lowerY&upperX&upperY != 0
 }
 
-func overlapV(left, right *AABB) bool {
-	return left.LowerBound.X <= right.UpperBound.X && left.LowerBound.Y <= right.UpperBound.Y && right.LowerBound.X <= left.UpperBound.X && right.LowerBound.Y <= left.UpperBound.Y
+func overlapV(left *AABB, right *AABB) bool {
+	return left.LowerBound.X <= right.UpperBound.X && left.LowerBound.Y <= right.UpperBound.Y &&
+		right.LowerBound.X <= left.UpperBound.X &&
+		right.LowerBound.Y <= left.UpperBound.Y
 }
 
 func unionPairV(pair []TreeNode) aabbV {

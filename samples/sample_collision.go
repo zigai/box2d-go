@@ -66,12 +66,23 @@ func (p *proxyShapes) makeProxy(shapeType proxyShapeType, radius float32) box2d.
 	return proxy
 }
 
-func (p *proxyShapes) drawShape(draw *Draw, shapeType proxyShapeType, transform box2d.WorldTransform, radius float32, color box2d.HexColor) {
+func (p *proxyShapes) drawShape(
+	draw *Draw,
+	shapeType proxyShapeType,
+	transform box2d.WorldTransform,
+	radius float32,
+	color box2d.HexColor,
+) {
 	switch shapeType {
 	case shapePoint:
 		point := transform.Apply(p.point)
 		if radius > 0.0 {
-			draw.DrawSolidCircle(box2d.WorldTransform{P: point, Q: transform.Q}, box2d.Vec2Zero, radius, color)
+			draw.DrawSolidCircle(
+				box2d.WorldTransform{P: point, Q: transform.Q},
+				box2d.Vec2Zero,
+				radius,
+				color,
+			)
 		} else {
 			draw.DrawPoint(point, 5.0, color)
 		}
@@ -139,7 +150,10 @@ func CreateShapeDistance(context *SampleContext) Sampler {
 	}
 
 	s.point = box2d.Vec2Zero
-	s.segment = box2d.Segment{Point1: box2d.Vec2{X: -0.5, Y: 0.0}, Point2: box2d.Vec2{X: 0.5, Y: 0.0}}
+	s.segment = box2d.Segment{
+		Point1: box2d.Vec2{X: -0.5, Y: 0.0},
+		Point2: box2d.Vec2{X: 0.5, Y: 0.0},
+	}
 
 	{
 		points := []box2d.Vec2{{X: -0.5, Y: 0.0}, {X: 0.5, Y: 0.0}, {X: 0.0, Y: 1.0}}
@@ -266,7 +280,14 @@ func weight2(a1 float32, w1 box2d.Vec2, a2 float32, w2 box2d.Vec2) box2d.Vec2 {
 	return box2d.Vec2{X: a1*w1.X + a2*w2.X, Y: a1*w1.Y + a2*w2.Y}
 }
 
-func weight3(a1 float32, w1 box2d.Vec2, a2 float32, w2 box2d.Vec2, a3 float32, w3 box2d.Vec2) box2d.Vec2 {
+func weight3(
+	a1 float32,
+	w1 box2d.Vec2,
+	a2 float32,
+	w2 box2d.Vec2,
+	a3 float32,
+	w3 box2d.Vec2,
+) box2d.Vec2 {
 	return box2d.Vec2{X: a1*w1.X + a2*w2.X + a3*w3.X, Y: a1*w1.Y + a2*w2.Y + a3*w3.Y}
 }
 
@@ -281,7 +302,14 @@ func computeSimplexWitnessPoints(simplex *box2d.Simplex) (box2d.Vec2, box2d.Vec2
 		return a, b
 
 	case 3:
-		a := weight3(simplex.V1.A, simplex.V1.WA, simplex.V2.A, simplex.V2.WA, simplex.V3.A, simplex.V3.WA)
+		a := weight3(
+			simplex.V1.A,
+			simplex.V1.WA,
+			simplex.V2.A,
+			simplex.V2.WA,
+			simplex.V3.A,
+			simplex.V3.WA,
+		)
 		return a, a
 
 	default:
@@ -305,7 +333,13 @@ func (s *ShapeDistance) Step() {
 	s.simplexCount = int32(output.SimplexCount)
 
 	s.drawShape(s.draw, s.typeA, box2d.WorldTransformIdentity, s.radiusA, box2d.ColorCyan)
-	s.drawShape(s.draw, s.typeB, box2d.MakeWorldTransform(s.transform), s.radiusB, box2d.ColorBisque)
+	s.drawShape(
+		s.draw,
+		s.typeB,
+		box2d.MakeWorldTransform(s.transform),
+		s.radiusB,
+		box2d.ColorBisque,
+	)
 
 	if s.drawSimplex {
 		simplex := &s.simplexes[s.simplexIndex]
@@ -331,7 +365,11 @@ func (s *ShapeDistance) Step() {
 		s.draw.DrawPoint(output.PointA.Pos(), 10.0, box2d.ColorWhite)
 		s.draw.DrawPoint(output.PointB.Pos(), 10.0, box2d.ColorWhite)
 
-		s.draw.DrawLine(output.PointA.Pos(), output.PointA.MulAdd(0.5, output.Normal).Pos(), box2d.ColorYellow)
+		s.draw.DrawLine(
+			output.PointA.Pos(),
+			output.PointA.MulAdd(0.5, output.Normal).Pos(),
+			box2d.ColorYellow,
+		)
 	}
 
 	if s.showIndices {
@@ -354,10 +392,23 @@ func (s *ShapeDistance) Step() {
 	case 1:
 		s.DrawScreenTextLine("cache = {%d}, {%d}", s.cache.IndexA[0], s.cache.IndexB[0])
 	case 2:
-		s.DrawScreenTextLine("cache = {%d, %d}, {%d, %d}", s.cache.IndexA[0], s.cache.IndexA[1], s.cache.IndexB[0], s.cache.IndexB[1])
+		s.DrawScreenTextLine(
+			"cache = {%d, %d}, {%d, %d}",
+			s.cache.IndexA[0],
+			s.cache.IndexA[1],
+			s.cache.IndexB[0],
+			s.cache.IndexB[1],
+		)
 	case 3:
-		s.DrawScreenTextLine("cache = {%d, %d, %d}, {%d, %d, %d}", s.cache.IndexA[0], s.cache.IndexA[1], s.cache.IndexA[2],
-			s.cache.IndexB[0], s.cache.IndexB[1], s.cache.IndexB[2])
+		s.DrawScreenTextLine(
+			"cache = {%d, %d, %d}, {%d, %d, %d}",
+			s.cache.IndexA[0],
+			s.cache.IndexA[1],
+			s.cache.IndexA[2],
+			s.cache.IndexB[0],
+			s.cache.IndexB[1],
+			s.cache.IndexB[2],
+		)
 	}
 }
 
@@ -461,7 +512,11 @@ func (s *DynamicTree) BuildTree() {
 				p.fatBox.LowerBound = p.box.LowerBound.Sub(aabbMargin)
 				p.fatBox.UpperBound = p.box.UpperBound.Add(aabbMargin)
 
-				p.proxyID = s.tree.CreateProxy(p.fatBox, box2d.DefaultCategoryBits, uint64(len(s.proxies)))
+				p.proxyID = s.tree.CreateProxy(
+					p.fatBox,
+					box2d.DefaultCategoryBits,
+					uint64(len(s.proxies)),
+				)
 				p.rayStamp = -1
 				p.queryStamp = -1
 				p.moved = false
@@ -559,21 +614,33 @@ func (s *DynamicTree) Step() {
 	}
 
 	if s.rayDrag {
-		input := box2d.RayCastInput{Origin: s.startPoint.Vec2(), Translation: s.endPoint.Sub(s.startPoint), MaxFraction: 1.0}
-		result := s.tree.CastRay(&input, box2d.DefaultMaskBits, func(input *box2d.RayCastInput, proxyID int, userData uint64) float32 {
-			proxy := &s.proxies[userData]
-			if proxy.proxyID != proxyID {
-				panic("proxy id mismatch")
-			}
-			proxy.rayStamp = s.timeStamp
-			return input.MaxFraction
-		})
+		input := box2d.RayCastInput{
+			Origin:      s.startPoint.Vec2(),
+			Translation: s.endPoint.Sub(s.startPoint),
+			MaxFraction: 1.0,
+		}
+		result := s.tree.CastRay(
+			&input,
+			box2d.DefaultMaskBits,
+			func(input *box2d.RayCastInput, proxyID int, userData uint64) float32 {
+				proxy := &s.proxies[userData]
+				if proxy.proxyID != proxyID {
+					panic("proxy id mismatch")
+				}
+				proxy.rayStamp = s.timeStamp
+				return input.MaxFraction
+			},
+		)
 
 		s.draw.DrawLine(s.startPoint, s.endPoint, box2d.ColorWhite)
 		s.draw.DrawPoint(s.startPoint, 5.0, box2d.ColorGreen)
 		s.draw.DrawPoint(s.endPoint, 5.0, box2d.ColorRed)
 
-		s.DrawScreenTextLine("node visits = %d, leaf visits = %d", result.NodeVisits, result.LeafVisits)
+		s.DrawScreenTextLine(
+			"node visits = %d, leaf visits = %d",
+			result.NodeVisits,
+			result.LeafVisits,
+		)
 	}
 
 	c := box2d.ColorBlue
@@ -631,8 +698,18 @@ func (s *DynamicTree) Step() {
 	areaRatio := s.tree.AreaRatio()
 
 	proxyCount := len(s.proxies)
-	hmin := int(float32(math.Ceil(float64(float32(math.Log(float64(proxyCount)))/float32(math.Log(2.0)) - 1.0))))
-	s.DrawScreenTextLine("proxies = %d, height = %d, hmin = %d, area ratio = %.1f", proxyCount, height, hmin, areaRatio)
+	hmin := int(
+		float32(
+			math.Ceil(float64(float32(math.Log(float64(proxyCount)))/float32(math.Log(2.0)) - 1.0)),
+		),
+	)
+	s.DrawScreenTextLine(
+		"proxies = %d, height = %d, hmin = %d, area ratio = %.1f",
+		proxyCount,
+		height,
+		hmin,
+		areaRatio,
+	)
 
 	s.tree.Validate()
 
@@ -675,14 +752,21 @@ func CreateRayCast(context *SampleContext) Sampler {
 	}
 
 	s.circle = box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 2.0}
-	s.capsule = box2d.Capsule{Center1: box2d.Vec2{X: -1.0, Y: 1.0}, Center2: box2d.Vec2{X: 1.0, Y: -1.0}, Radius: 1.5}
+	s.capsule = box2d.Capsule{
+		Center1: box2d.Vec2{X: -1.0, Y: 1.0},
+		Center2: box2d.Vec2{X: 1.0, Y: -1.0},
+		Radius:  1.5,
+	}
 	s.box = box2d.MakeBox(2.0, 2.0)
 
 	vertices := []box2d.Vec2{{X: -2.0, Y: 0.0}, {X: 2.0, Y: 0.0}, {X: 2.0, Y: 3.0}}
 	hull := box2d.ComputeHull(vertices)
 	s.triangle = box2d.MakePolygon(&hull, 0.0)
 
-	s.segment = box2d.Segment{Point1: box2d.Vec2{X: -3.0, Y: 0.0}, Point2: box2d.Vec2{X: 3.0, Y: 0.0}}
+	s.segment = box2d.Segment{
+		Point1: box2d.Vec2{X: -3.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 3.0, Y: 0.0},
+	}
 
 	s.transform = box2d.TransformIdentity
 	s.angle = 0.0
@@ -790,7 +874,13 @@ func (s *RayCast) DrawRay(output *box2d.CastOutput, hitPoint box2d.Pos) {
 		}
 
 		if s.showFraction {
-			s.draw.DrawString(s.camera, p.Add(box2d.Vec2{X: 0.05, Y: -0.02}), box2d.ColorWhite, "%.2f", output.Fraction)
+			s.draw.DrawString(
+				s.camera,
+				p.Add(box2d.Vec2{X: 0.05, Y: -0.02}),
+				box2d.ColorWhite,
+				"%.2f",
+				output.Fraction,
+			)
 		}
 	} else {
 		s.draw.DrawLine(p1, p2, box2d.ColorWhite)
@@ -812,7 +902,11 @@ func (s *RayCast) Step() {
 	cast := func(transform box2d.WorldTransform, castFcn func(input *box2d.RayCastInput) box2d.CastOutput) {
 		start := transform.InvApply(s.rayStart)
 		translation := transform.Q.InvRotate(s.rayEnd.Sub(s.rayStart))
-		input := box2d.RayCastInput{Origin: start, Translation: translation, MaxFraction: maxFraction}
+		input := box2d.RayCastInput{
+			Origin:      start,
+			Translation: translation,
+			MaxFraction: maxFraction,
+		}
 
 		localOutput := castFcn(&input)
 		if localOutput.Hit {
@@ -826,37 +920,59 @@ func (s *RayCast) Step() {
 	}
 
 	{
-		transform := box2d.MakeWorldTransform(box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q})
+		transform := box2d.MakeWorldTransform(
+			box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q},
+		)
 		s.draw.DrawSolidCircle(transform, s.circle.Center, s.circle.Radius, color1)
 
-		cast(transform, func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCircle(&s.circle, input) })
+		cast(
+			transform,
+			func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCircle(&s.circle, input) },
+		)
 	}
 
 	{
-		transform := box2d.MakeWorldTransform(box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q})
+		transform := box2d.MakeWorldTransform(
+			box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q},
+		)
 		v1 := transform.Apply(s.capsule.Center1)
 		v2 := transform.Apply(s.capsule.Center2)
 		s.draw.DrawCapsule(v1, v2, s.capsule.Radius, color1)
 
-		cast(transform, func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCapsule(&s.capsule, input) })
+		cast(
+			transform,
+			func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastCapsule(&s.capsule, input) },
+		)
 	}
 
 	{
-		transform := box2d.MakeWorldTransform(box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q})
+		transform := box2d.MakeWorldTransform(
+			box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q},
+		)
 		s.draw.DrawSolidPolygon(transform, s.box.Vertices[:s.box.Count], 0.0, color1)
 
-		cast(transform, func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastPolygon(&s.box, input) })
+		cast(
+			transform,
+			func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastPolygon(&s.box, input) },
+		)
 	}
 
 	{
-		transform := box2d.MakeWorldTransform(box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q})
+		transform := box2d.MakeWorldTransform(
+			box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q},
+		)
 		s.draw.DrawSolidPolygon(transform, s.triangle.Vertices[:s.triangle.Count], 0.0, color1)
 
-		cast(transform, func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastPolygon(&s.triangle, input) })
+		cast(
+			transform,
+			func(input *box2d.RayCastInput) box2d.CastOutput { return box2d.RayCastPolygon(&s.triangle, input) },
+		)
 	}
 
 	{
-		transform := box2d.MakeWorldTransform(box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q})
+		transform := box2d.MakeWorldTransform(
+			box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q},
+		)
 
 		p1 := transform.Apply(s.segment.Point1)
 		p2 := transform.Apply(s.segment.Point2)
@@ -1068,7 +1184,10 @@ func CreateCastWorld(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -1100,9 +1219,16 @@ func CreateCastWorld(context *SampleContext) Sampler {
 	}
 
 	s.box = box2d.MakeBox(0.5, 0.5)
-	s.capsule = box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+	s.capsule = box2d.Capsule{
+		Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+		Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+		Radius:  0.25,
+	}
 	s.circle = box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
-	s.segment = box2d.Segment{Point1: box2d.Vec2{X: -1.0, Y: 0.0}, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
+	s.segment = box2d.Segment{
+		Point1: box2d.Vec2{X: -1.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 1.0, Y: 0.0},
+	}
 
 	s.bodyIndex = 0
 
@@ -1169,7 +1295,12 @@ func (s *CastWorld) Create(index int) {
 	} else if index == 4 {
 		s.bodyIDs[s.bodyIndex].CreateSegmentShape(&shapeDef, &s.segment)
 	} else {
-		points := []box2d.Vec2{{X: 1.0, Y: 0.0}, {X: -1.0, Y: 0.0}, {X: -1.0, Y: -1.0}, {X: 1.0, Y: -1.0}}
+		points := []box2d.Vec2{
+			{X: 1.0, Y: 0.0},
+			{X: -1.0, Y: 0.0},
+			{X: -1.0, Y: -1.0},
+			{X: 1.0, Y: -1.0},
+		}
 		chainDef := box2d.DefaultChainDef()
 		chainDef.UserData = shapeDef.UserData
 		chainDef.Points = points
@@ -1361,8 +1492,11 @@ func (s *CastWorld) Step() {
 		rotation := box2d.MakeRot(s.angle)
 		circle := box2d.Circle{Center: box2d.Vec2Zero, Radius: s.castRadius}
 		capsule := box2d.Capsule{
-			Center1: rotation.Rotate(box2d.Vec2{X: -0.25, Y: 0.0}), Center2: rotation.Rotate(box2d.Vec2{X: 0.25, Y: 0.0}),
-			Radius: s.castRadius,
+			Center1: rotation.Rotate(
+				box2d.Vec2{X: -0.25, Y: 0.0},
+			),
+			Center2: rotation.Rotate(box2d.Vec2{X: 0.25, Y: 0.0}),
+			Radius:  s.castRadius,
 		}
 		box := box2d.MakeOffsetRoundedBox(0.125, 0.25, box2d.Vec2Zero, rotation, s.castRadius)
 		var proxy box2d.ShapeProxy
@@ -1373,12 +1507,21 @@ func (s *CastWorld) Step() {
 			if s.castType == castTypeCircle {
 				proxy = box2d.MakeProxy([]box2d.Vec2{circle.Center}, circle.Radius)
 			} else if s.castType == castTypeCapsule {
-				proxy = box2d.MakeProxy([]box2d.Vec2{capsule.Center1, capsule.Center2}, capsule.Radius)
+				proxy = box2d.MakeProxy(
+					[]box2d.Vec2{capsule.Center1, capsule.Center2},
+					capsule.Radius,
+				)
 			} else {
 				proxy = box2d.MakeProxy(box.Vertices[:box.Count], box.Radius)
 			}
 
-			s.worldID.CastShape(s.rayStart, &proxy, rayTranslation, box2d.DefaultQueryFilter(), modeFcn)
+			s.worldID.CastShape(
+				s.rayStart,
+				&proxy,
+				rayTranslation,
+				box2d.DefaultQueryFilter(),
+				modeFcn,
+			)
 		}
 
 		if context.count > 0 {
@@ -1394,11 +1537,26 @@ func (s *CastWorld) Step() {
 
 				// The swept shape rests at the contact position c
 				if s.castType == castTypeCircle {
-					s.draw.DrawSolidCircle(box2d.WorldTransform{P: c, Q: box2d.RotIdentity}, box2d.Vec2Zero, s.castRadius, box2d.ColorYellow)
+					s.draw.DrawSolidCircle(
+						box2d.WorldTransform{P: c, Q: box2d.RotIdentity},
+						box2d.Vec2Zero,
+						s.castRadius,
+						box2d.ColorYellow,
+					)
 				} else if s.castType == castTypeCapsule {
-					s.draw.DrawCapsule(c.Add(capsule.Center1), c.Add(capsule.Center2), s.castRadius, box2d.ColorYellow)
+					s.draw.DrawCapsule(
+						c.Add(capsule.Center1),
+						c.Add(capsule.Center2),
+						s.castRadius,
+						box2d.ColorYellow,
+					)
 				} else if s.castType == castTypePolygon {
-					s.draw.DrawSolidPolygon(box2d.WorldTransform{P: c, Q: box2d.RotIdentity}, box.Vertices[:box.Count], box.Radius, box2d.ColorYellow)
+					s.draw.DrawSolidPolygon(
+						box2d.WorldTransform{P: c, Q: box2d.RotIdentity},
+						box.Vertices[:box.Count],
+						box.Radius,
+						box2d.ColorYellow,
+					)
 				}
 			}
 		} else {
@@ -1406,11 +1564,26 @@ func (s *CastWorld) Step() {
 
 			// No hit, so the swept shape rests at the end of the ray
 			if s.castType == castTypeCircle {
-				s.draw.DrawSolidCircle(box2d.WorldTransform{P: s.rayEnd, Q: box2d.RotIdentity}, box2d.Vec2Zero, s.castRadius, box2d.ColorGray)
+				s.draw.DrawSolidCircle(
+					box2d.WorldTransform{P: s.rayEnd, Q: box2d.RotIdentity},
+					box2d.Vec2Zero,
+					s.castRadius,
+					box2d.ColorGray,
+				)
 			} else if s.castType == castTypeCapsule {
-				s.draw.DrawCapsule(s.rayEnd.Add(capsule.Center1), s.rayEnd.Add(capsule.Center2), s.castRadius, box2d.ColorYellow)
+				s.draw.DrawCapsule(
+					s.rayEnd.Add(capsule.Center1),
+					s.rayEnd.Add(capsule.Center2),
+					s.castRadius,
+					box2d.ColorYellow,
+				)
 			} else if s.castType == castTypePolygon {
-				s.draw.DrawSolidPolygon(box2d.WorldTransform{P: s.rayEnd, Q: box2d.RotIdentity}, box.Vertices[:box.Count], box.Radius, box2d.ColorYellow)
+				s.draw.DrawSolidPolygon(
+					box2d.WorldTransform{P: s.rayEnd, Q: box2d.RotIdentity},
+					box.Vertices[:box.Count],
+					box.Radius,
+					box2d.ColorYellow,
+				)
 			}
 		}
 	}
@@ -1520,9 +1693,16 @@ func CreateOverlapWorld(context *SampleContext) Sampler {
 	}
 
 	s.polygons[3] = box2d.MakeBox(0.5, 0.5)
-	s.capsule = box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+	s.capsule = box2d.Capsule{
+		Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+		Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+		Radius:  0.25,
+	}
 	s.circle = box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
-	s.segment = box2d.Segment{Point1: box2d.Vec2{X: -1.0, Y: 0.0}, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
+	s.segment = box2d.Segment{
+		Point1: box2d.Vec2{X: -1.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 1.0, Y: 0.0},
+	}
 
 	s.bodyIndex = 0
 
@@ -1708,7 +1888,12 @@ func (s *OverlapWorld) Step() {
 	if s.shapeType == overlapCircleShape {
 		circle := box2d.Circle{Center: box2d.Vec2Zero, Radius: 1.0}
 		proxy = box2d.MakeProxy([]box2d.Vec2{circle.Center}, circle.Radius)
-		s.draw.DrawSolidCircle(box2d.WorldTransform{P: s.position, Q: box2d.RotIdentity}, circle.Center, circle.Radius, box2d.ColorWhite)
+		s.draw.DrawSolidCircle(
+			box2d.WorldTransform{P: s.position, Q: box2d.RotIdentity},
+			circle.Center,
+			circle.Radius,
+			box2d.ColorWhite,
+		)
 	} else if s.shapeType == overlapCapsuleShape {
 		capsule := box2d.Capsule{
 			Center1: rotation.Rotate(box2d.Vec2{X: -1.0, Y: 0.0}),
@@ -1716,11 +1901,20 @@ func (s *OverlapWorld) Step() {
 			Radius:  0.5,
 		}
 		proxy = box2d.MakeProxy([]box2d.Vec2{capsule.Center1, capsule.Center2}, capsule.Radius)
-		s.draw.DrawCapsule(s.position.Add(capsule.Center1), s.position.Add(capsule.Center2), capsule.Radius, box2d.ColorWhite)
+		s.draw.DrawCapsule(
+			s.position.Add(capsule.Center1),
+			s.position.Add(capsule.Center2),
+			capsule.Radius,
+			box2d.ColorWhite,
+		)
 	} else if s.shapeType == overlapBoxShape {
 		box := box2d.MakeOffsetBox(2.0, 0.5, box2d.Vec2Zero, rotation)
 		proxy = box2d.MakeProxy(box.Vertices[:box.Count], box.Radius)
-		s.draw.DrawPolygon(box2d.WorldTransform{P: s.position, Q: box2d.RotIdentity}, box.Vertices[:box.Count], box2d.ColorWhite)
+		s.draw.DrawPolygon(
+			box2d.WorldTransform{P: s.position, Q: box2d.RotIdentity},
+			box.Vertices[:box.Count],
+			box2d.ColorWhite,
+		)
 	}
 
 	s.worldID.OverlapShape(s.position, &proxy, box2d.DefaultQueryFilter(), s.overlapResult)
@@ -1883,7 +2077,10 @@ func (s *Manifold) MouseMove(p box2d.Pos) {
 	}
 }
 
-func (s *Manifold) DrawManifold(manifold *box2d.LocalManifold, transformA, transformB box2d.WorldTransform) {
+func (s *Manifold) DrawManifold(
+	manifold *box2d.LocalManifold,
+	transformA, transformB box2d.WorldTransform,
+) {
 	normal := transformA.Q.Rotate(manifold.Normal)
 
 	if s.showCount {
@@ -1905,11 +2102,23 @@ func (s *Manifold) DrawManifold(manifold *box2d.LocalManifold, transformA, trans
 		}
 
 		if s.showIDs {
-			s.draw.DrawString(s.camera, p1.Add(box2d.Vec2{X: 0.05, Y: -0.02}), box2d.ColorWhite, "0x%04x", mp.ID)
+			s.draw.DrawString(
+				s.camera,
+				p1.Add(box2d.Vec2{X: 0.05, Y: -0.02}),
+				box2d.ColorWhite,
+				"0x%04x",
+				mp.ID,
+			)
 		}
 
 		if s.showSeparation {
-			s.draw.DrawString(s.camera, p1.Add(box2d.Vec2{X: 0.05, Y: 0.03}), box2d.ColorWhite, "%.3f", mp.Separation)
+			s.draw.DrawString(
+				s.camera,
+				p1.Add(box2d.Vec2{X: 0.05, Y: 0.03}),
+				box2d.ColorWhite,
+				"%.3f",
+				mp.Separation,
+			)
 		}
 	}
 }
@@ -1930,7 +2139,9 @@ func (s *Manifold) Step() {
 
 	transforms := func() (box2d.WorldTransform, box2d.WorldTransform) {
 		transform1 := box2d.MakeWorldTransform(box2d.Transform{P: offset, Q: box2d.RotIdentity})
-		transform2 := box2d.MakeWorldTransform(box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q})
+		transform2 := box2d.MakeWorldTransform(
+			box2d.Transform{P: s.transform.P.Add(offset), Q: s.transform.Q},
+		)
 		return transform1, transform2
 	}
 
@@ -1953,7 +2164,11 @@ func (s *Manifold) Step() {
 
 	// capsule-circle
 	{
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 
 		transform1, transform2 := transforms()
@@ -1972,7 +2187,10 @@ func (s *Manifold) Step() {
 
 	// segment-circle
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -1.0, Y: 0.0}, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -1.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 1.0, Y: 0.0},
+		}
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 
 		transform1, transform2 := transforms()
@@ -2009,8 +2227,16 @@ func (s *Manifold) Step() {
 
 	// capsule-capsule
 	{
-		capsule1 := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
-		capsule2 := box2d.Capsule{Center1: box2d.Vec2{X: 0.25, Y: 0.0}, Center2: box2d.Vec2{X: 1.0, Y: 0.0}, Radius: 0.1}
+		capsule1 := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
+		capsule2 := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.25, Y: 0.0},
+			Center2: box2d.Vec2{X: 1.0, Y: 0.0},
+			Radius:  0.1,
+		}
 
 		transform1, transform2 := transforms()
 
@@ -2031,8 +2257,17 @@ func (s *Manifold) Step() {
 
 	// box-capsule
 	{
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.4, Y: 0.0}, Center2: box2d.Vec2{X: -0.1, Y: 0.0}, Radius: 0.1}
-		box := box2d.MakeOffsetBox(0.25, 1.0, box2d.Vec2{X: 1.0, Y: -1.0}, box2d.MakeRot(0.25*box2d.Pi))
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.4, Y: 0.0},
+			Center2: box2d.Vec2{X: -0.1, Y: 0.0},
+			Radius:  0.1,
+		}
+		box := box2d.MakeOffsetBox(
+			0.25,
+			1.0,
+			box2d.Vec2{X: 1.0, Y: -1.0},
+			box2d.MakeRot(0.25*box2d.Pi),
+		)
 
 		transform1, transform2 := transforms()
 
@@ -2051,8 +2286,15 @@ func (s *Manifold) Step() {
 
 	// segment-capsule
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -1.0, Y: 0.0}, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -1.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 1.0, Y: 0.0},
+		}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 
 		transform1, transform2 := transforms()
 
@@ -2144,7 +2386,10 @@ func (s *Manifold) Step() {
 
 	// segment-rox
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -1.0, Y: 0.0}, Point2: box2d.Vec2{X: 1.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -1.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 1.0, Y: 0.0},
+		}
 		h := 0.5 - s.round
 		rox := box2d.MakeRoundedBox(h, h, s.round)
 
@@ -2182,8 +2427,16 @@ func (s *Manifold) Step() {
 
 	// wox-wox
 	{
-		p1s := []box2d.Vec2{{X: 0.175740838, Y: 0.224936664}, {X: -0.301293969, Y: 0.194021404}, {X: -0.105151534, Y: -0.432157338}}
-		p2s := []box2d.Vec2{{X: -0.427884758, Y: -0.225028217}, {X: 0.0566576123, Y: -0.128772855}, {X: 0.176625848, Y: 0.338923335}}
+		p1s := []box2d.Vec2{
+			{X: 0.175740838, Y: 0.224936664},
+			{X: -0.301293969, Y: 0.194021404},
+			{X: -0.105151534, Y: -0.432157338},
+		}
+		p2s := []box2d.Vec2{
+			{X: -0.427884758, Y: -0.225028217},
+			{X: 0.0566576123, Y: -0.128772855},
+			{X: 0.176625848, Y: 0.338923335},
+		}
 
 		h1 := box2d.ComputeHull(p1s)
 		h2 := box2d.ComputeHull(p2s)
@@ -2228,8 +2481,16 @@ func (s *Manifold) Step() {
 	// chain-segment vs circle
 	{
 		segment := box2d.ChainSegment{
-			Ghost1: box2d.Vec2{X: 2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 1.0, Y: 1.0}, Point2: box2d.Vec2{X: -1.0, Y: 0.0}},
-			Ghost2: box2d.Vec2{X: -2.0, Y: 0.0}, ChainID: -1,
+			Ghost1: box2d.Vec2{
+				X: 2.0,
+				Y: 1.0,
+			},
+			Segment: box2d.Segment{
+				Point1: box2d.Vec2{X: 1.0, Y: 1.0},
+				Point2: box2d.Vec2{X: -1.0, Y: 0.0},
+			},
+			Ghost2:  box2d.Vec2{X: -2.0, Y: 0.0},
+			ChainID: -1,
 		}
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 
@@ -2252,12 +2513,28 @@ func (s *Manifold) Step() {
 	}
 
 	segment1 := box2d.ChainSegment{
-		Ghost1: box2d.Vec2{X: 2.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 1.0, Y: 1.0}, Point2: box2d.Vec2{X: -1.0, Y: 0.0}},
-		Ghost2: box2d.Vec2{X: -2.0, Y: 0.0}, ChainID: -1,
+		Ghost1: box2d.Vec2{
+			X: 2.0,
+			Y: 1.0,
+		},
+		Segment: box2d.Segment{
+			Point1: box2d.Vec2{X: 1.0, Y: 1.0},
+			Point2: box2d.Vec2{X: -1.0, Y: 0.0},
+		},
+		Ghost2:  box2d.Vec2{X: -2.0, Y: 0.0},
+		ChainID: -1,
 	}
 	segment2 := box2d.ChainSegment{
-		Ghost1: box2d.Vec2{X: 3.0, Y: 1.0}, Segment: box2d.Segment{Point1: box2d.Vec2{X: 2.0, Y: 1.0}, Point2: box2d.Vec2{X: 1.0, Y: 1.0}},
-		Ghost2: box2d.Vec2{X: -1.0, Y: 0.0}, ChainID: -1,
+		Ghost1: box2d.Vec2{
+			X: 3.0,
+			Y: 1.0,
+		},
+		Segment: box2d.Segment{
+			Point1: box2d.Vec2{X: 2.0, Y: 1.0},
+			Point2: box2d.Vec2{X: 1.0, Y: 1.0},
+		},
+		Ghost2:  box2d.Vec2{X: -1.0, Y: 0.0},
+		ChainID: -1,
 	}
 
 	drawChainSegments := func(transform1 box2d.WorldTransform) {
@@ -2306,7 +2583,11 @@ func (s *Manifold) Step() {
 
 	// chain-segment vs capsule
 	{
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 
 		transform1, transform2 := transforms()
 
@@ -2446,7 +2727,12 @@ func CreateSmoothManifold(context *SampleContext) Sampler {
 		p2 := points[i2]
 		g2 := points[i3]
 
-		s.segments[i] = box2d.ChainSegment{Ghost1: g1, Segment: box2d.Segment{Point1: p1, Point2: p2}, Ghost2: g2, ChainID: -1}
+		s.segments[i] = box2d.ChainSegment{
+			Ghost1:  g1,
+			Segment: box2d.Segment{Point1: p1, Point2: p2},
+			Ghost2:  g2,
+			ChainID: -1,
+		}
 	}
 	return s
 }
@@ -2520,7 +2806,10 @@ func (s *SmoothManifold) MouseMove(p box2d.Pos) {
 	}
 }
 
-func (s *SmoothManifold) DrawManifold(manifold *box2d.LocalManifold, transformA box2d.WorldTransform) {
+func (s *SmoothManifold) DrawManifold(
+	manifold *box2d.LocalManifold,
+	transformA box2d.WorldTransform,
+) {
 	normal := transformA.Q.Rotate(manifold.Normal)
 
 	for i := range manifold.PointCount {
@@ -2537,11 +2826,23 @@ func (s *SmoothManifold) DrawManifold(manifold *box2d.LocalManifold, transformA 
 		}
 
 		if s.showIDs {
-			s.draw.DrawString(s.camera, p1.Add(box2d.Vec2{X: 0.05, Y: -0.02}), box2d.ColorWhite, "0x%04x", mp.ID)
+			s.draw.DrawString(
+				s.camera,
+				p1.Add(box2d.Vec2{X: 0.05, Y: -0.02}),
+				box2d.ColorWhite,
+				"0x%04x",
+				mp.ID,
+			)
 		}
 
 		if s.showSeparation {
-			s.draw.DrawString(s.camera, p1.Add(box2d.Vec2{X: 0.05, Y: 0.03}), box2d.ColorWhite, "%.3f", mp.Separation)
+			s.draw.DrawString(
+				s.camera,
+				p1.Add(box2d.Vec2{X: 0.05, Y: 0.03}),
+				box2d.ColorWhite,
+				"%.3f",
+				mp.Separation,
+			)
 		}
 	}
 }
@@ -2580,7 +2881,12 @@ func (s *SmoothManifold) Step() {
 		for i := range s.segments {
 			segment := &s.segments[i]
 			var cache box2d.SimplexCache
-			m := box2d.CollideChainSegmentAndPolygon(segment, &rox, transform1.InvMul(transform2), &cache)
+			m := box2d.CollideChainSegmentAndPolygon(
+				segment,
+				&rox,
+				transform1.InvMul(transform2),
+				&cache,
+			)
 			s.DrawManifold(&m, transform1)
 		}
 	}
@@ -2623,7 +2929,10 @@ func CreateShapeCast(context *SampleContext) Sampler {
 	}
 
 	s.point = box2d.Vec2Zero
-	s.segment = box2d.Segment{Point1: box2d.Vec2{X: 0.0, Y: 0.0}, Point2: box2d.Vec2{X: 0.5, Y: 0.0}}
+	s.segment = box2d.Segment{
+		Point1: box2d.Vec2{X: 0.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 0.5, Y: 0.0},
+	}
 
 	{
 		points := []box2d.Vec2{{X: -0.5, Y: 0.0}, {X: 0.5, Y: 0.0}, {X: 0.0, Y: 1.0}}
@@ -2777,16 +3086,38 @@ func (s *ShapeCast) Step() {
 		output.Iterations, output.Fraction, distanceOutput.Distance)
 
 	s.drawShape(s.draw, s.typeA, box2d.WorldTransformIdentity, s.radiusA, box2d.ColorCyan)
-	s.drawShape(s.draw, s.typeB, box2d.MakeWorldTransform(s.transform), s.radiusB, box2d.ColorLightGreen)
+	s.drawShape(
+		s.draw,
+		s.typeB,
+		box2d.MakeWorldTransform(s.transform),
+		s.radiusB,
+		box2d.ColorLightGreen,
+	)
 	transform2 := box2d.Transform{P: s.transform.P.Add(s.translation), Q: s.transform.Q}
-	s.drawShape(s.draw, s.typeB, box2d.MakeWorldTransform(transform2), s.radiusB, box2d.ColorIndianRed)
+	s.drawShape(
+		s.draw,
+		s.typeB,
+		box2d.MakeWorldTransform(transform2),
+		s.radiusB,
+		box2d.ColorIndianRed,
+	)
 
 	if output.Hit {
-		s.drawShape(s.draw, s.typeB, box2d.MakeWorldTransform(transform), s.radiusB, box2d.ColorPlum)
+		s.drawShape(
+			s.draw,
+			s.typeB,
+			box2d.MakeWorldTransform(transform),
+			s.radiusB,
+			box2d.ColorPlum,
+		)
 
 		if output.Fraction > 0.0 {
 			s.draw.DrawPoint(output.Point.Pos(), 5.0, box2d.ColorWhite)
-			s.draw.DrawLine(output.Point.Pos(), output.Point.MulAdd(0.5, output.Normal).Pos(), box2d.ColorYellow)
+			s.draw.DrawLine(
+				output.Point.Pos(),
+				output.Point.MulAdd(0.5, output.Normal).Pos(),
+				box2d.ColorYellow,
+			)
 		} else {
 			s.draw.DrawPoint(output.Point.Pos(), 5.0, box2d.ColorPeru)
 		}
@@ -2807,7 +3138,11 @@ func (s *ShapeCast) Step() {
 	s.DrawScreenTextLine("mouse button 1: drag")
 	s.DrawScreenTextLine("mouse button 1 + shift: rotate")
 	s.DrawScreenTextLine("mouse button 1 + control: sweep")
-	s.DrawScreenTextLine("distance = %.2f, iterations = %d", distanceOutput.Distance, output.Iterations)
+	s.DrawScreenTextLine(
+		"distance = %.2f, iterations = %d",
+		distanceOutput.Distance,
+		output.Iterations,
+	)
 }
 
 type TimeOfImpact struct {
@@ -2822,7 +3157,12 @@ type TimeOfImpact struct {
 
 func CreateTimeOfImpact(context *SampleContext) Sampler {
 	s := &TimeOfImpact{
-		verticesA: [4]box2d.Vec2{{X: -16.25, Y: 44.75}, {X: -15.75, Y: 44.75}, {X: -15.75, Y: 45.25}, {X: -16.25, Y: 45.25}},
+		verticesA: [4]box2d.Vec2{
+			{X: -16.25, Y: 44.75},
+			{X: -15.75, Y: 44.75},
+			{X: -15.75, Y: 45.25},
+			{X: -16.25, Y: 45.25},
+		},
 		verticesB: [2]box2d.Vec2{{X: 0.0, Y: -0.125000000}, {X: 0.0, Y: 0.125000000}},
 		radiusA:   0.0,
 		radiusB:   0.0299999993,
@@ -2841,7 +3181,11 @@ func (s *TimeOfImpact) Step() {
 	s.Sample.Step()
 
 	sweepA := box2d.Sweep{
-		LocalCenter: box2d.Vec2Zero, C1: box2d.Vec2{X: 0.0, Y: 0.0}, C2: box2d.Vec2{X: 0.0, Y: 0.0}, Q1: box2d.RotIdentity, Q2: box2d.RotIdentity,
+		LocalCenter: box2d.Vec2Zero,
+		C1:          box2d.Vec2{X: 0.0, Y: 0.0},
+		C2:          box2d.Vec2{X: 0.0, Y: 0.0},
+		Q1:          box2d.RotIdentity,
+		Q2:          box2d.RotIdentity,
 	}
 	sweepB := box2d.Sweep{
 		LocalCenter: box2d.Vec2Zero,
@@ -2868,7 +3212,12 @@ func (s *TimeOfImpact) Step() {
 
 	// Draw B at t = 0
 	transformB := box2d.MakeWorldTransform(sweepB.Transform(0.0))
-	s.draw.DrawCapsule(transformB.Apply(s.verticesB[0]), transformB.Apply(s.verticesB[1]), s.radiusB, box2d.ColorGreen)
+	s.draw.DrawCapsule(
+		transformB.Apply(s.verticesB[0]),
+		transformB.Apply(s.verticesB[1]),
+		s.radiusB,
+		box2d.ColorGreen,
+	)
 
 	// Draw B at t = hit_time
 	transformB = box2d.MakeWorldTransform(sweepB.Transform(output.Fraction))
@@ -2876,13 +3225,19 @@ func (s *TimeOfImpact) Step() {
 
 	// Draw B at t = 1
 	transformB = box2d.MakeWorldTransform(sweepB.Transform(1.0))
-	s.draw.DrawCapsule(transformB.Apply(s.verticesB[0]), transformB.Apply(s.verticesB[1]), s.radiusB, box2d.ColorRed)
+	s.draw.DrawCapsule(
+		transformB.Apply(s.verticesB[0]),
+		transformB.Apply(s.verticesB[1]),
+		s.radiusB,
+		box2d.ColorRed,
+	)
 
 	if output.State == box2d.TOIStateHit {
 		var distanceInput box2d.DistanceInput
 		distanceInput.ProxyA = input.ProxyA
 		distanceInput.ProxyB = input.ProxyB
-		distanceInput.Transform = sweepA.Transform(output.Fraction).InvMul(sweepB.Transform(output.Fraction))
+		distanceInput.Transform = sweepA.Transform(output.Fraction).
+			InvMul(sweepB.Transform(output.Fraction))
 		distanceInput.UseRadii = false
 		var cache box2d.SimplexCache
 		distanceOutput := box2d.ShapeDistance(&distanceInput, &cache, nil)

@@ -81,7 +81,8 @@ func computeLayoutHash() uint32 {
 }
 
 func snapRCheck(r *snapReader, need int) {
-	if need < 0 || r.cursor < 0 || r.size < 0 || r.size > len(r.data) || r.cursor > r.size || need > r.size-r.cursor {
+	if need < 0 || r.cursor < 0 || r.size < 0 || r.size > len(r.data) || r.cursor > r.size ||
+		need > r.size-r.cursor {
 		r.ok = false
 	}
 }
@@ -122,7 +123,10 @@ func snapWU32(buf *recBuffer, v uint32) {
 }
 
 func snapCheckCount(r *snapReader, count int, memSize int, minStreamBytes int) bool {
-	if count < 0 || memSize < 0 || minStreamBytes < 0 || (memSize > 0 && count > math.MaxInt32/memSize) || r.cursor < 0 || r.cursor > r.size {
+	if count < 0 || memSize < 0 || minStreamBytes < 0 ||
+		(memSize > 0 && count > math.MaxInt32/memSize) ||
+		r.cursor < 0 ||
+		r.cursor > r.size {
 		return false
 	}
 
@@ -154,7 +158,11 @@ func desIDPool(r *snapReader, pool *idpool.Pool) {
 	}
 }
 
-func snapIDPoolValid[Object any](pool *idpool.Pool, objects []Object, objectID func(Object) int) bool {
+func snapIDPoolValid[Object any](
+	pool *idpool.Pool,
+	objects []Object,
+	objectID func(Object) int,
+) bool {
 	if pool.NextIndex != len(objects) {
 		return false
 	}
@@ -318,7 +326,8 @@ func desTree(r *snapReader, tree *DynamicTree) {
 func snapTreeFreeProxiesValid(tree *DynamicTree) bool {
 	freeCount := 0
 	for id := tree.proxyFreeList; id != int32(nullIndex); id = tree.proxies[id].Next {
-		if id < 0 || id >= tree.proxyCapacity || tree.proxies[id].Node != int32(nullIndex) || freeCount >= int(tree.proxyCapacity-tree.proxyCount) {
+		if id < 0 || id >= tree.proxyCapacity || tree.proxies[id].Node != int32(nullIndex) ||
+			freeCount >= int(tree.proxyCapacity-tree.proxyCount) {
 			return false
 		}
 
@@ -599,13 +608,41 @@ func deserializeIntoShell(r *snapReader, world *World) bool {
 }
 
 func snapWorldIDPoolsValid(world *World) bool {
-	return snapIDPoolValid(&world.bodyIDPool, world.bodies, func(value body) int { return value.id }) &&
-		snapIDPoolValid(&world.shapeIDPool, world.shapes, func(value shape) int { return value.id }) &&
-		snapIDPoolValid(&world.chainIDPool, world.chainShapes, func(value chainShape) int { return value.id }) &&
-		snapIDPoolValid(&world.contactIDPool, world.contacts, func(value contact) int { return value.contactID }) &&
-		snapIDPoolValid(&world.jointIDPool, world.joints, func(value joint) int { return value.jointID }) &&
-		snapIDPoolValid(&world.islandIDPool, world.islands, func(value island) int { return value.islandID }) &&
-		snapIDPoolValid(&world.solverSetIDPool, world.solverSets, func(value solverSet) int { return value.setIndex })
+	return snapIDPoolValid(
+		&world.bodyIDPool,
+		world.bodies,
+		func(value body) int { return value.id },
+	) &&
+		snapIDPoolValid(
+			&world.shapeIDPool,
+			world.shapes,
+			func(value shape) int { return value.id },
+		) &&
+		snapIDPoolValid(
+			&world.chainIDPool,
+			world.chainShapes,
+			func(value chainShape) int { return value.id },
+		) &&
+		snapIDPoolValid(
+			&world.contactIDPool,
+			world.contacts,
+			func(value contact) int { return value.contactID },
+		) &&
+		snapIDPoolValid(
+			&world.jointIDPool,
+			world.joints,
+			func(value joint) int { return value.jointID },
+		) &&
+		snapIDPoolValid(
+			&world.islandIDPool,
+			world.islands,
+			func(value island) int { return value.islandID },
+		) &&
+		snapIDPoolValid(
+			&world.solverSetIDPool,
+			world.solverSets,
+			func(value solverSet) int { return value.setIndex },
+		)
 }
 
 func openSnapshotImage(image []byte, size int, r *snapReader) {
@@ -1415,7 +1452,7 @@ func snapReadSoftness(r *snapReader, v *softness) {
 	v.impulseScale = math.Float32frombits(snapRU32(r))
 }
 
-//nolint:dupl // Snapshot v12 distance, motor, and wheel layouts have distinct fields and independently fixed field order.
+//nolint:dupl // Distinct joint layouts with independently fixed field order.
 func snapWriteDistanceJoint(buf *recBuffer, v distanceJoint) {
 	recWF32(buf, v.length)
 	recWF32(buf, v.hertz)
@@ -1478,7 +1515,7 @@ func snapReadMat22(r *snapReader, v *Mat22) {
 	snapReadVec2(r, &v.Cy)
 }
 
-//nolint:dupl // Snapshot v12 motor, distance, and wheel layouts have distinct fields and independently fixed field order.
+//nolint:dupl // Distinct joint layouts with independently fixed field order.
 func snapWriteMotorJoint(buf *recBuffer, v motorJoint) {
 	snapWriteVec2(buf, v.linearVelocity)
 	recWF32(buf, v.maxVelocityForce)
@@ -1720,7 +1757,7 @@ func snapReadWeldJoint(r *snapReader, v *weldJoint) {
 	v.axialMass = math.Float32frombits(snapRU32(r))
 }
 
-//nolint:dupl // Snapshot v12 wheel, distance, and motor layouts have distinct fields and independently fixed field order.
+//nolint:dupl // Distinct joint layouts with independently fixed field order.
 func snapWriteWheelJoint(buf *recBuffer, v wheelJoint) {
 	recWF32(buf, v.perpImpulse)
 	recWF32(buf, v.motorImpulse)
@@ -2111,7 +2148,7 @@ func snapReadU64(r *snapReader) uint64 {
 	return binary.LittleEndian.Uint64(b[:])
 }
 
-func snapReadCount(r *snapReader, memSize, streamSize int) int {
+func snapReadCount(r *snapReader, memSize int, streamSize int) int {
 	n := snapRI32(r)
 	if !snapCheckCount(r, n, memSize, streamSize) {
 		r.ok = false
@@ -2139,15 +2176,26 @@ func snapshotHeaderError(image []byte, size int) error {
 	}
 
 	flags := binary.LittleEndian.Uint32(image[12:])
-	if flags&snapFlagDoublePrecision != expectedPrecision || binary.LittleEndian.Uint32(image[8:]) != computeLayoutHash() {
+	if flags&snapFlagDoublePrecision != expectedPrecision ||
+		binary.LittleEndian.Uint32(image[8:]) != computeLayoutHash() {
 		return &SnapshotError{Err: ErrLayout}
 	}
 
 	return nil
 }
 
-func snapTreeCountsValid(r *snapReader, nodeEnd, nodeCapacity, proxyCount, proxyCapacity int) bool {
-	return nodeEnd >= 2 && nodeEnd&1 == 0 && nodeCapacity >= nodeEnd && proxyCount >= 0 && proxyCapacity >= 1 && proxyCapacity >= proxyCount && snapCheckCount(r, nodeEnd, int(unsafe.Sizeof(TreeNode{})), 28) && snapCheckCount(r, proxyCapacity, 24, 24)
+func snapTreeCountsValid(
+	r *snapReader,
+	nodeEnd int,
+	nodeCapacity int,
+	proxyCount int,
+	proxyCapacity int,
+) bool {
+	return nodeEnd >= 2 && nodeEnd&1 == 0 && nodeCapacity >= nodeEnd && proxyCount >= 0 &&
+		proxyCapacity >= 1 &&
+		proxyCapacity >= proxyCount &&
+		snapCheckCount(r, nodeEnd, int(unsafe.Sizeof(TreeNode{})), 28) &&
+		snapCheckCount(r, proxyCapacity, 24, 24)
 }
 
 func desChainShapes(r *snapReader, world *World) bool {

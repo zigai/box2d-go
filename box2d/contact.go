@@ -197,68 +197,117 @@ type contactRegister struct {
 
 type manifoldFunc func(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold
 
-func circleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func circleManifold(shapeA *shape, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
 	_ = cache
 	return CollideCircles(&shapeA.circle, &shapeB.circle, xf)
 }
 
-func capsuleAndCircleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func capsuleAndCircleManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollideCapsuleAndCircle(&shapeA.capsule, &shapeB.circle, xf)
 }
 
-func segmentAndCircleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func segmentAndCircleManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollideSegmentAndCircle(&shapeA.segment, &shapeB.circle, xf)
 }
 
-func polygonAndCircleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func polygonAndCircleManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollidePolygonAndCircle(&shapeA.polygon, &shapeB.circle, xf)
 }
 
-func chainSegmentAndCircleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func chainSegmentAndCircleManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollideChainSegmentAndCircle(&shapeA.chainSegment, &shapeB.circle, xf)
 }
 
-func capsuleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func capsuleManifold(
+	shapeA *shape,
+	shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollideCapsules(&shapeA.capsule, &shapeB.capsule, xf)
 }
 
-func segmentAndCapsuleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func segmentAndCapsuleManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollideSegmentAndCapsule(&shapeA.segment, &shapeB.capsule, xf)
 }
 
-func polygonAndCapsuleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func polygonAndCapsuleManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollidePolygonAndCapsule(&shapeA.polygon, &shapeB.capsule, xf)
 }
 
-func chainSegmentAndCapsuleManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func chainSegmentAndCapsuleManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	return CollideChainSegmentAndCapsule(&shapeA.chainSegment, &shapeB.capsule, xf, cache)
 }
 
-func segmentAndPolygonManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func segmentAndPolygonManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollideSegmentAndPolygon(&shapeA.segment, &shapeB.polygon, xf)
 }
 
-func polygonManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func polygonManifold(
+	shapeA *shape,
+	shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	_ = cache
 	return CollidePolygons(&shapeA.polygon, &shapeB.polygon, xf)
 }
 
-func chainSegmentAndPolygonManifold(shapeA, shapeB *shape, xf Transform, cache *SimplexCache) LocalManifold {
+func chainSegmentAndPolygonManifold(
+	shapeA *shape, shapeB *shape,
+	xf Transform,
+	cache *SimplexCache,
+) LocalManifold {
 	return CollideChainSegmentAndPolygon(&shapeA.chainSegment, &shapeB.polygon, xf, cache)
 }
 
 func getContactFullID(world *World, contactID Contact) *contact {
 	id := int(contactID.index1) - 1
 	contact := &world.contacts[id]
-	core.Assert(contact.contactID == id && contact.generation == contactID.generation, "contact.contactID == id && contact.generation == contactID.generation")
+	core.Assert(
+		contact.contactID == id && contact.generation == contactID.generation,
+		"contact.contactID == id && contact.generation == contactID.generation",
+	)
 
 	return contact
 }
@@ -277,9 +326,17 @@ func (c Contact) Data() ContactData {
 	shapeB := &world.shapes[contact.shapeIDB]
 
 	return ContactData{
-		Contact:  c,
-		ShapeA:   Shape{index1: int32(shapeA.id + 1), world: c.world, generation: shapeA.generation},
-		ShapeB:   Shape{index1: int32(shapeB.id + 1), world: c.world, generation: shapeB.generation},
+		Contact: c,
+		ShapeA: Shape{
+			index1:     int32(shapeA.id + 1),
+			world:      c.world,
+			generation: shapeA.generation,
+		},
+		ShapeB: Shape{
+			index1:     int32(shapeB.id + 1),
+			world:      c.world,
+			generation: shapeB.generation,
+		},
 		Manifold: contactSim.manifold,
 	}
 }
@@ -288,38 +345,59 @@ func canCollide(typeA ShapeType, typeB ShapeType) bool {
 	return contactRegistry[typeA][typeB].fcn != nil
 }
 
-func initializeContactFlags(contact *contact, bodyA, bodyB *body, shapeA, shapeB *shape) {
+func initializeContactFlags(
+	contact *contact,
+	bodyA *body,
+	bodyB *body,
+	shapeA *shape,
+	shapeB *shape,
+) {
 	contact.flags = 0
 
 	// Both bodies must enable recycling
-	if (bodyA.flags&bodyEnableContactRecycling) != 0 && (bodyB.flags&bodyEnableContactRecycling) != 0 {
+	if (bodyA.flags&bodyEnableContactRecycling) != 0 &&
+		(bodyB.flags&bodyEnableContactRecycling) != 0 {
 		contact.flags |= contactRecycleFlag
 	}
 
-	core.Assert(shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex, "shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex")
+	core.Assert(
+		shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex,
+		"shapeA.sensorIndex == nullIndex && shapeB.sensorIndex == nullIndex",
+	)
 
 	if shapeA.enableContactEvents || shapeB.enableContactEvents {
 		contact.flags |= contactEnableContactEvents
 	}
 }
 
-func mixContactMaterials(world *World, contactSim *contactSim, shapeA, shapeB *shape) {
+func mixContactMaterials(world *World, contactSim *contactSim, shapeA *shape, shapeB *shape) {
 	if world.frictionCallback == nil {
 		contactSim.friction = mixFriction(shapeA.material.Friction, shapeB.material.Friction)
 	} else {
-		contactSim.friction = world.frictionCallback(shapeA.material.Friction, shapeA.material.UserMaterialID,
-			shapeB.material.Friction, shapeB.material.UserMaterialID)
+		contactSim.friction = world.frictionCallback(
+			shapeA.material.Friction,
+			shapeA.material.UserMaterialID,
+			shapeB.material.Friction,
+			shapeB.material.UserMaterialID,
+		)
 	}
 
 	if world.restitutionCallback == nil {
-		contactSim.restitution = mixRestitution(shapeA.material.Restitution, shapeB.material.Restitution)
+		contactSim.restitution = mixRestitution(
+			shapeA.material.Restitution,
+			shapeB.material.Restitution,
+		)
 	} else {
-		contactSim.restitution = world.restitutionCallback(shapeA.material.Restitution, shapeA.material.UserMaterialID,
-			shapeB.material.Restitution, shapeB.material.UserMaterialID)
+		contactSim.restitution = world.restitutionCallback(
+			shapeA.material.Restitution,
+			shapeA.material.UserMaterialID,
+			shapeB.material.Restitution,
+			shapeB.material.UserMaterialID,
+		)
 	}
 }
 
-func connectContactToBody(world *World, contact *contact, body *body, bodyID, edgeIndex int) {
+func connectContactToBody(world *World, contact *contact, body *body, bodyID int, edgeIndex int) {
 	contact.edges[edgeIndex].bodyID = bodyID
 	contact.edges[edgeIndex].prevKey = nullIndex
 	contact.edges[edgeIndex].nextKey = body.headContactKey
@@ -335,7 +413,12 @@ func connectContactToBody(world *World, contact *contact, body *body, bodyID, ed
 	body.contactCount += 1
 }
 
-func initializeContactSim(world *World, contactSim *contactSim, contact *contact, shapeA, shapeB *shape) {
+func initializeContactSim(
+	world *World,
+	contactSim *contactSim,
+	contact *contact,
+	shapeA *shape, shapeB *shape,
+) {
 	bodyA := &world.bodies[shapeA.bodyID]
 	bodyB := &world.bodies[shapeB.bodyID]
 	shapeIDA := shapeA.id
@@ -389,8 +472,14 @@ func createContact(world *World, shapeA *shape, shapeB *shape) {
 	bodyA := &world.bodies[shapeA.bodyID]
 	bodyB := &world.bodies[shapeB.bodyID]
 
-	core.Assert(bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet, "bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet")
-	core.Assert(bodyA.setIndex != staticSet || bodyB.setIndex != staticSet, "bodyA.setIndex != staticSet || bodyB.setIndex != staticSet")
+	core.Assert(
+		bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet,
+		"bodyA.setIndex != disabledSet && bodyB.setIndex != disabledSet",
+	)
+	core.Assert(
+		bodyA.setIndex != staticSet || bodyB.setIndex != staticSet,
+		"bodyA.setIndex != staticSet || bodyB.setIndex != staticSet",
+	)
 
 	var setIndex int
 	if bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet {
@@ -468,7 +557,11 @@ func disconnectContactFromBody(world *World, contact *contact, body *body, edgeI
 	body.contactCount -= 1
 }
 
-func warmStartContactManifold(contactSim *contactSim, oldManifold *Manifold, centerOffsetA, centerOffsetB Vec2) {
+func warmStartContactManifold(
+	contactSim *contactSim,
+	oldManifold *Manifold,
+	centerOffsetA Vec2, centerOffsetB Vec2,
+) {
 	pointCount := contactSim.manifold.PointCount
 	if pointCount > 0 {
 		contactSim.manifold.RollingImpulse = oldManifold.RollingImpulse
@@ -536,11 +629,18 @@ func destroyContact(world *World, contact *contact) {
 		shapeIDA := Shape{index1: int32(shapeA.id + 1), world: world, generation: shapeA.generation}
 		shapeIDB := Shape{index1: int32(shapeB.id + 1), world: world, generation: shapeB.generation}
 
-		contactID := Contact{index1: int32(contact.contactID + 1), world: world, generation: contact.generation}
+		contactID := Contact{
+			index1:     int32(contact.contactID + 1),
+			world:      world,
+			generation: contact.generation,
+		}
 
 		event := ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: contactID}
 
-		world.contactEndEvents[world.endEventArrayIndex] = array.Push(world.contactEndEvents[world.endEventArrayIndex], event)
+		world.contactEndEvents[world.endEventArrayIndex] = array.Push(
+			world.contactEndEvents[world.endEventArrayIndex],
+			event,
+		)
 	}
 
 	contactID := contact.contactID
@@ -560,7 +660,10 @@ func destroyContact(world *World, contact *contact) {
 		removeContactFromGraph(world, bodyIDA, bodyIDB, contact.colorIndex, contact.localIndex)
 	} else {
 		// contact is non-touching or is sleeping
-		core.Assert(contact.setIndex != awakeSet || (contact.flags&contactTouchingFlag) == 0, "contact.setIndex != awakeSet || ( contact.flags & contactTouchingFlag ) == 0")
+		core.Assert(
+			contact.setIndex != awakeSet || (contact.flags&contactTouchingFlag) == 0,
+			"contact.setIndex != awakeSet || ( contact.flags & contactTouchingFlag ) == 0",
+		)
 		set := &world.solverSets[contact.setIndex]
 
 		var movedIndex int
@@ -590,7 +693,10 @@ func destroyContact(world *World, contact *contact) {
 func getContactSim(world *World, contact *contact) *contactSim {
 	if contact.setIndex == awakeSet && contact.colorIndex != nullIndex {
 		// contact lives in constraint graph
-		core.Assert(0 <= contact.colorIndex && contact.colorIndex < GraphColorCount, "0 <= contact.colorIndex && contact.colorIndex < GraphColorCount")
+		core.Assert(
+			0 <= contact.colorIndex && contact.colorIndex < GraphColorCount,
+			"0 <= contact.colorIndex && contact.colorIndex < GraphColorCount",
+		)
 		color := &world.constraintGraph.colors[contact.colorIndex]
 
 		return &color.contactSims[contact.localIndex]
@@ -601,7 +707,16 @@ func getContactSim(world *World, contact *contact) *contactSim {
 	return &set.contactSims[contact.localIndex]
 }
 
-func updateContact(world *World, contactSim *contactSim, shapeA *shape, transformA WorldTransform, centerOffsetA Vec2, shapeB *shape, transformB WorldTransform, centerOffsetB Vec2) bool {
+func updateContact(
+	world *World,
+	contactSim *contactSim,
+	shapeA *shape,
+	transformA WorldTransform,
+	centerOffsetA Vec2,
+	shapeB *shape,
+	transformB WorldTransform,
+	centerOffsetB Vec2,
+) bool {
 	// Save old manifold
 	oldManifold := contactSim.manifold
 
@@ -635,7 +750,10 @@ func updateContact(world *World, contactSim *contactSim, shapeA *shape, transfor
 		radiusB := getShapeRadius(shapeB)
 		maxRadius := maxFloat(radiusA, radiusB)
 		contactSim.rollingResistance =
-			maxFloat(shapeA.material.RollingResistance, shapeB.material.RollingResistance) * maxRadius
+			maxFloat(
+				shapeA.material.RollingResistance,
+				shapeB.material.RollingResistance,
+			) * maxRadius
 	} else {
 		contactSim.rollingResistance = 0.0
 	}

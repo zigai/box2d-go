@@ -81,11 +81,13 @@ func TestAABBVectorHelpers(t *testing.T) {
 }
 
 func TestAABBVectorLayout(t *testing.T) {
-	if unsafe.Sizeof(AABB{}) != unsafe.Sizeof([4]float32{}) || unsafe.Alignof(AABB{}) != unsafe.Alignof([4]float32{}) {
+	if unsafe.Sizeof(AABB{}) != unsafe.Sizeof([4]float32{}) ||
+		unsafe.Alignof(AABB{}) != unsafe.Alignof([4]float32{}) {
 		t.Fatal("AABB must have the size and alignment of four float32 values")
 	}
 
-	if unsafe.Sizeof(Vec2{}) != 8 || unsafe.Offsetof(Vec2{}.X) != 0 || unsafe.Offsetof(Vec2{}.Y) != 4 {
+	if unsafe.Sizeof(Vec2{}) != 8 || unsafe.Offsetof(Vec2{}.X) != 0 ||
+		unsafe.Offsetof(Vec2{}.Y) != 4 {
 		t.Fatal("Vec2 must contain two consecutive float32 values")
 	}
 
@@ -123,9 +125,18 @@ func TestSIMDEnvironment(t *testing.T) {
 
 	for _, scenario := range cases {
 		t.Run(scenario.name, func(t *testing.T) {
-			command := exec.CommandContext(t.Context(), binary, "-test.run=^TestSIMDEnvironmentChild$")
+			command := exec.CommandContext(
+				t.Context(),
+				binary,
+				"-test.run=^TestSIMDEnvironmentChild$",
+			)
 
-			command.Env = append(os.Environ(), "BOX2D_SIMD="+scenario.value, "GODEBUG="+scenario.debug, "BOX2D_TEST_SIMD_ACTIVE="+strconv.FormatBool(scenario.expected))
+			command.Env = append(
+				os.Environ(),
+				"BOX2D_SIMD="+scenario.value,
+				"GODEBUG="+scenario.debug,
+				"BOX2D_TEST_SIMD_ACTIVE="+strconv.FormatBool(scenario.expected),
+			)
 
 			output, runErr := command.CombinedOutput()
 			if runErr != nil {
@@ -150,16 +161,27 @@ func TestSIMDEnvironmentChild(t *testing.T) {
 		t.Fatalf("SIMD active = %t, want %t", simdEnabled, expected)
 	}
 
-	checkAABBOverlap(t, [4]uint32{0, 0, 0x3f800000, 0x3f800000}, [4]uint32{0x3f800000, 0, 0x40000000, 0x3f800000})
-	checkAABBOverlap(t, [4]uint32{0, 0, 0x3f800000, 0x3f800000}, [4]uint32{0x40000000, 0, 0x40400000, 0x3f800000})
+	checkAABBOverlap(
+		t,
+		[4]uint32{0, 0, 0x3f800000, 0x3f800000},
+		[4]uint32{0x3f800000, 0, 0x40000000, 0x3f800000},
+	)
+	checkAABBOverlap(
+		t,
+		[4]uint32{0, 0, 0x3f800000, 0x3f800000},
+		[4]uint32{0x40000000, 0, 0x40400000, 0x3f800000},
+	)
 }
 
-func checkAABBOverlap(t *testing.T, leftBits, rightBits [4]uint32) {
+func checkAABBOverlap(t *testing.T, leftBits [4]uint32, rightBits [4]uint32) {
 	t.Helper()
 
 	left := overlapAABBFromBits(leftBits)
 	right := overlapAABBFromBits(rightBits)
-	expected := left.LowerBound.X <= right.UpperBound.X && left.LowerBound.Y <= right.UpperBound.Y && right.LowerBound.X <= left.UpperBound.X && right.LowerBound.Y <= left.UpperBound.Y
+	expected := left.LowerBound.X <= right.UpperBound.X &&
+		left.LowerBound.Y <= right.UpperBound.Y &&
+		right.LowerBound.X <= left.UpperBound.X &&
+		right.LowerBound.Y <= left.UpperBound.Y
 
 	if actual := overlapV(&left, &right); actual != expected {
 		t.Fatalf("overlapV(%08x, %08x) = %t, want %t", leftBits, rightBits, actual, expected)

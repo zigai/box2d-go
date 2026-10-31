@@ -52,7 +52,12 @@ func (d *queryDigest) id(id box2d.Shape) {
 	d.u(uint32(v & 0xffff))
 }
 
-func (d *queryDigest) stats(s box2d.TreeStats) { d.u(uint32(s.NodeVisits)); d.u(uint32(s.LeafVisits)) }
+func (d *queryDigest) stats(
+	s box2d.TreeStats,
+) {
+	d.u(uint32(s.NodeVisits))
+	d.u(uint32(s.LeafVisits))
+}
 
 func (d *queryDigest) hit(r box2d.RayResult) {
 	if r.Hit {
@@ -79,7 +84,15 @@ func (d *queryDigest) overlaps(ids []uint64) {
 	}
 }
 func queryIdentity(id box2d.Shape) uint64 { return id.ID() & 0xffffffff0000ffff }
-func queryObserve(r *oracle.Reader, step, partition int, kind, field string, d queryDigest) {
+
+func queryObserve(
+	r *oracle.Reader,
+	step int,
+	partition int,
+	kind string,
+	field string,
+	d queryDigest,
+) {
 	r.U64(fmt.Sprintf("%d.%d.%s.%s", step, partition, kind, field), d.h)
 }
 
@@ -108,17 +121,38 @@ func observeQueriesPayload(r *oracle.Reader, world *box2d.World, step int) {
 				case 1:
 					var result box2d.RayResult
 
-					stats := world.CastShape(origin, &circle, translation, filter, func(id box2d.Shape, p box2d.Pos, n box2d.Vec2, fraction float32) float32 {
-						result = box2d.RayResult{Shape: id, Point: p, Normal: n, Fraction: fraction, Hit: true}
-						return fraction
-					})
+					stats := world.CastShape(
+						origin,
+						&circle,
+						translation,
+						filter,
+						func(id box2d.Shape, p box2d.Pos, n box2d.Vec2, fraction float32) float32 {
+							result = box2d.RayResult{
+								Shape:    id,
+								Point:    p,
+								Normal:   n,
+								Fraction: fraction,
+								Hit:      true,
+							}
+
+							return fraction
+						},
+					)
 					result.NodeVisits = stats.NodeVisits
 					result.LeafVisits = stats.LeafVisits
 					d.hit(result)
 				case 2:
 					var ids []uint64
 
-					stats := world.OverlapAABB(origin, box2d.AABB{LowerBound: box2d.Vec2{X: -5, Y: -5}, UpperBound: box2d.Vec2{X: 5, Y: 5}}, filter, func(id box2d.Shape) bool { ids = append(ids, queryIdentity(id)); return true })
+					stats := world.OverlapAABB(
+						origin,
+						box2d.AABB{
+							LowerBound: box2d.Vec2{X: -5, Y: -5},
+							UpperBound: box2d.Vec2{X: 5, Y: 5},
+						},
+						filter,
+						func(id box2d.Shape) bool { ids = append(ids, queryIdentity(id)); return true },
+					)
 
 					d.overlaps(ids)
 					d.stats(stats)
@@ -176,7 +210,14 @@ func observeTilePayload(r *oracle.Reader, world *box2d.World, step int) {
 			translation box2d.Vec2
 		}, tileQueryCount)
 		for i := range tileQueryCount {
-			origin := box2d.Vec2{X: gTileWorld.xLeft + tileRandom(&state, 0, float32(gTileWorld.groundCount)*gTileWorld.bodySpan), Y: tileRandom(&state, -2, 18)}.Pos()
+			origin := box2d.Vec2{
+				X: gTileWorld.xLeft + tileRandom(
+					&state,
+					0,
+					float32(gTileWorld.groundCount)*gTileWorld.bodySpan,
+				),
+				Y: tileRandom(&state, -2, 18),
+			}.Pos()
 			angle := tileRandom(&state, 0, 2*box2d.Pi)
 			sine, cosine := boundedSinCos(angle)
 			translation := box2d.Vec2{X: tileRayLength * cosine, Y: tileRayLength * sine}
@@ -205,7 +246,15 @@ func observeTilePayload(r *oracle.Reader, world *box2d.World, step int) {
 			} else {
 				var ids []uint64
 
-				stats := world.OverlapAABB(ray.origin, box2d.AABB{LowerBound: box2d.Vec2{X: -5, Y: -5}, UpperBound: box2d.Vec2{X: 5, Y: 5}}, filter, func(id box2d.Shape) bool { ids = append(ids, queryIdentity(id)); return true })
+				stats := world.OverlapAABB(
+					ray.origin,
+					box2d.AABB{
+						LowerBound: box2d.Vec2{X: -5, Y: -5},
+						UpperBound: box2d.Vec2{X: 5, Y: 5},
+					},
+					filter,
+					func(id box2d.Shape) bool { ids = append(ids, queryIdentity(id)); return true },
+				)
 
 				d.overlaps(ids)
 				d.stats(stats)
@@ -284,7 +333,7 @@ func digestQueryInputs(filter box2d.QueryFilter, kind int) queryDigest {
 	return input
 }
 
-func (d *queryDigest) treeCast(k, kind, i int, mask uint64) {
+func (d *queryDigest) treeCast(k int, kind int, i int, mask uint64) {
 	context := treeCastContext{tightBoxes: gTreeCast.tightBoxes, fraction: 1}
 	proxy := -1
 	identity := uint64(math.MaxUint64)
@@ -292,28 +341,47 @@ func (d *queryDigest) treeCast(k, kind, i int, mask uint64) {
 	var stats box2d.TreeStats
 
 	if kind < 2 {
-		input := box2d.RayCastInput{Origin: gTreeCast.origins[i], Translation: gTreeCast.translations[k][i], MaxFraction: 1}
-		stats = gTreeCast.tree.CastRay(&input, mask, func(in *box2d.RayCastInput, id int, value uint64) float32 {
-			f := treeCastRayCallback(in, value, &context)
-			if f >= 0 {
-				proxy = id
-				identity = value
-			}
+		input := box2d.RayCastInput{
+			Origin:      gTreeCast.origins[i],
+			Translation: gTreeCast.translations[k][i],
+			MaxFraction: 1,
+		}
+		stats = gTreeCast.tree.CastRay(
+			&input,
+			mask,
+			func(in *box2d.RayCastInput, id int, value uint64) float32 {
+				f := treeCastRayCallback(in, value, &context)
+				if f >= 0 {
+					proxy = id
+					identity = value
+				}
 
-			return f
-		})
+				return f
+			},
+		)
 	} else {
 		o := gTreeCast.origins[i]
-		input := box2d.BoxCastInput{Box: box2d.AABB{LowerBound: box2d.Vec2{X: o.X - treeCastBoxExtent, Y: o.Y - treeCastBoxExtent}, UpperBound: box2d.Vec2{X: o.X + treeCastBoxExtent, Y: o.Y + treeCastBoxExtent}}, Translation: gTreeCast.translations[k][i], MaxFraction: 1}
-		stats = gTreeCast.tree.CastBox(&input, mask, func(in *box2d.BoxCastInput, id int, value uint64) float32 {
-			f := treeCastBoxCallback(in, value, &context)
-			if f >= 0 {
-				proxy = id
-				identity = value
-			}
+		input := box2d.BoxCastInput{
+			Box: box2d.AABB{
+				LowerBound: box2d.Vec2{X: o.X - treeCastBoxExtent, Y: o.Y - treeCastBoxExtent},
+				UpperBound: box2d.Vec2{X: o.X + treeCastBoxExtent, Y: o.Y + treeCastBoxExtent},
+			},
+			Translation: gTreeCast.translations[k][i],
+			MaxFraction: 1,
+		}
+		stats = gTreeCast.tree.CastBox(
+			&input,
+			mask,
+			func(in *box2d.BoxCastInput, id int, value uint64) float32 {
+				f := treeCastBoxCallback(in, value, &context)
+				if f >= 0 {
+					proxy = id
+					identity = value
+				}
 
-			return f
-		})
+				return f
+			},
+		)
 	}
 
 	d.u(uint32(i))

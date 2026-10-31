@@ -38,7 +38,10 @@ func (p *Pool) Alloc() int {
 	return id
 }
 
-func AllocWithGeneration[Generation ~uint16 | ~uint32](p *Pool, generation func(int) Generation) int {
+func AllocWithGeneration[Generation ~uint16 | ~uint32](
+	p *Pool,
+	generation func(int) Generation,
+) int {
 	for freeIndex, id := range slices.Backward(p.FreeArray) {
 		if generation(id) == ^Generation(0) {
 			continue

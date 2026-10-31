@@ -140,7 +140,12 @@ func testDistanceShortEdge(t *testing.T) {
 	r := oracle.Open(t, "distance/ShapeDistanceShortEdgeTest")
 	halfThickness := float32(0.0016)
 
-	corners := []box2d.Vec2{{-0.5, -halfThickness}, {0.5, -halfThickness}, {0.5, halfThickness}, {-0.5, halfThickness}}
+	corners := []box2d.Vec2{
+		{-0.5, -halfThickness},
+		{0.5, -halfThickness},
+		{0.5, halfThickness},
+		{-0.5, halfThickness},
+	}
 
 	point := box2d.Vec2{0.5 + box2d.LinearSlop(), 0.0}
 
@@ -182,7 +187,12 @@ func testDistanceShortEdgeCast(t *testing.T) {
 	r := oracle.Open(t, "distance/ShapeCastShortEdgeTest")
 	halfThickness := float32(0.0002)
 
-	corners := []box2d.Vec2{{-0.5, -halfThickness}, {0.5, -halfThickness}, {0.5, halfThickness}, {-0.5, halfThickness}}
+	corners := []box2d.Vec2{
+		{-0.5, -halfThickness},
+		{0.5, -halfThickness},
+		{0.5, halfThickness},
+		{-0.5, halfThickness},
+	}
 
 	// falls past the end of the plank and drifts into it, so the second query lands on the end face
 	start := box2d.Vec2{0.506, 0.0035}
@@ -216,8 +226,20 @@ func testDistanceTimeOfImpact(t *testing.T) {
 
 	input.ProxyA = box2d.MakeProxy(vas, 0.0)
 	input.ProxyB = box2d.MakeProxy(vbs, 0.0)
-	input.SweepA = box2d.Sweep{box2d.Vec2Zero, box2d.Vec2Zero, box2d.Vec2Zero, box2d.RotIdentity, box2d.RotIdentity}
-	input.SweepB = box2d.Sweep{box2d.Vec2Zero, box2d.Vec2Zero, box2d.Vec2{-2, 0}, box2d.RotIdentity, box2d.RotIdentity}
+	input.SweepA = box2d.Sweep{
+		box2d.Vec2Zero,
+		box2d.Vec2Zero,
+		box2d.Vec2Zero,
+		box2d.RotIdentity,
+		box2d.RotIdentity,
+	}
+	input.SweepB = box2d.Sweep{
+		box2d.Vec2Zero,
+		box2d.Vec2Zero,
+		box2d.Vec2{-2, 0},
+		box2d.RotIdentity,
+		box2d.RotIdentity,
+	}
 	input.MaxFraction = 1.0
 
 	output := box2d.TimeOfImpact(&input)
@@ -244,7 +266,11 @@ func testDistanceTimeOfImpact(t *testing.T) {
 	}
 }
 
-func geometryOriginalDistance(r *oracle.Reader, output box2d.DistanceOutput, cache box2d.SimplexCache) {
+func geometryOriginalDistance(
+	r *oracle.Reader,
+	output box2d.DistanceOutput,
+	cache box2d.SimplexCache,
+) {
 	r.F32("full/distance", output.Distance)
 	r.Vec2("full/point-a", output.PointA.X, output.PointA.Y)
 	r.Vec2("full/point-b", output.PointB.X, output.PointB.Y)

@@ -42,7 +42,18 @@ type humanJointSettings struct {
 	maxTorque, hertz, dampingRatio float32
 }
 
-func CreateHuman(human *Human, worldID *box2d.World, position box2d.Pos, scale, frictionTorque, hertz, dampingRatio float32, groupIndex int, userData any, colorize bool) {
+func CreateHuman( //nolint:maintidx // Straight-line port of C CreateHuman's body table; MI 13 < 20; TestScenes/Human.
+	human *Human,
+	worldID *box2d.World,
+	position box2d.Pos,
+	scale float32,
+	frictionTorque float32,
+	hertz float32,
+	dampingRatio float32,
+	groupIndex int,
+	userData any,
+	colorize bool,
+) {
 	if human.IsSpawned {
 		panic(&box2d.AssertError{Condition: "human->isSpawned == false"})
 	}
@@ -82,80 +93,195 @@ func CreateHuman(human *Human, worldID *box2d.World, position box2d.Pos, scale, 
 	}
 
 	var (
-		s             float32           = scale
-		jointSettings                   = humanJointSettings{maxTorque: frictionTorque * s, hertz: hertz, dampingRatio: dampingRatio}
-		shirtColor    box2d.HexColor    = box2d.ColorMediumTurquoise
-		pantColor     box2d.HexColor    = box2d.ColorDodgerBlue
-		skinColors    [4]box2d.HexColor = [4]box2d.HexColor{box2d.ColorNavajoWhite, box2d.ColorLightYellow, box2d.ColorPeru, box2d.ColorTan}
-		skinColor     box2d.HexColor    = skinColors[groupIndex%4]
+		s             float32 = scale
+		jointSettings         = humanJointSettings{
+			maxTorque:    frictionTorque * s,
+			hertz:        hertz,
+			dampingRatio: dampingRatio,
+		}
+		shirtColor box2d.HexColor    = box2d.ColorMediumTurquoise
+		pantColor  box2d.HexColor    = box2d.ColorDodgerBlue
+		skinColors [4]box2d.HexColor = [4]box2d.HexColor{
+			box2d.ColorNavajoWhite,
+			box2d.ColorLightYellow,
+			box2d.ColorPeru,
+			box2d.ColorTan,
+		}
+		skinColor box2d.HexColor = skinColors[groupIndex%4]
 	)
 	{
 		var bone *Bone = &human.Bones[int(BoneHip)]
 
 		bone.ParentIndex = -1
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.95) * s}), float32(0.0), "hip")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.95) * s}),
+			float32(0.0),
+			"hip",
+		)
 
 		setHumanShapeColor(&shapeDef, colorize, pantColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.02)*s, float32(0.02)*s, float32(0.095)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.02)*s,
+			float32(0.02)*s,
+			float32(0.095)*s,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneTorso)]
 
 		bone.ParentIndex = int(BoneHip)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.2) * s}), float32(0.0), "torso")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.2) * s}),
+			float32(0.0),
+			"torso",
+		)
 		bone.FrictionScale = float32(0.5)
 		bodyDef.Type = box2d.DynamicBody
 
 		setHumanShapeColor(&shapeDef, colorize, shirtColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.135)*s, float32(0.135)*s, float32(0.09)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.135)*s,
+			float32(0.135)*s,
+			float32(0.09)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.0) * s}), -float32(0.25)*box2d.Pi, float32(0.0), box2d.Rot{C: 1}, jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.0) * s}),
+			-float32(0.25)*box2d.Pi,
+			float32(0.0),
+			box2d.Rot{C: 1},
+			jointSettings,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneHead)]
 
 		bone.ParentIndex = int(BoneTorso)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0) * s, Y: float32(1.475) * s}), float32(0.1), "head")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0) * s, Y: float32(1.475) * s}),
+			float32(0.1),
+			"head",
+		)
 		bone.FrictionScale = float32(0.25)
 
 		setHumanShapeColor(&shapeDef, colorize, skinColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.038)*s, float32(0.039)*s, float32(0.075)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.038)*s,
+			float32(0.039)*s,
+			float32(0.075)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.4) * s}), -float32(0.3)*box2d.Pi, float32(0.1)*box2d.Pi, box2d.Rot{C: 1}, jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.4) * s}),
+			-float32(0.3)*box2d.Pi,
+			float32(0.1)*box2d.Pi,
+			box2d.Rot{C: 1},
+			jointSettings,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneUpperLeftLeg)]
 
 		bone.ParentIndex = int(BoneHip)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.775) * s}), float32(0.0), "upper_left_leg")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.775) * s}),
+			float32(0.0),
+			"upper_left_leg",
+		)
 		bone.FrictionScale = float32(1.0)
 
 		setHumanShapeColor(&shapeDef, colorize, pantColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.125)*s, float32(0.125)*s, float32(0.06)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.125)*s,
+			float32(0.125)*s,
+			float32(0.06)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.9) * s}), -float32(0.05)*box2d.Pi, float32(0.4)*box2d.Pi, box2d.Rot{C: 1}, jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.9) * s}),
+			-float32(0.05)*box2d.Pi,
+			float32(0.4)*box2d.Pi,
+			box2d.Rot{C: 1},
+			jointSettings,
+		)
 	}
 
 	var (
-		points      [4]box2d.Vec2 = [4]box2d.Vec2{{X: -float32(0.03) * s, Y: -float32(0.185) * s}, {X: float32(0.11) * s, Y: -float32(0.185) * s}, {X: float32(0.11) * s, Y: -float32(0.16) * s}, {X: -float32(0.03) * s, Y: -float32(0.14) * s}}
+		points [4]box2d.Vec2 = [4]box2d.Vec2{
+			{X: -float32(0.03) * s, Y: -float32(0.185) * s},
+			{X: float32(0.11) * s, Y: -float32(0.185) * s},
+			{X: float32(0.11) * s, Y: -float32(0.16) * s},
+			{X: -float32(0.03) * s, Y: -float32(0.14) * s},
+		}
 		footHull    box2d.Hull    = box2d.ComputeHull(points[:])
 		footPolygon box2d.Polygon = box2d.MakePolygon(&footHull, float32(0.015)*s)
 	)
 
 	createLowerLeg := func(bone *Bone, name string) {
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.475) * s}), float32(0.0), name)
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.475) * s}),
+			float32(0.0),
+			name,
+		)
 		bone.FrictionScale = float32(0.5)
 
 		setHumanShapeColor(&shapeDef, colorize, pantColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.155)*s, float32(0.125)*s, float32(0.045)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.155)*s,
+			float32(0.125)*s,
+			float32(0.045)*s,
+		)
 		bone.BodyID.CreatePolygonShape(&footShapeDef, &footPolygon)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.625) * s}), -float32(0.5)*box2d.Pi, -float32(0.02)*box2d.Pi, box2d.Rot{C: 1}, jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.625) * s}),
+			-float32(0.5)*box2d.Pi,
+			-float32(0.02)*box2d.Pi,
+			box2d.Rot{C: 1},
+			jointSettings,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneLowerLeftLeg)]
@@ -167,14 +293,36 @@ func CreateHuman(human *Human, worldID *box2d.World, position box2d.Pos, scale, 
 		var bone *Bone = &human.Bones[int(BoneUpperRightLeg)]
 
 		bone.ParentIndex = int(BoneHip)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.775) * s}), float32(0.0), "upper_right_leg")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.775) * s}),
+			float32(0.0),
+			"upper_right_leg",
+		)
 		bone.FrictionScale = float32(1.0)
 
 		setHumanShapeColor(&shapeDef, colorize, pantColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.125)*s, float32(0.125)*s, float32(0.06)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.125)*s,
+			float32(0.125)*s,
+			float32(0.06)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.9) * s}), -float32(0.05)*box2d.Pi, float32(0.4)*box2d.Pi, box2d.Rot{C: 1}, jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.9) * s}),
+			-float32(0.05)*box2d.Pi,
+			float32(0.4)*box2d.Pi,
+			box2d.Rot{C: 1},
+			jointSettings,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneLowerRightLeg)]
@@ -187,52 +335,140 @@ func CreateHuman(human *Human, worldID *box2d.World, position box2d.Pos, scale, 
 
 		bone.ParentIndex = int(BoneTorso)
 		bone.FrictionScale = float32(0.5)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.225) * s}), float32(0.0), "upper_left_arm")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.225) * s}),
+			float32(0.0),
+			"upper_left_arm",
+		)
 
 		setHumanShapeColor(&shapeDef, colorize, shirtColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.125)*s, float32(0.125)*s, float32(0.035)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.125)*s,
+			float32(0.125)*s,
+			float32(0.035)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.35) * s}), -float32(0.1)*box2d.Pi, float32(0.8)*box2d.Pi, box2d.Rot{C: 1}, jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.35) * s}),
+			-float32(0.1)*box2d.Pi,
+			float32(0.8)*box2d.Pi,
+			box2d.Rot{C: 1},
+			jointSettings,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneLowerLeftArm)]
 
 		bone.ParentIndex = int(BoneUpperLeftArm)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.975) * s}), float32(0.1), "lower_left_arm")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.975) * s}),
+			float32(0.1),
+			"lower_left_arm",
+		)
 		bone.FrictionScale = float32(0.1)
 
 		setHumanShapeColor(&shapeDef, colorize, skinColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.125)*s, float32(0.125)*s, float32(0.03)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.125)*s,
+			float32(0.125)*s,
+			float32(0.03)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.1) * s}), -float32(0.2)*box2d.Pi, float32(0.3)*box2d.Pi, box2d.MakeRot(float32(0.25)*box2d.Pi), jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.1) * s}),
+			-float32(0.2)*box2d.Pi,
+			float32(0.3)*box2d.Pi,
+			box2d.MakeRot(float32(0.25)*box2d.Pi),
+			jointSettings,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneUpperRightArm)]
 
 		bone.ParentIndex = int(BoneTorso)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.225) * s}), float32(0.0), "upper_right_arm")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.225) * s}),
+			float32(0.0),
+			"upper_right_arm",
+		)
 		bone.FrictionScale = float32(0.5)
 
 		setHumanShapeColor(&shapeDef, colorize, shirtColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.125)*s, float32(0.125)*s, float32(0.035)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.125)*s,
+			float32(0.125)*s,
+			float32(0.035)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.35) * s}), -float32(0.1)*box2d.Pi, float32(0.8)*box2d.Pi, box2d.Rot{C: 1}, jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.35) * s}),
+			-float32(0.1)*box2d.Pi,
+			float32(0.8)*box2d.Pi,
+			box2d.Rot{C: 1},
+			jointSettings,
+		)
 	}
 	{
 		var bone *Bone = &human.Bones[int(BoneLowerRightArm)]
 
 		bone.ParentIndex = int(BoneUpperRightArm)
-		createHumanBoneBody(worldID, bone, &bodyDef, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.975) * s}), float32(0.1), "lower_right_arm")
+		createHumanBoneBody(
+			worldID,
+			bone,
+			&bodyDef,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(0.975) * s}),
+			float32(0.1),
+			"lower_right_arm",
+		)
 		bone.FrictionScale = float32(0.1)
 
 		setHumanShapeColor(&shapeDef, colorize, skinColor)
 
-		createHumanBoneCapsule(bone.BodyID, &shapeDef, -float32(0.125)*s, float32(0.125)*s, float32(0.03)*s)
+		createHumanBoneCapsule(
+			bone.BodyID,
+			&shapeDef,
+			-float32(0.125)*s,
+			float32(0.125)*s,
+			float32(0.03)*s,
+		)
 
-		createHumanBoneJoint(human, worldID, bone, position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.1) * s}), -float32(0.2)*box2d.Pi, float32(0.3)*box2d.Pi, box2d.MakeRot(float32(0.25)*box2d.Pi), jointSettings)
+		createHumanBoneJoint(
+			human,
+			worldID,
+			bone,
+			position.Add(box2d.Vec2{X: float32(0.0), Y: float32(1.1) * s}),
+			-float32(0.2)*box2d.Pi,
+			float32(0.3)*box2d.Pi,
+			box2d.MakeRot(float32(0.25)*box2d.Pi),
+			jointSettings,
+		)
 	}
 
 	human.IsSpawned = true
@@ -395,7 +631,11 @@ func (human *Human) SetScale(scale float32) {
 
 			var shapeType box2d.JointType = bone.JointID.Type()
 			if shapeType == box2d.RevoluteJointType {
-				box2d.RevoluteJoint{Joint: bone.JointID}.SetMaxMotorTorque(bone.FrictionScale * frictionTorque)
+				box2d.RevoluteJoint{
+					Joint: bone.JointID,
+				}.SetMaxMotorTorque(
+					bone.FrictionScale * frictionTorque,
+				)
 			}
 		}
 
@@ -407,7 +647,15 @@ func (human *Human) SetScale(scale float32) {
 	human.Scale = scale
 }
 
-func createHumanBoneJoint(human *Human, worldID *box2d.World, bone *Bone, pivot box2d.Pos, lower, upper float32, referenceRotation box2d.Rot, settings humanJointSettings) {
+func createHumanBoneJoint(
+	human *Human,
+	worldID *box2d.World,
+	bone *Bone,
+	pivot box2d.Pos,
+	lower float32, upper float32,
+	referenceRotation box2d.Rot,
+	settings humanJointSettings,
+) {
 	jointDef := box2d.DefaultRevoluteJointDef()
 	jointDef.Base.BodyA = human.Bones[bone.ParentIndex].BodyID
 	jointDef.Base.BodyB = bone.BodyID
@@ -468,14 +716,29 @@ func scaleHumanBoneShapes(bodyID box2d.Body, ratio float32) {
 	}
 }
 
-func createHumanBoneBody(worldID *box2d.World, bone *Bone, bodyDef *box2d.BodyDef, position box2d.Pos, damping float32, name string) {
+func createHumanBoneBody(
+	worldID *box2d.World,
+	bone *Bone,
+	bodyDef *box2d.BodyDef,
+	position box2d.Pos,
+	damping float32,
+	name string,
+) {
 	bodyDef.Position = position
 	bodyDef.LinearDamping = damping
 	bodyDef.Name = name
 	bone.BodyID = worldID.CreateBody(bodyDef)
 }
 
-func createHumanBoneCapsule(bodyID box2d.Body, shapeDef *box2d.ShapeDef, lower, upper, radius float32) {
-	capsule := box2d.Capsule{Center1: box2d.Vec2{Y: lower}, Center2: box2d.Vec2{Y: upper}, Radius: radius}
+func createHumanBoneCapsule(
+	bodyID box2d.Body,
+	shapeDef *box2d.ShapeDef,
+	lower float32, upper float32, radius float32,
+) {
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{Y: lower},
+		Center2: box2d.Vec2{Y: upper},
+		Radius:  radius,
+	}
 	bodyID.CreateCapsuleShape(shapeDef, &capsule)
 }

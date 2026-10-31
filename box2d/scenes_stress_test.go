@@ -18,7 +18,24 @@ func TestScenes(t *testing.T) { testScenes(t, 1) }
 func TestParallelScenes(t *testing.T) { testScenes(t, 4) }
 
 func TestSceneFixtureInventory(t *testing.T) {
-	names := []string{"JointGrid", "LargePyramid", "ManyPyramids", "Rain", "Spinner", "Smash", "Tumbler", "Washer", "Junkyard", "Sleep", "Compounds", "Queries", "TreeCast", "TileWorld", "FallingHinges", "Human"}
+	names := []string{
+		"JointGrid",
+		"LargePyramid",
+		"ManyPyramids",
+		"Rain",
+		"Spinner",
+		"Smash",
+		"Tumbler",
+		"Washer",
+		"Junkyard",
+		"Sleep",
+		"Compounds",
+		"Queries",
+		"TreeCast",
+		"TileWorld",
+		"FallingHinges",
+		"Human",
+	}
 
 	for _, config := range []string{"float", "double"} {
 		t.Run(config, func(t *testing.T) {
@@ -86,7 +103,10 @@ func TestSceneHelperFixtureInventory(t *testing.T) {
 				t.Fatal("extra helper records")
 			}
 
-			t.Logf("%d bytes; group destruction/recycling and four strict paddle boundaries", len(data))
+			t.Logf(
+				"%d bytes; group destruction/recycling and four strict paddle boundaries",
+				len(data),
+			)
 		})
 	}
 }

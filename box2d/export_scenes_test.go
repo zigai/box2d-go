@@ -27,7 +27,10 @@ func SceneBodyTransformsForTest(worldID *World) []SceneBodyTransformForTest {
 			continue
 		}
 
-		transforms = append(transforms, SceneBodyTransformForTest{Index: index, Transform: getBodyTransformQuick(world, body)})
+		transforms = append(
+			transforms,
+			SceneBodyTransformForTest{Index: index, Transform: getBodyTransformQuick(world, body)},
+		)
 	}
 
 	return transforms

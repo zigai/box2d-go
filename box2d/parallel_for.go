@@ -48,7 +48,7 @@ func parallelForTrampoline(task *parallelForTask) {
 	}
 }
 
-func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
+func parallelFor(w *World, callback parallelForFunc, itemCount int, minRange int) {
 	if itemCount <= 0 {
 		return
 	}
@@ -56,7 +56,10 @@ func parallelFor(w *World, callback parallelForFunc, itemCount, minRange int) {
 	core.Assert(minRange > 0, "minRange > 0")
 
 	workerCount := w.workerCount
-	core.Assert(0 < workerCount && workerCount <= MaxWorkers, "0 < workerCount && workerCount <= B2_MAX_WORKERS")
+	core.Assert(
+		0 < workerCount && workerCount <= MaxWorkers,
+		"0 < workerCount && workerCount <= B2_MAX_WORKERS",
+	)
 	// Target multiple blocks per worker to reduce thread stalls.
 	// block size grows once items exceed maxBlockCount * minRange
 	// so the block count stays bounded and per-block sync overhead stays low.

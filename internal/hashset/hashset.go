@@ -177,7 +177,7 @@ func Hash(key uint64) uint64 {
 	return h
 }
 
-func ShapePairKey(k1, k2 int) uint64 {
+func ShapePairKey(k1 int, k2 int) uint64 {
 	if k1 < k2 {
 		return uint64(k1)<<32 | uint64(k2)
 	}

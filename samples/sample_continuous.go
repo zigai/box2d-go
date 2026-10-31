@@ -48,22 +48,34 @@ func CreateBounceHouse(context *SampleContext) Sampler {
 
 	shapeDef := box2d.DefaultShapeDef()
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: -10.0}, Point2: box2d.Vec2{X: 10.0, Y: -10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: -10.0},
+			Point2: box2d.Vec2{X: 10.0, Y: -10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: -10.0}, Point2: box2d.Vec2{X: 10.0, Y: 10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: -10.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: 10.0}, Point2: box2d.Vec2{X: -10.0, Y: 10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: 10.0},
+			Point2: box2d.Vec2{X: -10.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 10.0}, Point2: box2d.Vec2{X: -10.0, Y: -10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 10.0},
+			Point2: box2d.Vec2{X: -10.0, Y: -10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -102,7 +114,11 @@ func (s *BounceHouse) Launch() {
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 		s.bodyID.CreateCircleShape(&shapeDef, &circle)
 	} else if s.shapeType == continuousCapsuleShape {
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 		s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	} else {
 		h := float32(0.1)
@@ -175,22 +191,34 @@ func CreateBounceHumans(context *SampleContext) Sampler {
 	shapeDef.Material.Friction = 0.1
 
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: -10.0}, Point2: box2d.Vec2{X: 10.0, Y: -10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: -10.0},
+			Point2: box2d.Vec2{X: 10.0, Y: -10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: -10.0}, Point2: box2d.Vec2{X: 10.0, Y: 10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: -10.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: 10.0}, Point2: box2d.Vec2{X: -10.0, Y: 10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: 10.0},
+			Point2: box2d.Vec2{X: -10.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 10.0}, Point2: box2d.Vec2{X: -10.0, Y: -10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 10.0},
+			Point2: box2d.Vec2{X: -10.0, Y: -10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -206,8 +234,18 @@ func (s *BounceHumans) Step() {
 		jointHertz := float32(1.0)
 		jointDampingRatio := float32(0.1)
 
-		scenes.CreateHuman(&s.humans[s.humanCount], s.worldID, box2d.Pos{X: 0.0, Y: 5.0}, 1.0, jointFrictionTorque, jointHertz,
-			jointDampingRatio, 1, nil, true)
+		scenes.CreateHuman(
+			&s.humans[s.humanCount],
+			s.worldID,
+			box2d.Pos{X: 0.0, Y: 5.0},
+			1.0,
+			jointFrictionTorque,
+			jointHertz,
+			jointDampingRatio,
+			1,
+			nil,
+			true,
+		)
 
 		s.countDown = 2.0
 		s.humanCount += 1
@@ -218,7 +256,11 @@ func (s *BounceHumans) Step() {
 	cs2 := box2d.ComputeCosSin(s.time)
 	gravity := float32(10.0)
 	gravityVec := box2d.Vec2{X: gravity * cs1.Sine, Y: gravity * cs2.Cosine}
-	s.draw.DrawLine(box2d.Pos{}, box2d.Vec2{X: 3.0 * cs1.Sine, Y: 3.0 * cs2.Cosine}.Pos(), box2d.ColorWhite)
+	s.draw.DrawLine(
+		box2d.Pos{},
+		box2d.Vec2{X: 3.0 * cs1.Sine, Y: 3.0 * cs2.Cosine}.Pos(),
+		box2d.ColorWhite,
+	)
 	s.time += timeStep
 	s.countDown -= timeStep
 	s.worldID.SetGravity(gravityVec)
@@ -248,7 +290,12 @@ func CreateChainDrop(context *SampleContext) Sampler {
 	bodyDef.Position = box2d.Pos{X: 0.0, Y: -6.0}
 	groundID := s.worldID.CreateBody(&bodyDef)
 
-	points := []box2d.Vec2{{X: -10.0, Y: -2.0}, {X: 10.0, Y: -2.0}, {X: 10.0, Y: 1.0}, {X: -10.0, Y: 1.0}}
+	points := []box2d.Vec2{
+		{X: -10.0, Y: -2.0},
+		{X: 10.0, Y: -2.0},
+		{X: 10.0, Y: 1.0},
+		{X: -10.0, Y: 1.0},
+	}
 
 	chainDef := box2d.DefaultChainDef()
 	chainDef.Points = points
@@ -379,10 +426,16 @@ func CreateSegmentSlide(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		segment = box2d.Segment{Point1: box2d.Vec2{X: 40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 10.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: 40.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 40.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -425,7 +478,10 @@ func CreateSkinnyBox(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.9
 		groundID.CreateSegmentShape(&shapeDef, &segment)
@@ -469,7 +525,11 @@ func (s *SkinnyBox) Launch() {
 	s.bodyID = s.worldID.CreateBody(&bodyDef)
 
 	if s.capsule {
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -1.0}, Center2: box2d.Vec2{X: 0.0, Y: 1.0}, Radius: 0.1}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -1.0},
+			Center2: box2d.Vec2{X: 0.0, Y: 1.0},
+			Radius:  0.1,
+		}
 		s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	} else {
 		polygon := box2d.MakeBox(2.0, 0.05)
@@ -566,11 +626,15 @@ func (s *GhostBumps) CreateScene() {
 		points[4] = points[3].Add(box2d.Vec2{X: -2.0 * hy * m, Y: -2.0 * hy * m})
 		points[5] = points[4].Add(box2d.Vec2{X: 2.0 * hx * m, Y: -2.0 * hx * m})
 		points[6] = points[5].Add(box2d.Vec2{X: 2.0 * hx * m, Y: -2.0 * hx * m})
-		points[7] = points[6].Add(box2d.Vec2{X: 2.0*hx*m + 2.0*hy*(1.0-m), Y: -2.0*hx*m - 2.0*hy*(1.0-m)})
+		points[7] = points[6].Add(
+			box2d.Vec2{X: 2.0*hx*m + 2.0*hy*(1.0-m), Y: -2.0*hx*m - 2.0*hy*(1.0-m)},
+		)
 		points[8] = points[7].Add(box2d.Vec2{X: 2.0*hx + hy*mm, Y: 0.0})
 		points[9] = points[8].Add(box2d.Vec2{X: 2.0 * hx, Y: 0.0})
 		points[10] = points[9].Add(box2d.Vec2{X: 2.0*hx + hy*mm, Y: 0.0})
-		points[11] = points[10].Add(box2d.Vec2{X: 2.0*hx*m + 2.0*hy*(1.0-m), Y: 2.0*hx*m + 2.0*hy*(1.0-m)})
+		points[11] = points[10].Add(
+			box2d.Vec2{X: 2.0*hx*m + 2.0*hy*(1.0-m), Y: 2.0*hx*m + 2.0*hy*(1.0-m)},
+		)
 		points[12] = points[11].Add(box2d.Vec2{X: 2.0 * hx * m, Y: 2.0 * hx * m})
 		points[13] = points[12].Add(box2d.Vec2{X: 2.0 * hx * m, Y: 2.0 * hx * m})
 		points[14] = points[13].Add(box2d.Vec2{X: -2.0 * hy * m, Y: 2.0 * hy * m})
@@ -674,7 +738,11 @@ func (s *GhostBumps) Launch() {
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 		s.shapeID = s.bodyID.CreateCircleShape(&shapeDef, &circle)
 	} else if s.shapeType == continuousCapsuleShape {
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.5, Y: 0.0}, Center2: box2d.Vec2{X: 0.5, Y: 0.0}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
+			Radius:  0.25,
+		}
 		s.shapeID = s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	} else {
 		h := 0.5 - s.round
@@ -742,10 +810,19 @@ func CreateSpeculativeFallback(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		points := []box2d.Vec2{{X: -2.0, Y: 4.0}, {X: 2.0, Y: 4.0}, {X: 2.0, Y: 4.1}, {X: -0.5, Y: 4.2}, {X: -2.0, Y: 4.2}}
+		points := []box2d.Vec2{
+			{X: -2.0, Y: 4.0},
+			{X: 2.0, Y: 4.0},
+			{X: 2.0, Y: 4.1},
+			{X: -0.5, Y: 4.2},
+			{X: -2.0, Y: 4.2},
+		}
 		hull := box2d.ComputeHull(points)
 		poly := box2d.MakePolygon(&hull, 0.0)
 		groundID.CreatePolygonShape(&shapeDef, &poly)
@@ -761,7 +838,12 @@ func CreateSpeculativeFallback(context *SampleContext) Sampler {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeOffsetBox(2.0, 0.05, box2d.Vec2{X: -offset, Y: 0.0}, box2d.MakeRot(box2d.Pi))
+		box := box2d.MakeOffsetBox(
+			2.0,
+			0.05,
+			box2d.Vec2{X: -offset, Y: 0.0},
+			box2d.MakeRot(box2d.Pi),
+		)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 	return s
@@ -785,7 +867,10 @@ func CreateSpeculativeSliver(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -824,7 +909,10 @@ func CreateSpeculativeGhost(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		box := box2d.MakeOffsetBox(1.0, 0.1, box2d.Vec2{X: 0.0, Y: 0.9}, box2d.RotIdentity)
@@ -837,7 +925,10 @@ func CreateSpeculativeGhost(context *SampleContext) Sampler {
 
 		// The speculative distance is 0.02 meters, so this avoid it
 		bodyDef.Position = box2d.Pos{X: 0.015, Y: 2.515}
-		bodyDef.LinearVelocity = box2d.Vec2{X: 0.1 * 1.25 * s.context.hertz, Y: -0.1 * 1.25 * s.context.hertz}
+		bodyDef.LinearVelocity = box2d.Vec2{
+			X: 0.1 * 1.25 * s.context.hertz,
+			Y: -0.1 * 1.25 * s.context.hertz,
+		}
 		bodyDef.GravityScale = 0.0
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
@@ -869,7 +960,10 @@ func CreatePixelImperfect(context *SampleContext) Sampler {
 	{
 		block4BodyDef := box2d.DefaultBodyDef()
 		block4BodyDef.Type = box2d.StaticBody
-		block4BodyDef.Position = box2d.Pos{X: posScalar(175.0 / pixelsPerMeter), Y: posScalar(150.0 / pixelsPerMeter)}
+		block4BodyDef.Position = box2d.Pos{
+			X: posScalar(175.0 / pixelsPerMeter),
+			Y: posScalar(150.0 / pixelsPerMeter),
+		}
 		block4BodyID := s.worldID.CreateBody(&block4BodyDef)
 		block4Shape := box2d.MakeBox(20.0/pixelsPerMeter, 10.0/pixelsPerMeter)
 		block4ShapeDef := box2d.DefaultShapeDef()
@@ -880,11 +974,18 @@ func CreatePixelImperfect(context *SampleContext) Sampler {
 	{
 		ballBodyDef := box2d.DefaultBodyDef()
 		ballBodyDef.Type = box2d.DynamicBody
-		ballBodyDef.Position = box2d.Pos{X: posScalar(200.0 / pixelsPerMeter), Y: posScalar(275.0 / pixelsPerMeter)}
+		ballBodyDef.Position = box2d.Pos{
+			X: posScalar(200.0 / pixelsPerMeter),
+			Y: posScalar(275.0 / pixelsPerMeter),
+		}
 		ballBodyDef.GravityScale = 0.0
 
 		s.ballID = s.worldID.CreateBody(&ballBodyDef)
-		ballShape := box2d.MakeRoundedBox(4.0/pixelsPerMeter, 4.0/pixelsPerMeter, 0.9/pixelsPerMeter)
+		ballShape := box2d.MakeRoundedBox(
+			4.0/pixelsPerMeter,
+			4.0/pixelsPerMeter,
+			0.9/pixelsPerMeter,
+		)
 		ballShapeDef := box2d.DefaultShapeDef()
 		ballShapeDef.Material.Friction = 0.0
 		s.ballID.CreatePolygonShape(&ballShapeDef, &ballShape)
@@ -925,7 +1026,10 @@ func CreateRestitutionThreshold(context *SampleContext) Sampler {
 	{
 		block0BodyDef := box2d.DefaultBodyDef()
 		block0BodyDef.Type = box2d.StaticBody
-		block0BodyDef.Position = box2d.Pos{X: posScalar(205.0 / pixelsPerMeter), Y: posScalar(120.0 / pixelsPerMeter)}
+		block0BodyDef.Position = box2d.Pos{
+			X: posScalar(205.0 / pixelsPerMeter),
+			Y: posScalar(120.0 / pixelsPerMeter),
+		}
 		block0BodyDef.Rotation = box2d.MakeRot(70.0 * 3.14 / 180.0)
 		block0BodyID := s.worldID.CreateBody(&block0BodyDef)
 		block0Shape := box2d.MakeBox(50.0/pixelsPerMeter, 5.0/pixelsPerMeter)
@@ -938,7 +1042,10 @@ func CreateRestitutionThreshold(context *SampleContext) Sampler {
 		// Make a ball
 		ballBodyDef := box2d.DefaultBodyDef()
 		ballBodyDef.Type = box2d.DynamicBody
-		ballBodyDef.Position = box2d.Pos{X: posScalar(200.0 / pixelsPerMeter), Y: posScalar(250.0 / pixelsPerMeter)}
+		ballBodyDef.Position = box2d.Pos{
+			X: posScalar(200.0 / pixelsPerMeter),
+			Y: posScalar(250.0 / pixelsPerMeter),
+		}
 		s.ballID = s.worldID.CreateBody(&ballBodyDef)
 
 		var ballShape box2d.Circle
@@ -1024,7 +1131,10 @@ func (s *Drop) CreateGround1() {
 
 	w := float32(0.25)
 	count := 40
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -0.5 * float32(count) * w, Y: 0.0}, Point2: box2d.Vec2{X: 0.5 * float32(count) * w, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -0.5 * float32(count) * w, Y: 0.0},
+		Point2: box2d.Vec2{X: 0.5 * float32(count) * w, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	s.groundIDs = append(s.groundIDs, groundID)
@@ -1062,7 +1172,10 @@ func (s *Drop) CreateGround3() {
 
 	w := float32(0.25)
 	count := 40
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -0.5 * float32(count) * w, Y: 0.0}, Point2: box2d.Vec2{X: 0.5 * float32(count) * w, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -0.5 * float32(count) * w, Y: 0.0},
+		Point2: box2d.Vec2{X: 0.5 * float32(count) * w, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 	segment = box2d.Segment{Point1: box2d.Vec2{X: 3.0, Y: 0.0}, Point2: box2d.Vec2{X: 3.0, Y: 8.0}}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
@@ -1121,8 +1234,18 @@ func (s *Drop) Scene3() {
 	jointHertz := float32(1.0)
 	jointDampingRatio := float32(0.5)
 
-	scenes.CreateHuman(&s.human, s.worldID, box2d.Pos{X: 0.0, Y: 40.0}, 1.0, jointFrictionTorque, jointHertz, jointDampingRatio, 1, nil,
-		true)
+	scenes.CreateHuman(
+		&s.human,
+		s.worldID,
+		box2d.Pos{X: 0.0, Y: 40.0},
+		1.0,
+		jointFrictionTorque,
+		jointHertz,
+		jointDampingRatio,
+		1,
+		nil,
+		true,
+	)
 
 	s.frameCount = 1
 }
@@ -1243,7 +1366,13 @@ func CreatePinball(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID = s.worldID.CreateBody(&bodyDef)
 
-		vs := []box2d.Vec2{{X: -8.0, Y: 6.0}, {X: -8.0, Y: 20.0}, {X: 8.0, Y: 20.0}, {X: 8.0, Y: 6.0}, {X: 0.0, Y: -2.0}}
+		vs := []box2d.Vec2{
+			{X: -8.0, Y: 6.0},
+			{X: -8.0, Y: 20.0},
+			{X: 8.0, Y: 20.0},
+			{X: 8.0, Y: 6.0},
+			{X: 0.0, Y: -2.0},
+		}
 
 		chainDef := box2d.DefaultChainDef()
 		chainDef.Points = vs
@@ -1397,9 +1526,15 @@ func CreateWedge(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -4.0, Y: 8.0}, Point2: box2d.Vec2{X: 0.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -4.0, Y: 8.0},
+			Point2: box2d.Vec2{X: 0.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
-		segment = box2d.Segment{Point1: box2d.Vec2{X: 0.0, Y: 0.0}, Point2: box2d.Vec2{X: 0.0, Y: 8.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: 0.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 0.0, Y: 8.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -1498,7 +1633,11 @@ func (s *SafetyFactor) Step() {
 		}
 	}
 
-	s.draw.DrawLine(box2d.Vec2{X: -3.0, Y: -s.overlap}.Pos(), box2d.Vec2{X: 3.0, Y: -s.overlap}.Pos(), box2d.ColorRed)
+	s.draw.DrawLine(
+		box2d.Vec2{X: -3.0, Y: -s.overlap}.Pos(),
+		box2d.Vec2{X: 3.0, Y: -s.overlap}.Pos(),
+		box2d.ColorRed,
+	)
 
 	timeStep := float32(0.0)
 	if s.context.hertz > 0.0 {

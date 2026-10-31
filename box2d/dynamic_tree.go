@@ -198,7 +198,10 @@ func allocateSiblingPair(tree *DynamicTree) int {
 }
 
 func freePair(tree *DynamicTree, pair int) {
-	core.Assert(pair&1 == 0 && 2 <= pair && pair < int(tree.nodeEnd), "( pair & 1 ) == 0 && 2 <= pair && pair < tree->nodeEnd")
+	core.Assert(
+		pair&1 == 0 && 2 <= pair && pair < int(tree.nodeEnd),
+		"( pair & 1 ) == 0 && 2 <= pair && pair < tree->nodeEnd",
+	)
 	tree.nodes[pair] = makeEmptyNode()
 	tree.nodes[pair+1] = makeEmptyNode()
 	tree.parents[pair] = tree.pairFreeList
@@ -208,7 +211,10 @@ func freePair(tree *DynamicTree, pair int) {
 
 func allocateProxy(tree *DynamicTree) int {
 	if tree.proxyFreeList == int32(nullIndex) {
-		core.Assert(tree.proxyCount == tree.proxyCapacity, "tree->proxyCount == tree->proxyCapacity")
+		core.Assert(
+			tree.proxyCount == tree.proxyCapacity,
+			"tree->proxyCount == tree->proxyCapacity",
+		)
 		oldCapacity := tree.proxyCapacity
 		tree.proxyCapacity += max(oldCapacity>>1, 1)
 		proxies := make([]TreeProxy, tree.proxyCapacity)
@@ -234,7 +240,10 @@ func allocateProxy(tree *DynamicTree) int {
 }
 
 func freeProxy(tree *DynamicTree, proxyID int) {
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	core.Assert(0 < tree.proxyCount, "0 < tree->proxyCount")
 	tree.proxies[proxyID].Node = int32(nullIndex)
 	tree.proxies[proxyID].Next = tree.proxyFreeList
@@ -252,7 +261,12 @@ func getNodeHeight(node *TreeNode) int {
 
 func makeInternalNode(nodes []TreeNode, pair int) TreeNode {
 	c1, c2 := &nodes[pair], &nodes[pair+1]
-	return TreeNode{AABB: c1.AABB.Union(c2.AABB), FlagIndex: uint32(pair) | ((c1.FlagIndex | c2.FlagIndex) & movedNode), Height: int32(1 + max(getNodeHeight(c1), getNodeHeight(c2)))}
+
+	return TreeNode{
+		AABB:      c1.AABB.Union(c2.AABB),
+		FlagIndex: uint32(pair) | ((c1.FlagIndex | c2.FlagIndex) & movedNode),
+		Height:    int32(1 + max(getNodeHeight(c1), getNodeHeight(c2))),
+	}
 }
 
 func makeLeafNode(aabb AABB, proxyID int, userData uint64, moved bool) TreeNode {
@@ -374,7 +388,7 @@ func findBestSibling(tree *DynamicTree, boxD AABB) int {
 	return bestSibling
 }
 
-func swapNodes(tree *DynamicTree, iDown, iUp int) {
+func swapNodes(tree *DynamicTree, iDown int, iUp int) {
 	nodes := tree.nodes
 	nodes[iDown], nodes[iUp] = nodes[iUp], nodes[iDown]
 	linkChildren(tree, iDown)
@@ -448,7 +462,7 @@ func rotateNodes(tree *DynamicTree, iA int) {
 	}
 }
 
-func insertLeaf(tree *DynamicTree, aabb AABB, proxyID int, moved, shouldRotate bool) {
+func insertLeaf(tree *DynamicTree, aabb AABB, proxyID int, moved bool, shouldRotate bool) {
 	proxy := &tree.proxies[proxyID]
 
 	leaf := makeLeafNode(aabb, proxyID, proxy.UserData, moved)
@@ -489,7 +503,10 @@ func removeLeaf(tree *DynamicTree, proxyID int) {
 	nodes, parents := tree.nodes, tree.parents
 	leaf := int(tree.proxies[proxyID].Node)
 	core.Assert(0 <= leaf && leaf < int(tree.nodeEnd), "0 <= leaf && leaf < tree->nodeEnd")
-	core.Assert(isLeaf(&nodes[leaf]) && getProxyID(&nodes[leaf]) == proxyID, "b2IsLeaf( nodes + leaf ) && b2GetProxyId( nodes + leaf ) == proxyId")
+	core.Assert(
+		isLeaf(&nodes[leaf]) && getProxyID(&nodes[leaf]) == proxyID,
+		"b2IsLeaf( nodes + leaf ) && b2GetProxyId( nodes + leaf ) == proxyId",
+	)
 
 	if leaf == rootNode {
 		nodes[rootNode] = makeEmptyNode()
@@ -508,7 +525,12 @@ func removeLeaf(tree *DynamicTree, proxyID int) {
 	}
 }
 
-func createTreeProxyInternal(tree *DynamicTree, aabb AABB, categoryBits, userData uint64, markMoved bool) int {
+func createTreeProxyInternal(
+	tree *DynamicTree,
+	aabb AABB,
+	categoryBits uint64, userData uint64,
+	markMoved bool,
+) int {
 	core.Validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
 
 	proxyID := allocateProxy(tree)
@@ -522,13 +544,16 @@ func createTreeProxyInternal(tree *DynamicTree, aabb AABB, categoryBits, userDat
 }
 
 // Create a proxy. Provide an AABB and a userData value.
-func (tree *DynamicTree) CreateProxy(aabb AABB, categoryBits, userData uint64) int {
+func (tree *DynamicTree) CreateProxy(aabb AABB, categoryBits uint64, userData uint64) int {
 	return createTreeProxyInternal(tree, aabb, categoryBits, userData, false)
 }
 
 // Destroy a proxy. This asserts if the id is invalid.
 func (tree *DynamicTree) DestroyProxy(proxyID int) {
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	removeLeaf(tree, proxyID)
 	freeProxy(tree, proxyID)
 }
@@ -545,13 +570,20 @@ func (tree *DynamicTree) MoveProxy(proxyID int, aabb AABB) {
 
 // Modify the category bits on a proxy.
 func (tree *DynamicTree) SetCategoryBits(proxyID int, categoryBits uint64) {
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	tree.proxies[proxyID].CategoryBits = categoryBits
 }
 
 // Get the category bits on a proxy.
 func (tree *DynamicTree) CategoryBits(proxyID int) uint64 {
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
+
 	return tree.proxies[proxyID].CategoryBits
 }
 
@@ -594,15 +626,27 @@ func (tree *DynamicTree) RootBounds() AABB {
 }
 
 func validateSubtree(tree *DynamicTree, nodeIndex int, leafCount *int) int {
-	core.Assert(0 <= nodeIndex && nodeIndex < int(tree.nodeEnd), "0 <= nodeIndex && nodeIndex < tree->nodeEnd")
+	core.Assert(
+		0 <= nodeIndex && nodeIndex < int(tree.nodeEnd),
+		"0 <= nodeIndex && nodeIndex < tree->nodeEnd",
+	)
 	node := &tree.nodes[nodeIndex]
 	core.Assert(!isEmptyNode(node), "b2IsEmptyNode( node ) == false")
 
 	if isLeaf(node) {
 		proxyID := getProxyID(node)
-		core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
-		core.Assert(tree.proxies[proxyID].Node == int32(nodeIndex), "tree->proxies[proxyId].node == nodeIndex")
-		core.Assert(int32(tree.proxies[proxyID].UserData) == node.ShapeIndex, "(int32_t)tree->proxies[proxyId].userData == node->shapeIndex")
+		core.Assert(
+			0 <= proxyID && proxyID < int(tree.proxyCapacity),
+			"0 <= proxyId && proxyId < tree->proxyCapacity",
+		)
+		core.Assert(
+			tree.proxies[proxyID].Node == int32(nodeIndex),
+			"tree->proxies[proxyId].node == nodeIndex",
+		)
+		core.Assert(
+			int32(tree.proxies[proxyID].UserData) == node.ShapeIndex,
+			"(int32_t)tree->proxies[proxyId].userData == node->shapeIndex",
+		)
 
 		*leafCount += 1
 
@@ -610,14 +654,23 @@ func validateSubtree(tree *DynamicTree, nodeIndex int, leafCount *int) int {
 	}
 
 	pair := getLeftChild(node)
-	core.Assert(pair&1 == 0 && 2 <= pair && pair < int(tree.nodeEnd), "( pair & 1 ) == 0 && 2 <= pair && pair < tree->nodeEnd")
+	core.Assert(
+		pair&1 == 0 && 2 <= pair && pair < int(tree.nodeEnd),
+		"( pair & 1 ) == 0 && 2 <= pair && pair < tree->nodeEnd",
+	)
 	core.Assert(tree.parents[pair] == int32(nodeIndex), "tree->parents[pair] == nodeIndex")
 	core.Assert(tree.parents[pair+1] == int32(nodeIndex), "tree->parents[pair + 1] == nodeIndex")
-	core.Assert(!tree.dfsOrdered || nodeIndex < pair, "tree->dfsOrdered == false || nodeIndex < pair")
+	core.Assert(
+		!tree.dfsOrdered || nodeIndex < pair,
+		"tree->dfsOrdered == false || nodeIndex < pair",
+	)
 	c1, c2 := &tree.nodes[pair], &tree.nodes[pair+1]
 	core.Assert(node.AABB.Contains(c1.AABB), "b2AABB_Contains( node->aabb, c1->aabb )")
 	core.Assert(node.AABB.Contains(c2.AABB), "b2AABB_Contains( node->aabb, c2->aabb )")
-	core.Assert(isNodeMoved(node) == (isNodeMoved(c1) || isNodeMoved(c2)), "b2IsNodeMoved( node ) == ( b2IsNodeMoved( c1 ) || b2IsNodeMoved( c2 ) )")
+	core.Assert(
+		isNodeMoved(node) == (isNodeMoved(c1) || isNodeMoved(c2)),
+		"b2IsNodeMoved( node ) == ( b2IsNodeMoved( c1 ) || b2IsNodeMoved( c2 ) )",
+	)
 
 	height1 := validateSubtree(tree, pair, leafCount)
 	height2 := validateSubtree(tree, pair+1, leafCount)
@@ -633,16 +686,28 @@ func (tree *DynamicTree) Validate() {
 		return
 	}
 
-	core.Assert(2 <= tree.nodeEnd && tree.nodeEnd <= tree.nodeCapacity, "2 <= tree->nodeEnd && tree->nodeEnd <= tree->nodeCapacity")
+	core.Assert(
+		2 <= tree.nodeEnd && tree.nodeEnd <= tree.nodeCapacity,
+		"2 <= tree->nodeEnd && tree->nodeEnd <= tree->nodeCapacity",
+	)
 	core.Assert(tree.nodeEnd&1 == 0, "( tree->nodeEnd & 1 ) == 0")
-	core.Assert(tree.parents[rootNode] == int32(nullIndex), "tree->parents[B2_ROOT_NODE] == B2_NULL_INDEX")
-	core.Assert(isEmptyNode(&tree.nodes[rootNode+1]), "b2IsEmptyNode( tree->nodes + B2_ROOT_NODE + 1 )")
+	core.Assert(
+		tree.parents[rootNode] == int32(nullIndex),
+		"tree->parents[B2_ROOT_NODE] == B2_NULL_INDEX",
+	)
+	core.Assert(
+		isEmptyNode(&tree.nodes[rootNode+1]),
+		"b2IsEmptyNode( tree->nodes + B2_ROOT_NODE + 1 )",
+	)
 
 	freePairCount := 0
 
 	pair := tree.pairFreeList
 	for pair != int32(nullIndex) {
-		core.Assert(pair&1 == 0 && 2 <= pair && pair < tree.nodeEnd, "( pair & 1 ) == 0 && 2 <= pair && pair < tree->nodeEnd")
+		core.Assert(
+			pair&1 == 0 && 2 <= pair && pair < tree.nodeEnd,
+			"( pair & 1 ) == 0 && 2 <= pair && pair < tree->nodeEnd",
+		)
 		core.Assert(isEmptyNode(&tree.nodes[pair]), "b2IsEmptyNode( tree->nodes + pair )")
 		core.Assert(isEmptyNode(&tree.nodes[pair+1]), "b2IsEmptyNode( tree->nodes + pair + 1 )")
 		pair = tree.parents[pair]
@@ -654,17 +719,33 @@ func (tree *DynamicTree) Validate() {
 
 	freeIndex := tree.proxyFreeList
 	for freeIndex != int32(nullIndex) {
-		core.Assert(0 <= freeIndex && freeIndex < tree.proxyCapacity, "0 <= freeIndex && freeIndex < tree->proxyCapacity")
-		core.Assert(tree.proxies[freeIndex].Node == int32(nullIndex), "tree->proxies[freeIndex].node == B2_NULL_INDEX")
+		core.Assert(
+			0 <= freeIndex && freeIndex < tree.proxyCapacity,
+			"0 <= freeIndex && freeIndex < tree->proxyCapacity",
+		)
+		core.Assert(
+			tree.proxies[freeIndex].Node == int32(nullIndex),
+			"tree->proxies[freeIndex].node == B2_NULL_INDEX",
+		)
 		freeIndex = tree.proxies[freeIndex].Next
 		freeProxyCount++
 	}
 
-	core.Assert(int(tree.proxyCount)+freeProxyCount == int(tree.proxyCapacity), "tree->proxyCount + freeProxyCount == tree->proxyCapacity")
-	core.Assert(int(tree.nodeEnd) == 2*max(int(tree.proxyCount), 1)+2*freePairCount, "tree->nodeEnd == 2 * b2MaxInt( tree->proxyCount, 1 ) + 2 * freePairCount")
+	core.Assert(
+		int(tree.proxyCount)+freeProxyCount == int(tree.proxyCapacity),
+		"tree->proxyCount + freeProxyCount == tree->proxyCapacity",
+	)
+	core.Assert(
+		int(tree.nodeEnd) == 2*max(int(tree.proxyCount), 1)+2*freePairCount,
+		"tree->nodeEnd == 2 * b2MaxInt( tree->proxyCount, 1 ) + 2 * freePairCount",
+	)
 
 	if tree.proxyCount == 0 {
-		core.Assert(isEmptyNode(&tree.nodes[rootNode]), "b2IsEmptyNode( tree->nodes + B2_ROOT_NODE )")
+		core.Assert(
+			isEmptyNode(&tree.nodes[rootNode]),
+			"b2IsEmptyNode( tree->nodes + B2_ROOT_NODE )",
+		)
+
 		return
 	}
 
@@ -691,15 +772,25 @@ func (tree *DynamicTree) ByteCount() int {
 
 // Get proxy user data.
 func (tree *DynamicTree) UserData(proxyID int) uint64 {
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
+
 	return tree.proxies[proxyID].UserData
 }
 
 // Get the AABB of a proxy.
 func (tree *DynamicTree) AABB(proxyID int) AABB {
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	nodeIndex := int(tree.proxies[proxyID].Node)
-	core.Assert(0 <= nodeIndex && nodeIndex < int(tree.nodeEnd), "0 <= nodeIndex && nodeIndex < tree->nodeEnd")
+	core.Assert(
+		0 <= nodeIndex && nodeIndex < int(tree.nodeEnd),
+		"0 <= nodeIndex && nodeIndex < tree->nodeEnd",
+	)
 
 	return tree.nodes[nodeIndex].AABB
 }
@@ -707,7 +798,11 @@ func (tree *DynamicTree) AABB(proxyID int) AABB {
 // Query an AABB for overlapping proxies. The callback class is called for each proxy that overlaps the supplied AABB.
 //
 //	@return performance data
-func (tree *DynamicTree) Query(aabb AABB, maskBits uint64, callback TreeQueryCallbackFunc) TreeStats {
+func (tree *DynamicTree) Query(
+	aabb AABB,
+	maskBits uint64,
+	callback TreeQueryCallbackFunc,
+) TreeStats {
 	result := TreeStats{}
 	if tree.proxyCount == 0 {
 		return result
@@ -830,7 +925,11 @@ func (tree *DynamicTree) QueryAll(aabb AABB, callback TreeQueryCallbackFunc) Tre
 // @param callback a callback class that is called for each proxy that is hit by the ray
 //
 //	@return performance data
-func (tree *DynamicTree) CastRay(input *RayCastInput, maskBits uint64, callback TreeRayCastCallbackFunc) TreeStats {
+func (tree *DynamicTree) CastRay(
+	input *RayCastInput,
+	maskBits uint64,
+	callback TreeRayCastCallbackFunc,
+) TreeStats {
 	result := TreeStats{}
 	if tree.proxyCount == 0 {
 		return result
@@ -935,7 +1034,11 @@ func (tree *DynamicTree) CastRay(input *RayCastInput, maskBits uint64, callback 
 // @param callback a callback that is called for each proxy the swept box may hit
 //
 //	@return performance data
-func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback TreeBoxCastCallbackFunc) TreeStats {
+func (tree *DynamicTree) CastBox(
+	input *BoxCastInput,
+	maskBits uint64,
+	callback TreeBoxCastCallbackFunc,
+) TreeStats {
 	result := TreeStats{}
 	if tree.proxyCount == 0 {
 		return result
@@ -948,8 +1051,14 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 	v := r.ScalarCross(1)
 	absV := v.Abs()
 	maxFraction := input.MaxFraction
-	t := Vec2{X: float32(maxFraction * input.Translation.X), Y: float32(maxFraction * input.Translation.Y)}
-	totalAABB := AABB{LowerBound: originAABB.LowerBound.Min(originAABB.LowerBound.Add(t)), UpperBound: originAABB.UpperBound.Max(originAABB.UpperBound.Add(t))}
+	t := Vec2{
+		X: float32(maxFraction * input.Translation.X),
+		Y: float32(maxFraction * input.Translation.Y),
+	}
+	totalAABB := AABB{
+		LowerBound: originAABB.LowerBound.Min(originAABB.LowerBound.Add(t)),
+		UpperBound: originAABB.UpperBound.Max(originAABB.UpperBound.Add(t)),
+	}
 	boxv := loadAABBV(&totalAABB)
 	nodes := tree.nodes
 
@@ -1023,7 +1132,10 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 
 			if 0 < value && value < maxFraction {
 				maxFraction = value
-				t = Vec2{X: float32(maxFraction * input.Translation.X), Y: float32(maxFraction * input.Translation.Y)}
+				t = Vec2{
+					X: float32(maxFraction * input.Translation.X),
+					Y: float32(maxFraction * input.Translation.Y),
+				}
 				totalAABB.LowerBound = originAABB.LowerBound.Min(originAABB.LowerBound.Add(t))
 				totalAABB.UpperBound = originAABB.UpperBound.Max(originAABB.UpperBound.Add(t))
 				boxv = loadAABBV(&totalAABB)
@@ -1036,18 +1148,36 @@ func (tree *DynamicTree) CastBox(input *BoxCastInput, maskBits uint64, callback 
 
 func (tree *DynamicTree) moveProxyInternal(proxyID int, aabb AABB, markMoved bool) {
 	core.Validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
-	core.Validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
-	core.Validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Validate(
+		aabb.UpperBound.X-aabb.LowerBound.X < Huge(),
+		"aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE",
+	)
+	core.Validate(
+		aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(),
+		"aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE",
+	)
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	removeLeaf(tree, proxyID)
 	insertLeaf(tree, aabb, proxyID, markMoved, false)
 }
 
 func (tree *DynamicTree) enlargeProxy(proxyID int, aabb AABB) {
 	core.Validate(aabb.IsValid(), "b2IsValidAABB( aabb )")
-	core.Validate(aabb.UpperBound.X-aabb.LowerBound.X < Huge(), "aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE")
-	core.Validate(aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(), "aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE")
-	core.Assert(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Validate(
+		aabb.UpperBound.X-aabb.LowerBound.X < Huge(),
+		"aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE",
+	)
+	core.Validate(
+		aabb.UpperBound.Y-aabb.LowerBound.Y < Huge(),
+		"aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE",
+	)
+	core.Assert(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	nodes, parents := tree.nodes, tree.parents
 	index := int(tree.proxies[proxyID].Node)
 	node := &nodes[index]
@@ -1283,7 +1413,14 @@ func buildTree(tree *DynamicTree, leafCount int) {
 
 	top := 0
 
-	stack[0] = rebuildItem{nodeIndex: rootNode, pair: bumpPair(tree, rootNode), childCount: -1, startIndex: 0, endIndex: leafCount, splitIndex: partitionMid(leafIndices, leafCenters, leafCount)}
+	stack[0] = rebuildItem{
+		nodeIndex:  rootNode,
+		pair:       bumpPair(tree, rootNode),
+		childCount: -1,
+		startIndex: 0,
+		endIndex:   leafCount,
+		splitIndex: partitionMid(leafIndices, leafCenters, leafCount),
+	}
 	for {
 		item := &stack[top]
 
@@ -1326,7 +1463,11 @@ func buildTree(tree *DynamicTree, leafCount int) {
 		newItem.startIndex = startIndex
 		newItem.endIndex = endIndex
 		newItem.splitIndex = startIndex
-		newItem.splitIndex += partitionMid(leafIndices[startIndex:], leafCenters[startIndex:], count)
+		newItem.splitIndex += partitionMid(
+			leafIndices[startIndex:],
+			leafCenters[startIndex:],
+			count,
+		)
 	}
 }
 
@@ -1358,7 +1499,10 @@ func (tree *DynamicTree) rebuild(fullBuild bool) int {
 
 	leafCount := tree.collectRebuildLeaves(fullBuild)
 
-	core.Assert(0 < leafCount && leafCount <= proxyCount, "0 < leafCount && leafCount <= proxyCount")
+	core.Assert(
+		0 < leafCount && leafCount <= proxyCount,
+		"0 < leafCount && leafCount <= proxyCount",
+	)
 	buildTree(tree, leafCount)
 	tree.nodes, tree.swapNodes = tree.swapNodes, tree.nodes
 	tree.pairFreeList = int32(nullIndex)
@@ -1416,7 +1560,10 @@ func (tree *DynamicTree) collectRebuildLeaves(fullBuild bool) int {
 }
 
 func (tree *DynamicTree) markProxyMovedSerial(proxyID int) {
-	core.Validate(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Validate(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	nodes, parents := tree.nodes, tree.parents
 	index := int(tree.proxies[proxyID].Node)
 	core.Validate(0 <= index && index < int(tree.nodeEnd), "0 <= index && index < tree->nodeEnd")
@@ -1429,7 +1576,10 @@ func (tree *DynamicTree) markProxyMovedSerial(proxyID int) {
 }
 
 func (tree *DynamicTree) markProxyMoved(proxyID int, aabb AABB) {
-	core.Validate(0 <= proxyID && proxyID < int(tree.proxyCapacity), "0 <= proxyId && proxyId < tree->proxyCapacity")
+	core.Validate(
+		0 <= proxyID && proxyID < int(tree.proxyCapacity),
+		"0 <= proxyId && proxyId < tree->proxyCapacity",
+	)
 	nodes, parents := tree.nodes, tree.parents
 	index := int(tree.proxies[proxyID].Node)
 	core.Validate(0 <= index && index < int(tree.nodeEnd), "0 <= index && index < tree->nodeEnd")
@@ -1650,7 +1800,11 @@ func getRootPair(nodes []TreeNode) int {
 
 func makeEmptyNode() TreeNode {
 	inf := float32(math.Inf(1))
-	return TreeNode{AABB: AABB{LowerBound: Vec2{X: inf, Y: inf}, UpperBound: Vec2{X: -inf, Y: -inf}}, FlagIndex: emptyNode}
+
+	return TreeNode{
+		AABB:      AABB{LowerBound: Vec2{X: inf, Y: inf}, UpperBound: Vec2{X: -inf, Y: -inf}},
+		FlagIndex: emptyNode,
+	}
 }
 
 func hasTreeMoved(tree *DynamicTree) bool {

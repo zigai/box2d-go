@@ -160,7 +160,10 @@ func bodiesContacts(r *oracle.Reader, key string, w *box2d.World, b box2d.Body) 
 		r.I32(p+"/b", bodiesTag(c.ShapeB))
 		r.Bool(p+"/valid", c.Contact.IsValid())
 		data := c.Contact.Data()
-		r.Bool(p+"/identity", data.Contact == c.Contact && data.ShapeA == c.ShapeA && data.ShapeB == c.ShapeB)
+		r.Bool(
+			p+"/identity",
+			data.Contact == c.Contact && data.ShapeA == c.ShapeA && data.ShapeB == c.ShapeB,
+		)
 		r.Bool(p+"/body", c.ShapeA.Body() == b || c.ShapeB.Body() == b)
 		m := c.Manifold
 		bodiesVec(r, p+"/normal", m.Normal)
@@ -236,16 +239,31 @@ func bodiesContacts(r *oracle.Reader, key string, w *box2d.World, b box2d.Body) 
 	}
 }
 
-func bodiesQuery(r *oracle.Reader, key string, w *box2d.World, base box2d.Pos, y float32, mask uint64) {
+func bodiesQuery(
+	r *oracle.Reader,
+	key string,
+	w *box2d.World,
+	base box2d.Pos,
+	y float32,
+	mask uint64,
+) {
 	q := box2d.QueryFilter{CategoryBits: 1, MaskBits: mask}
 	n := 0
 
-	w.OverlapAABB(base, box2d.AABB{LowerBound: box2d.Vec2{X: -.1, Y: y - .1}, UpperBound: box2d.Vec2{X: .1, Y: y + .1}}, q, func(s box2d.Shape) bool {
-		r.I32(fmt.Sprintf("%s/tag/%d", key, n), bodiesTag(s))
-		n++
+	w.OverlapAABB(
+		base,
+		box2d.AABB{
+			LowerBound: box2d.Vec2{X: -.1, Y: y - .1},
+			UpperBound: box2d.Vec2{X: .1, Y: y + .1},
+		},
+		q,
+		func(s box2d.Shape) bool {
+			r.I32(fmt.Sprintf("%s/tag/%d", key, n), bodiesTag(s))
+			n++
 
-		return true
-	})
+			return true
+		},
+	)
 	r.I32(key+"/count", int32(n))
 }
 
@@ -284,7 +302,12 @@ func bodiesCreateGeometry(b box2d.Body, sd *box2d.ShapeDef, family int) box2d.Sh
 		g := box2d.MakeOffsetBox(2, .5, box2d.Vec2{}, box2d.Rot{C: 1})
 		return b.CreatePolygonShape(sd, &g)
 	default:
-		g := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -4}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -2}, Point2: box2d.Vec2{X: 2}}, Ghost2: box2d.Vec2{X: 4}}
+		g := box2d.ChainSegment{
+			Ghost1:  box2d.Vec2{X: -4},
+			Segment: box2d.Segment{Point1: box2d.Vec2{X: -2}, Point2: box2d.Vec2{X: 2}},
+			Ghost2:  box2d.Vec2{X: 4},
+		}
+
 		return b.CreateChainSegmentShape(sd, &g)
 	}
 }
@@ -295,7 +318,11 @@ func bodiesSetGeometry(s box2d.Shape, family int, y float32) {
 		g := box2d.Circle{Center: box2d.Vec2{Y: y}, Radius: 1.25}
 		s.SetCircle(&g)
 	case 1:
-		g := box2d.Capsule{Center1: box2d.Vec2{X: -1.5, Y: y}, Center2: box2d.Vec2{X: 1.5, Y: y}, Radius: .75}
+		g := box2d.Capsule{
+			Center1: box2d.Vec2{X: -1.5, Y: y},
+			Center2: box2d.Vec2{X: 1.5, Y: y},
+			Radius:  .75,
+		}
 		s.SetCapsule(&g)
 	case 2:
 		g := box2d.Segment{Point1: box2d.Vec2{X: -3, Y: y}, Point2: box2d.Vec2{X: 3, Y: y}}
@@ -304,7 +331,12 @@ func bodiesSetGeometry(s box2d.Shape, family int, y float32) {
 		g := box2d.MakeOffsetRoundedBox(2.5, .75, box2d.Vec2{Y: y}, box2d.Rot{C: 1}, .1)
 		s.SetPolygon(&g)
 	case 4:
-		g := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -5, Y: y - .5}, Segment: box2d.Segment{Point1: box2d.Vec2{X: -3, Y: y}, Point2: box2d.Vec2{X: 3, Y: y}}, Ghost2: box2d.Vec2{X: 5, Y: y + .5}, ChainID: 42}
+		g := box2d.ChainSegment{
+			Ghost1:  box2d.Vec2{X: -5, Y: y - .5},
+			Segment: box2d.Segment{Point1: box2d.Vec2{X: -3, Y: y}, Point2: box2d.Vec2{X: 3, Y: y}},
+			Ghost2:  box2d.Vec2{X: 5, Y: y + .5},
+			ChainID: 42,
+		}
 		s.SetChainSegment(&g)
 	}
 }
@@ -334,10 +366,18 @@ func TestBodiesConstructionCopiesCallerInputs(t *testing.T) {
 				sd.Material.UserMaterialID = 21
 				// Each constructor receives a mutable geometry value which is changed afterwards.
 				circle := box2d.Circle{Center: box2d.Vec2{X: 1, Y: .5}, Radius: .75}
-				capsule := box2d.Capsule{Center1: box2d.Vec2{X: -1, Y: .5}, Center2: box2d.Vec2{X: 1, Y: .5}, Radius: .4}
+				capsule := box2d.Capsule{
+					Center1: box2d.Vec2{X: -1, Y: .5},
+					Center2: box2d.Vec2{X: 1, Y: .5},
+					Radius:  .4,
+				}
 				segment := box2d.Segment{Point1: box2d.Vec2{X: -2}, Point2: box2d.Vec2{X: 2}}
 				polygon := box2d.MakeOffsetBox(1, .5, box2d.Vec2{X: .5, Y: .25}, box2d.Rot{C: 1})
-				chain := box2d.ChainSegment{Ghost1: box2d.Vec2{X: -4}, Segment: segment, Ghost2: box2d.Vec2{X: 4}}
+				chain := box2d.ChainSegment{
+					Ghost1:  box2d.Vec2{X: -4},
+					Segment: segment,
+					Ghost2:  box2d.Vec2{X: 4},
+				}
 
 				var s box2d.Shape
 
@@ -418,7 +458,11 @@ func TestBodiesMotionOperationsAndWake(t *testing.T) {
 	bodiesTargetTransformCases(t)
 }
 
-func bodiesMotionOperationCase(t *testing.T, name string, kind, distant, sleeping, action, wake int) {
+func bodiesMotionOperationCase(
+	t *testing.T,
+	name string,
+	kind int, distant int, sleeping int, action int, wake int,
+) {
 	t.Helper()
 	r := oracle.Open(t, "bodies/motion/"+name)
 	base := bodiesBase(distant == 1)
@@ -469,7 +513,14 @@ func bodiesMotionOperationCase(t *testing.T, name string, kind, distant, sleepin
 	case 6:
 		b.SetTargetTransform(box2d.WorldTransform{P: point, Q: box2d.Rot{C: 0, S: 1}}, 1.0/60, flag)
 	case 7:
-		b.SetTargetTransform(box2d.WorldTransform{P: box2d.Pos{X: base.X + .0001, Y: base.Y}, Q: box2d.Rot{C: .6, S: .8}}, 1.0/60, flag)
+		b.SetTargetTransform(
+			box2d.WorldTransform{
+				P: box2d.Pos{X: base.X + .0001, Y: base.Y},
+				Q: box2d.Rot{C: .6, S: .8},
+			},
+			1.0/60,
+			flag,
+		)
 	case 8:
 		b.ApplyForce(box2d.Vec2{X: 5, Y: 9}, point, flag)
 		b.ApplyTorque(7, flag)
@@ -496,9 +547,24 @@ func bodiesMotionOperationCases(t *testing.T) {
 			for sleeping := range 2 {
 				for action := range 9 {
 					for wake := range 2 {
-						name := fmt.Sprintf("type%d_base%d_sleep%d_action%d_wake%d", kind, distant, sleeping, action, wake)
+						name := fmt.Sprintf(
+							"type%d_base%d_sleep%d_action%d_wake%d",
+							kind,
+							distant,
+							sleeping,
+							action,
+							wake,
+						)
 						t.Run(name, func(t *testing.T) {
-							bodiesMotionOperationCase(t, name, kind, distant, sleeping, action, wake)
+							bodiesMotionOperationCase(
+								t,
+								name,
+								kind,
+								distant,
+								sleeping,
+								action,
+								wake,
+							)
 						})
 					}
 				}
@@ -516,7 +582,11 @@ func bodiesMotionLockCases(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				r := oracle.Open(t, "bodies/motion/"+name)
 				w := bodiesWorld(t, box2d.Vec2{X: 1, Y: -4})
-				m := box2d.MotionLocks{LinearX: locks&1 != 0, LinearY: locks&2 != 0, AngularZ: locks&4 != 0}
+				m := box2d.MotionLocks{
+					LinearX:  locks&1 != 0,
+					LinearY:  locks&2 != 0,
+					AngularZ: locks&4 != 0,
+				}
 				bd := box2d.DefaultBodyDef()
 				bd.Type = box2d.DynamicBody
 				bd.Position = bodiesBase(false)
@@ -578,7 +648,11 @@ func bodiesTargetTransformCases(t *testing.T) {
 			bodiesCreateGeometry(b, &sd, 0)
 			b.SetTransform(box2d.Pos{X: 8, Y: -2}, box2d.Rot{C: .6, S: .8})
 			bodiesBody(r, "teleport", b)
-			b.SetTargetTransform(box2d.WorldTransform{P: box2d.Pos{X: 9, Y: -1}, Q: box2d.Rot{C: 0, S: 1}}, .25, true)
+			b.SetTargetTransform(
+				box2d.WorldTransform{P: box2d.Pos{X: 9, Y: -1}, Q: box2d.Rot{C: 0, S: 1}},
+				.25,
+				true,
+			)
 			bodiesBody(r, "target", b)
 			w.Step(.25, 4)
 			bodiesBody(r, "arrived", b)
@@ -646,13 +720,17 @@ func TestBodiesMassMutationTriggersAndLoadedResponse(t *testing.T) {
 	z.SetDensity(0, true)
 	observe("densityBackToZero")
 	load("densityBackToZero")
-	b.SetMassData(box2d.MassData{Mass: 7, Center: box2d.Vec2{X: -.25, Y: 1.5}, RotationalInertia: 11})
+	b.SetMassData(
+		box2d.MassData{Mass: 7, Center: box2d.Vec2{X: -.25, Y: 1.5}, RotationalInertia: 11},
+	)
 	observe("override")
 	load("override")
 	b.UpdateMassFromShapes()
 	observe("restoreOverride")
 	load("restoreOverride")
-	b.SetMassData(box2d.MassData{Mass: 7, Center: box2d.Vec2{X: -.25, Y: 1.5}, RotationalInertia: 11})
+	b.SetMassData(
+		box2d.MassData{Mass: 7, Center: box2d.Vec2{X: -.25, Y: 1.5}, RotationalInertia: 11},
+	)
 	observe("overrideBeforeRemove")
 	z.Destroy(false)
 	r.Bool("removedZeroValid", z.IsValid())
@@ -676,7 +754,9 @@ func TestBodiesMassMutationTriggersAndLoadedResponse(t *testing.T) {
 	load("removeAutomatic")
 
 	for kind := range 3 {
-		b.SetMassData(box2d.MassData{Mass: 9, Center: box2d.Vec2{X: .5, Y: -.5}, RotationalInertia: 13})
+		b.SetMassData(
+			box2d.MassData{Mass: 9, Center: box2d.Vec2{X: .5, Y: -.5}, RotationalInertia: 13},
+		)
 		b.SetType(box2d.BodyType(kind))
 		key := fmt.Sprintf("type/%d", kind)
 		observe(key)
@@ -684,7 +764,9 @@ func TestBodiesMassMutationTriggersAndLoadedResponse(t *testing.T) {
 	}
 
 	b.SetMotionLocks(box2d.MotionLocks{AngularZ: true})
-	b.SetMassData(box2d.MassData{Mass: 7, Center: box2d.Vec2{X: -.25, Y: 1.5}, RotationalInertia: 11})
+	b.SetMassData(
+		box2d.MassData{Mass: 7, Center: box2d.Vec2{X: -.25, Y: 1.5}, RotationalInertia: 11},
+	)
 	observe("lockedOverride")
 	load("lockedOverride")
 	b.SetMotionLocks(box2d.MotionLocks{})
@@ -730,7 +812,10 @@ func TestShapesMutationBoundsQueriesAndCollisions(t *testing.T) {
 				bodiesContacts(r, key+"/effects", w, visitor)
 			}
 			impact := func(key string, y float32) {
-				visitor.SetTransform(box2d.Pos{X: base.X, Y: base.Y + oracle.Real(y) - oracle.Real(float32(.3))}, box2d.Rot{C: 1})
+				visitor.SetTransform(
+					box2d.Pos{X: base.X, Y: base.Y + oracle.Real(y) - oracle.Real(float32(.3))},
+					box2d.Rot{C: 1},
+				)
 				visitor.SetLinearVelocity(box2d.Vec2{X: 2, Y: 3})
 				visitor.SetAngularVelocity(.5)
 
@@ -763,7 +848,14 @@ func TestShapesMutationBoundsQueriesAndCollisions(t *testing.T) {
 			impact("tag", 3)
 			w.SetFrictionCallback(nil)
 
-			material := box2d.SurfaceMaterial{Friction: .6, Restitution: .2, RollingResistance: .15, TangentSpeed: 2, UserMaterialID: 92, CustomColor: 0x123456}
+			material := box2d.SurfaceMaterial{
+				Friction:          .6,
+				Restitution:       .2,
+				RollingResistance: .15,
+				TangentSpeed:      2,
+				UserMaterialID:    92,
+				CustomColor:       0x123456,
+			}
 			s.SetSurfaceMaterial(&material)
 			material.TangentSpeed = 99
 
@@ -809,7 +901,14 @@ func TestShapesMutationBoundsQueriesAndCollisions(t *testing.T) {
 	}
 }
 
-func bodiesEnvironmentalForceCase(r *oracle.Reader, w *box2d.World, b box2d.Body, s box2d.Shape, base box2d.Pos, mode, wake int) {
+func bodiesEnvironmentalForceCase(
+	r *oracle.Reader,
+	w *box2d.World,
+	b box2d.Body,
+	s box2d.Shape,
+	base box2d.Pos,
+	mode int, wake int,
+) {
 	key := fmt.Sprintf("force/%d/wake/%d", mode, wake)
 
 	b.SetTransform(base, box2d.Rot{S: 1})
@@ -852,7 +951,7 @@ func bodiesEnvironmentalForceCase(r *oracle.Reader, w *box2d.World, b box2d.Body
 	}
 }
 
-func bodiesShapeQueryCase(t *testing.T, name string, distant, family int) {
+func bodiesShapeQueryCase(t *testing.T, name string, distant int, family int) {
 	t.Helper()
 	r := oracle.Open(t, "shapes/queries/"+name)
 
@@ -883,7 +982,12 @@ func bodiesShapeQueryCase(t *testing.T, name string, distant, family int) {
 			boundary.X = base.X + 1
 		}
 
-		for i, p := range []box2d.Pos{{X: base.X, Y: base.Y}, {X: base.X + .5, Y: base.Y + .25}, {X: base.X + 4, Y: base.Y + 4}, boundary} {
+		for i, p := range []box2d.Pos{
+			{X: base.X, Y: base.Y},
+			{X: base.X + .5, Y: base.Y + .25},
+			{X: base.X + 4, Y: base.Y + 4},
+			boundary,
+		} {
 			r.Bool(fmt.Sprintf("point/%d", i), s.TestPoint(p))
 		}
 	}
@@ -930,7 +1034,7 @@ func TestShapesTransformedQueriesAndEnvironmentalForces(t *testing.T) {
 	}
 }
 
-func bodiesChainTopology(topology, reverse int) ([]box2d.Vec2, bool) {
+func bodiesChainTopology(topology int, reverse int) ([]box2d.Vec2, bool) {
 	points := []box2d.Vec2{{X: -2}, {X: 2}}
 	loop := false
 
@@ -957,7 +1061,13 @@ func bodiesChainTopology(topology, reverse int) ([]box2d.Vec2, bool) {
 	return points, loop
 }
 
-func bodiesChainMaterialImpact(r *oracle.Reader, key string, segment box2d.Shape, ground, visitor box2d.Body, w *box2d.World) {
+func bodiesChainMaterialImpact(
+	r *oracle.Reader,
+	key string,
+	segment box2d.Shape,
+	ground box2d.Body, visitor box2d.Body,
+	w *box2d.World,
+) {
 	edge := segment.ChainSegment().Segment
 	tangent := edge.Point2.Sub(edge.Point1).Normalize()
 	normal := tangent.RightPerp()
@@ -975,7 +1085,7 @@ func bodiesChainMaterialImpact(r *oracle.Reader, key string, segment box2d.Shape
 	}
 }
 
-func bodiesChainCase(t *testing.T, name string, topology, reverse int) {
+func bodiesChainCase(t *testing.T, name string, topology int, reverse int) {
 	t.Helper()
 	r := oracle.Open(t, "chains/"+name)
 	base := bodiesBase(false)
@@ -1068,7 +1178,14 @@ func bodiesChainCase(t *testing.T, name string, topology, reverse int) {
 	}
 	materialImpact("originalMaterialImpact")
 
-	m := box2d.SurfaceMaterial{Friction: .7, Restitution: .4, TangentSpeed: 1.5, RollingResistance: .1, UserMaterialID: 91, CustomColor: 0xabcdef}
+	m := box2d.SurfaceMaterial{
+		Friction:          .7,
+		Restitution:       .4,
+		TangentSpeed:      1.5,
+		RollingResistance: .1,
+		UserMaterialID:    91,
+		CustomColor:       0xabcdef,
+	}
 	chain.SetSurfaceMaterial(&m, 0)
 	m.Friction = .9
 

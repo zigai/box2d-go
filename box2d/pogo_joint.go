@@ -43,7 +43,10 @@ func (p PogoJoint) SetRestLength(length float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePogoJointSetRestLength(world.recording, &recArgsPogoJointSetRestLength{joint: p.Joint, length: length})
+		recWritePogoJointSetRestLength(
+			world.recording,
+			&recArgsPogoJointSetRestLength{joint: p.Joint, length: length},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PogoJointType)
@@ -68,7 +71,10 @@ func (p PogoJoint) SetSpringHertz(hertz float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePogoJointSetSpringHertz(world.recording, &recArgsPogoJointSetSpringHertz{joint: p.Joint, hertz: hertz})
+		recWritePogoJointSetSpringHertz(
+			world.recording,
+			&recArgsPogoJointSetSpringHertz{joint: p.Joint, hertz: hertz},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PogoJointType)
@@ -81,7 +87,10 @@ func (p PogoJoint) SetSpringDampingRatio(dampingRatio float32) {
 
 	world := p.Joint.world
 	if world.recording != nil {
-		recWritePogoJointSetSpringDampingRatio(world.recording, &recArgsPogoJointSetSpringDampingRatio{joint: p.Joint, dampingRatio: dampingRatio})
+		recWritePogoJointSetSpringDampingRatio(
+			world.recording,
+			&recArgsPogoJointSetSpringDampingRatio{joint: p.Joint, dampingRatio: dampingRatio},
+		)
 	}
 
 	joint := getJointSimCheckType(p.Joint, PogoJointType)
@@ -127,7 +136,11 @@ func (p PogoJoint) Velocity() float32 {
 }
 
 func getPogoJointForce(world *World, base *jointSim) Vec2 {
-	force := Vec2{X: float32(float32(world.invH*base.pogoJoint.impulse) * base.pogoJoint.normal.X), Y: float32(float32(world.invH*base.pogoJoint.impulse) * base.pogoJoint.normal.Y)}
+	force := Vec2{
+		X: float32(float32(world.invH*base.pogoJoint.impulse) * base.pogoJoint.normal.X),
+		Y: float32(float32(world.invH*base.pogoJoint.impulse) * base.pogoJoint.normal.Y),
+	}
+
 	return force
 }
 
@@ -143,7 +156,10 @@ func preparePogoJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
@@ -240,7 +256,10 @@ func warmStartPogoJoint(base *jointSim, context *stepContext) {
 	rA := stateA.deltaRotation.Rotate(joint.frameA.P)
 	rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
-	linearImpulse := Vec2{X: float32(joint.impulse * joint.normal.X), Y: float32(joint.impulse * joint.normal.Y)}
+	linearImpulse := Vec2{
+		X: float32(joint.impulse * joint.normal.X),
+		Y: float32(joint.impulse * joint.normal.Y),
+	}
 
 	if stateA.flags&dynamicFlag != 0 {
 		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, linearImpulse)
@@ -313,7 +332,8 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 		bias = -joint.velocity
 	}
 
-	vr := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
+	vr := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).
+		Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 	cdot := joint.normal.Dot(vr)
 
 	maxTensionImpulse := float32(context.h * joint.maxTensionForce)
@@ -323,7 +343,10 @@ func solvePogoJoint(base *jointSim, context *stepContext, useBias bool) {
 	joint.impulse = clampFloat(joint.impulse+impulse, -maxTensionImpulse, maxCompressionImpulse)
 	impulse = joint.impulse - oldImpulse
 
-	impulseVector := Vec2{X: float32(impulse * joint.normal.X), Y: float32(impulse * joint.normal.Y)}
+	impulseVector := Vec2{
+		X: float32(impulse * joint.normal.X),
+		Y: float32(impulse * joint.normal.Y),
+	}
 	vA = vA.MulSub(mA, impulseVector)
 	wA -= float32(iA * rA.Cross(impulseVector))
 	vB = vB.MulAdd(mB, impulseVector)

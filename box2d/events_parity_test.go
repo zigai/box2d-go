@@ -32,7 +32,12 @@ func evStart(t *testing.T, name string, gravity box2d.Vec2, sleep bool) *evOracl
 	d.Gravity = gravity
 	d.EnableSleep = sleep
 	d.WorkerCount = 1
-	e := &evOracle{t: t, r: oracle.Open(t, "events/"+name), w: box2d.NewWorld(&d), tags: make(map[box2d.Shape]int)}
+	e := &evOracle{
+		t:    t,
+		r:    oracle.Open(t, "events/"+name),
+		w:    box2d.NewWorld(&d),
+		tags: make(map[box2d.Shape]int),
+	}
 	box2d.CleanupWorld(t, e.w)
 
 	return e
@@ -54,7 +59,7 @@ func (e *evOracle) circle(b box2d.Body, tag int, radius float32, d *box2d.ShapeD
 	return s
 }
 
-func evShapeCompare(a, b box2d.Shape) int {
+func evShapeCompare(a box2d.Shape, b box2d.Shape) int {
 	x, y := a.ID(), b.ID()
 	if c := cmp.Compare(uint32(x>>32), uint32(y>>32)); c != 0 {
 		return c
@@ -63,7 +68,7 @@ func evShapeCompare(a, b box2d.Shape) int {
 	return cmp.Compare(uint16(x), uint16(y))
 }
 
-func evPairCompare(a, b, c, d box2d.Shape) int {
+func evPairCompare(a box2d.Shape, b box2d.Shape, c box2d.Shape, d box2d.Shape) int {
 	if x := evShapeCompare(a, c); x != 0 {
 		return x
 	}
@@ -120,8 +125,14 @@ func (e *evOracle) observe(bodies ...box2d.Body) {
 	slices.SortFunc(se, func(a, b box2d.SensorEndTouchEvent) int {
 		return evPairCompare(a.SensorShape, a.VisitorShape, b.SensorShape, b.VisitorShape)
 	})
-	slices.SortFunc(bm, func(a, b box2d.BodyMoveEvent) int { return cmp.Compare(a.Body.ID()>>32, b.Body.ID()>>32) })
-	slices.SortFunc(je, func(a, b box2d.JointEvent) int { return cmp.Compare(a.Joint.ID()>>32, b.Joint.ID()>>32) })
+	slices.SortFunc(
+		bm,
+		func(a, b box2d.BodyMoveEvent) int { return cmp.Compare(a.Body.ID()>>32, b.Body.ID()>>32) },
+	)
+	slices.SortFunc(
+		je,
+		func(a, b box2d.JointEvent) int { return cmp.Compare(a.Joint.ID()>>32, b.Joint.ID()>>32) },
+	)
 
 	for _, c := range cb {
 		if !slices.Contains(e.history, c.Contact) {
@@ -199,7 +210,10 @@ func TestEventsLifecycleParity(t *testing.T) {
 				d.Density = 1
 				d.EnableSensorEvents = flags&2 != 0
 				d.EnableContactEvents = flags&2 != 0
-				b := []box2d.Body{e.body(2, box2d.DynamicBody, box2d.Pos{X: -1.9}), e.body(3, box2d.DynamicBody, box2d.Pos{X: 1.9})}
+				b := []box2d.Body{
+					e.body(2, box2d.DynamicBody, box2d.Pos{X: -1.9}),
+					e.body(3, box2d.DynamicBody, box2d.Pos{X: 1.9}),
+				}
 				v := []box2d.Shape{e.circle(b[0], 20, .25, &d), e.circle(b[1], 30, .25, &d)}
 				e.step(b...)
 				e.step(b...)
@@ -389,7 +403,7 @@ type evCall struct {
 	points int
 }
 
-func evCallCompare(a, b evCall) int {
+func evCallCompare(a evCall, b evCall) int {
 	if c := cmp.Compare(a.kind, b.kind); c != 0 {
 		return c
 	}
@@ -437,19 +451,19 @@ func evCallCompare(a, b evCall) int {
 	return cmp.Compare(a.points, b.points)
 }
 
-func (e *evOracle) filter(a, b box2d.Shape) bool {
+func (e *evOracle) filter(a box2d.Shape, b box2d.Shape) bool {
 	e.calls = append(e.calls, evCall{kind: 1, a: a, b: b})
 	return !e.reject
 }
 
-func (e *evOracle) pre(a, b box2d.Shape, m *box2d.Manifold) {
+func (e *evOracle) pre(a box2d.Shape, b box2d.Shape, m *box2d.Manifold) {
 	e.calls = append(e.calls, evCall{kind: 2, a: a, b: b, n: m.Normal, points: m.PointCount})
 	if e.reject {
 		m.PointCount = 0
 	}
 }
 
-func (e *evOracle) continuous(a, b box2d.Shape, p box2d.Pos, n box2d.Vec2) bool {
+func (e *evOracle) continuous(a box2d.Shape, b box2d.Shape, p box2d.Pos, n box2d.Vec2) bool {
 	e.calls = append(e.calls, evCall{kind: 3, a: a, b: b, p: p, n: n})
 	return !e.reject
 }
@@ -564,7 +578,12 @@ func TestEventsQueryFilterParity(t *testing.T) {
 
 		var ids []int
 
-		e.w.OverlapAABB(box2d.Pos{}, box2d.AABB{LowerBound: box2d.Vec2{X: -1, Y: -1}, UpperBound: box2d.Vec2{X: 1, Y: 1}}, q, func(s box2d.Shape) bool { ids = append(ids, int(s.ID()>>32)); return true })
+		e.w.OverlapAABB(
+			box2d.Pos{},
+			box2d.AABB{LowerBound: box2d.Vec2{X: -1, Y: -1}, UpperBound: box2d.Vec2{X: 1, Y: 1}},
+			q,
+			func(s box2d.Shape) bool { ids = append(ids, int(s.ID()>>32)); return true },
+		)
 		slices.Sort(ids)
 		e.r.I32("query.count", int32(len(ids)))
 
@@ -763,7 +782,10 @@ func (e *evOracle) observeBodyStates(bodies []box2d.Body) {
 		r.Bool("state.awake", b.Awake())
 		r.Bool("state.enabled", b.Enabled())
 		data := slices.Collect(b.ContactData())
-		slices.SortFunc(data, func(a, b box2d.ContactData) int { return evPairCompare(a.ShapeA, a.ShapeB, b.ShapeA, b.ShapeB) })
+		slices.SortFunc(
+			data,
+			func(a, b box2d.ContactData) int { return evPairCompare(a.ShapeA, a.ShapeB, b.ShapeA, b.ShapeB) },
+		)
 		r.I32("state.contacts", int32(len(data)))
 
 		for _, c := range data {
@@ -823,7 +845,12 @@ func evCheckContactDataEarlyStop(t *testing.T, family string, bodies []box2d.Bod
 	}
 }
 
-func evCheckEndEventEarlyStop(t *testing.T, family string, w, twin *box2d.World, bodies, twinBodies []box2d.Body) {
+func evCheckEndEventEarlyStop(
+	t *testing.T,
+	family string,
+	w *box2d.World, twin *box2d.World,
+	bodies []box2d.Body, twinBodies []box2d.Body,
+) {
 	t.Helper()
 
 	if family == "contact" || family == "sensor" {
@@ -881,7 +908,7 @@ func (e *evOracle) observeOwnedEvents(bm []box2d.BodyMoveEvent, je []box2d.Joint
 	}
 }
 
-func (e *evOracle) installCallbackPolicy(kind, mode int) {
+func (e *evOracle) installCallbackPolicy(kind int, mode int) {
 	e.reject = mode == 1
 	if kind == 0 {
 		e.w.SetPreSolveCallback(e.pre, nil)
@@ -906,7 +933,7 @@ func (e *evOracle) installCallbackPolicy(kind, mode int) {
 	}
 }
 
-func (e *evOracle) callbackPolicyScene(kind, domain int) (box2d.Body, int) {
+func (e *evOracle) callbackPolicyScene(kind int, domain int) (box2d.Body, int) {
 	a := e.body(1, box2d.StaticBody, box2d.Pos{})
 
 	position := box2d.Pos{Y: 1.2}
@@ -958,7 +985,7 @@ func (e *evOracle) callbackPolicyScene(kind, domain int) (box2d.Body, int) {
 	return b, steps
 }
 
-func (e *evOracle) hitThresholdScene(flags, thresholdCase, side int) box2d.Body {
+func (e *evOracle) hitThresholdScene(flags int, thresholdCase int, side int) box2d.Body {
 	threshold := float32(2)
 	if thresholdCase != 0 {
 		threshold = 5
@@ -989,7 +1016,7 @@ func (e *evOracle) hitThresholdScene(flags, thresholdCase, side int) box2d.Body 
 	return b
 }
 
-func evFilterDefinitions(row, eligible, sensor int) (box2d.ShapeDef, box2d.ShapeDef) {
+func evFilterDefinitions(row int, eligible int, sensor int) (box2d.ShapeDef, box2d.ShapeDef) {
 	da, db := box2d.DefaultShapeDef(), box2d.DefaultShapeDef()
 	da.IsSensor = sensor != 0
 	da.EnableSensorEvents = true

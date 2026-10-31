@@ -12,7 +12,12 @@ import (
 )
 
 func moverMakePlane(normal box2d.Vec2, pushLimit float32) box2d.CollisionPlane {
-	return box2d.CollisionPlane{Plane: box2d.Plane{normal, 0}, PushLimit: pushLimit, Push: 0, ClipVelocity: true}
+	return box2d.CollisionPlane{
+		Plane:        box2d.Plane{normal, 0},
+		PushLimit:    pushLimit,
+		Push:         0,
+		ClipVelocity: true,
+	}
 }
 
 func TestMover(t *testing.T) {
@@ -115,7 +120,10 @@ func testMoverPushLimit(t *testing.T) {
 
 func testMoverCorner(t *testing.T) {
 	r := oracle.Open(t, "mover/CornerTest")
-	planes := []box2d.CollisionPlane{moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), moverMakePlane(box2d.Vec2{1.0, 0.0}, float32(math.MaxFloat32))}
+	planes := []box2d.CollisionPlane{
+		moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)),
+		moverMakePlane(box2d.Vec2{1.0, 0.0}, float32(math.MaxFloat32)),
+	}
 
 	result := box2d.SolvePlanes(box2d.Vec2{-1.0, -1.0}, planes)
 	geometryMoverObserve(r, result, planes)
@@ -140,7 +148,10 @@ func testMoverCorner(t *testing.T) {
 func testMoverWedge(t *testing.T) {
 	r := oracle.Open(t, "mover/WedgeTest")
 	// An acute wedge takes several passes to settle, unlike a square corner
-	planes := []box2d.CollisionPlane{moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), moverMakePlane(box2d.Vec2{0.8, 0.6}, float32(math.MaxFloat32))}
+	planes := []box2d.CollisionPlane{
+		moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)),
+		moverMakePlane(box2d.Vec2{0.8, 0.6}, float32(math.MaxFloat32)),
+	}
 
 	result := box2d.SolvePlanes(box2d.Vec2{-1.0, -1.0}, planes)
 	geometryMoverObserve(r, result, planes)

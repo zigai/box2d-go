@@ -18,9 +18,14 @@ import (
 )
 
 type (
-	EnqueueTaskFunc   func(task func()) (finish func())
-	FrictionFunc      func(frictionA float32, userMaterialIDA uint64, frictionB float32, userMaterialIDB uint64) float32
-	RestitutionFunc   func(restitutionA float32, userMaterialIDA uint64, restitutionB float32, userMaterialIDB uint64) float32
+	EnqueueTaskFunc func(task func()) (finish func())
+	FrictionFunc    func(frictionA float32, userMaterialIDA uint64, frictionB float32, userMaterialIDB uint64) float32
+	RestitutionFunc func(
+		restitutionA float32,
+		userMaterialIDA uint64,
+		restitutionB float32,
+		userMaterialIDB uint64,
+	) float32
 	CustomFilterFunc  func(shapeA, shapeB Shape) bool
 	PreSolveFunc      func(shapeA, shapeB Shape, manifold *Manifold)
 	PreContinuousFunc func(shapeA, shapeB Shape, point Pos, normal Vec2) bool
@@ -206,13 +211,19 @@ func NewWorld(def *WorldDef) *World {
 	checkInput(def.internalValue == secretCookie, "def->internalValue == B2_SECRET_COOKIE")
 	checkInput(def.Logger != nil, "def.Logger != nil")
 	checkInput(def.Gravity.IsValid(), "b2IsValidVec2( def->gravity )")
-	checkInput(IsValidFloat(def.RestitutionThreshold), "b2IsValidFloat( def->restitutionThreshold )")
+	checkInput(
+		IsValidFloat(def.RestitutionThreshold),
+		"b2IsValidFloat( def->restitutionThreshold )",
+	)
 	checkInput(def.RestitutionIterations >= 0, "def->restitutionIterations >= 0")
 	checkInput(IsValidFloat(def.HitEventThreshold), "b2IsValidFloat( def->hitEventThreshold )")
 	checkInput(IsValidFloat(def.ContactHertz), "b2IsValidFloat( def->contactHertz )")
 	checkInput(IsValidFloat(def.ContactDampingRatio), "b2IsValidFloat( def->contactDampingRatio )")
 	checkInput(IsValidFloat(def.ContactSpeed), "b2IsValidFloat( def->contactSpeed )")
-	checkInput(IsValidFloat(def.MaximumLinearSpeed) && def.MaximumLinearSpeed > 0, "b2IsValidFloat( def->maximumLinearSpeed ) && def->maximumLinearSpeed > 0.0f")
+	checkInput(
+		IsValidFloat(def.MaximumLinearSpeed) && def.MaximumLinearSpeed > 0,
+		"b2IsValidFloat( def->maximumLinearSpeed ) && def->maximumLinearSpeed > 0.0f",
+	)
 
 	w := &World{inUse: true}
 	createBroadPhase(&w.broadPhase, &def.Capacity)
@@ -226,17 +237,38 @@ func NewWorld(def *WorldDef) *World {
 	w.solverSetIDPool = idpool.New()
 	// static set
 	w.solverSets = array.Push(w.solverSets, solverSet{setIndex: w.solverSetIDPool.Alloc()})
-	w.solverSets[staticSet].bodySims = array.Reserve(w.solverSets[staticSet].bodySims, max(16, def.Capacity.StaticBodyCount))
-	core.Assert(w.solverSets[staticSet].setIndex == staticSet, "world->solverSets.data[b2_staticSet].setIndex == b2_staticSet")
+	w.solverSets[staticSet].bodySims = array.Reserve(
+		w.solverSets[staticSet].bodySims,
+		max(16, def.Capacity.StaticBodyCount),
+	)
+	core.Assert(
+		w.solverSets[staticSet].setIndex == staticSet,
+		"world->solverSets.data[b2_staticSet].setIndex == b2_staticSet",
+	)
 	// disabled set
 	w.solverSets = array.Push(w.solverSets, solverSet{setIndex: w.solverSetIDPool.Alloc()})
-	core.Assert(w.solverSets[disabledSet].setIndex == disabledSet, "world->solverSets.data[b2_disabledSet].setIndex == b2_disabledSet")
+	core.Assert(
+		w.solverSets[disabledSet].setIndex == disabledSet,
+		"world->solverSets.data[b2_disabledSet].setIndex == b2_disabledSet",
+	)
 	// awake set
 	w.solverSets = array.Push(w.solverSets, solverSet{setIndex: w.solverSetIDPool.Alloc()})
-	w.solverSets[awakeSet].bodySims = array.Reserve(w.solverSets[awakeSet].bodySims, max(16, def.Capacity.DynamicBodyCount))
-	w.solverSets[awakeSet].bodyStates = array.Reserve(w.solverSets[awakeSet].bodyStates, max(16, def.Capacity.DynamicBodyCount))
-	w.solverSets[awakeSet].contactSims = array.Reserve(w.solverSets[awakeSet].contactSims, max(16, def.Capacity.ContactCount))
-	core.Assert(w.solverSets[awakeSet].setIndex == awakeSet, "world->solverSets.data[b2_awakeSet].setIndex == b2_awakeSet")
+	w.solverSets[awakeSet].bodySims = array.Reserve(
+		w.solverSets[awakeSet].bodySims,
+		max(16, def.Capacity.DynamicBodyCount),
+	)
+	w.solverSets[awakeSet].bodyStates = array.Reserve(
+		w.solverSets[awakeSet].bodyStates,
+		max(16, def.Capacity.DynamicBodyCount),
+	)
+	w.solverSets[awakeSet].contactSims = array.Reserve(
+		w.solverSets[awakeSet].contactSims,
+		max(16, def.Capacity.ContactCount),
+	)
+	core.Assert(
+		w.solverSets[awakeSet].setIndex == awakeSet,
+		"world->solverSets.data[b2_awakeSet].setIndex == b2_awakeSet",
+	)
 	w.shapeIDPool = idpool.New()
 	shapeCapacity := max(16, def.Capacity.StaticShapeCount+def.Capacity.DynamicShapeCount)
 	w.shapes = make([]shape, 0, shapeCapacity)
@@ -420,11 +452,15 @@ func (w *World) Close() {
 	*state = World{}
 }
 
-func relativeCos(a, b Rot) float32 {
+func relativeCos(a Rot, b Rot) float32 {
 	return float32(a.C*b.C) + float32(a.S*b.S)
 }
 
-func resolveContactBodySim(w *World, awakeSims, staticSims []bodySim, encodedIndex, bodyID int) *bodySim {
+func resolveContactBodySim(
+	w *World,
+	awakeSims []bodySim, staticSims []bodySim,
+	encodedIndex int, bodyID int,
+) *bodySim {
 	if encodedIndex >= 0 {
 		return &awakeSims[encodedIndex]
 	}
@@ -436,7 +472,12 @@ func resolveContactBodySim(w *World, awakeSims, staticSims []bodySim, encodedInd
 	return getBodySim(w, &w.bodies[bodyID])
 }
 
-func tryRecycleContact(sim *contactSim, bodySimA, bodySimB *bodySim, transformA, transformB *WorldTransform, recycleDistance, recycleDistanceNonTouching float32) bool {
+func tryRecycleContact(
+	sim *contactSim,
+	bodySimA *bodySim, bodySimB *bodySim,
+	transformA *WorldTransform, transformB *WorldTransform,
+	recycleDistance float32, recycleDistanceNonTouching float32,
+) bool {
 	encodedA := sim.encodedBodySimA
 	encodedB := sim.encodedBodySimB
 	wasTouching := sim.simFlags&simTouchingFlag != 0
@@ -492,7 +533,12 @@ func tryRecycleContact(sim *contactSim, bodySimA, bodySimB *bodySim, transformA,
 	return false
 }
 
-func updateContactTouchingState(task *taskContext, sim *contactSim, touching, wasTouching bool) {
+func updateContactTouchingState(
+	task *taskContext,
+	sim *contactSim,
+	touching bool,
+	wasTouching bool,
+) {
 	contactID := sim.contactID
 	// State changes that affect island connectivity. Also affects contact events.
 	if touching && !wasTouching {
@@ -514,7 +560,7 @@ func updateContactTouchingState(task *taskContext, sim *contactSim, touching, wa
 	}
 }
 
-func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
+func collideTask(startIndex int, endIndex int, workerIndex int, context *stepContext) {
 	w := context.world
 	task := &w.taskContexts[workerIndex]
 	spans := context.collideSpans
@@ -579,8 +625,17 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 		// Contact recycling optimization. Please cite this code if you use this optimization.
 		// This is inspired by persistent contact manifolds used in some physics engines, such as PhysX.
 		// However, this allows larger relative motion and has fewer tuning parameters (just one).
-		if !fast && recycleDistance > 0 && sim.simFlags&simRelativeTransformValid != 0 && sim.simFlags&contactRecycleFlag != 0 {
-			if tryRecycleContact(sim, bodySimA, bodySimB, &transformA, &transformB, recycleDistance, recycleDistanceNonTouching) {
+		if !fast && recycleDistance > 0 && sim.simFlags&simRelativeTransformValid != 0 &&
+			sim.simFlags&contactRecycleFlag != 0 {
+			if tryRecycleContact(
+				sim,
+				bodySimA,
+				bodySimB,
+				&transformA,
+				&transformB,
+				recycleDistance,
+				recycleDistanceNonTouching,
+			) {
 				task.recycledContactCount++
 				// Contact is recycled. This also skips updating other aspects of the contact
 				// such as material parameters.
@@ -595,7 +650,16 @@ func collideTask(startIndex, endIndex, workerIndex int, context *stepContext) {
 		centerOffsetA := transformA.Q.Rotate(bodySimA.localCenter)
 		centerOffsetB := transformB.Q.Rotate(bodySimB.localCenter)
 		// This updates solid contacts
-		touching := updateContact(w, sim, shapeA, transformA, centerOffsetA, shapeB, transformB, centerOffsetB)
+		touching := updateContact(
+			w,
+			sim,
+			shapeA,
+			transformA,
+			centerOffsetA,
+			shapeB,
+			transformB,
+			centerOffsetB,
+		)
 		updateContactTouchingState(task, sim, touching, wasTouching)
 	}
 }
@@ -608,7 +672,7 @@ func addNonTouchingContact(w *World, c *contact, sim *contactSim) {
 	set.contactSims = array.Push(set.contactSims, *sim)
 }
 
-func removeNonTouchingContact(w *World, setIndex, localIndex int) {
+func removeNonTouchingContact(w *World, setIndex int, localIndex int) {
 	set := &w.solverSets[setIndex]
 
 	var movedIndex int
@@ -624,7 +688,13 @@ func removeNonTouchingContact(w *World, setIndex, localIndex int) {
 	}
 }
 
-func processContactStateChange(w *World, contactID int, awake *solverSet, endEventArrayIndex int, shapes []shape) {
+func processContactStateChange(
+	w *World,
+	contactID int,
+	awake *solverSet,
+	endEventArrayIndex int,
+	shapes []shape,
+) {
 	colors := &w.constraintGraph.colors
 	c := &w.contacts[contactID]
 	core.Assert(c.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
@@ -635,7 +705,10 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 
 	if colorIndex != nullIndex {
 		// contact lives in constraint graph
-		core.Assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+		core.Assert(
+			0 <= colorIndex && colorIndex < GraphColorCount,
+			"0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT",
+		)
 		sim = &colors[colorIndex].contactSims[localIndex]
 	} else {
 		sim = &awake.contactSims[localIndex]
@@ -657,7 +730,10 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 			shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
 			shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
 			fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
-			w.contactBeginEvents = array.Push(w.contactBeginEvents, ContactBeginTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
+			w.contactBeginEvents = array.Push(
+				w.contactBeginEvents,
+				ContactBeginTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID},
+			)
 		}
 
 		core.Assert(sim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
@@ -687,7 +763,10 @@ func processContactStateChange(w *World, contactID int, awake *solverSet, endEve
 			shapeIDA := Shape{index1: int32(shapeA.id + 1), world: w, generation: shapeA.generation}
 			shapeIDB := Shape{index1: int32(shapeB.id + 1), world: w, generation: shapeB.generation}
 			fullID := Contact{index1: int32(contactID + 1), world: w, generation: c.generation}
-			w.contactEndEvents[endEventArrayIndex] = array.Push(w.contactEndEvents[endEventArrayIndex], ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID})
+			w.contactEndEvents[endEventArrayIndex] = array.Push(
+				w.contactEndEvents[endEventArrayIndex],
+				ContactEndTouchEvent{ShapeA: shapeIDA, ShapeB: shapeIDB, Contact: fullID},
+			)
 		}
 
 		core.Assert(sim.manifold.PointCount == 0, "contactSim->manifold.pointCount == 0")
@@ -735,7 +814,10 @@ func collide(context *stepContext) {
 	}
 
 	if nonTouchingCount > 0 {
-		spans[spanCount] = contactCollideSpan{start: contactIndex, contacts: w.solverSets[awakeSet].contactSims}
+		spans[spanCount] = contactCollideSpan{
+			start:    contactIndex,
+			contacts: w.solverSets[awakeSet].contactSims,
+		}
 		spanCount++
 		contactIndex += nonTouchingCount
 	}
@@ -752,7 +834,12 @@ func collide(context *stepContext) {
 	}
 	// Task should take at least 40us on a 4GHz CPU (10K cycles)
 	minRange := 64
-	parallelFor(w, func(start, end, worker int) { collideTask(start, end, worker, context) }, contactCount, minRange)
+	parallelFor(
+		w,
+		func(start, end, worker int) { collideTask(start, end, worker, context) },
+		contactCount,
+		minRange,
+	)
 
 	context.collideSpans = nil
 
@@ -768,7 +855,7 @@ func collide(context *stepContext) {
 	endEventArrayIndex := w.endEventArrayIndex
 	shapes := w.shapes
 	// Process contact state changes. Iterate over set bits
-	for k := range uint32(bitSet.BlockCount) {
+	for k := range bitSet.BlockCount {
 		word := bitSet.Bits[k]
 		for word != 0 {
 			ctz := bits.TrailingZeros64(word)
@@ -816,8 +903,14 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 	stepTicks := timer.Ticks()
 	{
 		c := &state.maxCapacity
-		c.StaticShapeCount = max(c.StaticShapeCount, int(state.broadPhase.trees[StaticBody].proxyCount))
-		c.DynamicShapeCount = max(c.DynamicShapeCount, int(state.broadPhase.trees[DynamicBody].proxyCount))
+		c.StaticShapeCount = max(
+			c.StaticShapeCount,
+			int(state.broadPhase.trees[StaticBody].proxyCount),
+		)
+		c.DynamicShapeCount = max(
+			c.DynamicShapeCount,
+			int(state.broadPhase.trees[DynamicBody].proxyCount),
+		)
 		staticBodyCount := len(state.solverSets[staticSet].bodySims)
 		c.StaticBodyCount = max(c.StaticBodyCount, staticBodyCount)
 		// this includes kinematic bodies
@@ -1152,7 +1245,10 @@ func (w *World) SetWarmStartingEnabled(flag bool) {
 	}
 
 	if state.recording != nil {
-		recWriteWorldEnableWarmStarting(state.recording, &recArgsWorldEnableWarmStarting{flag: flag})
+		recWriteWorldEnableWarmStarting(
+			state.recording,
+			&recArgsWorldEnableWarmStarting{flag: flag},
+		)
 	}
 
 	state.enableWarmStarting = flag
@@ -1196,7 +1292,10 @@ func (w *World) SetRestitutionThreshold(value float32) {
 	}
 
 	if state.recording != nil {
-		recWriteWorldSetRestitutionThreshold(state.recording, &recArgsWorldSetRestitutionThreshold{value: value})
+		recWriteWorldSetRestitutionThreshold(
+			state.recording,
+			&recArgsWorldSetRestitutionThreshold{value: value},
+		)
 	}
 
 	state.restitutionThreshold = clampFloat(value, 0, math.MaxFloat32)
@@ -1218,7 +1317,10 @@ func (w *World) SetRestitutionIterations(iterations int) {
 
 	iterations = min(max(iterations, 0), MaxRestitutionIterations)
 	if state.recording != nil {
-		recWriteWorldSetRestitutionIterations(state.recording, &recArgsWorldSetRestitutionIterations{iterations: int32(iterations)})
+		recWriteWorldSetRestitutionIterations(
+			state.recording,
+			&recArgsWorldSetRestitutionIterations{iterations: int32(iterations)},
+		)
 	}
 
 	state.restitutionIterations = iterations
@@ -1237,7 +1339,10 @@ func (w *World) SetRestitutionPropagationEnabled(flag bool) {
 	}
 
 	if state.recording != nil {
-		recWriteWorldEnableRestitutionPropagation(state.recording, &recArgsWorldEnableRestitutionPropagation{flag: flag})
+		recWriteWorldEnableRestitutionPropagation(
+			state.recording,
+			&recArgsWorldEnableRestitutionPropagation{flag: flag},
+		)
 	}
 
 	state.enableRestitutionPropagation = flag
@@ -1258,7 +1363,10 @@ func (w *World) SetHitEventThreshold(value float32) {
 	}
 
 	if state.recording != nil {
-		recWriteWorldSetHitEventThreshold(state.recording, &recArgsWorldSetHitEventThreshold{value: value})
+		recWriteWorldSetHitEventThreshold(
+			state.recording,
+			&recArgsWorldSetHitEventThreshold{value: value},
+		)
 	}
 
 	state.hitEventThreshold = clampFloat(value, 0, math.MaxFloat32)
@@ -1268,7 +1376,7 @@ func (w *World) HitEventThreshold() float32 {
 	return w.hitEventThreshold
 }
 
-func (w *World) SetContactTuning(hertz, dampingRatio, pushSpeed float32) {
+func (w *World) SetContactTuning(hertz float32, dampingRatio float32, pushSpeed float32) {
 	checkInput(IsValidFloat(hertz), "b2IsValidFloat( hertz )")
 	checkInput(IsValidFloat(dampingRatio), "b2IsValidFloat( dampingRatio )")
 	checkInput(IsValidFloat(pushSpeed), "b2IsValidFloat( pushSpeed )")
@@ -1281,7 +1389,14 @@ func (w *World) SetContactTuning(hertz, dampingRatio, pushSpeed float32) {
 	}
 
 	if state.recording != nil {
-		recWriteWorldSetContactTuning(state.recording, &recArgsWorldSetContactTuning{hertz: hertz, dampingRatio: dampingRatio, pushSpeed: pushSpeed})
+		recWriteWorldSetContactTuning(
+			state.recording,
+			&recArgsWorldSetContactTuning{
+				hertz:        hertz,
+				dampingRatio: dampingRatio,
+				pushSpeed:    pushSpeed,
+			},
+		)
 	}
 
 	state.contactHertz = clampFloat(hertz, 0, math.MaxFloat32)
@@ -1300,7 +1415,10 @@ func (w *World) SetContactRecycleDistance(recycleDistance float32) {
 	}
 
 	if state.recording != nil {
-		recWriteWorldSetContactRecycleDistance(state.recording, &recArgsWorldSetContactRecycleDistance{recycleDistance: recycleDistance})
+		recWriteWorldSetContactRecycleDistance(
+			state.recording,
+			&recArgsWorldSetContactRecycleDistance{recycleDistance: recycleDistance},
+		)
 	}
 
 	state.contactRecycleDistance = clampFloat(recycleDistance, 0, math.MaxFloat32)
@@ -1311,7 +1429,10 @@ func (w *World) ContactRecycleDistance() float32 {
 }
 
 func (w *World) SetMaximumLinearSpeed(maximumLinearSpeed float32) {
-	checkInput(IsValidFloat(maximumLinearSpeed) && maximumLinearSpeed > 0, "b2IsValidFloat( maximumLinearSpeed ) && maximumLinearSpeed > 0.0f")
+	checkInput(
+		IsValidFloat(maximumLinearSpeed) && maximumLinearSpeed > 0,
+		"b2IsValidFloat( maximumLinearSpeed ) && maximumLinearSpeed > 0.0f",
+	)
 
 	state := w
 	core.Assert(!state.locked, "world->locked == false")
@@ -1321,7 +1442,10 @@ func (w *World) SetMaximumLinearSpeed(maximumLinearSpeed float32) {
 	}
 
 	if state.recording != nil {
-		recWriteWorldSetMaximumLinearSpeed(state.recording, &recArgsWorldSetMaximumLinearSpeed{maximumLinearSpeed: maximumLinearSpeed})
+		recWriteWorldSetMaximumLinearSpeed(
+			state.recording,
+			&recArgsWorldSetMaximumLinearSpeed{maximumLinearSpeed: maximumLinearSpeed},
+		)
 	}
 
 	state.maxLinearSpeed = maximumLinearSpeed
@@ -1344,7 +1468,10 @@ func (w *World) Counters() Counters {
 	s.JointCount = state.jointIDPool.Count()
 	s.IslandCount = state.islandIDPool.Count()
 	s.StaticTreeHeight = state.broadPhase.trees[StaticBody].Height()
-	s.TreeHeight = max(state.broadPhase.trees[DynamicBody].Height(), state.broadPhase.trees[KinematicBody].Height())
+	s.TreeHeight = max(
+		state.broadPhase.trees[DynamicBody].Height(),
+		state.broadPhase.trees[KinematicBody].Height(),
+	)
 
 	s.TaskCount = state.taskCount
 	for i := range state.workerCount {

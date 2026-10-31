@@ -44,7 +44,10 @@ func (m MotorJoint) SetLinearVelocity(velocity Vec2) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetLinearVelocity(world.recording, &recArgsMotorJointSetLinearVelocity{joint: m.Joint, velocity: velocity})
+		recWriteMotorJointSetLinearVelocity(
+			world.recording,
+			&recArgsMotorJointSetLinearVelocity{joint: m.Joint, velocity: velocity},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -64,7 +67,10 @@ func (m MotorJoint) SetAngularVelocity(velocity float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetAngularVelocity(world.recording, &recArgsMotorJointSetAngularVelocity{joint: m.Joint, velocity: velocity})
+		recWriteMotorJointSetAngularVelocity(
+			world.recording,
+			&recArgsMotorJointSetAngularVelocity{joint: m.Joint, velocity: velocity},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -84,7 +90,10 @@ func (m MotorJoint) SetMaxVelocityTorque(maxTorque float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetMaxVelocityTorque(world.recording, &recArgsMotorJointSetMaxVelocityTorque{joint: m.Joint, maxTorque: maxTorque})
+		recWriteMotorJointSetMaxVelocityTorque(
+			world.recording,
+			&recArgsMotorJointSetMaxVelocityTorque{joint: m.Joint, maxTorque: maxTorque},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -104,7 +113,10 @@ func (m MotorJoint) SetMaxVelocityForce(maxForce float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetMaxVelocityForce(world.recording, &recArgsMotorJointSetMaxVelocityForce{joint: m.Joint, maxForce: maxForce})
+		recWriteMotorJointSetMaxVelocityForce(
+			world.recording,
+			&recArgsMotorJointSetMaxVelocityForce{joint: m.Joint, maxForce: maxForce},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -124,7 +136,10 @@ func (m MotorJoint) SetLinearHertz(hertz float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetLinearHertz(world.recording, &recArgsMotorJointSetLinearHertz{joint: m.Joint, hertz: hertz})
+		recWriteMotorJointSetLinearHertz(
+			world.recording,
+			&recArgsMotorJointSetLinearHertz{joint: m.Joint, hertz: hertz},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -144,7 +159,10 @@ func (m MotorJoint) SetLinearDampingRatio(damping float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetLinearDampingRatio(world.recording, &recArgsMotorJointSetLinearDampingRatio{joint: m.Joint, damping: damping})
+		recWriteMotorJointSetLinearDampingRatio(
+			world.recording,
+			&recArgsMotorJointSetLinearDampingRatio{joint: m.Joint, damping: damping},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -164,7 +182,10 @@ func (m MotorJoint) SetAngularHertz(hertz float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetAngularHertz(world.recording, &recArgsMotorJointSetAngularHertz{joint: m.Joint, hertz: hertz})
+		recWriteMotorJointSetAngularHertz(
+			world.recording,
+			&recArgsMotorJointSetAngularHertz{joint: m.Joint, hertz: hertz},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -184,7 +205,10 @@ func (m MotorJoint) SetAngularDampingRatio(damping float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetAngularDampingRatio(world.recording, &recArgsMotorJointSetAngularDampingRatio{joint: m.Joint, damping: damping})
+		recWriteMotorJointSetAngularDampingRatio(
+			world.recording,
+			&recArgsMotorJointSetAngularDampingRatio{joint: m.Joint, damping: damping},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -204,7 +228,10 @@ func (m MotorJoint) SetMaxSpringForce(maxForce float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetMaxSpringForce(world.recording, &recArgsMotorJointSetMaxSpringForce{joint: m.Joint, maxForce: maxForce})
+		recWriteMotorJointSetMaxSpringForce(
+			world.recording,
+			&recArgsMotorJointSetMaxSpringForce{joint: m.Joint, maxForce: maxForce},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -224,7 +251,10 @@ func (m MotorJoint) SetMaxSpringTorque(maxTorque float32) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMotorJointSetMaxSpringTorque(world.recording, &recArgsMotorJointSetMaxSpringTorque{joint: m.Joint, maxTorque: maxTorque})
+		recWriteMotorJointSetMaxSpringTorque(
+			world.recording,
+			&recArgsMotorJointSetMaxSpringTorque{joint: m.Joint, maxTorque: maxTorque},
+		)
 	}
 
 	jnt := getJointSimCheckType(m.Joint, MotorJointType)
@@ -239,12 +269,16 @@ func (m MotorJoint) MaxSpringTorque() float32 {
 }
 
 func getMotorJointForce(world *World, base *jointSim) Vec2 {
-	force := base.motorJoint.linearVelocityImpulse.Add(base.motorJoint.linearSpringImpulse).Scale(world.invH)
+	force := base.motorJoint.linearVelocityImpulse.Add(base.motorJoint.linearSpringImpulse).
+		Scale(world.invH)
+
 	return force
 }
 
 func getMotorJointTorque(world *World, base *jointSim) float32 {
-	return float32(world.invH * (base.motorJoint.angularVelocityImpulse + base.motorJoint.angularSpringImpulse))
+	return float32(
+		world.invH * (base.motorJoint.angularVelocityImpulse + base.motorJoint.angularSpringImpulse),
+	)
 }
 
 func prepareMotorJoint(base *jointSim, context *stepContext) {
@@ -263,7 +297,10 @@ func prepareMotorJoint(base *jointSim, context *stepContext) {
 		bodyB = &world.bodies[idB]
 	)
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 
 	var (
 		setA = &world.solverSets[bodyA.setIndex]
@@ -432,7 +469,11 @@ func solveMotorJoint(base *jointSim, context *stepContext) {
 		var (
 			maxImpulse = float32(context.h * jnt.maxSpringTorque)
 			oldImpulse = jnt.angularSpringImpulse
-			impulse    = float32(float32(-massScale*jnt.angularMass)*(cdot+bias)) - float32(impulseScale*oldImpulse)
+			impulse    = float32(
+				float32(-massScale*jnt.angularMass)*(cdot+bias),
+			) - float32(
+				impulseScale*oldImpulse,
+			)
 		)
 
 		jnt.angularSpringImpulse = clampFloat(oldImpulse+impulse, -maxImpulse, maxImpulse)

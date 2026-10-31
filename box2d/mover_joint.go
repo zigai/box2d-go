@@ -28,7 +28,10 @@ func (m MoverJoint) SetLinearVelocity(velocity Vec2) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMoverJointSetLinearVelocity(world.recording, &recArgsMoverJointSetLinearVelocity{joint: m.Joint, velocity: velocity})
+		recWriteMoverJointSetLinearVelocity(
+			world.recording,
+			&recArgsMoverJointSetLinearVelocity{joint: m.Joint, velocity: velocity},
+		)
 	}
 
 	joint := getJointSimCheckType(m.Joint, MoverJointType)
@@ -47,7 +50,10 @@ func (m MoverJoint) SetMaxVelocityForce(maxForce Vec2) {
 
 	world := m.Joint.world
 	if world.recording != nil {
-		recWriteMoverJointSetMaxVelocityForce(world.recording, &recArgsMoverJointSetMaxVelocityForce{joint: m.Joint, maxForce: maxForce})
+		recWriteMoverJointSetMaxVelocityForce(
+			world.recording,
+			&recArgsMoverJointSetMaxVelocityForce{joint: m.Joint, maxForce: maxForce},
+		)
 	}
 
 	joint := getJointSimCheckType(m.Joint, MoverJointType)
@@ -61,7 +67,11 @@ func (m MoverJoint) MaxVelocityForce() Vec2 {
 }
 
 func getMoverJointForce(world *World, base *jointSim) Vec2 {
-	force := Vec2{X: float32(world.invH * base.moverJoint.linearVelocityImpulse.X), Y: float32(world.invH * base.moverJoint.linearVelocityImpulse.Y)}
+	force := Vec2{
+		X: float32(world.invH * base.moverJoint.linearVelocityImpulse.X),
+		Y: float32(world.invH * base.moverJoint.linearVelocityImpulse.Y),
+	}
+
 	return force
 }
 
@@ -76,7 +86,10 @@ func prepareMoverJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
@@ -191,10 +204,16 @@ func solveMoverJoint(base *jointSim, context *stepContext) {
 
 		oldImpulse := joint.linearVelocityImpulse
 		joint.linearVelocityImpulse = joint.linearVelocityImpulse.Add(impulse)
-		maxImpulse := Vec2{X: float32(context.h * joint.maxVelocityForce.X), Y: float32(context.h * joint.maxVelocityForce.Y)}
+		maxImpulse := Vec2{
+			X: float32(context.h * joint.maxVelocityForce.X),
+			Y: float32(context.h * joint.maxVelocityForce.Y),
+		}
 
 		// clamp x and y separately
-		joint.linearVelocityImpulse = joint.linearVelocityImpulse.Clamp(maxImpulse.Neg(), maxImpulse)
+		joint.linearVelocityImpulse = joint.linearVelocityImpulse.Clamp(
+			maxImpulse.Neg(),
+			maxImpulse,
+		)
 
 		impulse = joint.linearVelocityImpulse.Sub(oldImpulse)
 		vA = vA.MulSub(mA, impulse)

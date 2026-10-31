@@ -93,7 +93,17 @@ func largeWorldRunPyramid(t *testing.T, r *oracle.Reader, base Pos) largeWorldPy
 	sd := DefaultShapeDef()
 	ground.CreatePolygonShape(&sd, &box)
 
-	offsets := [9]Vec2{{X: -2, Y: 1}, {X: -1, Y: 1}, {Y: 1}, {X: 1, Y: 1}, {X: 2, Y: 1}, {X: -1, Y: 2}, {Y: 2}, {X: 1, Y: 2}, {Y: 3}}
+	offsets := [9]Vec2{
+		{X: -2, Y: 1},
+		{X: -1, Y: 1},
+		{Y: 1},
+		{X: 1, Y: 1},
+		{X: 2, Y: 1},
+		{X: -1, Y: 2},
+		{Y: 2},
+		{X: 1, Y: 2},
+		{Y: 3},
+	}
 
 	var bodies [9]Body
 
@@ -103,7 +113,10 @@ func largeWorldRunPyramid(t *testing.T, r *oracle.Reader, base Pos) largeWorldPy
 	for i := range bodies {
 		bd := DefaultBodyDef()
 		bd.Type = DynamicBody
-		bd.Position = Pos{X: base.X + oracle.Real(offsets[i].X), Y: base.Y + oracle.Real(offsets[i].Y)}
+		bd.Position = Pos{
+			X: base.X + oracle.Real(offsets[i].X),
+			Y: base.Y + oracle.Real(offsets[i].Y),
+		}
 		bodies[i] = w.CreateBody(&bd)
 		bodies[i].CreatePolygonShape(&sd, &box)
 	}
@@ -230,16 +243,31 @@ func largeWorldRunOriginQueries(t *testing.T, base Pos) largeWorldOriginQueryDat
 
 	start := []Vec2{{X: -5}}
 	cast := MakeProxy(start, 0.1)
-	w.CastShape(base, &cast, Vec2{X: 10}, filter, func(_ Shape, point Pos, _ Vec2, fraction float32) float32 {
-		data.castPoint = point
-		data.castFraction = fraction
+	w.CastShape(
+		base,
+		&cast,
+		Vec2{X: 10},
+		filter,
+		func(_ Shape, point Pos, _ Vec2, fraction float32) float32 {
+			data.castPoint = point
+			data.castFraction = fraction
 
-		return fraction
-	})
+			return fraction
+		},
+	)
 	mover := Capsule{Center1: Vec2{X: -5, Y: -0.2}, Center2: Vec2{X: -5, Y: 0.2}, Radius: 0.3}
 	data.moverFraction = w.CastMover(base, &mover, Vec2{X: 10}, filter)
-	touching := Capsule{Center1: Vec2{X: -0.9, Y: -0.2}, Center2: Vec2{X: -0.9, Y: 0.2}, Radius: 0.5}
-	w.CollideMover(base, &touching, filter, func(_ Shape, _ *PlaneResult) bool { data.planeCount++; return true })
+	touching := Capsule{
+		Center1: Vec2{X: -0.9, Y: -0.2},
+		Center2: Vec2{X: -0.9, Y: 0.2},
+		Radius:  0.5,
+	}
+	w.CollideMover(
+		base,
+		&touching,
+		filter,
+		func(_ Shape, _ *PlaneResult) bool { data.planeCount++; return true },
+	)
 	data.insidePoint = shape.TestPoint(base)
 	ray := shape.RayCast(base.Add(Vec2{X: -5}), Vec2{X: 10})
 	data.shapeRayHit = ray.Hit
@@ -258,7 +286,12 @@ func TestLargeWorld(t *testing.T) {
 	t.Run("LargeWorldRecordingTest", func(t *testing.T) { checkLargeWorldRecordingTest(t) })
 }
 
-func largeWorldCheckRelativeCoordinate(t *testing.T, r *oracle.Reader, key string, delta, tolerance float32) {
+func largeWorldCheckRelativeCoordinate(
+	t *testing.T,
+	r *oracle.Reader,
+	key string,
+	delta float32, tolerance float32,
+) {
 	t.Helper()
 
 	if delta < -tolerance || tolerance < delta {
@@ -291,9 +324,21 @@ func checkLargeWorldPyramidTest(t *testing.T) {
 		r.I32("L107/value1", int32(origin.sleepStep))
 
 		for i := range origin.rel {
-			largeWorldCheckRelativeCoordinate(t, r, "L110", large.rel[i].X-origin.rel[i].X, float32(1e-3))
+			largeWorldCheckRelativeCoordinate(
+				t,
+				r,
+				"L110",
+				large.rel[i].X-origin.rel[i].X,
+				float32(1e-3),
+			)
 
-			largeWorldCheckRelativeCoordinate(t, r, "L111", large.rel[i].Y-origin.rel[i].Y, float32(1e-3))
+			largeWorldCheckRelativeCoordinate(
+				t,
+				r,
+				"L111",
+				large.rel[i].Y-origin.rel[i].Y,
+				float32(1e-3),
+			)
 		}
 	}
 }
@@ -421,9 +466,21 @@ func checkLargeWorldOriginQueryTest(t *testing.T) {
 
 		r.Bool("L331", large.shapeRayHit == origin.shapeRayHit)
 
-		largeWorldCheckRelativeCoordinate(t, r, "L332", large.castFraction-origin.castFraction, float32(1e-4))
+		largeWorldCheckRelativeCoordinate(
+			t,
+			r,
+			"L332",
+			large.castFraction-origin.castFraction,
+			float32(1e-4),
+		)
 
-		largeWorldCheckRelativeCoordinate(t, r, "L333", large.moverFraction-origin.moverFraction, float32(1e-4))
+		largeWorldCheckRelativeCoordinate(
+			t,
+			r,
+			"L333",
+			large.moverFraction-origin.moverFraction,
+			float32(1e-4),
+		)
 
 		largeCast := large.castPoint.Sub(base)
 		largeWorldCheckRelativeCoordinate(t, r, "L336", largeCast.X-castRel.X, float32(1e-3))

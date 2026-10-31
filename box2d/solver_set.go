@@ -76,8 +76,14 @@ func wakeSolverSet(world *World, setIndex int) {
 		for i := range contactCount {
 			contactSim := &set.contactSims[i]
 			contact := &world.contacts[contactSim.contactID]
-			core.Assert((contact.flags&contactTouchingFlag) != 0, "contact->flags & b2_contactTouchingFlag")
-			core.Assert((contactSim.simFlags&simTouchingFlag) != 0, "contactSim->simFlags & b2_simTouchingFlag")
+			core.Assert(
+				(contact.flags&contactTouchingFlag) != 0,
+				"contact->flags & b2_contactTouchingFlag",
+			)
+			core.Assert(
+				(contactSim.simFlags&simTouchingFlag) != 0,
+				"contactSim->simFlags & b2_simTouchingFlag",
+			)
 			core.Assert(contactSim.manifold.PointCount > 0, "contactSim->manifold.pointCount > 0")
 			core.Assert(contact.setIndex == setIndex, "contact->setIndex == setIndex")
 			addContactToGraph(world, contactSim, contact)
@@ -145,7 +151,10 @@ func trySleepIsland(world *World, islandID int) {
 
 	// grab awake set after creating the sleep set because the solver set array may have been resized
 	awake := &world.solverSets[awakeSet]
-	core.Assert(0 <= island.localIndex && island.localIndex < len(awake.islandSims), "0 <= island->localIndex && island->localIndex < awakeSet->islandSims.count")
+	core.Assert(
+		0 <= island.localIndex && island.localIndex < len(awake.islandSims),
+		"0 <= island->localIndex && island->localIndex < awakeSet->islandSims.count",
+	)
 
 	sleepSet.setIndex = sleepSetID
 	sleepSet.bodySims = make([]bodySim, 0, len(island.bodies))
@@ -170,8 +179,14 @@ func trySleepIsland(world *World, islandID int) {
 			// It could happen the body is forced asleep before it ever moves.
 			if body.bodyMoveIndex != nullIndex {
 				moveEvent := &world.bodyMoveEvents[body.bodyMoveIndex]
-				core.Assert(int(moveEvent.Body.index1)-1 == bodyID, "moveEvent->bodyId.index1 - 1 == bodyId")
-				core.Assert(moveEvent.Body.generation == body.generation, "moveEvent->bodyId.generation == body->generation")
+				core.Assert(
+					int(moveEvent.Body.index1)-1 == bodyID,
+					"moveEvent->bodyId.index1 - 1 == bodyId",
+				)
+				core.Assert(
+					moveEvent.Body.generation == body.generation,
+					"moveEvent->bodyId.generation == body->generation",
+				)
 				moveEvent.FellAsleep = true
 				body.bodyMoveIndex = nullIndex
 			}
@@ -223,7 +238,10 @@ func trySleepIsland(world *World, islandID int) {
 			movedIslandSim := &awake.islandSims[islandIndex]
 			movedIslandID := movedIslandSim.islandID
 			movedIsland := &world.islands[movedIslandID]
-			core.Assert(movedIsland.localIndex == movedIslandIndex, "movedIsland->localIndex == movedIslandIndex")
+			core.Assert(
+				movedIsland.localIndex == movedIslandIndex,
+				"movedIsland->localIndex == movedIslandIndex",
+			)
 			movedIsland.localIndex = islandIndex
 		}
 
@@ -330,7 +348,10 @@ func mergeSolverSets(world *World, setID1 int, setID2 int) {
 
 func removeBodySim(world *World, set *solverSet, localIndex int) *body {
 	bodySims := set.bodySims
-	core.Assert(0 <= localIndex && localIndex < len(bodySims), "0 <= localIndex && localIndex < bodySims->count")
+	core.Assert(
+		0 <= localIndex && localIndex < len(bodySims),
+		"0 <= localIndex && localIndex < bodySims->count",
+	)
 	lastIndex := len(bodySims) - 1
 	set.bodySims = set.bodySims[:lastIndex]
 
@@ -402,7 +423,10 @@ func transferJoint(world *World, targetSet *solverSet, sourceSet *solverSet, joi
 	var sourceSim *jointSim
 
 	if sourceSet.setIndex == awakeSet {
-		core.Assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+		core.Assert(
+			0 <= colorIndex && colorIndex < GraphColorCount,
+			"0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT",
+		)
 		color := &world.constraintGraph.colors[colorIndex]
 
 		sourceSim = &color.jointSims[localIndex]
@@ -428,7 +452,13 @@ func transferJoint(world *World, targetSet *solverSet, sourceSet *solverSet, joi
 
 	// Destroy source.
 	if sourceSet.setIndex == awakeSet {
-		removeJointFromGraph(world, joint.edges[0].bodyID, joint.edges[1].bodyID, colorIndex, localIndex)
+		removeJointFromGraph(
+			world,
+			joint.edges[0].bodyID,
+			joint.edges[1].bodyID,
+			colorIndex,
+			localIndex,
+		)
 	} else {
 		var movedIndex int
 
@@ -443,7 +473,12 @@ func transferJoint(world *World, targetSet *solverSet, sourceSet *solverSet, joi
 	}
 }
 
-func wakeBodyNonTouchingContacts(world *World, body *body, setIndex int, awake, disabled *solverSet) {
+func wakeBodyNonTouchingContacts(
+	world *World,
+	body *body,
+	setIndex int,
+	awake *solverSet, disabled *solverSet,
+) {
 	// Move non-touching contacts from disabled set to awake set.
 	encodedBodySimIndex := body.localIndex
 
@@ -457,7 +492,10 @@ func wakeBodyNonTouchingContacts(world *World, body *body, setIndex int, awake, 
 		contactKey = contact.edges[edgeIndex].nextKey
 
 		if contact.setIndex != disabledSet {
-			core.Assert(contact.setIndex == awakeSet || contact.setIndex == setIndex, "contact->setIndex == b2_awakeSet || contact->setIndex == setIndex")
+			core.Assert(
+				contact.setIndex == awakeSet || contact.setIndex == setIndex,
+				"contact->setIndex == b2_awakeSet || contact->setIndex == setIndex",
+			)
 
 			// If this contact is awake but not touching I need to fixup the body sim index here.
 			if contact.setIndex == awakeSet {
@@ -477,7 +515,10 @@ func wakeBodyNonTouchingContacts(world *World, body *body, setIndex int, awake, 
 		localIndex := contact.localIndex
 		contactSim := &disabled.contactSims[localIndex]
 
-		core.Assert((contact.flags&contactTouchingFlag) == 0 && contactSim.manifold.PointCount == 0, "( contact->flags & b2_contactTouchingFlag ) == 0 && contactSim->manifold.pointCount == 0")
+		core.Assert(
+			(contact.flags&contactTouchingFlag) == 0 && contactSim.manifold.PointCount == 0,
+			"( contact->flags & b2_contactTouchingFlag ) == 0 && contactSim->manifold.pointCount == 0",
+		)
 
 		contact.setIndex = awakeSet
 		contact.localIndex = len(awake.contactSims)
@@ -498,13 +539,16 @@ func wakeBodyNonTouchingContacts(world *World, body *body, setIndex int, awake, 
 			// fix moved element
 			movedContactSim := &disabled.contactSims[localIndex]
 			movedContact := &world.contacts[movedContactSim.contactID]
-			core.Assert(movedContact.localIndex == movedLocalIndex, "movedContact->localIndex == movedLocalIndex")
+			core.Assert(
+				movedContact.localIndex == movedLocalIndex,
+				"movedContact->localIndex == movedLocalIndex",
+			)
 			movedContact.localIndex = localIndex
 		}
 	}
 }
 
-func sleepBodyNonTouchingContacts(world *World, body *body, awake, disabled *solverSet) {
+func sleepBodyNonTouchingContacts(world *World, body *body, awake *solverSet, disabled *solverSet) {
 	// Move non-touching contacts to the disabled set.
 	// Non-touching contacts may exist between sleeping islands and there is no clear ownership.
 	contactKey := body.headContactKey
@@ -520,7 +564,11 @@ func sleepBodyNonTouchingContacts(world *World, body *body, awake, disabled *sol
 
 		if contact.colorIndex != nullIndex {
 			// contact is touching and will be moved separately
-			core.Assert((contact.flags&contactTouchingFlag) != 0, "( contact->flags & b2_contactTouchingFlag ) != 0")
+			core.Assert(
+				(contact.flags&contactTouchingFlag) != 0,
+				"( contact->flags & b2_contactTouchingFlag ) != 0",
+			)
+
 			continue
 		}
 
@@ -544,7 +592,10 @@ func sleepBodyNonTouchingContacts(world *World, body *body, awake, disabled *sol
 		}
 
 		core.Assert(contactSim.manifold.PointCount == 0, "contactSim->manifold.pointCount == 0")
-		core.Assert((contact.flags&contactTouchingFlag) == 0, "( contact->flags & b2_contactTouchingFlag ) == 0")
+		core.Assert(
+			(contact.flags&contactTouchingFlag) == 0,
+			"( contact->flags & b2_contactTouchingFlag ) == 0",
+		)
 
 		// move the non-touching contact to the disabled set
 		contact.setIndex = disabledSet
@@ -560,13 +611,22 @@ func sleepBodyNonTouchingContacts(world *World, body *body, awake, disabled *sol
 			// fix moved element
 			movedContactSim := &awake.contactSims[localIndex]
 			movedContact := &world.contacts[movedContactSim.contactID]
-			core.Assert(movedContact.localIndex == movedLocalIndex, "movedContact->localIndex == movedLocalIndex")
+			core.Assert(
+				movedContact.localIndex == movedLocalIndex,
+				"movedContact->localIndex == movedLocalIndex",
+			)
 			movedContact.localIndex = localIndex
 		}
 	}
 }
 
-func moveIslandContactsToSleepingSet(world *World, island *island, islandID int, sleepSet *solverSet, sleepSetID int) {
+func moveIslandContactsToSleepingSet(
+	world *World,
+	island *island,
+	islandID int,
+	sleepSet *solverSet,
+	sleepSetID int,
+) {
 	// move touching contacts
 	// this shuffles contacts in the awake set
 	{
@@ -576,7 +636,10 @@ func moveIslandContactsToSleepingSet(world *World, island *island, islandID int,
 			core.Assert(contact.setIndex == awakeSet, "contact->setIndex == b2_awakeSet")
 			core.Assert(contact.islandID == islandID, "contact->islandId == islandId")
 			colorIndex := contact.colorIndex
-			core.Assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+			core.Assert(
+				0 <= colorIndex && colorIndex < GraphColorCount,
+				"0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT",
+			)
 
 			color := &world.constraintGraph.colors[colorIndex]
 
@@ -605,7 +668,10 @@ func moveIslandContactsToSleepingSet(world *World, island *island, islandID int,
 				// fix moved element
 				movedContactSim := &color.contactSims[localIndex]
 				movedContact := &world.contacts[movedContactSim.contactID]
-				core.Assert(movedContact.localIndex == movedLocalIndex, "movedContact->localIndex == movedLocalIndex")
+				core.Assert(
+					movedContact.localIndex == movedLocalIndex,
+					"movedContact->localIndex == movedLocalIndex",
+				)
 				movedContact.localIndex = localIndex
 			}
 
@@ -616,7 +682,13 @@ func moveIslandContactsToSleepingSet(world *World, island *island, islandID int,
 	}
 }
 
-func moveIslandJointsToSleepingSet(world *World, island *island, islandID int, sleepSet *solverSet, sleepSetID int) {
+func moveIslandJointsToSleepingSet(
+	world *World,
+	island *island,
+	islandID int,
+	sleepSet *solverSet,
+	sleepSetID int,
+) {
 	// move joints
 	// this shuffles joints in the awake set
 	{
@@ -628,7 +700,10 @@ func moveIslandJointsToSleepingSet(world *World, island *island, islandID int, s
 			colorIndex := joint.colorIndex
 			localIndex := joint.localIndex
 
-			core.Assert(0 <= colorIndex && colorIndex < GraphColorCount, "0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT")
+			core.Assert(
+				0 <= colorIndex && colorIndex < GraphColorCount,
+				"0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT",
+			)
 
 			color := &world.constraintGraph.colors[colorIndex]
 
@@ -653,7 +728,10 @@ func moveIslandJointsToSleepingSet(world *World, island *island, islandID int, s
 				movedJointSim := &color.jointSims[localIndex]
 				movedID := movedJointSim.jointID
 				movedJoint := &world.joints[movedID]
-				core.Assert(movedJoint.localIndex == movedIndex, "movedJoint->localIndex == movedIndex")
+				core.Assert(
+					movedJoint.localIndex == movedIndex,
+					"movedJoint->localIndex == movedIndex",
+				)
 				movedJoint.localIndex = localIndex
 			}
 

@@ -82,7 +82,8 @@ func testShapeMass(t *testing.T) {
 		o.F32("shape:70/value0", md.RotationalInertia)
 		o.F32("shape:70", md.RotationalInertia-8.0/3.0)
 
-		if v := md.RotationalInertia - 8.0/3.0; v < -(2.0*float32(0x1p-23)) || (2.0*float32(0x1p-23)) < v {
+		if v := md.RotationalInertia - 8.0/3.0; v < -(2.0*float32(0x1p-23)) ||
+			(2.0*float32(0x1p-23)) < v {
 			t.Fatalf("condition false: abs(%v) < %v", v, 2.0*float32(0x1p-23))
 		}
 	}
@@ -180,7 +181,11 @@ func shapeCheckCapsuleMassBounds(t *testing.T, o *oracle.Reader, capsule *box2d.
 	o.F32("shape:62/value0", mdLower.RotationalInertia)
 	o.F32("shape:62/value1", md.RotationalInertia)
 	o.F32("shape:62/value2", mdUpper.RotationalInertia)
-	o.Bool("shape:62", mdLower.RotationalInertia < md.RotationalInertia && md.RotationalInertia < mdUpper.RotationalInertia)
+	o.Bool(
+		"shape:62",
+		mdLower.RotationalInertia < md.RotationalInertia &&
+			md.RotationalInertia < mdUpper.RotationalInertia,
+	)
 
 	if !(mdLower.RotationalInertia < md.RotationalInertia && md.RotationalInertia < mdUpper.RotationalInertia) {
 		t.Fatal("condition false")
@@ -416,7 +421,11 @@ func geometryOriginalPolygon(r *oracle.Reader, polygon box2d.Polygon) {
 	r.F32("full/polygon/radius", polygon.Radius)
 
 	for i := range polygon.Count {
-		r.Vec2(fmt.Sprintf("full/polygon/%d/vertex", i), polygon.Vertices[i].X, polygon.Vertices[i].Y)
+		r.Vec2(
+			fmt.Sprintf("full/polygon/%d/vertex", i),
+			polygon.Vertices[i].X,
+			polygon.Vertices[i].Y,
+		)
 		r.Vec2(fmt.Sprintf("full/polygon/%d/normal", i), polygon.Normals[i].X, polygon.Normals[i].Y)
 	}
 }

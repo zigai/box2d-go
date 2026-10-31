@@ -181,7 +181,8 @@ func TestMalformedSavedPayloadLeavesWorldsIntact(t *testing.T) {
 
 	requireSnapshotCategory(t, err, nil)
 
-	if !bytes.Equal(bad, original) || world.StateHash() != before || box2d.LengthUnitsPerMeter() != scale {
+	if !bytes.Equal(bad, original) || world.StateHash() != before ||
+		box2d.LengthUnitsPerMeter() != scale {
 		t.Fatal("failed constructor changed input, independent world, or length scale")
 	}
 
@@ -252,7 +253,12 @@ func TestInputGuardAssertionErrorNative(t *testing.T) {
 	}
 }
 
-func checkMalformedReplayPayload(tb testing.TB, world *box2d.World, before uint64, recording, bad []byte) {
+func checkMalformedReplayPayload(
+	tb testing.TB,
+	world *box2d.World,
+	before uint64,
+	recording []byte, bad []byte,
+) {
 	tb.Helper()
 	// Replay has no dedicated typed header error, but embedded snapshot failure
 	// must preserve the SnapshotError cause and restore its global length scale.

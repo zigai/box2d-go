@@ -16,7 +16,15 @@ func lifecycleBodyKey(b box2d.Body) uint64   { return b.ID() & 0xffffffff0000fff
 
 func TestLifecycleNullHandles(t *testing.T) {
 	r := oracle.Open(t, "lifecycle/NullHandles")
-	lifecycleValidity(r, nil, box2d.Body{}, box2d.Shape{}, box2d.Chain{}, box2d.Joint{}, box2d.Contact{})
+	lifecycleValidity(
+		r,
+		nil,
+		box2d.Body{},
+		box2d.Shape{},
+		box2d.Chain{},
+		box2d.Joint{},
+		box2d.Contact{},
+	)
 }
 
 func lifecycleChain(b box2d.Body) box2d.Chain {
@@ -28,7 +36,7 @@ func lifecycleChain(b box2d.Body) box2d.Chain {
 	return b.CreateChain(&d)
 }
 
-func lifecycleJoint(w *box2d.World, a, b box2d.Body) box2d.Joint {
+func lifecycleJoint(w *box2d.World, a box2d.Body, b box2d.Body) box2d.Joint {
 	d := box2d.DefaultRevoluteJointDef()
 	d.Base.BodyA = a
 	d.Base.BodyB = b
@@ -38,7 +46,15 @@ func lifecycleJoint(w *box2d.World, a, b box2d.Body) box2d.Joint {
 	return w.CreateRevoluteJoint(&d).Joint
 }
 
-func lifecycleValidity(r *oracle.Reader, w *box2d.World, b box2d.Body, s box2d.Shape, c box2d.Chain, j box2d.Joint, contact box2d.Contact) {
+func lifecycleValidity(
+	r *oracle.Reader,
+	w *box2d.World,
+	b box2d.Body,
+	s box2d.Shape,
+	c box2d.Chain,
+	j box2d.Joint,
+	contact box2d.Contact,
+) {
 	r.Bool("world.valid", w.IsValid())
 	r.Bool("body.valid", b.IsValid())
 	r.Bool("shape.valid", s.IsValid())
@@ -47,7 +63,15 @@ func lifecycleValidity(r *oracle.Reader, w *box2d.World, b box2d.Body, s box2d.S
 	r.Bool("contact.valid", contact.IsValid())
 }
 
-func lifecycleMembership(t *testing.T, r *oracle.Reader, w *box2d.World, b, peer box2d.Body, s box2d.Shape, c box2d.Chain, j box2d.Joint) {
+func lifecycleMembership(
+	t *testing.T,
+	r *oracle.Reader,
+	w *box2d.World,
+	b box2d.Body, peer box2d.Body,
+	s box2d.Shape,
+	c box2d.Chain,
+	j box2d.Joint,
+) {
 	t.Helper()
 	r.Bool("body.world", b.World() == w)
 	r.Bool("shape.world", s.World() == w)
@@ -510,7 +534,14 @@ func TestLifecycleCollectionTransitions(t *testing.T) {
 	w.Close()
 }
 
-func lifecycleCheckContactViews(t *testing.T, r *oracle.Reader, w *box2d.World, b box2d.Body, s box2d.Shape, contact box2d.Contact) {
+func lifecycleCheckContactViews(
+	t *testing.T,
+	r *oracle.Reader,
+	w *box2d.World,
+	b box2d.Body,
+	s box2d.Shape,
+	contact box2d.Contact,
+) {
 	t.Helper()
 	// Body and shape contact views must contain the same live contact exactly once.
 	bodyData := slices.Collect(b.ContactData())

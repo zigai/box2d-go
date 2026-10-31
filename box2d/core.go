@@ -16,7 +16,10 @@ const (
 var lengthUnitsPerMeter float32 = 1
 
 func SetLengthUnitsPerMeter(lengthUnits float32) {
-	checkInput(IsValidFloat(lengthUnits) && lengthUnits > 0, "IsValidFloat(lengthUnits) && lengthUnits > 0.0f")
+	checkInput(
+		IsValidFloat(lengthUnits) && lengthUnits > 0,
+		"IsValidFloat(lengthUnits) && lengthUnits > 0.0f",
+	)
 	lengthUnitsPerMeter = lengthUnits
 }
 

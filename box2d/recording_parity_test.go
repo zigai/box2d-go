@@ -56,7 +56,7 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 	draw := box2d.DefaultDebugDraw()
 	drawFuncs := &box2d.FuncDrawer{}
 	draw.Drawer = drawFuncs
-	hash, calls := uint64(oracle.HashInit), 0
+	hash, calls := oracle.HashInit, 0
 	pos := func(p box2d.Pos) { hash = oracle.HashPos(hash, oracle.Real(p.X), oracle.Real(p.Y)) }
 	vec := func(v box2d.Vec2) { hash = oracle.HashF32(hash, v.X); hash = oracle.HashF32(hash, v.Y) }
 	drawFuncs.Line = func(a, b box2d.Pos, c box2d.HexColor) {
@@ -110,7 +110,13 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 	}
 }
 
-func recordingObserveQueryHits(r *oracle.Reader, p *box2d.Replay, key string, i, count int, q box2d.ReplayQueryInfo) {
+func recordingObserveQueryHits(
+	r *oracle.Reader,
+	p *box2d.Replay,
+	key string,
+	i int, count int,
+	q box2d.ReplayQueryInfo,
+) {
 	for ordinal := range q.HitCount + 2 {
 		j := ordinal - 1
 		hk := fmt.Sprintf("%s/h%d", key, j)
@@ -119,7 +125,9 @@ func recordingObserveQueryHits(r *oracle.Reader, p *box2d.Replay, key string, i,
 
 		validHit := i >= 0 && i < count && j >= 0 && j < q.HitCount
 
-		identityOnly := validHit && (q.Type == box2d.ReplayQueryOverlapAABB || q.Type == box2d.ReplayQueryOverlapShape || q.Type == box2d.ReplayQueryCollideMover)
+		identityOnly := validHit &&
+			(q.Type == box2d.ReplayQueryOverlapAABB || q.Type == box2d.ReplayQueryOverlapShape ||
+				q.Type == box2d.ReplayQueryCollideMover)
 		if !identityOnly {
 			r.Pos(hk+"/point", oracle.Real(h.Point.X), oracle.Real(h.Point.Y))
 			r.Vec2(hk+"/normal", h.Normal.X, h.Normal.Y)
@@ -215,9 +223,19 @@ func recordingLifecycleSource(t *testing.T, steps int) *box2d.Recording {
 
 		filter := box2d.DefaultQueryFilter()
 		filter.CategoryBits = 3
-		w.OverlapAABB(box2d.Pos{X: 2, Y: -1}, box2d.AABB{LowerBound: box2d.Vec2{X: -3, Y: -3}, UpperBound: box2d.Vec2{X: 6, Y: 5}}, filter, func(box2d.Shape) bool { return true })
+		w.OverlapAABB(
+			box2d.Pos{X: 2, Y: -1},
+			box2d.AABB{LowerBound: box2d.Vec2{X: -3, Y: -3}, UpperBound: box2d.Vec2{X: 6, Y: 5}},
+			filter,
+			func(box2d.Shape) bool { return true },
+		)
 		filter.MaskBits = 0
-		w.OverlapAABB(box2d.Pos{X: 2, Y: -1}, box2d.AABB{LowerBound: box2d.Vec2{X: -3, Y: -3}, UpperBound: box2d.Vec2{X: 6, Y: 5}}, filter, func(box2d.Shape) bool { return true })
+		w.OverlapAABB(
+			box2d.Pos{X: 2, Y: -1},
+			box2d.AABB{LowerBound: box2d.Vec2{X: -3, Y: -3}, UpperBound: box2d.Vec2{X: 6, Y: 5}},
+			filter,
+			func(box2d.Shape) bool { return true },
+		)
 	}
 
 	w.StopRecording()
@@ -274,7 +292,10 @@ func TestRecordingLifecycleParity(t *testing.T) {
 			}
 
 			r.Bool(prefix+"/tight/bounded", p.KeyframeBytes() <= p.KeyframeBudget())
-			r.Bool(prefix+"/tight/softBudget", p.KeyframeBytes() <= p.KeyframeBudget() || box2d.RecordingKeyframeCount(p) == 1)
+			r.Bool(
+				prefix+"/tight/softBudget",
+				p.KeyframeBytes() <= p.KeyframeBudget() || box2d.RecordingKeyframeCount(p) == 1,
+			)
 			r.Bool(prefix+"/tight/coarsened", p.KeyframeInterval() > p.KeyframeMinInterval())
 			p.SeekFrame(3)
 			recordingObserve(t, r, p, prefix+"/tight/seek")
@@ -363,7 +384,10 @@ func TestRecordingFileAndFramingParity(t *testing.T) {
 		t.Fatalf("directory error category: %v", err)
 	}
 
-	for _, name := range []string{"empty", "short", "magic", "major", "minor", "endian", "snapshotZero", "snapshotOversize", "incompleteFrame", "truncatedHash", "unknown", "unknownOverflow"} {
+	for _, name := range []string{
+		"empty", "short", "magic", "major", "minor", "endian", "snapshotZero", "snapshotOversize",
+		"incompleteFrame", "truncatedHash", "unknown", "unknownOverflow",
+	} {
 		data := box2d.RecordingMalformed(rec.Data(), name)
 		p, err := box2d.NewReplay(data, 0)
 		r.Bool(name+"/open", p != nil && err == nil)

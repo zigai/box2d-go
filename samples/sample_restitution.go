@@ -11,7 +11,10 @@ import (
 	"github.com/zigai/box2d-go/box2d"
 )
 
-func computeEnergy(worldID *box2d.World, bodyIDs []box2d.Body) (linear, angular, potential float32) {
+func computeEnergy(
+	worldID *box2d.World,
+	bodyIDs []box2d.Body,
+) (linear, angular, potential float32) {
 	gravity := worldID.Gravity()
 
 	linearSum := float32(0.0)
@@ -67,7 +70,10 @@ func CreateVaryingRestitution(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		h := float32(1.0 * varyingRestitutionCount)
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -h, Y: 0.0}, Point2: box2d.Vec2{X: h, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -h, Y: 0.0},
+			Point2: box2d.Vec2{X: h, Y: 0.0},
+		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -127,7 +133,8 @@ func (s *VaryingRestitution) DrawControls() bool {
 	changed := false
 	shapeTypes := []string{"Circle", "Box"}
 
-	changed = changed || imgui.ComboStrarr("Shape", &s.shapeType, shapeTypes, int32(len(shapeTypes)))
+	changed = changed ||
+		imgui.ComboStrarr("Shape", &s.shapeType, shapeTypes, int32(len(shapeTypes)))
 
 	imgui.PopItemWidth()
 
@@ -171,7 +178,10 @@ func CreateSingleBoxRestitution(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -4.0, Y: 0.0}, Point2: box2d.Vec2{X: 4.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -4.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 4.0, Y: 0.0},
+		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -203,7 +213,11 @@ func CreateSingleBoxRestitution(context *SampleContext) Sampler {
 func (s *SingleBoxRestitution) Step() {
 	s.Sample.Step()
 
-	s.draw.DrawLine(box2d.Pos{X: -4.0, Y: posScalar(s.height + 0.5)}, box2d.Pos{X: 4.0, Y: posScalar(s.height + 0.5)}, box2d.ColorRed)
+	s.draw.DrawLine(
+		box2d.Pos{X: -4.0, Y: posScalar(s.height + 0.5)},
+		box2d.Pos{X: 4.0, Y: posScalar(s.height + 0.5)},
+		box2d.ColorRed,
+	)
 
 	p := s.bodyID.Position()
 	if hitEventCount(s.worldID) == 1 {
@@ -224,7 +238,12 @@ func (s *SingleBoxRestitution) Step() {
 	}
 	s.DrawScreenTextLine("kinetic   = %.3f J linear + %.3f J angular", linear, angular)
 	s.DrawScreenTextLine("potential = %.3f J", potential)
-	s.DrawScreenTextLine("total     = %.3f J (%.2f%% of start, peak %.2f%%)", total, scale*total, scale*s.peakEnergy)
+	s.DrawScreenTextLine(
+		"total     = %.3f J (%.2f%% of start, peak %.2f%%)",
+		total,
+		scale*total,
+		scale*s.peakEnergy,
+	)
 }
 
 type SingleCircleRestitution struct {
@@ -249,7 +268,10 @@ func CreateSingleCircleRestitution(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -4.0, Y: 0.0}, Point2: box2d.Vec2{X: 4.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -4.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 4.0, Y: 0.0},
+		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -301,7 +323,12 @@ func (s *SingleCircleRestitution) Step() {
 	}
 	s.DrawScreenTextLine("kinetic   = %.3f J linear + %.3f J angular", linear, angular)
 	s.DrawScreenTextLine("potential = %.3f J", potential)
-	s.DrawScreenTextLine("total     = %.3f J (%.2f%% of start, peak %.2f%%)", total, scale*total, scale*s.peakEnergy)
+	s.DrawScreenTextLine(
+		"total     = %.3f J (%.2f%% of start, peak %.2f%%)",
+		total,
+		scale*total,
+		scale*s.peakEnergy,
+	)
 }
 
 const (
@@ -350,7 +377,10 @@ func CreateCircleStackRestitution(context *SampleContext) Sampler {
 	return s
 }
 
-func (s *CircleStackRestitution) CreateBall(y, velocityY, restitution float32, hitEvents bool) box2d.Body {
+func (s *CircleStackRestitution) CreateBall(
+	y, velocityY, restitution float32,
+	hitEvents bool,
+) box2d.Body {
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
 	bodyDef.Position = box2d.Pos{X: 0.0, Y: posScalar(y)}
@@ -451,7 +481,11 @@ func (s *CircleStackRestitution) Step() {
 		supportSpeed = max(supportSpeed, s.bodyIDs[i].LinearVelocity().Length())
 	}
 
-	s.draw.DrawLine(box2d.Pos{X: -2.0, Y: posScalar(s.startHeight)}, box2d.Pos{X: 2.0, Y: posScalar(s.startHeight)}, box2d.ColorRed)
+	s.draw.DrawLine(
+		box2d.Pos{X: -2.0, Y: posScalar(s.startHeight)},
+		box2d.Pos{X: 2.0, Y: posScalar(s.startHeight)},
+		box2d.ColorRed,
+	)
 
 	linear, angular, potential := computeEnergy(s.worldID, s.bodyIDs[:s.bodyCount])
 	total := linear + angular + potential
@@ -459,7 +493,11 @@ func (s *CircleStackRestitution) Step() {
 
 	s.DrawScreenTextLine("impactor vy = %.3f m/s", vy)
 
-	s.DrawScreenTextLine("coefficient = %.4f live (target %.2f)", vy/circleStackImpactSpeed, s.restitution)
+	s.DrawScreenTextLine(
+		"coefficient = %.4f live (target %.2f)",
+		vy/circleStackImpactSpeed,
+		s.restitution,
+	)
 
 	if s.latched {
 		s.DrawScreenTextLine("coefficient = %.4f at first rebound", s.coefficient)
@@ -473,7 +511,12 @@ func (s *CircleStackRestitution) Step() {
 	}
 	s.DrawScreenTextLine("kinetic   = %.3f J linear + %.3f J angular", linear, angular)
 	s.DrawScreenTextLine("potential = %.3f J", potential)
-	s.DrawScreenTextLine("total     = %.3f J (%.2f%% of start, peak %.2f%%)", total, scale*total, scale*s.peakEnergy)
+	s.DrawScreenTextLine(
+		"total     = %.3f J (%.2f%% of start, peak %.2f%%)",
+		total,
+		scale*total,
+		scale*s.peakEnergy,
+	)
 }
 
 const (
@@ -481,7 +524,11 @@ const (
 	restitutionPropagationDropHeight  = 5.0
 )
 
-var restitutionPropagationLabels = [restitutionPropagationColumnCount]string{"ground", "one crate", "two crates"}
+var restitutionPropagationLabels = [restitutionPropagationColumnCount]string{
+	"ground",
+	"one crate",
+	"two crates",
+}
 
 // A bouncy ball landing on a resting body. Three balls fall together from the same height onto bare
 // ground, one crate and two crates. Without restitution propagation the restitution stage only
@@ -560,7 +607,10 @@ func (s *RestitutionPropagation) CreateScene() {
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(x), Y: posScalar(s.restHeight[column] + restitutionPropagationDropHeight)}
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(x),
+			Y: posScalar(s.restHeight[column] + restitutionPropagationDropHeight),
+		}
 		bodyDef.EnableSleep = false
 		ballID := s.worldID.CreateBody(&bodyDef)
 
@@ -614,14 +664,26 @@ func (s *RestitutionPropagation) Step() {
 
 		x := posScalar(4.0 * float32(column-1))
 		dropY := posScalar(s.restHeight[column] + restitutionPropagationDropHeight)
-		s.draw.DrawLine(box2d.Pos{X: x - 1.0, Y: dropY}, box2d.Pos{X: x + 1.0, Y: dropY}, box2d.ColorRed)
+		s.draw.DrawLine(
+			box2d.Pos{X: x - 1.0, Y: dropY},
+			box2d.Pos{X: x + 1.0, Y: dropY},
+			box2d.ColorRed,
+		)
 		if s.apex[column] > 0.0 {
 			apexY := posScalar(s.restHeight[column] + s.apex[column])
-			s.draw.DrawLine(box2d.Pos{X: x - 1.0, Y: apexY}, box2d.Pos{X: x + 1.0, Y: apexY}, box2d.ColorGreen)
+			s.draw.DrawLine(
+				box2d.Pos{X: x - 1.0, Y: apexY},
+				box2d.Pos{X: x + 1.0, Y: apexY},
+				box2d.ColorGreen,
+			)
 		}
 
-		s.DrawScreenTextLine("%s: apex %.2f m (%.0f%% of drop)", restitutionPropagationLabels[column], s.apex[column],
-			100.0*s.apex[column]/restitutionPropagationDropHeight)
+		s.DrawScreenTextLine(
+			"%s: apex %.2f m (%.0f%% of drop)",
+			restitutionPropagationLabels[column],
+			s.apex[column],
+			100.0*s.apex[column]/restitutionPropagationDropHeight,
+		)
 	}
 
 	for i := range s.crateCount {
@@ -680,7 +742,10 @@ func (s *BoxRestitution) CreateScene() {
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: 0.0, Y: posScalar(float32(0.25 + 0.5*boxRestitutionImpactSpeed*(1.0/60.0)))}
+	bodyDef.Position = box2d.Pos{
+		X: 0.0,
+		Y: posScalar(float32(0.25 + 0.5*boxRestitutionImpactSpeed*(1.0/60.0))),
+	}
 	bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: -boxRestitutionImpactSpeed}
 	bodyDef.AngularVelocity = s.spin
 	bodyDef.EnableSleep = false
@@ -753,13 +818,22 @@ func (s *BoxRestitution) Step() {
 
 	s.DrawScreenTextLine("vy = %.3f m/s", vy)
 
-	s.DrawScreenTextLine("coefficient = %.4f live (target %.2f)", vy/boxRestitutionImpactSpeed, s.restitution)
+	s.DrawScreenTextLine(
+		"coefficient = %.4f live (target %.2f)",
+		vy/boxRestitutionImpactSpeed,
+		s.restitution,
+	)
 
 	if s.latched {
 		s.DrawScreenTextLine("coefficient = %.4f at first rebound", s.coefficient)
 	}
 
-	s.DrawScreenTextLine("spin in = %.2f, spin out = %.4f (ideal %.2f at e = 1)", s.spin, w, -s.spin)
+	s.DrawScreenTextLine(
+		"spin in = %.2f, spin out = %.4f (ideal %.2f at e = 1)",
+		s.spin,
+		w,
+		-s.spin,
+	)
 
 	scale := float32(0.0)
 	if s.startEnergy != 0.0 {
@@ -767,7 +841,12 @@ func (s *BoxRestitution) Step() {
 	}
 	s.DrawScreenTextLine("kinetic   = %.3f J linear + %.3f J angular", linear, angular)
 	s.DrawScreenTextLine("potential = %.3f J", potential)
-	s.DrawScreenTextLine("total     = %.3f J (%.2f%% of start, peak %.2f%%)", total, scale*total, scale*s.peakEnergy)
+	s.DrawScreenTextLine(
+		"total     = %.3f J (%.2f%% of start, peak %.2f%%)",
+		total,
+		scale*total,
+		scale*s.peakEnergy,
+	)
 }
 
 const (
@@ -878,7 +957,11 @@ func (s *RotatedBoxRestitution) Step() {
 	s.Sample.Step()
 
 	h := posScalar(1.0 * rotatedBoxRestitutionCount)
-	s.draw.DrawLine(box2d.Pos{X: -h, Y: rotatedBoxRestitutionDropHeight + 0.5}, box2d.Pos{X: h, Y: rotatedBoxRestitutionDropHeight + 0.5}, box2d.ColorRed)
+	s.draw.DrawLine(
+		box2d.Pos{X: -h, Y: rotatedBoxRestitutionDropHeight + 0.5},
+		box2d.Pos{X: h, Y: rotatedBoxRestitutionDropHeight + 0.5},
+		box2d.ColorRed,
+	)
 
 	minPercent := float32(0.0)
 	maxPercent := float32(0.0)
@@ -900,7 +983,13 @@ func (s *RotatedBoxRestitution) Step() {
 			maxPercent = max(maxPercent, percent)
 		}
 
-		s.draw.DrawString(s.camera, box2d.Pos{X: posScalar(x - 0.5), Y: rotatedBoxRestitutionDropHeight + 1.5}, box2d.ColorWhite, "%.1f%%", percent)
+		s.draw.DrawString(
+			s.camera,
+			box2d.Pos{X: posScalar(x - 0.5), Y: rotatedBoxRestitutionDropHeight + 1.5},
+			box2d.ColorWhite,
+			"%.1f%%",
+			percent,
+		)
 		x += 2.0
 	}
 
@@ -929,7 +1018,10 @@ func CreateTwoBoxRestitution(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -970,7 +1062,12 @@ func (s *TwoBoxRestitution) Step() {
 	}
 	s.DrawScreenTextLine("kinetic   = %.3f J linear + %.3f J angular", linear, angular)
 	s.DrawScreenTextLine("potential = %.3f J", potential)
-	s.DrawScreenTextLine("total     = %.3f J (%.2f%% of start, peak %.2f%%)", total, scale*total, scale*s.peakEnergy)
+	s.DrawScreenTextLine(
+		"total     = %.3f J (%.2f%% of start, peak %.2f%%)",
+		total,
+		scale*total,
+		scale*s.peakEnergy,
+	)
 }
 
 const circleRestitutionCount = 10
@@ -993,7 +1090,10 @@ func CreateCircleRestitution(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		h := float32(2.0 * circleRestitutionCount)
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -h, Y: 0.0}, Point2: box2d.Vec2{X: h, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -h, Y: 0.0},
+			Point2: box2d.Vec2{X: h, Y: 0.0},
+		}
 		shapeDef := box2d.DefaultShapeDef()
 
 		groundID.CreateSegmentShape(&shapeDef, &segment)

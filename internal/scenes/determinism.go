@@ -14,7 +14,9 @@ import (
 const (
 	fallingHingePrecision        = int(unsafe.Sizeof(box2d.Pos{}))/8 - 1
 	ExpectedSleepStep            = 295*(1-fallingHingePrecision) + 256*fallingHingePrecision
-	ExpectedHash          uint32 = uint32(0x36564C94*(1-fallingHingePrecision) + 0x29D0B92D*fallingHingePrecision)
+	ExpectedHash          uint32 = uint32(
+		0x36564C94*(1-fallingHingePrecision) + 0x29D0B92D*fallingHingePrecision,
+	)
 )
 
 type FallingHingeData struct {
@@ -69,7 +71,10 @@ func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 		for i := range rowCount {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.Vec2{X: x + float32(offset*float32(i)), Y: h + float32(float32(2)*h*float32(i))}.Pos()
+			bodyDef.Position = box2d.Vec2{
+				X: x + float32(offset*float32(i)),
+				Y: h + float32(float32(2)*h*float32(i)),
+			}.Pos()
 			// this tests the deterministic cosine and sine functions
 			angle := float32(0.1)
 			if i&1 == 0 {
@@ -104,7 +109,13 @@ func CreateFallingHinges(worldID *box2d.World) FallingHingeData {
 		panic(&box2d.AssertError{Condition: "bodyIndex == bodyCount"})
 	}
 
-	data := FallingHingeData{BodyIDs: bodyIDs, BodyCount: bodyCount, StepCount: 0, SleepStep: -1, Hash: 0}
+	data := FallingHingeData{
+		BodyIDs:   bodyIDs,
+		BodyCount: bodyCount,
+		StepCount: 0,
+		SleepStep: -1,
+		Hash:      0,
+	}
 
 	return data
 }

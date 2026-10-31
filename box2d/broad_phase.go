@@ -71,10 +71,25 @@ func destroyBroadPhase(bp *broadPhase) {
 	*bp = broadPhase{}
 }
 
-func (bp *broadPhase) createProxy(proxyType BodyType, aabb AABB, categoryBits uint64, shapeIndex int, forcePairCreation bool) int {
-	core.Assert(0 <= proxyType && proxyType < BodyTypeCount, "0 <= proxyType && proxyType < b2_bodyTypeCount")
+func (bp *broadPhase) createProxy(
+	proxyType BodyType,
+	aabb AABB,
+	categoryBits uint64,
+	shapeIndex int,
+	forcePairCreation bool,
+) int {
+	core.Assert(
+		0 <= proxyType && proxyType < BodyTypeCount,
+		"0 <= proxyType && proxyType < b2_bodyTypeCount",
+	)
 	mark := proxyType != StaticBody || forcePairCreation
-	id := createTreeProxyInternal(&bp.trees[proxyType], aabb, categoryBits, uint64(shapeIndex), mark)
+	id := createTreeProxyInternal(
+		&bp.trees[proxyType],
+		aabb,
+		categoryBits,
+		uint64(shapeIndex),
+		mark,
+	)
 
 	return proxyKey(id, proxyType)
 }
@@ -148,7 +163,7 @@ func flushCandidatePairs(context *pairContext) {
 	}
 }
 
-func candidateShapesCollide(w *World, shapeIDA, shapeIDB int) bool {
+func candidateShapesCollide(w *World, shapeIDA int, shapeIDB int) bool {
 	shapeA, shapeB := &w.shapes[shapeIDA], &w.shapes[shapeIDB]
 
 	bodyIDA, bodyIDB := shapeA.bodyID, shapeB.bodyID
@@ -186,7 +201,7 @@ func candidateShapesCollide(w *World, shapeIDA, shapeIDB int) bool {
 	return true
 }
 
-func addCandidatePair(shapeIDA, shapeIDB int, context *pairContext) {
+func addCandidatePair(shapeIDA int, shapeIDB int, context *pairContext) {
 	candidate := &context.batch[context.batchCount]
 	candidate.shapeIDA = min(shapeIDA, shapeIDB)
 	candidate.shapeIDB = max(shapeIDA, shapeIDB)
@@ -197,7 +212,7 @@ func addCandidatePair(shapeIDA, shapeIDB int, context *pairContext) {
 	}
 }
 
-func testPair(a, b *TreeNode) bool {
+func testPair(a *TreeNode, b *TreeNode) bool {
 	if (a.FlagIndex|b.FlagIndex)&movedNode == 0 {
 		return false
 	}
@@ -243,7 +258,13 @@ func collideProxyAndSubtree(proxy *TreeNode, nodes []TreeNode, pair int, context
 	}
 }
 
-func visitPair(arrayA, arrayB []TreeNode, nodeA, nodeB *TreeNode, stack []indexPair, stackCount *int, context *pairContext) {
+func visitPair(
+	arrayA []TreeNode, arrayB []TreeNode,
+	nodeA *TreeNode, nodeB *TreeNode,
+	stack []indexPair,
+	stackCount *int,
+	context *pairContext,
+) {
 	if !testPair(nodeA, nodeB) {
 		return
 	}
@@ -266,7 +287,11 @@ func visitPair(arrayA, arrayB []TreeNode, nodeA, nodeB *TreeNode, stack []indexP
 	}
 }
 
-func collideCrossPairs(arrayA, arrayB []TreeNode, subtreeA, subtreeB *TreeNode, context *pairContext) {
+func collideCrossPairs(
+	arrayA []TreeNode, arrayB []TreeNode,
+	subtreeA *TreeNode, subtreeB *TreeNode,
+	context *pairContext,
+) {
 	var stack [treeStackSize]indexPair
 
 	stackCount := 0
@@ -278,13 +303,21 @@ func collideCrossPairs(arrayA, arrayB []TreeNode, subtreeA, subtreeB *TreeNode, 
 
 		for i := range 2 {
 			for j := range 2 {
-				visitPair(arrayA, arrayB, &arrayA[pair.a+i], &arrayB[pair.b+j], stack[:], &stackCount, context)
+				visitPair(
+					arrayA,
+					arrayB,
+					&arrayA[pair.a+i],
+					&arrayB[pair.b+j],
+					stack[:],
+					&stackCount,
+					context,
+				)
 			}
 		}
 	}
 }
 
-func selfPairsTask(startIndex, endIndex, workerIndex int, context *World) {
+func selfPairsTask(startIndex int, endIndex int, workerIndex int, context *World) {
 	w := context
 	bp := &w.broadPhase
 	nodes := bp.trees[DynamicBody].nodes
@@ -299,7 +332,7 @@ func selfPairsTask(startIndex, endIndex, workerIndex int, context *World) {
 	flushCandidatePairs(&pairs)
 }
 
-func gatherCrossSeeds(treeA, treeB *DynamicTree, seeds []nodePair) int {
+func gatherCrossSeeds(treeA *DynamicTree, treeB *DynamicTree, seeds []nodePair) int {
 	nodesA, nodesB := treeA.nodes, treeB.nodes
 
 	var queue [2 * crossSeedCount]nodePair
@@ -347,7 +380,7 @@ func gatherCrossSeeds(treeA, treeB *DynamicTree, seeds []nodePair) int {
 	return seedCount
 }
 
-func crossPairsTask(startIndex, endIndex, workerIndex int, context *crossContext) {
+func crossPairsTask(startIndex int, endIndex int, workerIndex int, context *crossContext) {
 	w := context.world
 	bp := &w.broadPhase
 	staticNodes := bp.trees[StaticBody].nodes
@@ -410,19 +443,36 @@ func updateBroadPhasePairs(w *World) {
 
 		staticSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[StaticBody], crossSeeds)
 		core.Assert(staticSeedCount <= crossSeedCount, "staticSeedCount <= B2_CROSS_SEED_COUNT")
-		kinematicSeedCount := gatherCrossSeeds(dynamicTree, &bp.trees[KinematicBody], crossSeeds[staticSeedCount:])
-		core.Assert(kinematicSeedCount <= crossSeedCount, "kinematicSeedCount <= B2_CROSS_SEED_COUNT")
+		kinematicSeedCount := gatherCrossSeeds(
+			dynamicTree,
+			&bp.trees[KinematicBody],
+			crossSeeds[staticSeedCount:],
+		)
+		core.Assert(
+			kinematicSeedCount <= crossSeedCount,
+			"kinematicSeedCount <= B2_CROSS_SEED_COUNT",
+		)
 		crossMoveCount := staticSeedCount + kinematicSeedCount
 		cross := &bp.crossScratch
 		cross.world = w
 		cross.seeds = crossSeeds
 		cross.staticSeedCount = staticSeedCount
 
-		parallelFor(w, func(start, end, worker int) { crossPairsTask(start, end, worker, cross) }, crossMoveCount, 1)
+		parallelFor(
+			w,
+			func(start, end, worker int) { crossPairsTask(start, end, worker, cross) },
+			crossMoveCount,
+			1,
+		)
 
 		bp.crossScratch = crossContext{}
 
-		parallelFor(w, func(start, end, worker int) { selfPairsTask(start, end, worker, w) }, dynamicMoveCount, 64)
+		parallelFor(
+			w,
+			func(start, end, worker int) { selfPairsTask(start, end, worker, w) },
+			dynamicMoveCount,
+			64,
+		)
 	}
 
 	bp.trees[StaticBody].clearMoved()

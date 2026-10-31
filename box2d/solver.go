@@ -156,7 +156,10 @@ func integrateVelocitiesTask(block solverBlock, context *stepContext) {
 	states := context.states
 	sims := context.sims
 
-	core.Validate(block.startIndex+int(block.count) <= len(context.world.solverSets[awakeSet].bodyStates), "block.startIndex + block.count <= context->world->solverSets.data[b2_awakeSet].bodyStates.count")
+	core.Validate(
+		block.startIndex+int(block.count) <= len(context.world.solverSets[awakeSet].bodyStates),
+		"block.startIndex + block.count <= context->world->solverSets.data[b2_awakeSet].bodyStates.count",
+	)
 
 	gravity := context.world.gravity
 	h := context.h
@@ -185,7 +188,7 @@ func integrateVelocitiesTask(block solverBlock, context *stepContext) {
 			gravityScale = sim.gravityScale
 		}
 
-		// lvd = h * im * f + h * g
+		// Velocity delta: lvd = h * im * f + h * g
 		linearVelocityDelta := sim.force.Scale(h * sim.invMass).Add(gravity.Scale(h * gravityScale))
 		angularVelocityDelta := float32(h * sim.invInertia * sim.torque)
 
@@ -198,7 +201,10 @@ func integrateVelocitiesTask(block solverBlock, context *stepContext) {
 }
 
 func integratePositionsTask(block solverBlock, context *stepContext) {
-	core.Validate(block.startIndex+int(block.count) <= len(context.world.solverSets[awakeSet].bodyStates), "block.startIndex + block.count <= context->world->solverSets.data[b2_awakeSet].bodyStates.count")
+	core.Validate(
+		block.startIndex+int(block.count) <= len(context.world.solverSets[awakeSet].bodyStates),
+		"block.startIndex + block.count <= context->world->solverSets.data[b2_awakeSet].bodyStates.count",
+	)
 
 	states := context.states
 	h := context.h
@@ -287,7 +293,8 @@ func continuousQueryCallback(userData uint64, context *continuousContext) bool {
 
 			coreDistance := coreFraction * fastBodySim.minExtent
 
-			if separation1 < 0.0 || (separation1-separation2 < coreDistance && separation2 > coreDistance) {
+			if separation1 < 0.0 ||
+				(separation1-separation2 < coreDistance && separation2 > coreDistance) {
 				// Minimal clipping
 				return true
 			}
@@ -307,7 +314,8 @@ func continuousQueryCallback(userData uint64, context *continuousContext) bool {
 	output := TimeOfImpact(&input)
 	if isSensor {
 		// Only accept a sensor hit that is sooner than the current solid hit.
-		if output.Fraction <= continuousContext.fraction && continuousContext.sensorCount < maxContinuousSensorHits {
+		if output.Fraction <= continuousContext.fraction &&
+			continuousContext.sensorCount < maxContinuousSensorHits {
 			index := continuousContext.sensorCount
 
 			// The hit shape is a sensor
@@ -387,11 +395,23 @@ func solveContinuous(world *World, bodySimIndex int, taskContext *taskContext, d
 
 		sweptBox := box1.Union(box2)
 
-		staticTree.Query(sweptBox, DefaultMaskBits, func(_ int, userData uint64) bool { return continuousQueryCallback(userData, &context) })
+		staticTree.Query(
+			sweptBox,
+			DefaultMaskBits,
+			func(_ int, userData uint64) bool { return continuousQueryCallback(userData, &context) },
+		)
 
 		if isBullet {
-			kinematicTree.Query(sweptBox, DefaultMaskBits, func(_ int, userData uint64) bool { return continuousQueryCallback(userData, &context) })
-			dynamicTree.Query(sweptBox, DefaultMaskBits, func(_ int, userData uint64) bool { return continuousQueryCallback(userData, &context) })
+			kinematicTree.Query(
+				sweptBox,
+				DefaultMaskBits,
+				func(_ int, userData uint64) bool { return continuousQueryCallback(userData, &context) },
+			)
+			dynamicTree.Query(
+				sweptBox,
+				DefaultMaskBits,
+				func(_ int, userData uint64) bool { return continuousQueryCallback(userData, &context) },
+			)
 		}
 	}
 
@@ -509,7 +529,11 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 
 		if !v.IsValid() || !IsValidFloat(w) {
 			debugBody := &bodies[sim.bodyID]
-			world.logger.Warn("box2d: unstable body", "name", string(bytes.TrimRight(debugBody.name[:], "\x00")))
+			world.logger.Warn(
+				"box2d: unstable body",
+				"name",
+				string(bytes.TrimRight(debugBody.name[:], "\x00")),
+			)
 		}
 
 		core.Assert(v.IsValid(), "b2IsValidVec2( v )")
@@ -522,7 +546,9 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 		maxVelocity := v.Length() + float32(absFloat(w)*sim.maxExtent)
 
 		// Sleep needs to observe position correction as well as true velocity.
-		maxDeltaPosition := state.deltaPosition.Length() + float32(absFloat(state.deltaRotation.S)*sim.maxExtent)
+		maxDeltaPosition := state.deltaPosition.Length() + float32(
+			absFloat(state.deltaRotation.S)*sim.maxExtent,
+		)
 
 		// Position correction is not as important for sleep as true velocity.
 		positionSleepFactor := float32(0.5)
@@ -538,7 +564,11 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 		body := &bodies[sim.bodyID]
 		body.bodyMoveIndex = simIndex
 		moveEvents[simIndex].Transform = sim.transform
-		moveEvents[simIndex].Body = Body{index1: int32(sim.bodyID + 1), world: world, generation: body.generation}
+		moveEvents[simIndex].Body = Body{
+			index1:     int32(sim.bodyID + 1),
+			world:      world,
+			generation: body.generation,
+		}
 		moveEvents[simIndex].UserData = body.userData
 		moveEvents[simIndex].FellAsleep = false
 
@@ -563,7 +593,15 @@ func finalizeBodiesTask(startIndex int, endIndex int, workerIndex int, context *
 			body.sleepTime = 0.0
 
 			maxMotion := maxFloat(maxDeltaPosition, maxVelocity*timeStep)
-			advanceAwakeBody(stepContext, taskContext, body, sim, simIndex, maxMotion, enableContinuous)
+			advanceAwakeBody(
+				stepContext,
+				taskContext,
+				body,
+				sim,
+				simIndex,
+				maxMotion,
+				enableContinuous,
+			)
 		} else {
 			// Body is safe to advance and is falling asleep
 			sim.center0 = sim.center
@@ -597,7 +635,13 @@ func computeBlockCount(itemCount int, minSize int, maxBlockCount int) blockDim {
 	return dim
 }
 
-func initBlocks(blocks []syncBlock, dim blockDim, itemCount int, blockType uint8, colorIndex uint8) {
+func initBlocks(
+	blocks []syncBlock,
+	dim blockDim,
+	itemCount int,
+	blockType uint8,
+	colorIndex uint8,
+) {
 	if dim.count == 0 {
 		return
 	}
@@ -621,11 +665,23 @@ func initBlocks(blocks []syncBlock, dim blockDim, itemCount int, blockType uint8
 	// The last block may not be full
 	blocks[dim.count-1].block.count = uint16(itemCount - (dim.count-1)*blockSize)
 
-	core.Validate(int(blocks[dim.count-1].block.count) <= blockSize, "blocks[dim.count - 1].block.count <= blockSize")
-	core.Validate((dim.count-1)*dim.size+int(blocks[dim.count-1].block.count) == itemCount, "( dim.count - 1 ) * dim.size + blocks[dim.count - 1].block.count == itemCount")
+	core.Validate(
+		int(blocks[dim.count-1].block.count) <= blockSize,
+		"blocks[dim.count - 1].block.count <= blockSize",
+	)
+	core.Validate(
+		(dim.count-1)*dim.size+int(blocks[dim.count-1].block.count) == itemCount,
+		"( dim.count - 1 ) * dim.size + blocks[dim.count - 1].block.count == itemCount",
+	)
 }
 
-func initStage(stage []solverStage, stageType solverStageType, blocks []syncBlock, blockCount int, colorIndex uint8) []solverStage {
+func initStage(
+	stage []solverStage,
+	stageType solverStageType,
+	blocks []syncBlock,
+	blockCount int,
+	colorIndex uint8,
+) []solverStage {
 	stage[0].stageType = stageType
 	stage[0].blocks = blocks
 	stage[0].blockCount = blockCount
@@ -635,9 +691,22 @@ func initStage(stage []solverStage, stageType solverStageType, blocks []syncBloc
 	return stage[1:]
 }
 
-func initColorStages(stage []solverStage, stageType solverStageType, activeColorCount int, colorBlocks [][]syncBlock, colorBlockCounts []int, activeColorIndices []int) []solverStage {
+func initColorStages(
+	stage []solverStage,
+	stageType solverStageType,
+	activeColorCount int,
+	colorBlocks [][]syncBlock,
+	colorBlockCounts []int,
+	activeColorIndices []int,
+) []solverStage {
 	for i := range activeColorCount {
-		stage = initStage(stage, stageType, colorBlocks[i], colorBlockCounts[i], uint8(activeColorIndices[i]))
+		stage = initStage(
+			stage,
+			stageType,
+			colorBlocks[i],
+			colorBlockCounts[i],
+			uint8(activeColorIndices[i]),
+		)
 	}
 
 	return stage
@@ -688,7 +757,13 @@ func getWorkerStartIndex(workerIndex int, blockCount int, workerCount int) int {
 	return blocksPerWorker*workerIndex + min(remainder, workerIndex)
 }
 
-func executeStage(stage *solverStage, context *stepContext, previousSyncIndex int, syncIndex int, workerIndex int) {
+func executeStage(
+	stage *solverStage,
+	context *stepContext,
+	previousSyncIndex int,
+	syncIndex int,
+	workerIndex int,
+) {
 	completedCount := 0
 	blocks := stage.blocks
 	blockCount := stage.blockCount
@@ -698,12 +773,18 @@ func executeStage(stage *solverStage, context *stepContext, previousSyncIndex in
 		return
 	}
 
-	core.Assert(0 <= startIndex && startIndex < blockCount, "0 <= startIndex && startIndex < blockCount")
+	core.Assert(
+		0 <= startIndex && startIndex < blockCount,
+		"0 <= startIndex && startIndex < blockCount",
+	)
 
 	blockIndex := startIndex
 	for range blockCount {
 		if blocks[blockIndex].syncIndex.CompareAndSwap(int32(previousSyncIndex), int32(syncIndex)) {
-			core.Assert(stage.stageType != stagePrepareContacts || syncIndex < 2, "stage->type != b2_stagePrepareContacts || syncIndex < 2")
+			core.Assert(
+				stage.stageType != stagePrepareContacts || syncIndex < 2,
+				"stage->type != b2_stagePrepareContacts || syncIndex < 2",
+			)
 			core.Assert(completedCount < blockCount, "completedCount < blockCount")
 
 			// Pass the descriptor by value -- the wrapping syncBlock holds the atomic
@@ -799,15 +880,21 @@ func solverTask(taskContext *workerContext) {
 
 		// Prepare joint constraints
 		jointSyncIndex := uint32(1)
-		syncBits := (uint32(jointSyncIndex) << 16) | uint32(stageIndex)
-		core.Assert(stages[stageIndex].stageType == stagePrepareJoints, "stages[stageIndex].type == b2_stagePrepareJoints")
+		syncBits := (jointSyncIndex << 16) | uint32(stageIndex)
+		core.Assert(
+			stages[stageIndex].stageType == stagePrepareJoints,
+			"stages[stageIndex].type == b2_stagePrepareJoints",
+		)
 		executeMainStage(&stages[stageIndex], context, syncBits)
 		stageIndex += 1
 
 		// Prepare contact constraints
 		contactSyncIndex := uint32(1)
-		syncBits = (uint32(contactSyncIndex) << 16) | uint32(stageIndex)
-		core.Assert(stages[stageIndex].stageType == stagePrepareContacts, "stages[stageIndex].type == b2_stagePrepareContacts")
+		syncBits = (contactSyncIndex << 16) | uint32(stageIndex)
+		core.Assert(
+			stages[stageIndex].stageType == stagePrepareContacts,
+			"stages[stageIndex].type == b2_stagePrepareContacts",
+		)
 		executeMainStage(&stages[stageIndex], context, syncBits)
 		stageIndex += 1
 		contactSyncIndex += 1
@@ -828,7 +915,10 @@ func solverTask(taskContext *workerContext) {
 
 			// Integrate velocities
 			syncBits = (uint32(bodySyncIndex) << 16) | uint32(iterationStageIndex)
-			core.Assert(stages[iterationStageIndex].stageType == stageIntegrateVelocities, "stages[iterationStageIndex].type == b2_stageIntegrateVelocities")
+			core.Assert(
+				stages[iterationStageIndex].stageType == stageIntegrateVelocities,
+				"stages[iterationStageIndex].type == b2_stageIntegrateVelocities",
+			)
 			executeMainStage(&stages[iterationStageIndex], context, syncBits)
 			iterationStageIndex += 1
 			bodySyncIndex += 1
@@ -841,7 +931,10 @@ func solverTask(taskContext *workerContext) {
 
 			for range activeColorCount {
 				syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
-				core.Assert(stages[iterationStageIndex].stageType == stageWarmStart, "stages[iterationStageIndex].type == b2_stageWarmStart")
+				core.Assert(
+					stages[iterationStageIndex].stageType == stageWarmStart,
+					"stages[iterationStageIndex].type == b2_stageWarmStart",
+				)
 				executeMainStage(&stages[iterationStageIndex], context, syncBits)
 				iterationStageIndex += 1
 			}
@@ -859,7 +952,10 @@ func solverTask(taskContext *workerContext) {
 
 				for range activeColorCount {
 					syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
-					core.Assert(stages[iterationStageIndex].stageType == stageSolve, "stages[iterationStageIndex].type == b2_stageSolve")
+					core.Assert(
+						stages[iterationStageIndex].stageType == stageSolve,
+						"stages[iterationStageIndex].type == b2_stageSolve",
+					)
 					executeMainStage(&stages[iterationStageIndex], context, syncBits)
 					iterationStageIndex += 1
 				}
@@ -870,7 +966,10 @@ func solverTask(taskContext *workerContext) {
 			profile.SolveImpulses += timer.MillisecondsAndReset(&ticks)
 
 			// Integrate positions
-			core.Assert(stages[iterationStageIndex].stageType == stageIntegratePositions, "stages[iterationStageIndex].type == b2_stageIntegratePositions")
+			core.Assert(
+				stages[iterationStageIndex].stageType == stageIntegratePositions,
+				"stages[iterationStageIndex].type == b2_stageIntegratePositions",
+			)
 			syncBits = (uint32(bodySyncIndex) << 16) | uint32(iterationStageIndex)
 			executeMainStage(&stages[iterationStageIndex], context, syncBits)
 			iterationStageIndex += 1
@@ -886,7 +985,10 @@ func solverTask(taskContext *workerContext) {
 
 				for range activeColorCount {
 					syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
-					core.Assert(stages[iterationStageIndex].stageType == stageRelax, "stages[iterationStageIndex].type == b2_stageRelax")
+					core.Assert(
+						stages[iterationStageIndex].stageType == stageRelax,
+						"stages[iterationStageIndex].type == b2_stageRelax",
+					)
 					executeMainStage(&stages[iterationStageIndex], context, syncBits)
 					iterationStageIndex += 1
 				}
@@ -909,7 +1011,10 @@ func solverTask(taskContext *workerContext) {
 				iterationStageIndex := stageIndex
 				for range activeColorCount {
 					syncBits = (uint32(graphSyncIndex) << 16) | uint32(iterationStageIndex)
-					core.Assert(stages[iterationStageIndex].stageType == stageRestitution, "stages[iterationStageIndex].type == b2_stageRestitution")
+					core.Assert(
+						stages[iterationStageIndex].stageType == stageRestitution,
+						"stages[iterationStageIndex].type == b2_stageRestitution",
+					)
 					executeMainStage(&stages[iterationStageIndex], context, syncBits)
 					iterationStageIndex += 1
 				}
@@ -925,8 +1030,11 @@ func solverTask(taskContext *workerContext) {
 		// Store impulses
 		storeImpulsesOverflow(context)
 
-		syncBits = (uint32(contactSyncIndex) << 16) | uint32(stageIndex)
-		core.Assert(stages[stageIndex].stageType == stageStoreImpulses, "stages[stageIndex].type == b2_stageStoreImpulses")
+		syncBits = (contactSyncIndex << 16) | uint32(stageIndex)
+		core.Assert(
+			stages[stageIndex].stageType == stageStoreImpulses,
+			"stages[stageIndex].type == b2_stageStoreImpulses",
+		)
 		executeMainStage(&stages[stageIndex], context, syncBits)
 
 		profile.StoreImpulses += timer.MillisecondsAndReset(&ticks)
@@ -941,10 +1049,10 @@ func solverTask(taskContext *workerContext) {
 
 	// Worker spins and waits for work
 	lastSyncBits := uint32(0)
-	// maxSpinTime := 10
+
 	for {
-		// Spin until main thread bumps changes the sync bits. This can waste significant time overall, but it is necessary for
-		// parallel simulation with graph coloring.
+		// Spin until main thread bumps changes the sync bits. This can waste significant time overall, but it is
+		// necessary for parallel simulation with graph coloring.
 		// todo improve this spinner
 		var syncBits uint32
 
@@ -1038,7 +1146,13 @@ func startSplitIslandTask(world *World) func() {
 	return splitTask
 }
 
-func runSolverWorkers(world *World, stepContext *stepContext, workerContexts []workerContext, workerCount int, splitTask func()) {
+func runSolverWorkers(
+	world *World,
+	stepContext *stepContext,
+	workerContexts []workerContext,
+	workerCount int,
+	splitTask func(),
+) {
 	constraintTicks := timer.Ticks()
 	jointIDCapacity := world.jointIDPool.Capacity()
 	contactIDCapacity := world.contactIDPool.Capacity()
@@ -1053,7 +1167,9 @@ func runSolverWorkers(world *World, stepContext *stepContext, workerContexts []w
 		workerContexts[i].workerIndex = i
 
 		if world.taskCount < MaxTasks {
-			workerContexts[i].userTask = world.enqueueTaskFcn(func() { solverTask(&workerContexts[i]) })
+			workerContexts[i].userTask = world.enqueueTaskFcn(
+				func() { solverTask(&workerContexts[i]) },
+			)
 			world.taskCount += 1
 
 			if workerContexts[i].userTask != nil {
@@ -1094,7 +1210,10 @@ func runSolverWorkers(world *World, stepContext *stepContext, workerContexts []w
 	world.profile.Constraints = timer.MillisecondsAndReset(&constraintTicks)
 }
 
-func prepareSolverBlocks(world *World, bodyCount, contactCount, jointCount, graphCount int) ([]syncBlock, []syncBlock, []syncBlock, []syncBlock) {
+func prepareSolverBlocks(
+	world *World,
+	bodyCount int, contactCount int, jointCount int, graphCount int,
+) ([]syncBlock, []syncBlock, []syncBlock, []syncBlock) {
 	if bodyCount > cap(world.solverBodyBlockScratch) {
 		world.solverBodyBlockScratch = make([]syncBlock, bodyCount)
 	}
@@ -1126,7 +1245,12 @@ func prepareSolverBlocks(world *World, bodyCount, contactCount, jointCount, grap
 	return bodyBlocks, contactBlocks, jointBlocks, graphBlocks
 }
 
-func finalizeSolverBodies(world *World, stepContext *stepContext, awake *solverSet, awakeBodyCount int) {
+func finalizeSolverBodies(
+	world *World,
+	stepContext *stepContext,
+	awake *solverSet,
+	awakeBodyCount int,
+) {
 	transformTicks := timer.Ticks()
 
 	// Prepare contact, enlarged body, and island bit sets used in body finalization.
@@ -1152,7 +1276,12 @@ func finalizeSolverBodies(world *World, stepContext *stepContext, awake *solverS
 	validateNoEnlarged(&world.broadPhase)
 
 	// Finalize bodies. Must happen after the constraint solver and after island splitting.
-	parallelFor(world, func(start, end, worker int) { finalizeBodiesTask(start, end, worker, stepContext) }, awakeBodyCount, 64)
+	parallelFor(
+		world,
+		func(start, end, worker int) { finalizeBodiesTask(start, end, worker, stepContext) },
+		awakeBodyCount,
+		64,
+	)
 
 	world.profile.Transforms = timer.Milliseconds(transformTicks)
 }
@@ -1242,7 +1371,11 @@ func solve(world *World, stepContext *stepContext) {
 			jointCount += colorJointCount
 
 			// Graph solver block dimensions
-			graphContactDims[c] = computeBlockCount(colorContactCountW, minContactsPerBlock, maxBlockCount)
+			graphContactDims[c] = computeBlockCount(
+				colorContactCountW,
+				minContactsPerBlock,
+				maxBlockCount,
+			)
 			graphJointDims[c] = computeBlockCount(colorJointCount, minJointsPerBlock, maxBlockCount)
 			graphBlockCount += graphContactDims[c].count + graphJointDims[c].count
 
@@ -1265,7 +1398,16 @@ func solve(world *World, stepContext *stepContext) {
 		contactPrepareSpans := world.contactPrepareSpanScratch[:]
 		jointPrepareSpans := world.jointPrepareSpanScratch[:]
 
-		prepareSolverConstraintSpans(colors, activeColorCount, activeColorIndices[:], wideContactConstraints, wideContactCount, jointCount, contactPrepareSpans, jointPrepareSpans)
+		prepareSolverConstraintSpans(
+			colors,
+			activeColorCount,
+			activeColorIndices[:],
+			wideContactConstraints,
+			wideContactCount,
+			jointCount,
+			contactPrepareSpans,
+			jointPrepareSpans,
+		)
 
 		stageCount := 0
 
@@ -1293,7 +1435,13 @@ func solve(world *World, stepContext *stepContext) {
 		}
 
 		stages := world.solverStageScratch[:stageCount]
-		bodyBlocks, contactBlocks, jointBlocks, graphBlocks := prepareSolverBlocks(world, bodyDim.count, contactPrepareDim.count, jointPrepareDim.count, graphBlockCount)
+		bodyBlocks, contactBlocks, jointBlocks, graphBlocks := prepareSolverBlocks(
+			world,
+			bodyDim.count,
+			contactPrepareDim.count,
+			jointPrepareDim.count,
+			graphBlockCount,
+		)
 
 		// Split an awake island. This modifies:
 		// - stack allocator
@@ -1322,30 +1470,69 @@ func solve(world *World, stepContext *stepContext) {
 			graphColorBlocks[i] = baseGraphBlock
 
 			colorIndex := uint8(activeColorIndices[i])
-			initBlocks(baseGraphBlock, graphJointDims[i], colorJointCounts[i], uint8(graphJointBlock), colorIndex)
+			initBlocks(
+				baseGraphBlock,
+				graphJointDims[i],
+				colorJointCounts[i],
+				uint8(graphJointBlock),
+				colorIndex,
+			)
 			baseGraphBlock = baseGraphBlock[graphJointDims[i].count:]
 
-			initBlocks(baseGraphBlock, graphContactDims[i], colorContactCounts[i], uint8(graphContactBlock), colorIndex)
+			initBlocks(
+				baseGraphBlock,
+				graphContactDims[i],
+				colorContactCounts[i],
+				uint8(graphContactBlock),
+				colorIndex,
+			)
 			baseGraphBlock = baseGraphBlock[graphContactDims[i].count:]
 
 			graphBlockCounts[i] = graphJointDims[i].count + graphContactDims[i].count
 		}
 
-		core.Assert(len(graphBlocks)-len(baseGraphBlock) == graphBlockCount, "(ptrdiff_t)( baseGraphBlock - graphBlocks ) == graphBlockCount")
+		core.Assert(
+			len(graphBlocks)-len(baseGraphBlock) == graphBlockCount,
+			"(ptrdiff_t)( baseGraphBlock - graphBlocks ) == graphBlockCount",
+		)
 
 		stage := stages
 		stage = initStage(stage, stagePrepareJoints, jointBlocks, jointPrepareDim.count, 255)
 		stage = initStage(stage, stagePrepareContacts, contactBlocks, contactPrepareDim.count, 255)
 		stage = initStage(stage, stageIntegrateVelocities, bodyBlocks, bodyDim.count, 255)
-		stage = initColorStages(stage, stageWarmStart, activeColorCount, graphColorBlocks[:], graphBlockCounts[:],
-			activeColorIndices[:])
-		stage = initColorStages(stage, stageSolve, activeColorCount, graphColorBlocks[:], graphBlockCounts[:],
-			activeColorIndices[:])
+		stage = initColorStages(
+			stage,
+			stageWarmStart,
+			activeColorCount,
+			graphColorBlocks[:],
+			graphBlockCounts[:],
+			activeColorIndices[:],
+		)
+		stage = initColorStages(
+			stage,
+			stageSolve,
+			activeColorCount,
+			graphColorBlocks[:],
+			graphBlockCounts[:],
+			activeColorIndices[:],
+		)
 		stage = initStage(stage, stageIntegratePositions, bodyBlocks, bodyDim.count, 255)
-		stage = initColorStages(stage, stageRelax, activeColorCount, graphColorBlocks[:], graphBlockCounts[:],
-			activeColorIndices[:])
-		stage = initColorStages(stage, stageRestitution, activeColorCount, graphColorBlocks[:], graphBlockCounts[:],
-			activeColorIndices[:])
+		stage = initColorStages(
+			stage,
+			stageRelax,
+			activeColorCount,
+			graphColorBlocks[:],
+			graphBlockCounts[:],
+			activeColorIndices[:],
+		)
+		stage = initColorStages(
+			stage,
+			stageRestitution,
+			activeColorCount,
+			graphColorBlocks[:],
+			graphBlockCounts[:],
+			activeColorIndices[:],
+		)
 		stage = initStage(stage, stageStoreImpulses, contactBlocks, contactPrepareDim.count, 255)
 
 		core.Assert(len(stages)-len(stage) == stageCount, "(int)( stage - stages ) == stageCount")
@@ -1445,7 +1632,14 @@ func reportSolverJointEvents(world *World) {
 
 				core.Assert(joint.setIndex == awakeSet, "joint->setIndex == b2_awakeSet")
 
-				event := JointEvent{Joint: Joint{index1: int32(jointID + 1), world: world, generation: joint.generation}, UserData: joint.userData}
+				event := JointEvent{
+					Joint: Joint{
+						index1:     int32(jointID + 1),
+						world:      world,
+						generation: joint.generation,
+					},
+					UserData: joint.userData,
+				}
 
 				world.jointEvents = array.Push(world.jointEvents, event)
 
@@ -1500,7 +1694,10 @@ func reportSolverHitEvents(world *World) {
 			contactID := int(64*k) + ctz
 
 			contact := &contactArray[contactID]
-			core.Assert(contact.setIndex == awakeSet && contact.colorIndex != nullIndex, "contact->setIndex == b2_awakeSet && contact->colorIndex != B2_NULL_INDEX")
+			core.Assert(
+				contact.setIndex == awakeSet && contact.colorIndex != nullIndex,
+				"contact->setIndex == b2_awakeSet && contact->colorIndex != B2_NULL_INDEX",
+			)
 
 			color := &colors[contact.colorIndex]
 			contactSim := &color.contactSims[contact.localIndex]
@@ -1541,7 +1738,12 @@ func reportSolverSensorHits(world *World) {
 	world.profile.SensorHits = timer.Milliseconds(sensorHitTicks)
 }
 
-func reportSolverContactHit(world *World, contact *contact, contactSim *contactSim, threshold float32) {
+func reportSolverContactHit(
+	world *World,
+	contact *contact,
+	contactSim *contactSim,
+	threshold float32,
+) {
 	shapeArray := world.shapes
 	event := ContactHitEvent{}
 	event.ApproachSpeed = threshold
@@ -1583,8 +1785,16 @@ func reportSolverContactHit(world *World, contact *contact, contactSim *contactS
 			event.Point = bodySimA.center.Add(bestPoint.AnchorA)
 		}
 
-		event.ShapeA = Shape{index1: int32(shapeA.id + 1), world: world, generation: shapeA.generation}
-		event.ShapeB = Shape{index1: int32(shapeB.id + 1), world: world, generation: shapeB.generation}
+		event.ShapeA = Shape{
+			index1:     int32(shapeA.id + 1),
+			world:      world,
+			generation: shapeA.generation,
+		}
+		event.ShapeB = Shape{
+			index1:     int32(shapeB.id + 1),
+			world:      world,
+			generation: shapeB.generation,
+		}
 
 		event.Contact = Contact{
 			index1:     int32(contact.contactID + 1),
@@ -1612,7 +1822,10 @@ func continuousCollisionBody(context *continuousContext, shape *shape) (*bodySim
 
 	body := &world.bodies[shape.bodyID]
 	bodySim := getBodySim(world, body)
-	core.Assert(body.bodyType == StaticBody || (fastBodySim.flags&isBullet) != 0, "body->type == b2_staticBody || ( fastBodySim->flags & b2_isBullet )")
+	core.Assert(
+		body.bodyType == StaticBody || (fastBodySim.flags&isBullet) != 0,
+		"body->type == b2_staticBody || ( fastBodySim->flags & b2_isBullet )",
+	)
 	// Skip bullets
 	// Warning: it is only safe to read flags from other bodies, not body sims because there are
 	// body sim flag writes in the continuous solver.
@@ -1630,7 +1843,11 @@ func continuousCollisionBody(context *continuousContext, shape *shape) (*bodySim
 		if customFilterFcn != nil {
 			idA := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
 
-			idB := Shape{index1: int32(fastShape.id + 1), world: world, generation: fastShape.generation}
+			idB := Shape{
+				index1:     int32(fastShape.id + 1),
+				world:      world,
+				generation: fastShape.generation,
+			}
 			if !customFilterFcn(idA, idB) {
 				return nil, false
 			}
@@ -1640,7 +1857,12 @@ func continuousCollisionBody(context *continuousContext, shape *shape) (*bodySim
 	return bodySim, true
 }
 
-func resolveContinuousSolidHit(continuousContext *continuousContext, shape *shape, input *TOIInput, output TOIOutput) {
+func resolveContinuousSolidHit(
+	continuousContext *continuousContext,
+	shape *shape,
+	input *TOIInput,
+	output TOIOutput,
+) {
 	world := continuousContext.world
 	fastShape := continuousContext.fastShape
 	hitFraction := continuousContext.fraction
@@ -1663,9 +1885,14 @@ func resolveContinuousSolidHit(continuousContext *continuousContext, shape *shap
 		}
 	}
 
-	if didHit && (shape.enablePreSolveEvents || fastShape.enablePreSolveEvents) && world.preContinuousFcn != nil {
+	if didHit && (shape.enablePreSolveEvents || fastShape.enablePreSolveEvents) &&
+		world.preContinuousFcn != nil {
 		shapeIDA := Shape{index1: int32(shape.id + 1), world: world, generation: shape.generation}
-		shapeIDB := Shape{index1: int32(fastShape.id + 1), world: world, generation: fastShape.generation}
+		shapeIDB := Shape{
+			index1:     int32(fastShape.id + 1),
+			world:      world,
+			generation: fastShape.generation,
+		}
 
 		// TOI runs in the base frame, lift the hit point back to world for the callback
 		worldPoint := continuousContext.base.Add(output.Point)
@@ -1677,7 +1904,13 @@ func resolveContinuousSolidHit(continuousContext *continuousContext, shape *shap
 	}
 }
 
-func enlargeContinuousShapeBounds(world *World, fastBodySim *bodySim, shape *shape, shapeID int, bullet bool) {
+func enlargeContinuousShapeBounds(
+	world *World,
+	fastBodySim *bodySim,
+	shape *shape,
+	shapeID int,
+	bullet bool,
+) {
 	shapeFatAABB := &world.fatAABBs[shapeID]
 	if shapeFatAABB.Contains(shape.aabb) {
 		return
@@ -1704,8 +1937,17 @@ func enlargeContinuousShapeBounds(world *World, fastBodySim *bodySim, shape *sha
 	}
 }
 
-func advanceAwakeBody(stepContext *stepContext, taskContext *taskContext, body *body, sim *bodySim, simIndex int, maxMotion float32, enableContinuous bool) {
-	if body.bodyType == DynamicBody && enableContinuous && maxMotion > body.safetyFactor*sim.minExtent {
+func advanceAwakeBody(
+	stepContext *stepContext,
+	taskContext *taskContext,
+	body *body,
+	sim *bodySim,
+	simIndex int,
+	maxMotion float32,
+	enableContinuous bool,
+) {
+	if body.bodyType == DynamicBody && enableContinuous &&
+		maxMotion > body.safetyFactor*sim.minExtent {
 		// This flag is used for debug draw and contact recycling.
 		sim.flags |= isFast
 		// Store fast bullets for processing later.
@@ -1723,7 +1965,12 @@ func advanceAwakeBody(stepContext *stepContext, taskContext *taskContext, body *
 	}
 }
 
-func markBodyIslandAwake(world *World, body *body, taskContext *taskContext, awakeIslandBitSet *bitset.Set) {
+func markBodyIslandAwake(
+	world *World,
+	body *body,
+	taskContext *taskContext,
+	awakeIslandBitSet *bitset.Set,
+) {
 	// Any single body in an island can keep it awake
 	island := &world.islands[body.islandID]
 	if body.sleepTime < TimeToSleep {
@@ -1742,7 +1989,14 @@ func markBodyIslandAwake(world *World, body *body, taskContext *taskContext, awa
 	}
 }
 
-func finalizeBodyShapeBounds(world *World, body *body, sim *bodySim, simIndex int, enlargedSimBitSet *bitset.Set, speculativeDistance float32) {
+func finalizeBodyShapeBounds(
+	world *World,
+	body *body,
+	sim *bodySim,
+	simIndex int,
+	enlargedSimBitSet *bitset.Set,
+	speculativeDistance float32,
+) {
 	// Update shapes AABBs
 	transform := sim.transform
 	isFast := (sim.flags & isFast) != 0
@@ -1795,7 +2049,12 @@ func solveBulletBodies(world *World, stepContext *stepContext, awake *solverSet)
 		// Fast bullet bodies
 		// Note: a bullet body may be moving slow
 		minRange := 8
-		parallelFor(world, func(start, end, worker int) { bulletBodyTask(start, end, worker, stepContext) }, bulletBodyCount, minRange)
+		parallelFor(
+			world,
+			func(start, end, worker int) { bulletBodyTask(start, end, worker, stepContext) },
+			bulletBodyCount,
+			minRange,
+		)
 
 		broadPhase := &world.broadPhase
 		dynamicTree := &broadPhase.trees[DynamicBody]
@@ -1820,7 +2079,10 @@ func solveBulletBodies(world *World, stepContext *stepContext, awake *solverSet)
 			bulletBodySim.flags &= ^enlargeBulletBounds
 
 			bodyID := bulletBodySim.bodyID
-			core.Assert(0 <= bodyID && bodyID < len(world.bodies), "0 <= bodyId && bodyId < world->bodies.count")
+			core.Assert(
+				0 <= bodyID && bodyID < len(world.bodies),
+				"0 <= bodyId && bodyId < world->bodies.count",
+			)
 			bulletBody := &bodyArray[bodyID]
 
 			shapeID := bulletBody.headShapeID
@@ -1828,7 +2090,10 @@ func solveBulletBodies(world *World, stepContext *stepContext, awake *solverSet)
 				shape := &shapeArray[shapeID]
 				proxyKey := shape.proxyKey
 				proxyID := proxyID(proxyKey)
-				core.Validate(proxyType(proxyKey) == DynamicBody, "B2_PROXY_TYPE( proxyKey ) == b2_dynamicBody")
+				core.Validate(
+					proxyType(proxyKey) == DynamicBody,
+					"B2_PROXY_TYPE( proxyKey ) == b2_dynamicBody",
+				)
 
 				treeAABB := dynamicTree.AABB(proxyID)
 				shapeFatAABB := world.fatAABBs[shapeID]
@@ -1870,7 +2135,8 @@ func sleepSolverIslands(world *World, awake *solverSet) {
 			core.Assert(taskContext.splitSleepTime > 0.0, "taskContext->splitSleepTime > 0.0f")
 
 			// Tie breaking for determinism. Largest island id wins. Needed due to work stealing.
-			if taskContext.splitSleepTime == splitSleepTimer && taskContext.splitIslandID < world.splitIslandID {
+			if taskContext.splitSleepTime == splitSleepTimer &&
+				taskContext.splitIslandID < world.splitIslandID {
 				continue
 			}
 
@@ -1905,7 +2171,13 @@ func sleepSolverIslands(world *World, awake *solverSet) {
 	world.profile.SleepIslands = timer.Milliseconds(sleepTicks)
 }
 
-func executeGraphBlock(stageType solverStageType, blockType solverBlockType, context *stepContext, block solverBlock, workerIndex int) {
+func executeGraphBlock(
+	stageType solverStageType,
+	blockType solverBlockType,
+	context *stepContext,
+	block solverBlock,
+	workerIndex int,
+) {
 	switch blockType {
 	case graphContactBlock:
 		switch stageType {
@@ -1915,7 +2187,12 @@ func executeGraphBlock(stageType solverStageType, blockType solverBlockType, con
 			pushContactsWide(block, context)
 		case stageRelax:
 			solveContactsWide(block, context)
-		case stagePrepareJoints, stagePrepareContacts, stageIntegrateVelocities, stageIntegratePositions, stageRestitution, stageStoreImpulses:
+		case stagePrepareJoints,
+			stagePrepareContacts,
+			stageIntegrateVelocities,
+			stageIntegratePositions,
+			stageRestitution,
+			stageStoreImpulses:
 			// These phases are handled by executeBlock rather than graph dispatch.
 		}
 	case graphJointBlock:
@@ -1928,7 +2205,12 @@ func executeGraphBlock(stageType solverStageType, blockType solverBlockType, con
 		case stageRelax:
 			useBias := false
 			solveJointsTask(block, context, useBias, workerIndex)
-		case stagePrepareJoints, stagePrepareContacts, stageIntegrateVelocities, stageIntegratePositions, stageRestitution, stageStoreImpulses:
+		case stagePrepareJoints,
+			stagePrepareContacts,
+			stageIntegrateVelocities,
+			stageIntegratePositions,
+			stageRestitution,
+			stageStoreImpulses:
 			// These phases are handled by executeBlock rather than graph dispatch.
 		}
 	case bodyBlock, jointBlock, contactBlock:
@@ -1936,9 +2218,16 @@ func executeGraphBlock(stageType solverStageType, blockType solverBlockType, con
 	}
 }
 
-func reserveSolverContactScratch(world *World, colors []graphColor, wideContactCount int) []contactConstraintWide {
+func reserveSolverContactScratch(
+	world *World,
+	colors []graphColor,
+	wideContactCount int,
+) []contactConstraintWide {
 	if wideContactCount > cap(world.solverWideScratch) {
-		world.solverWideScratch = slices.Grow(world.solverWideScratch, wideContactCount-len(world.solverWideScratch))[:wideContactCount]
+		world.solverWideScratch = slices.Grow(
+			world.solverWideScratch,
+			wideContactCount-len(world.solverWideScratch),
+		)[:wideContactCount]
 	}
 
 	clear(world.solverWideScratch[:wideContactCount])
@@ -1949,7 +2238,10 @@ func reserveSolverContactScratch(world *World, colors []graphColor, wideContactC
 
 	overflowCount := len(overflow.contactSims)
 	if overflowCount > cap(world.solverOverflowScratch) {
-		world.solverOverflowScratch = slices.Grow(world.solverOverflowScratch, overflowCount-len(world.solverOverflowScratch))[:overflowCount]
+		world.solverOverflowScratch = slices.Grow(
+			world.solverOverflowScratch,
+			overflowCount-len(world.solverOverflowScratch),
+		)[:overflowCount]
 	}
 
 	clear(world.solverOverflowScratch[:overflowCount])
@@ -1960,7 +2252,15 @@ func reserveSolverContactScratch(world *World, colors []graphColor, wideContactC
 	return wideContactConstraints
 }
 
-func prepareSolverConstraintSpans(colors []graphColor, activeColorCount int, activeColorIndices []int, wideContactConstraints []contactConstraintWide, wideContactCount, jointCount int, contactPrepareSpans []contactPrepareSpan, jointPrepareSpans []jointPrepareSpan) {
+func prepareSolverConstraintSpans(
+	colors []graphColor,
+	activeColorCount int,
+	activeColorIndices []int,
+	wideContactConstraints []contactConstraintWide,
+	wideContactCount int, jointCount int,
+	contactPrepareSpans []contactPrepareSpan,
+	jointPrepareSpans []jointPrepareSpan,
+) {
 	// Distribute transient constraints to each graph color and prepare spans
 	{
 		wideBase := 0

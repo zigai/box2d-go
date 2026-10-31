@@ -14,7 +14,12 @@ import (
 	"github.com/zigai/box2d-go/internal/scenes"
 )
 
-func determinismSingleMultithreading(t *testing.T, r *oracle.Reader, trace *transformTrace, workerCount int) int {
+func determinismSingleMultithreading(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *transformTrace,
+	workerCount int,
+) int {
 	t.Helper()
 
 	worldDef := box2d.DefaultWorldDef()
@@ -29,7 +34,12 @@ func determinismSingleMultithreading(t *testing.T, r *oracle.Reader, trace *tran
 		subStepCount := 4
 		worldID.Step(timeStep, subStepCount)
 		done := scenes.UpdateFallingHinges(worldID, &data)
-		trace.read(r, worldID, fmt.Sprintf("w%d.s%d", workerCount, data.StepCount), data.StepCount%60 == 0)
+		trace.read(
+			r,
+			worldID,
+			fmt.Sprintf("w%d.s%d", workerCount, data.StepCount),
+			data.StepCount%60 == 0,
+		)
 
 		if done {
 			break
@@ -67,7 +77,7 @@ type transformTrace struct {
 	snapshots [][]box2d.WorldTransform
 }
 
-func determinismSameTransforms(a, b []box2d.WorldTransform) bool {
+func determinismSameTransforms(a []box2d.WorldTransform, b []box2d.WorldTransform) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -84,12 +94,23 @@ func determinismSameTransforms(a, b []box2d.WorldTransform) bool {
 	return true
 }
 
-func (trace *transformTrace) read(r *oracle.Reader, worldID *box2d.World, key string, fullState bool) {
+func (trace *transformTrace) read(
+	r *oracle.Reader,
+	worldID *box2d.World,
+	key string,
+	fullState bool,
+) {
 	transforms := box2d.BodyTransformsInSlotOrder(worldID)
 
 	hash := oracle.HashInit
 	for _, transform := range transforms {
-		hash = oracle.HashTransform(hash, transform.P.X, transform.P.Y, transform.Q.C, transform.Q.S)
+		hash = oracle.HashTransform(
+			hash,
+			transform.P.X,
+			transform.P.Y,
+			transform.Q.C,
+			transform.Q.S,
+		)
 	}
 
 	r.U64(key, hash)
@@ -187,7 +208,12 @@ func determinismCheckBuiltInSchedulerTest(t *testing.T) {
 			subStepCount := 4
 			worldID.Step(timeStep, subStepCount)
 			done := scenes.UpdateFallingHinges(worldID, &data)
-			trace.read(r, worldID, fmt.Sprintf("w%d.s%d", workerCount, data.StepCount), data.StepCount%60 == 0)
+			trace.read(
+				r,
+				worldID,
+				fmt.Sprintf("w%d.s%d", workerCount, data.StepCount),
+				data.StepCount%60 == 0,
+			)
 
 			if done {
 				break
@@ -226,7 +252,12 @@ func determinismCheckCrossPlatformTest(t *testing.T) {
 		subStepCount := 4
 		worldID.Step(timeStep, subStepCount)
 		done = scenes.UpdateFallingHinges(worldID, &data)
-		trace.read(r, worldID, fmt.Sprintf("w%d.s%d", worldDef.WorkerCount, data.StepCount), data.StepCount%60 == 0)
+		trace.read(
+			r,
+			worldID,
+			fmt.Sprintf("w%d.s%d", worldDef.WorkerCount, data.StepCount),
+			data.StepCount%60 == 0,
+		)
 	}
 
 	r.I32("check.145", int32(data.SleepStep))
@@ -279,7 +310,13 @@ func determinismReadEventCounts(r *oracle.Reader, worldID *box2d.World, key stri
 	r.I32(key+".joint.events", int32(jointEvents))
 }
 
-func determinismReadBodyMoves(r *oracle.Reader, worldID *box2d.World, key string, fullState bool, bodies []box2d.Body) {
+func determinismReadBodyMoves(
+	r *oracle.Reader,
+	worldID *box2d.World,
+	key string,
+	fullState bool,
+	bodies []box2d.Body,
+) {
 	moveCount := 0
 	for event := range worldID.BodyMoveEvents() {
 		moveCount++

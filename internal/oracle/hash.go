@@ -30,7 +30,7 @@ func HashF32(h uint64, v float32) uint64 { return HashU32(h, math.Float32bits(v)
 
 func HashF64(h uint64, v float64) uint64 { return HashU64(h, math.Float64bits(v)) }
 
-func HashPos(h uint64, x, y Real) uint64 {
+func HashPos(h uint64, x Real, y Real) uint64 {
 	if DoublePrecision {
 		h = HashU64(h, realBits(x))
 		return HashU64(h, realBits(y))
@@ -41,12 +41,12 @@ func HashPos(h uint64, x, y Real) uint64 {
 	return HashU32(h, uint32(realBits(y)))
 }
 
-func HashRot(h uint64, c, s float32) uint64 {
+func HashRot(h uint64, c float32, s float32) uint64 {
 	h = HashF32(h, c)
 	return HashF32(h, s)
 }
 
-func HashTransform(h uint64, px, py Real, qc, qs float32) uint64 {
+func HashTransform(h uint64, px Real, py Real, qc float32, qs float32) uint64 {
 	h = HashPos(h, px, py)
 	return HashRot(h, qc, qs)
 }

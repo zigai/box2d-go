@@ -123,7 +123,13 @@ func (s *ConvexHull) Step() {
 
 	for i := range s.count {
 		s.draw.DrawPoint(s.points[i].Pos(), 5.0, box2d.ColorBlue)
-		s.draw.DrawString(s.camera, s.points[i].Add(box2d.Vec2{X: 0.1, Y: 0.1}).Pos(), box2d.ColorWhite, "%d", i)
+		s.draw.DrawString(
+			s.camera,
+			s.points[i].Add(box2d.Vec2{X: 0.1, Y: 0.1}).Pos(),
+			box2d.ColorWhite,
+			"%d",
+			i,
+		)
 	}
 
 	for i := range hull.Count {

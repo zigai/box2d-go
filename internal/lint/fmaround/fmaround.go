@@ -33,7 +33,8 @@ func run(pass *analysis.Pass) (any, error) {
 			report(pass, n.X, "an addition or subtraction")
 			report(pass, n.Y, "an addition or subtraction")
 		case *ast.AssignStmt:
-			if (n.Tok != token.ADD_ASSIGN && n.Tok != token.SUB_ASSIGN) || len(n.Lhs) != 1 || len(n.Rhs) != 1 {
+			if (n.Tok != token.ADD_ASSIGN && n.Tok != token.SUB_ASSIGN) || len(n.Lhs) != 1 ||
+				len(n.Rhs) != 1 {
 				return
 			}
 			if !isFloat32(pass.TypesInfo.TypeOf(n.Lhs[0])) {

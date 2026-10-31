@@ -72,7 +72,12 @@ func CreateBenchmarkBarrel(context *SampleContext) Sampler {
 		y := float32(0.0)
 		x := -40.0 * gridSize
 		for range 81 {
-			box := box2d.MakeOffsetBox(0.55*gridSize, 0.5*gridSize, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+			box := box2d.MakeOffsetBox(
+				0.55*gridSize,
+				0.5*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.RotIdentity,
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 			x += gridSize
 		}
@@ -80,7 +85,12 @@ func CreateBenchmarkBarrel(context *SampleContext) Sampler {
 		y = gridSize
 		x = -40.0 * gridSize
 		for range 100 {
-			box := box2d.MakeOffsetBox(0.5*gridSize, 0.55*gridSize, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+			box := box2d.MakeOffsetBox(
+				0.5*gridSize,
+				0.55*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.RotIdentity,
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 			y += gridSize
 		}
@@ -88,12 +98,20 @@ func CreateBenchmarkBarrel(context *SampleContext) Sampler {
 		y = gridSize
 		x = 40.0 * gridSize
 		for range 100 {
-			box := box2d.MakeOffsetBox(0.5*gridSize, 0.55*gridSize, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+			box := box2d.MakeOffsetBox(
+				0.5*gridSize,
+				0.55*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.RotIdentity,
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 			y += gridSize
 		}
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -800.0, Y: -80.0}, Point2: box2d.Vec2{X: 800.0, Y: -80.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -800.0, Y: -80.0},
+			Point2: box2d.Vec2{X: 800.0, Y: -80.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -154,7 +172,11 @@ func (s *BenchmarkBarrel) CreateScene() {
 	shapeDef.Density = 1.0
 	shapeDef.Material.Friction = 0.5
 
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.25}, Center2: box2d.Vec2{X: 0.0, Y: 0.25}, Radius: rad}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: 0.0, Y: -0.25},
+		Center2: box2d.Vec2{X: 0.0, Y: 0.25},
+		Radius:  rad,
+	}
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: rad}
 
 	points := []box2d.Vec2{{X: -0.1, Y: -0.5}, {X: 0.1, Y: -0.5}, {X: 0.0, Y: 0.5}}
@@ -254,8 +276,18 @@ func (s *BenchmarkBarrel) CreateScene() {
 				jointFriction := float32(0.05)
 				jointHertz := float32(5.0)
 				jointDamping := float32(0.5)
-				scenes.CreateHuman(&s.humans[index], s.worldID, bodyDef.Position, scale, jointFriction, jointHertz, jointDamping,
-					index+1, nil, false)
+				scenes.CreateHuman(
+					&s.humans[index],
+					s.worldID,
+					bodyDef.Position,
+					scale,
+					jointFriction,
+					jointHertz,
+					jointDamping,
+					index+1,
+					nil,
+					false,
+				)
 			}
 
 			index += 1
@@ -546,7 +578,11 @@ func (s *BenchmarkManyTumblers) Step() {
 	if s.bodyIndex < s.bodyCount && (s.stepCount&0x7) == 0 {
 		shapeDef := box2d.DefaultShapeDef()
 
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.1, Y: 0.0}, Center2: box2d.Vec2{X: 0.1, Y: 0.0}, Radius: 0.075}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: -0.1, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.1, Y: 0.0},
+			Radius:  0.075,
+		}
 
 		for i := range s.tumblerCount {
 			bodyDef := box2d.DefaultBodyDef()
@@ -799,7 +835,12 @@ func CreateBenchmarkLargeCompounds(context *SampleContext) Sampler {
 			y := grid * float32(i)
 			for j := i; j < width; j++ {
 				x := grid * float32(j)
-				square := box2d.MakeOffsetBox(0.5*grid, 0.5*grid, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+				square := box2d.MakeOffsetBox(
+					0.5*grid,
+					0.5*grid,
+					box2d.Vec2{X: x, Y: y},
+					box2d.RotIdentity,
+				)
 				groundID.CreatePolygonShape(&shapeDef, &square)
 			}
 		}
@@ -808,7 +849,12 @@ func CreateBenchmarkLargeCompounds(context *SampleContext) Sampler {
 			y := grid * float32(i)
 			for j := i; j < width; j++ {
 				x := -grid * float32(j)
-				square := box2d.MakeOffsetBox(0.5*grid, 0.5*grid, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+				square := box2d.MakeOffsetBox(
+					0.5*grid,
+					0.5*grid,
+					box2d.Vec2{X: x, Y: y},
+					box2d.RotIdentity,
+				)
 				groundID.CreatePolygonShape(&shapeDef, &square)
 			}
 		}
@@ -838,7 +884,12 @@ func CreateBenchmarkLargeCompounds(context *SampleContext) Sampler {
 					y := float32(i) * grid
 					for j := range span {
 						x := float32(j) * grid
-						square := box2d.MakeOffsetBox(0.5*grid, 0.5*grid, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+						square := box2d.MakeOffsetBox(
+							0.5*grid,
+							0.5*grid,
+							box2d.Vec2{X: x, Y: y},
+							box2d.RotIdentity,
+						)
 						bodyID.CreatePolygonShape(&shapeDef, &square)
 					}
 				}
@@ -887,7 +938,12 @@ func CreateBenchmarkKinematic(context *SampleContext) Sampler {
 		y := float32(i) * grid
 		for j := -span; j < span; j++ {
 			x := float32(j) * grid
-			square := box2d.MakeOffsetBox(0.5*grid, 0.5*grid, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+			square := box2d.MakeOffsetBox(
+				0.5*grid,
+				0.5*grid,
+				box2d.Vec2{X: x, Y: y},
+				box2d.RotIdentity,
+			)
 			bodyID.CreatePolygonShape(&shapeDef, &square)
 		}
 	}
@@ -1148,13 +1204,18 @@ func (s *BenchmarkCast) Step() {
 			translation := s.translations[i]
 
 			var result castResult
-			traversalResult := s.worldID.CastShape(s.origins[i], &proxy, translation, filter,
+			traversalResult := s.worldID.CastShape(
+				s.origins[i],
+				&proxy,
+				translation,
+				filter,
 				func(shape box2d.Shape, point box2d.Pos, normal box2d.Vec2, fraction float32) float32 {
 					result.point = point
 					result.fraction = fraction
 					result.hit = true
 					return fraction
-				})
+				},
+			)
 
 			if i == s.drawIndex {
 				drawResult = result
@@ -1192,14 +1253,19 @@ func (s *BenchmarkCast) Step() {
 			aabb := box2d.AABB{LowerBound: extent.Neg(), UpperBound: extent}
 
 			result.count = 0
-			traversalResult := s.worldID.OverlapAABB(s.origins[i], aabb, filter, func(shape box2d.Shape) bool {
-				if result.count < 32 {
-					result.points[result.count] = shape.AABB().Center()
-					result.count += 1
-				}
+			traversalResult := s.worldID.OverlapAABB(
+				s.origins[i],
+				aabb,
+				filter,
+				func(shape box2d.Shape) bool {
+					if result.count < 32 {
+						result.points[result.count] = shape.AABB().Center()
+						result.count += 1
+					}
 
-				return true
-			})
+					return true
+				},
+			)
 
 			if i == s.drawIndex {
 				drawResult = result
@@ -1216,8 +1282,14 @@ func (s *BenchmarkCast) Step() {
 
 		origin := s.origins[s.drawIndex]
 		aabb := box2d.AABB{
-			LowerBound: box2d.Vec2{X: box2d.RoundDownFloat(float64(origin.X) - float64(extent.X)), Y: box2d.RoundDownFloat(float64(origin.Y) - float64(extent.Y))},
-			UpperBound: box2d.Vec2{X: box2d.RoundUpFloat(float64(origin.X) + float64(extent.X)), Y: box2d.RoundUpFloat(float64(origin.Y) + float64(extent.Y))},
+			LowerBound: box2d.Vec2{
+				X: box2d.RoundDownFloat(float64(origin.X) - float64(extent.X)),
+				Y: box2d.RoundDownFloat(float64(origin.Y) - float64(extent.Y)),
+			},
+			UpperBound: box2d.Vec2{
+				X: box2d.RoundUpFloat(float64(origin.X) + float64(extent.X)),
+				Y: box2d.RoundUpFloat(float64(origin.Y) + float64(extent.Y)),
+			},
 		}
 
 		s.context.draw.DrawBounds(aabb, box2d.ColorWhite)
@@ -1228,7 +1300,12 @@ func (s *BenchmarkCast) Step() {
 	}
 
 	s.DrawScreenTextLine("build time ms = %.6g", s.buildTime)
-	s.DrawScreenTextLine("hit count = %d, node visits = %d, leaf visits = %d", hitCount, nodeVisits, leafVisits)
+	s.DrawScreenTextLine(
+		"hit count = %d, node visits = %d, leaf visits = %d",
+		hitCount,
+		nodeVisits,
+		leafVisits,
+	)
 	s.DrawScreenTextLine("total ms = %.3f", ms)
 	s.DrawScreenTextLine("min total ms = %.3f", s.minTime)
 
@@ -1335,8 +1412,14 @@ func CreateBenchmarkShapeDistance(context *SampleContext) Sampler {
 
 	scenes.SetRandomSeed(42)
 	for i := range shapeDistanceCount {
-		s.transformAs[i] = box2d.WorldTransform{P: scenes.RandomPos(-0.1, 0.1), Q: scenes.RandomRot()}
-		s.transformBs[i] = box2d.WorldTransform{P: scenes.RandomPos(0.25, 2.0), Q: scenes.RandomRot()}
+		s.transformAs[i] = box2d.WorldTransform{
+			P: scenes.RandomPos(-0.1, 0.1),
+			Q: scenes.RandomRot(),
+		}
+		s.transformBs[i] = box2d.WorldTransform{
+			P: scenes.RandomPos(0.25, 2.0),
+			Q: scenes.RandomRot(),
+		}
 	}
 
 	s.drawIndex = 0
@@ -1372,8 +1455,15 @@ func (s *BenchmarkShapeDistance) Step() {
 		s.minMilliseconds = min(s.minMilliseconds, ms)
 
 		s.DrawScreenTextLine("count = %d", shapeDistanceCount)
-		s.DrawScreenTextLine("min ms = %.6g, ave us = %.6g", s.minMilliseconds, 1000.0*s.minMilliseconds/float32(shapeDistanceCount))
-		s.DrawScreenTextLine("average iterations = %.6g", float32(totalIterations)/float32(shapeDistanceCount))
+		s.DrawScreenTextLine(
+			"min ms = %.6g, ave us = %.6g",
+			s.minMilliseconds,
+			1000.0*s.minMilliseconds/float32(shapeDistanceCount),
+		)
+		s.DrawScreenTextLine(
+			"average iterations = %.6g",
+			float32(totalIterations)/float32(shapeDistanceCount),
+		)
 	}
 
 	xfA := s.transformAs[s.drawIndex]
@@ -1384,8 +1474,18 @@ func (s *BenchmarkShapeDistance) Step() {
 	worldPointB := xfA.Apply(output.PointB)
 	worldNormal := xfA.Q.Rotate(output.Normal)
 
-	s.context.draw.DrawSolidPolygon(xfA, s.polygonA.Vertices[:s.polygonA.Count], s.polygonA.Radius, box2d.ColorBox2DGreen)
-	s.context.draw.DrawSolidPolygon(xfB, s.polygonB.Vertices[:s.polygonB.Count], s.polygonB.Radius, box2d.ColorBox2DBlue)
+	s.context.draw.DrawSolidPolygon(
+		xfA,
+		s.polygonA.Vertices[:s.polygonA.Count],
+		s.polygonA.Radius,
+		box2d.ColorBox2DGreen,
+	)
+	s.context.draw.DrawSolidPolygon(
+		xfB,
+		s.polygonB.Vertices[:s.polygonB.Count],
+		s.polygonB.Radius,
+		box2d.ColorBox2DBlue,
+	)
 	s.context.draw.DrawLine(worldPointA, worldPointB, box2d.ColorDimGray)
 	s.context.draw.DrawPoint(worldPointA, 10.0, box2d.ColorWhite)
 	s.context.draw.DrawPoint(worldPointB, 10.0, box2d.ColorWhite)
@@ -1443,7 +1543,12 @@ func CreateBenchmarkSensor(context *SampleContext) Sampler {
 		y := float32(0.0)
 		x := -40.0 * gridSize
 		for range 81 {
-			box := box2d.MakeOffsetBox(0.45*gridSize, 0.45*gridSize, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity)
+			box := box2d.MakeOffsetBox(
+				0.45*gridSize,
+				0.45*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.RotIdentity,
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 			x += gridSize
 		}
@@ -1477,7 +1582,13 @@ func CreateBenchmarkSensor(context *SampleContext) Sampler {
 		y := float32(j)*shift + yStart
 		for i := range sensorColumnCount {
 			x := float32(i)*shift - xCenter
-			box := box2d.MakeOffsetRoundedBox(0.5, 0.5, box2d.Vec2{X: x, Y: y}, box2d.RotIdentity, 0.1)
+			box := box2d.MakeOffsetRoundedBox(
+				0.5,
+				0.5,
+				box2d.Vec2{X: x, Y: y},
+				box2d.RotIdentity,
+				0.1,
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 		}
 	}
@@ -1503,7 +1614,10 @@ func (s *BenchmarkSensor) CreateRow(y float32) {
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 	for i := range sensorColumnCount {
 		yOffset := scenes.RandomFloatRange(-1.0, 1.0)
-		bodyDef.Position = box2d.Pos{X: posScalar(shift*float32(i) - xCenter), Y: posScalar(y + yOffset)}
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(shift*float32(i) - xCenter),
+			Y: posScalar(y + yOffset),
+		}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
@@ -1754,12 +1868,22 @@ func (s *BenchmarkQueries) Step() {
 	s.context.draw.DrawPoint(end, 5.0, box2d.ColorRed)
 
 	box := box2d.AABB{
-		LowerBound: box2d.Vec2{X: box2d.RoundDownFloat(float64(origin.X) - 5.0), Y: box2d.RoundDownFloat(float64(origin.Y) - 5.0)},
-		UpperBound: box2d.Vec2{X: box2d.RoundUpFloat(float64(origin.X) + 5.0), Y: box2d.RoundUpFloat(float64(origin.Y) + 5.0)},
+		LowerBound: box2d.Vec2{
+			X: box2d.RoundDownFloat(float64(origin.X) - 5.0),
+			Y: box2d.RoundDownFloat(float64(origin.Y) - 5.0),
+		},
+		UpperBound: box2d.Vec2{
+			X: box2d.RoundUpFloat(float64(origin.X) + 5.0),
+			Y: box2d.RoundUpFloat(float64(origin.Y) + 5.0),
+		},
 	}
 	s.context.draw.DrawBounds(box, box2d.ColorWhite)
 
-	s.DrawScreenTextLine("%d queries of each kind and filter, %d hits", scenes.GetQueryBenchmarkCount(), s.hitCount)
+	s.DrawScreenTextLine(
+		"%d queries of each kind and filter, %d hits",
+		scenes.GetQueryBenchmarkCount(),
+		s.hitCount,
+	)
 	s.DrawScreenTextLine("node visits = %d, leaf visits = %d", s.nodeVisits, s.leafVisits)
 	s.DrawScreenTextLine("queries ms = %.3f, min = %.3f", s.lastTime, s.minTime)
 }
@@ -1772,7 +1896,12 @@ func init() {
 	RegisterSample("Benchmark", "Washer", CreateBenchmarkWasher)
 	RegisterSample("Benchmark", "Many Tumblers", CreateBenchmarkManyTumblers)
 	RegisterSample("Benchmark", "Large Pyramid", CreateBenchmarkLargePyramid)
-	RegisterSampleWithCapacity("Benchmark", "Many Pyramids", CreateBenchmarkManyPyramids, scenes.GetManyPyramidsCapacity)
+	RegisterSampleWithCapacity(
+		"Benchmark",
+		"Many Pyramids",
+		CreateBenchmarkManyPyramids,
+		scenes.GetManyPyramidsCapacity,
+	)
 	RegisterSample("Benchmark", "CreateDestroy", CreateBenchmarkCreateDestroy)
 	RegisterSample("Benchmark", "Sleep", CreateBenchmarkSleep)
 	RegisterSample("Benchmark", "Joint Grid", CreateBenchmarkJointGrid)

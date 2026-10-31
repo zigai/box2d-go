@@ -149,7 +149,11 @@ func NewDynamicMover() DynamicMover {
 		pogoTensionScale:     100.0,
 		minGroundNormalY:     0.7,
 
-		capsule: box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5}, Center2: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.3},
+		capsule: box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
+			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
+			Radius:  0.3,
+		},
 
 		filter: box2d.DefaultFilter(),
 
@@ -297,14 +301,19 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 	}
 
 	m.castResult = DynamicMoverCastResult{}
-	m.worldID.CastRay(origin, translation, queryFilter, func(shapeID box2d.Shape, point box2d.Pos, normal box2d.Vec2, fraction float32) float32 {
-		m.castResult.point = point
-		m.castResult.normal = normal
-		m.castResult.bodyID = shapeID.Body()
-		m.castResult.fraction = fraction
-		m.castResult.hit = true
-		return fraction
-	})
+	m.worldID.CastRay(
+		origin,
+		translation,
+		queryFilter,
+		func(shapeID box2d.Shape, point box2d.Pos, normal box2d.Vec2, fraction float32) float32 {
+			m.castResult.point = point
+			m.castResult.normal = normal
+			m.castResult.bodyID = shapeID.Body()
+			m.castResult.fraction = fraction
+			m.castResult.hit = true
+			return fraction
+		},
+	)
 
 	m.pogoOrigin = origin
 	m.pogoTranslation = translation

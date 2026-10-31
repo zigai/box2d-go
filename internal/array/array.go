@@ -41,7 +41,10 @@ func Pop[T any](s []T) ([]T, T) {
 // RemoveSwap moves the last element into index and returns the old index of the
 // moved element, or -1 when index was the last element.
 func RemoveSwap[T any](s []T, index int) ([]T, int) {
-	core.Assert(0 <= index && index < len(s), "0 <= index && index < count && Array index out of bounds")
+	core.Assert(
+		0 <= index && index < len(s),
+		"0 <= index && index < count && Array index out of bounds",
+	)
 	last := len(s) - 1
 	moved := -1
 

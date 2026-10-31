@@ -33,10 +33,16 @@ func (w WeldJoint) SetLinearHertz(hertz float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWeldJointSetLinearHertz(world.recording, &recArgsWeldJointSetLinearHertz{joint: w.Joint, hertz: hertz})
+		recWriteWeldJointSetLinearHertz(
+			world.recording,
+			&recArgsWeldJointSetLinearHertz{joint: w.Joint, hertz: hertz},
+		)
 	}
 
-	core.Assert(IsValidFloat(hertz) && hertz >= float32(0.0), "b2IsValidFloat( hertz ) && hertz >= 0.0f")
+	core.Assert(
+		IsValidFloat(hertz) && hertz >= float32(0.0),
+		"b2IsValidFloat( hertz ) && hertz >= 0.0f",
+	)
 
 	joint := getJointSimCheckType(w.Joint, WeldJointType)
 	joint.weldJoint.linearHertz = hertz
@@ -54,10 +60,16 @@ func (w WeldJoint) SetLinearDampingRatio(dampingRatio float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWeldJointSetLinearDampingRatio(world.recording, &recArgsWeldJointSetLinearDampingRatio{joint: w.Joint, dampingRatio: dampingRatio})
+		recWriteWeldJointSetLinearDampingRatio(
+			world.recording,
+			&recArgsWeldJointSetLinearDampingRatio{joint: w.Joint, dampingRatio: dampingRatio},
+		)
 	}
 
-	core.Assert(IsValidFloat(dampingRatio) && dampingRatio >= float32(0.0), "b2IsValidFloat( dampingRatio ) && dampingRatio >= 0.0f")
+	core.Assert(
+		IsValidFloat(dampingRatio) && dampingRatio >= float32(0.0),
+		"b2IsValidFloat( dampingRatio ) && dampingRatio >= 0.0f",
+	)
 
 	joint := getJointSimCheckType(w.Joint, WeldJointType)
 	joint.weldJoint.linearDampingRatio = dampingRatio
@@ -75,10 +87,16 @@ func (w WeldJoint) SetAngularHertz(hertz float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWeldJointSetAngularHertz(world.recording, &recArgsWeldJointSetAngularHertz{joint: w.Joint, hertz: hertz})
+		recWriteWeldJointSetAngularHertz(
+			world.recording,
+			&recArgsWeldJointSetAngularHertz{joint: w.Joint, hertz: hertz},
+		)
 	}
 
-	core.Assert(IsValidFloat(hertz) && hertz >= float32(0.0), "b2IsValidFloat( hertz ) && hertz >= 0.0f")
+	core.Assert(
+		IsValidFloat(hertz) && hertz >= float32(0.0),
+		"b2IsValidFloat( hertz ) && hertz >= 0.0f",
+	)
 
 	joint := getJointSimCheckType(w.Joint, WeldJointType)
 	joint.weldJoint.angularHertz = hertz
@@ -96,10 +114,16 @@ func (w WeldJoint) SetAngularDampingRatio(dampingRatio float32) {
 
 	world := w.Joint.world
 	if world.recording != nil {
-		recWriteWeldJointSetAngularDampingRatio(world.recording, &recArgsWeldJointSetAngularDampingRatio{joint: w.Joint, dampingRatio: dampingRatio})
+		recWriteWeldJointSetAngularDampingRatio(
+			world.recording,
+			&recArgsWeldJointSetAngularDampingRatio{joint: w.Joint, dampingRatio: dampingRatio},
+		)
 	}
 
-	core.Assert(IsValidFloat(dampingRatio) && dampingRatio >= float32(0.0), "b2IsValidFloat( dampingRatio ) && dampingRatio >= 0.0f")
+	core.Assert(
+		IsValidFloat(dampingRatio) && dampingRatio >= float32(0.0),
+		"b2IsValidFloat( dampingRatio ) && dampingRatio >= 0.0f",
+	)
 
 	joint := getJointSimCheckType(w.Joint, WeldJointType)
 	joint.weldJoint.angularDampingRatio = dampingRatio
@@ -112,7 +136,11 @@ func (w WeldJoint) AngularDampingRatio() float32 {
 }
 
 func getWeldJointForce(world *World, base *jointSim) Vec2 {
-	force := Vec2{X: float32(world.invH * base.weldJoint.linearImpulse.X), Y: float32(world.invH * base.weldJoint.linearImpulse.Y)}
+	force := Vec2{
+		X: float32(world.invH * base.weldJoint.linearImpulse.X),
+		Y: float32(world.invH * base.weldJoint.linearImpulse.Y),
+	}
+
 	return force
 }
 
@@ -151,7 +179,10 @@ func prepareWeldJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
 
@@ -248,12 +279,16 @@ func warmStartWeldJoint(base *jointSim, context *stepContext) {
 
 	if stateA.flags&dynamicFlag != 0 {
 		stateA.linearVelocity = stateA.linearVelocity.MulSub(mA, joint.linearImpulse)
-		stateA.angularVelocity -= float32(iA * (rA.Cross(joint.linearImpulse) + joint.angularImpulse))
+		stateA.angularVelocity -= float32(
+			iA * (rA.Cross(joint.linearImpulse) + joint.angularImpulse),
+		)
 	}
 
 	if stateB.flags&dynamicFlag != 0 {
 		stateB.linearVelocity = stateB.linearVelocity.MulAdd(mB, joint.linearImpulse)
-		stateB.angularVelocity += float32(iB * (rB.Cross(joint.linearImpulse) + joint.angularImpulse))
+		stateB.angularVelocity += float32(
+			iB * (rB.Cross(joint.linearImpulse) + joint.angularImpulse),
+		)
 	}
 }
 
@@ -310,7 +345,11 @@ func solveWeldJoint(base *jointSim, context *stepContext, useBias bool) {
 		}
 
 		velocityError := wB - wA
-		impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.angularImpulse)
+		impulse := float32(
+			float32(-massScale*joint.axialMass)*(velocityError+bias),
+		) - float32(
+			impulseScale*joint.angularImpulse,
+		)
 		joint.angularImpulse += impulse
 
 		wA -= float32(iA * impulse)
@@ -331,12 +370,16 @@ func solveWeldJoint(base *jointSim, context *stepContext, useBias bool) {
 			dcB := stateB.deltaPosition
 			separation := dcB.Sub(dcA).Add(rB.Sub(rA)).Add(joint.deltaCenter)
 
-			bias = Vec2{X: float32(joint.linearSpring.biasRate * separation.X), Y: float32(joint.linearSpring.biasRate * separation.Y)}
+			bias = Vec2{
+				X: float32(joint.linearSpring.biasRate * separation.X),
+				Y: float32(joint.linearSpring.biasRate * separation.Y),
+			}
 			massScale = joint.linearSpring.massScale
 			impulseScale = joint.linearSpring.impulseScale
 		}
 
-		velocityError := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
+		velocityError := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).
+			Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 
 		var massMatrix Mat22
 
@@ -348,7 +391,10 @@ func solveWeldJoint(base *jointSim, context *stepContext, useBias bool) {
 		b.X = float32(b.X)
 		b.Y = float32(b.Y)
 
-		impulse := Vec2{X: float32(-massScale*b.X) - float32(impulseScale*joint.linearImpulse.X), Y: float32(-massScale*b.Y) - float32(impulseScale*joint.linearImpulse.Y)}
+		impulse := Vec2{
+			X: float32(-massScale*b.X) - float32(impulseScale*joint.linearImpulse.X),
+			Y: float32(-massScale*b.Y) - float32(impulseScale*joint.linearImpulse.Y),
+		}
 
 		joint.linearImpulse = joint.linearImpulse.Add(impulse)
 
@@ -374,7 +420,13 @@ func solveWeldJoint(base *jointSim, context *stepContext, useBias bool) {
 	}
 }
 
-func drawWeldJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform, drawScale float32) {
+func drawWeldJoint(
+	draw *DebugDraw,
+	base *jointSim,
+	transformA WorldTransform,
+	transformB WorldTransform,
+	drawScale float32,
+) {
 	core.Assert(base.jointType == WeldJointType, "base->type == b2_weldJoint")
 
 	frameA := transformA.Mul(base.localFrameA)

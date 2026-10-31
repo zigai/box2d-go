@@ -179,7 +179,10 @@ func MakePolygon(hull *Hull, radius float32) Polygon {
 		}
 
 		edge := shape.Vertices[i2].Sub(shape.Vertices[i1])
-		core.Assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
+		core.Assert(
+			edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23),
+			"b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON",
+		)
 		shape.Normals[i] = edge.CrossScalar(1.0).Normalize()
 	}
 
@@ -225,7 +228,10 @@ func MakeOffsetRoundedPolygon(hull *Hull, position Vec2, rotation Rot, radius fl
 		}
 
 		edge := shape.Vertices[i2].Sub(shape.Vertices[i1])
-		core.Assert(edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23), "b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON")
+		core.Assert(
+			edge.Dot(edge) > float32(0x1p-23)*float32(0x1p-23),
+			"b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON",
+		)
 		shape.Normals[i] = edge.CrossScalar(1.0).Normalize()
 	}
 
@@ -244,8 +250,14 @@ func MakeSquare(halfWidth float32) Polygon {
 // @param halfWidth the half-width (x-axis)
 // @param halfHeight the half-height (y-axis).
 func MakeBox(halfWidth float32, halfHeight float32) Polygon {
-	core.Assert(IsValidFloat(halfWidth) && halfWidth > 0.0, "b2IsValidFloat( halfWidth ) && halfWidth > 0.0f")
-	core.Assert(IsValidFloat(halfHeight) && halfHeight > 0.0, "b2IsValidFloat( halfHeight ) && halfHeight > 0.0f")
+	core.Assert(
+		IsValidFloat(halfWidth) && halfWidth > 0.0,
+		"b2IsValidFloat( halfWidth ) && halfWidth > 0.0f",
+	)
+	core.Assert(
+		IsValidFloat(halfHeight) && halfHeight > 0.0,
+		"b2IsValidFloat( halfHeight ) && halfHeight > 0.0f",
+	)
 
 	var shape Polygon
 
@@ -308,7 +320,13 @@ func MakeOffsetBox(halfWidth float32, halfHeight float32, center Vec2, rotation 
 // @param center the local center of the box
 // @param rotation the local rotation of the box
 // @param radius the radius of the rounded extension.
-func MakeOffsetRoundedBox(halfWidth float32, halfHeight float32, center Vec2, rotation Rot, radius float32) Polygon {
+func MakeOffsetRoundedBox(
+	halfWidth float32,
+	halfHeight float32,
+	center Vec2,
+	rotation Rot,
+	radius float32,
+) Polygon {
 	core.Assert(IsValidFloat(radius) && radius >= 0.0, "b2IsValidFloat( radius ) && radius >= 0.0f")
 
 	xf := Transform{center, rotation}
@@ -640,7 +658,7 @@ func RayCastCircle(shape *Circle, input *RayCastInput) CastOutput {
 
 	// Find closest point on ray to origin
 
-	// solve: dot(s + t * d, d) = 0
+	// Solve dot(s + t * d, d) = 0 for t.
 	t := -s.Dot(d)
 
 	// c is the closest point on the line to the origin
@@ -1234,10 +1252,13 @@ func collideMoverAndSegment(mover *Capsule, shape *Segment) PlaneResult {
 	return PlaneResult{}
 }
 
-func rayCastFraction(input *RayCastInput, length, distance float32) (float32, bool) {
+func rayCastFraction(input *RayCastInput, length float32, distance float32) (float32, bool) {
 	if math.IsInf(float64(length), 1) {
 		wideLength := math.Hypot(float64(input.Translation.X), float64(input.Translation.Y))
-		return float32(float64(distance) / wideLength), !(distance < 0 || float64(input.MaxFraction)*wideLength < float64(distance))
+
+		return float32(
+			float64(distance) / wideLength,
+		), !(distance < 0 || float64(input.MaxFraction)*wideLength < float64(distance))
 	}
 
 	return distance / length, !(distance < 0 || input.MaxFraction*length < distance)
@@ -1260,6 +1281,7 @@ func rayCastSharpPolygon(shape *Polygon, input *RayCastInput) CastOutput {
 	var output CastOutput
 
 	for edgeIndex := range shape.Count {
+		// Intersect the ray with the edge plane:
 		// p = p1 + a * d
 		// dot(normal, p - v) = 0
 		// dot(normal, p1 - v) + a * dot(normal, d) = 0
@@ -1303,7 +1325,10 @@ func rayCastSharpPolygon(shape *Polygon, input *RayCastInput) CastOutput {
 		}
 	}
 
-	core.Assert(0.0 <= lower && lower <= input.MaxFraction, "0.0f <= lower && lower <= input->maxFraction")
+	core.Assert(
+		0.0 <= lower && lower <= input.MaxFraction,
+		"0.0f <= lower && lower <= input->maxFraction",
+	)
 
 	if index >= 0 {
 		output.Fraction = lower

@@ -43,7 +43,7 @@ type Scheduler struct {
 
 // New starts workerCount-1 worker goroutines that run tasks alongside the caller.
 // At most taskCapacity tasks can be enqueued between resets.
-func New(workerCount, taskCapacity int) *Scheduler {
+func New(workerCount int, taskCapacity int) *Scheduler {
 	core.Assert(0 < workerCount, "0 < workerCount")
 
 	s := &Scheduler{
@@ -58,7 +58,10 @@ func New(workerCount, taskCapacity int) *Scheduler {
 		context := &s.workerContexts[i]
 		context.scheduler = s
 		context.threadIndex = i + 1
-		s.threads[i] = createThread(func() { workerMain(context) }, fmt.Sprintf("box2d_worker_%02d", i+1))
+		s.threads[i] = createThread(
+			func() { workerMain(context) },
+			fmt.Sprintf("box2d_worker_%02d", i+1),
+		)
 	}
 
 	return s

@@ -58,7 +58,10 @@ func (r RevoluteJoint) SetSpringEnabled(enableSpring bool) {
 	// K = invIA + invIB
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointEnableSpring(world.recording, &recArgsRevoluteJointEnableSpring{joint: r.Joint, enableSpring: enableSpring})
+		recWriteRevoluteJointEnableSpring(
+			world.recording,
+			&recArgsRevoluteJointEnableSpring{joint: r.Joint, enableSpring: enableSpring},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -80,7 +83,10 @@ func (r RevoluteJoint) SetSpringHertz(hertz float32) {
 
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointSetSpringHertz(world.recording, &recArgsRevoluteJointSetSpringHertz{joint: r.Joint, hertz: hertz})
+		recWriteRevoluteJointSetSpringHertz(
+			world.recording,
+			&recArgsRevoluteJointSetSpringHertz{joint: r.Joint, hertz: hertz},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -99,7 +105,10 @@ func (r RevoluteJoint) SetSpringDampingRatio(dampingRatio float32) {
 
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointSetSpringDampingRatio(world.recording, &recArgsRevoluteJointSetSpringDampingRatio{joint: r.Joint, dampingRatio: dampingRatio})
+		recWriteRevoluteJointSetSpringDampingRatio(
+			world.recording,
+			&recArgsRevoluteJointSetSpringDampingRatio{joint: r.Joint, dampingRatio: dampingRatio},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -118,7 +127,10 @@ func (r RevoluteJoint) SetTargetAngle(angle float32) {
 
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointSetTargetAngle(world.recording, &recArgsRevoluteJointSetTargetAngle{joint: r.Joint, angle: angle})
+		recWriteRevoluteJointSetTargetAngle(
+			world.recording,
+			&recArgsRevoluteJointSetTargetAngle{joint: r.Joint, angle: angle},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -147,7 +159,10 @@ func (r RevoluteJoint) Angle() float32 {
 func (r RevoluteJoint) SetLimitEnabled(enableLimit bool) {
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointEnableLimit(world.recording, &recArgsRevoluteJointEnableLimit{joint: r.Joint, enableLimit: enableLimit})
+		recWriteRevoluteJointEnableLimit(
+			world.recording,
+			&recArgsRevoluteJointEnableLimit{joint: r.Joint, enableLimit: enableLimit},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -186,21 +201,35 @@ func (r RevoluteJoint) SetLimits(lower float32, upper float32) {
 
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointSetLimits(world.recording, &recArgsRevoluteJointSetLimits{joint: r.Joint, lower: lower, upper: upper})
+		recWriteRevoluteJointSetLimits(
+			world.recording,
+			&recArgsRevoluteJointSetLimits{joint: r.Joint, lower: lower, upper: upper},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
 	lowerAngle := minFloat(lower, upper)
 	upperAngle := maxFloat(lower, upper)
-	joint.revoluteJoint.lowerAngle = clampFloat(lowerAngle, float32(-float32(0.99)*Pi), float32(float32(0.99)*Pi))
-	joint.revoluteJoint.upperAngle = clampFloat(upperAngle, float32(-float32(0.99)*Pi), float32(float32(0.99)*Pi))
+	joint.revoluteJoint.lowerAngle = clampFloat(
+		lowerAngle,
+		float32(-float32(0.99)*Pi),
+		float32(float32(0.99)*Pi),
+	)
+	joint.revoluteJoint.upperAngle = clampFloat(
+		upperAngle,
+		float32(-float32(0.99)*Pi),
+		float32(float32(0.99)*Pi),
+	)
 }
 
 // Enable/disable a revolute joint motor.
 func (r RevoluteJoint) SetMotorEnabled(enableMotor bool) {
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointEnableMotor(world.recording, &recArgsRevoluteJointEnableMotor{joint: r.Joint, enableMotor: enableMotor})
+		recWriteRevoluteJointEnableMotor(
+			world.recording,
+			&recArgsRevoluteJointEnableMotor{joint: r.Joint, enableMotor: enableMotor},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -222,7 +251,10 @@ func (r RevoluteJoint) SetMotorSpeed(motorSpeed float32) {
 
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointSetMotorSpeed(world.recording, &recArgsRevoluteJointSetMotorSpeed{joint: r.Joint, motorSpeed: motorSpeed})
+		recWriteRevoluteJointSetMotorSpeed(
+			world.recording,
+			&recArgsRevoluteJointSetMotorSpeed{joint: r.Joint, motorSpeed: motorSpeed},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -249,7 +281,10 @@ func (r RevoluteJoint) SetMaxMotorTorque(torque float32) {
 
 	world := r.Joint.world
 	if world.recording != nil {
-		recWriteRevoluteJointSetMaxMotorTorque(world.recording, &recArgsRevoluteJointSetMaxMotorTorque{joint: r.Joint, torque: torque})
+		recWriteRevoluteJointSetMaxMotorTorque(
+			world.recording,
+			&recArgsRevoluteJointSetMaxMotorTorque{joint: r.Joint, torque: torque},
+		)
 	}
 
 	joint := getJointSimCheckType(r.Joint, RevoluteJointType)
@@ -263,13 +298,19 @@ func (r RevoluteJoint) MaxMotorTorque() float32 {
 }
 
 func getRevoluteJointForce(world *World, base *jointSim) Vec2 {
-	force := Vec2{X: float32(world.invH * base.revoluteJoint.linearImpulse.X), Y: float32(world.invH * base.revoluteJoint.linearImpulse.Y)}
+	force := Vec2{
+		X: float32(world.invH * base.revoluteJoint.linearImpulse.X),
+		Y: float32(world.invH * base.revoluteJoint.linearImpulse.Y),
+	}
+
 	return force
 }
 
 func getRevoluteJointTorque(world *World, base *jointSim) float32 {
 	revolute := &base.revoluteJoint
-	torque := float32(world.invH * (revolute.motorImpulse + revolute.lowerImpulse - revolute.upperImpulse))
+	torque := float32(
+		world.invH * (revolute.motorImpulse + revolute.lowerImpulse - revolute.upperImpulse),
+	)
 
 	return torque
 }
@@ -286,7 +327,10 @@ func prepareRevoluteJoint(base *jointSim, context *stepContext) {
 	bodyA := &world.bodies[idA]
 	bodyB := &world.bodies[idB]
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 	setA := &world.solverSets[bodyA.setIndex]
 	setB := &world.solverSets[bodyB.setIndex]
 
@@ -427,7 +471,11 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		impulseScale := joint.springSoftness.impulseScale
 
 		velocityError := wB - wA
-		impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*joint.springImpulse)
+		impulse := float32(
+			float32(-massScale*joint.axialMass)*(velocityError+bias),
+		) - float32(
+			impulseScale*joint.springImpulse,
+		)
 		joint.springImpulse += impulse
 
 		wA -= float32(iA * impulse)
@@ -453,11 +501,20 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		// Lower limit
 		{
 			separation := jointAngle - joint.lowerAngle
-			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
+			bias, massScale, impulseScale := jointLimitBias(
+				separation,
+				context.invH,
+				useBias,
+				base.constraintSoftness,
+			)
 
 			velocityError := wB - wA
 			oldImpulse := joint.lowerImpulse
-			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*oldImpulse)
+			impulse := float32(
+				float32(-massScale*joint.axialMass)*(velocityError+bias),
+			) - float32(
+				impulseScale*oldImpulse,
+			)
 			joint.lowerImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.lowerImpulse - oldImpulse
 
@@ -470,12 +527,21 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		// This also keeps the impulse positive when the limit is active.
 		{
 			separation := joint.upperAngle - jointAngle
-			bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
+			bias, massScale, impulseScale := jointLimitBias(
+				separation,
+				context.invH,
+				useBias,
+				base.constraintSoftness,
+			)
 
 			// sign flipped on velocityError
 			velocityError := wA - wB
 			oldImpulse := joint.upperImpulse
-			impulse := float32(float32(-massScale*joint.axialMass)*(velocityError+bias)) - float32(impulseScale*oldImpulse)
+			impulse := float32(
+				float32(-massScale*joint.axialMass)*(velocityError+bias),
+			) - float32(
+				impulseScale*oldImpulse,
+			)
 			joint.upperImpulse = maxFloat(oldImpulse+impulse, float32(0.0))
 			impulse = joint.upperImpulse - oldImpulse
 
@@ -496,7 +562,8 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 		rA := stateA.deltaRotation.Rotate(joint.frameA.P)
 		rB := stateB.deltaRotation.Rotate(joint.frameB.P)
 
-		velocityError := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
+		velocityError := vB.Add(Vec2{X: float32(-wB * rB.Y), Y: float32(wB * rB.X)}).
+			Sub(vA.Add(Vec2{X: float32(-wA * rA.Y), Y: float32(wA * rA.X)}))
 
 		bias := Vec2{}
 		massScale := float32(1.0)
@@ -507,7 +574,10 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 			dcB := stateB.deltaPosition
 
 			separation := dcB.Sub(dcA).Add(rB.Sub(rA)).Add(joint.deltaCenter)
-			bias = Vec2{X: float32(base.constraintSoftness.biasRate * separation.X), Y: float32(base.constraintSoftness.biasRate * separation.Y)}
+			bias = Vec2{
+				X: float32(base.constraintSoftness.biasRate * separation.X),
+				Y: float32(base.constraintSoftness.biasRate * separation.Y),
+			}
 			massScale = base.constraintSoftness.massScale
 			impulseScale = base.constraintSoftness.impulseScale
 		}
@@ -546,7 +616,13 @@ func solveRevoluteJoint(base *jointSim, context *stepContext, useBias bool) {
 	}
 }
 
-func drawRevoluteJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform, drawScale float32) {
+func drawRevoluteJoint(
+	draw *DebugDraw,
+	base *jointSim,
+	transformA WorldTransform,
+	transformB WorldTransform,
+	drawScale float32,
+) {
 	core.Assert(base.jointType == RevoluteJointType, "base->type == b2_revoluteJoint")
 
 	joint := &base.revoluteJoint

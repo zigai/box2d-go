@@ -82,9 +82,29 @@ func testScenes(t *testing.T, workers int) {
 		{name: "Junkyard", create: scenes.CreateJunkyard, step: scenes.StepJunkyard, horizon: 800},
 		{name: "Sleep", create: scenes.CreateSleep, step: scenes.StepSleep, horizon: 300},
 		{name: "Compounds", create: scenes.CreateCompounds, horizon: 500},
-		{name: "Queries", create: scenes.CreateQueries, step: scenes.StepQueries, stats: scenes.GetQueryBenchmarkStats, horizon: 300},
-		{name: "TreeCast", create: scenes.CreateTreeCast, step: scenes.StepTreeCast, stats: scenes.GetTreeCastBenchmarkStats, destroy: scenes.DestroyTreeCast, horizon: 300},
-		{name: "TileWorld", create: scenes.CreateTileWorld, step: scenes.StepTileWorld, stats: scenes.GetTileWorldBenchmarkStats, destroy: scenes.DestroyTileWorld, horizon: 300},
+		{
+			name:    "Queries",
+			create:  scenes.CreateQueries,
+			step:    scenes.StepQueries,
+			stats:   scenes.GetQueryBenchmarkStats,
+			horizon: 300,
+		},
+		{
+			name:    "TreeCast",
+			create:  scenes.CreateTreeCast,
+			step:    scenes.StepTreeCast,
+			stats:   scenes.GetTreeCastBenchmarkStats,
+			destroy: scenes.DestroyTreeCast,
+			horizon: 300,
+		},
+		{
+			name:    "TileWorld",
+			create:  scenes.CreateTileWorld,
+			step:    scenes.StepTileWorld,
+			stats:   scenes.GetTileWorldBenchmarkStats,
+			destroy: scenes.DestroyTileWorld,
+			horizon: 300,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -100,7 +120,13 @@ func testScenes(t *testing.T, workers int) {
 	})
 }
 
-func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, world *box2d.World, step int) {
+func checkScene(
+	t *testing.T,
+	r *oracle.Reader,
+	full map[int][]byte, actual map[int][]byte,
+	world *box2d.World,
+	step int,
+) {
 	t.Helper()
 
 	counters := world.Counters()
@@ -116,16 +142,34 @@ func checkScene(t *testing.T, r *oracle.Reader, full, actual map[int][]byte, wor
 
 		start := len(stateBytes)
 		if unsafe.Sizeof(box2d.Pos{}) == 16 {
-			stateBytes = binary.LittleEndian.AppendUint64(stateBytes, math.Float64bits(float64(body.Transform.P.X)))
-			stateBytes = binary.LittleEndian.AppendUint64(stateBytes, math.Float64bits(float64(body.Transform.P.Y)))
+			stateBytes = binary.LittleEndian.AppendUint64(
+				stateBytes,
+				math.Float64bits(float64(body.Transform.P.X)),
+			)
+			stateBytes = binary.LittleEndian.AppendUint64(
+				stateBytes,
+				math.Float64bits(float64(body.Transform.P.Y)),
+			)
 		} else {
-			stateBytes = binary.LittleEndian.AppendUint32(stateBytes, math.Float32bits(float32(body.Transform.P.X)))
-			stateBytes = binary.LittleEndian.AppendUint32(stateBytes, math.Float32bits(float32(body.Transform.P.Y)))
+			stateBytes = binary.LittleEndian.AppendUint32(
+				stateBytes,
+				math.Float32bits(float32(body.Transform.P.X)),
+			)
+			stateBytes = binary.LittleEndian.AppendUint32(
+				stateBytes,
+				math.Float32bits(float32(body.Transform.P.Y)),
+			)
 		}
 
-		stateBytes = binary.LittleEndian.AppendUint32(stateBytes, math.Float32bits(body.Transform.Q.C))
+		stateBytes = binary.LittleEndian.AppendUint32(
+			stateBytes,
+			math.Float32bits(body.Transform.Q.C),
+		)
 
-		stateBytes = binary.LittleEndian.AppendUint32(stateBytes, math.Float32bits(body.Transform.Q.S))
+		stateBytes = binary.LittleEndian.AppendUint32(
+			stateBytes,
+			math.Float32bits(body.Transform.Q.S),
+		)
 		for _, value := range stateBytes[start:] {
 			hash ^= uint64(value)
 			hash *= 1099511628211
@@ -160,12 +204,17 @@ func checkSceneObservations(t *testing.T, r *oracle.Reader, world *box2d.World, 
 	}
 }
 
-func diagnoseSceneFull(t *testing.T, step int, want, got []byte) {
+func diagnoseSceneFull(t *testing.T, step int, want []byte, got []byte) {
 	t.Helper()
 
 	stride := 2*sceneWidth() + 12
 	if len(want) != len(got) {
-		t.Fatalf("step %d: full-state body count: C %d, Go %d", step, len(want)/stride, len(got)/stride)
+		t.Fatalf(
+			"step %d: full-state body count: C %d, Go %d",
+			step,
+			len(want)/stride,
+			len(got)/stride,
+		)
 	}
 
 	for offset, value := range want {
@@ -191,7 +240,15 @@ func diagnoseSceneFull(t *testing.T, step int, want, got []byte) {
 			component = "Q.S"
 		}
 
-		t.Fatalf("step %d: body %d, %s, byte %d: C 0x%02x, Go 0x%02x", step, body, component, byteInBody, value, got[offset])
+		t.Fatalf(
+			"step %d: body %d, %s, byte %d: C 0x%02x, Go 0x%02x",
+			step,
+			body,
+			component,
+			byteInBody,
+			value,
+			got[offset],
+		)
 	}
 }
 
@@ -239,7 +296,11 @@ func decodeSceneBundle(p []byte, width int) (map[int][]byte, error) {
 		p = p[count*stride:]
 
 		for i := stride; i < len(state); i += stride {
-			if binary.LittleEndian.Uint32(state[i:]) <= binary.LittleEndian.Uint32(state[i-stride:]) {
+			if binary.LittleEndian.Uint32(
+				state[i:],
+			) <= binary.LittleEndian.Uint32(
+				state[i-stride:],
+			) {
 				return nil, fmt.Errorf("checkpoint %d: body IDs are not ascending", step)
 			}
 		}
@@ -263,7 +324,9 @@ func parseSceneRecord(line []byte) (sceneRecord, error) {
 
 	token, err := dec.Token()
 	if err != nil || token != json.Delim('{') {
-		return record, errors.New("invalid record object") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return record, errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"invalid record object",
+		)
 	}
 
 	seen := make(map[string]bool)
@@ -279,15 +342,21 @@ func parseSceneRecord(line []byte) (sceneRecord, error) {
 	}
 
 	if len(seen) != 3 {
-		return record, errors.New("missing record key") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return record, errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"missing record key",
+		)
 	}
 
 	if _, err := dec.Token(); err != io.EOF {
-		return record, errors.New("trailing record data") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return record, errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"trailing record data",
+		)
 	}
 
 	if record.Key == "" {
-		return record, errors.New("empty record key") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return record, errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"empty record key",
+		)
 	}
 
 	return record, nil
@@ -308,7 +377,9 @@ func validateSceneValue(record sceneRecord, width int) error {
 		length = 2 * width
 	case "bool":
 		if record.Value != "0" && record.Value != "1" {
-			return errors.New("invalid bool") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+			return errors.New( //nolint:err113 // Test codec error; callers never match it.
+				"invalid bool",
+			)
 		}
 
 		return nil
@@ -319,13 +390,19 @@ func validateSceneValue(record sceneRecord, width int) error {
 
 		return nil
 	default:
-		return errors.New("unknown primitive type") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"unknown primitive type",
+		)
 	}
 
 	return validateScenePrimitive(fields, length, count)
 }
 
-func readSceneRecords(t *testing.T, config, name string) ([]sceneRecord, []byte, map[int][]byte) {
+func readSceneRecords(
+	t *testing.T,
+	config string,
+	name string,
+) ([]sceneRecord, []byte, map[int][]byte) {
 	t.Helper()
 
 	data, err := oracle.ReadFile(config, "scenes/"+name)
@@ -387,7 +464,7 @@ type sceneFixtureCursor struct {
 	width   int
 }
 
-func (c *sceneFixtureCursor) take(key, kind string) sceneRecord {
+func (c *sceneFixtureCursor) take(key string, kind string) sceneRecord {
 	c.t.Helper()
 
 	if c.next >= len(c.records) {
@@ -420,7 +497,10 @@ func (c *sceneFixtureCursor) count(key string) int {
 func (c *sceneFixtureCursor) observations(step int) {
 	c.t.Helper()
 
-	for _, lane := range []string{"dynamic", "contact", "joint", "move", "sensorBegin", "sensorEnd", "contactBegin", "contactEnd", "hit", "jointEvent"} {
+	for _, lane := range []string{
+		"dynamic", "contact", "joint", "move", "sensorBegin",
+		"sensorEnd", "contactBegin", "contactEnd", "hit", "jointEvent",
+	} {
 		if c.count(fmt.Sprintf("%d.%s.count", step, lane)) < 0 {
 			c.t.Fatal("negative observation count")
 		}
@@ -473,7 +553,13 @@ func (c *sceneFixtureCursor) specialStep(name string, step int) {
 	}
 }
 
-func checkSceneWorkerFixture(t *testing.T, config, fixture, name string, workers, width int) int64 {
+func checkSceneWorkerFixture(
+	t *testing.T,
+	config string,
+	fixture string,
+	name string,
+	workers int, width int,
+) int64 {
 	t.Helper()
 
 	records, packed, full := readSceneRecords(t, config, fixture)
@@ -495,7 +581,12 @@ func checkSceneWorkerFixture(t *testing.T, config, fixture, name string, workers
 		stepped, stats = true, true
 	}
 
-	horizon := map[string]int{"JointGrid": 500, "LargePyramid": 500, "ManyPyramids": 300, "Rain": 1000, "Spinner": 500, "Smash": 300, "Tumbler": 750, "Washer": 500, "Junkyard": 800, "Sleep": 300, "Compounds": 500, "Queries": 300, "TreeCast": 300, "TileWorld": 300, "FallingHinges": 300, "Human": 300}[name]
+	horizon := map[string]int{
+		"JointGrid": 500, "LargePyramid": 500, "ManyPyramids": 300, "Rain": 1000,
+		"Spinner": 500, "Smash": 300, "Tumbler": 750, "Washer": 500,
+		"Junkyard": 800, "Sleep": 300, "Compounds": 500, "Queries": 300,
+		"TreeCast": 300, "TileWorld": 300, "FallingHinges": 300, "Human": 300,
+	}[name]
 	for step := range horizon {
 		if stepped {
 			c.take(fmt.Sprintf("%d.v", step), "f32")
@@ -526,7 +617,13 @@ func checkSceneWorkerFixture(t *testing.T, config, fixture, name string, workers
 		t.Fatal(err)
 	}
 
-	t.Logf("%d bytes; %d ordered steps; six full checkpoints; workers %d; width %d", info.Size(), horizon, workers, width)
+	t.Logf(
+		"%d bytes; %d ordered steps; six full checkpoints; workers %d; width %d",
+		info.Size(),
+		horizon,
+		workers,
+		width,
+	)
 
 	return info.Size()
 }
@@ -540,10 +637,18 @@ func checkSceneFixtureDirectory(t *testing.T, config string, names []string) {
 	}
 
 	if len(entries) != 43 {
-		t.Fatalf("want 43 area fixtures (32 worker traces, six query payloads, two extended helpers, Utils/Trig/Helpers), got %d", len(entries))
+		t.Fatalf(
+			"want 43 area fixtures (32 worker traces, six query payloads, two extended helpers, "+
+				"Utils/Trig/Helpers), got %d",
+			len(entries),
+		)
 	}
 
-	expectedNames := map[string]bool{"Utils.jsonl.gz": true, "Trig.jsonl.gz": true, "Helpers.jsonl.gz": true}
+	expectedNames := map[string]bool{
+		"Utils.jsonl.gz":   true,
+		"Trig.jsonl.gz":    true,
+		"Helpers.jsonl.gz": true,
+	}
 
 	for _, workers := range []int{1, 4} {
 		for _, name := range names {
@@ -587,7 +692,15 @@ func checkSceneUtilityFixture(t *testing.T, config string, width int) {
 		take := func(suffix, kind string) sceneRecord {
 			return c.utilityRecord(step, suffix, kind)
 		}
-		for _, field := range []struct{ key, kind string }{{"int", "i32"}, {"range", "i32"}, {"float", "f32"}, {"floatRange", "f32"}, {"vec", "vec2"}, {"pos", "pos"}, {"rot", "rot"}} {
+		for _, field := range []struct{ key, kind string }{
+			{"int", "i32"},
+			{"range", "i32"},
+			{"float", "f32"},
+			{"floatRange", "f32"},
+			{"vec", "vec2"},
+			{"pos", "pos"},
+			{"rot", "rot"},
+		} {
 			take(field.key, field.kind)
 		}
 
@@ -805,7 +918,8 @@ func checkSceneRecordCodec(t *testing.T) {
 
 	for _, line := range []string{
 		`{}`, `{"k":"full","t":"bytes"}`, `{"k":"full","k":"full","t":"bytes","v":""}`,
-		`{"k":"full","t":"bytes","v":"","extra":""}`, `{"k":"full","t":"bytes","v":0}`, `{"k":"full","t":"bytes","v":""} {}`,
+		`{"k":"full","t":"bytes","v":"","extra":""}`, `{"k":"full","t":"bytes","v":0}`,
+		`{"k":"full","t":"bytes","v":""} {}`,
 	} {
 		if _, err := parseSceneRecord([]byte(line)); err == nil {
 			t.Fatalf("accepted malformed record %s", line)
@@ -821,7 +935,9 @@ func decodeSceneRecordField(dec *json.Decoder, record *sceneRecord, seen map[str
 
 	key, ok := token.(string)
 	if !ok || seen[key] {
-		return errors.New("duplicate record key") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"duplicate record key",
+		)
 	}
 
 	seen[key] = true
@@ -839,20 +955,26 @@ func decodeSceneRecordField(dec *json.Decoder, record *sceneRecord, seen map[str
 	case "v":
 		record.Value = value
 	default:
-		return errors.New("unknown record key") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"unknown record key",
+		)
 	}
 
 	return nil
 }
 
-func validateScenePrimitive(fields []string, length, count int) error {
+func validateScenePrimitive(fields []string, length int, count int) error {
 	if len(fields) != count {
-		return errors.New("invalid primitive components") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+		return errors.New( //nolint:err113 // Test codec error; callers never match it.
+			"invalid primitive components",
+		)
 	}
 
 	for _, field := range fields {
 		if len(field) != length {
-			return errors.New("invalid primitive width") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
+			return errors.New( //nolint:err113 // Test codec error; callers never match it.
+				"invalid primitive width",
+			)
 		}
 
 		if _, err := strconv.ParseUint(field, 16, 4*length); err != nil {
@@ -912,7 +1034,7 @@ type sceneLineCursor struct {
 	width int
 }
 
-func (c *sceneLineCursor) helperValue(key, kind string) string {
+func (c *sceneLineCursor) helperValue(key string, kind string) string {
 	c.t.Helper()
 
 	if c.next >= len(c.lines) {
@@ -937,7 +1059,7 @@ func (c *sceneLineCursor) helperValue(key, kind string) string {
 	return r.Value
 }
 
-func (c *sceneLineCursor) utilityRecord(step int, suffix, kind string) sceneRecord {
+func (c *sceneLineCursor) utilityRecord(step int, suffix string, kind string) sceneRecord {
 	c.t.Helper()
 
 	if c.next >= len(c.lines) {
@@ -966,7 +1088,8 @@ func (c *sceneLineCursor) checkGroupFlags(step int) {
 		spawned, cleared = "0", "1"
 	}
 
-	if c.helperValue(fmt.Sprintf("%d.spawned", step), "bool") != spawned || c.helperValue(fmt.Sprintf("%d.cleared", step), "bool") != cleared {
+	if c.helperValue(fmt.Sprintf("%d.spawned", step), "bool") != spawned ||
+		c.helperValue(fmt.Sprintf("%d.cleared", step), "bool") != cleared {
 		c.t.Fatal("group lifecycle flags")
 	}
 
@@ -975,7 +1098,8 @@ func (c *sceneLineCursor) checkGroupFlags(step int) {
 	}
 
 	if step > 0 {
-		if c.helperValue(fmt.Sprintf("%d.oldBody", step), "bool") != "0" || c.helperValue(fmt.Sprintf("%d.oldJoint", step), "bool") != "0" {
+		if c.helperValue(fmt.Sprintf("%d.oldBody", step), "bool") != "0" ||
+			c.helperValue(fmt.Sprintf("%d.oldJoint", step), "bool") != "0" {
 			c.t.Fatal("destroyed handles remain valid")
 		}
 	}
@@ -1015,7 +1139,9 @@ func (c *sceneLineCursor) checkGroupLifecycle() {
 func (c *sceneLineCursor) checkPaddleBoundaries() {
 	c.t.Helper()
 
-	for i, velocity := range []string{"c0a00000,00000000", "40a00000,00000000", "40a00000,00000000", "c0a00000,00000000"} {
+	for i, velocity := range []string{
+		"c0a00000,00000000", "40a00000,00000000", "40a00000,00000000", "c0a00000,00000000",
+	} {
 		c.helperValue(fmt.Sprintf("%d.q", i), "f32")
 		c.helperValue(fmt.Sprintf("%d.position", i), "pos")
 
@@ -1044,7 +1170,11 @@ func (c *sceneLineCursor) checkUtilityBoundary() {
 		{"fallback.centroid", "vec2"},
 	}...)
 	for range 4 {
-		boundary = append(boundary, struct{ key, kind string }{"fallback.vertex", "vec2"}, struct{ key, kind string }{"fallback.normal", "vec2"})
+		boundary = append(
+			boundary,
+			struct{ key, kind string }{"fallback.vertex", "vec2"},
+			struct{ key, kind string }{"fallback.normal", "vec2"},
+		)
 	}
 
 	for _, field := range boundary {
@@ -1060,7 +1190,13 @@ func (c *sceneLineCursor) checkUtilityBoundary() {
 		}
 
 		if record.Key != field.key || record.Type != field.kind {
-			c.t.Fatalf("utility boundary: want %s/%s, got %s/%s", field.key, field.kind, record.Key, record.Type)
+			c.t.Fatalf(
+				"utility boundary: want %s/%s, got %s/%s",
+				field.key,
+				field.kind,
+				record.Key,
+				record.Type,
+			)
 		}
 
 		if err := validateSceneValue(record, c.width); err != nil {
@@ -1102,7 +1238,9 @@ func (c *sceneFixtureCursor) initialMetadata(name string) {
 	c.t.Helper()
 
 	if name == "ManyPyramids" {
-		for _, key := range []string{"staticShapeCount", "staticBodyCount", "dynamicShapeCount", "dynamicBodyCount", "contactCount"} {
+		for _, key := range []string{
+			"staticShapeCount", "staticBodyCount", "dynamicShapeCount", "dynamicBodyCount", "contactCount",
+		} {
 			c.count(key)
 		}
 	}

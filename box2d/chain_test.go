@@ -13,13 +13,25 @@ import (
 var (
 	chainLoopTriangle = []box2d.Vec2{{X: -2, Y: 0}, {X: 2, Y: 0}, {X: 0, Y: 3}}
 	chainLoopSquare   = []box2d.Vec2{{X: -2, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 4}, {X: -2, Y: 4}}
-	chainOpenLine     = []box2d.Vec2{{X: 0, Y: 0}, {X: 2, Y: 1}, {X: 4, Y: 1}, {X: 6, Y: 0}, {X: 8, Y: 0}, {X: 10, Y: 1}}
-	chainOpenPair     = []box2d.Vec2{{X: 0, Y: 0}, {X: 4, Y: 0}}
-	chainGhostBegin   = box2d.Vec2{X: -2, Y: -1}
-	chainGhostEnd     = box2d.Vec2{X: 12, Y: 2}
+	chainOpenLine     = []box2d.Vec2{
+		{X: 0, Y: 0},
+		{X: 2, Y: 1},
+		{X: 4, Y: 1},
+		{X: 6, Y: 0},
+		{X: 8, Y: 0},
+		{X: 10, Y: 1},
+	}
+	chainOpenPair   = []box2d.Vec2{{X: 0, Y: 0}, {X: 4, Y: 0}}
+	chainGhostBegin = box2d.Vec2{X: -2, Y: -1}
+	chainGhostEnd   = box2d.Vec2{X: 12, Y: 2}
 )
 
-func createTaggedChain(bodyID box2d.Body, points []box2d.Vec2, pointCount, materialCount int, isLoop bool) box2d.Chain {
+func createTaggedChain(
+	bodyID box2d.Body,
+	points []box2d.Vec2,
+	pointCount int, materialCount int,
+	isLoop bool,
+) box2d.Chain {
 	materials := make([]box2d.SurfaceMaterial, 8)
 	for i := range materialCount {
 		materials[i] = box2d.DefaultSurfaceMaterial()
@@ -51,7 +63,7 @@ func chainReadSegmentTags(chainID box2d.Chain, tags []uint64, count int) {
 	}
 }
 
-func chainSamePoint(a, b box2d.Vec2) bool {
+func chainSamePoint(a box2d.Vec2, b box2d.Vec2) bool {
 	return a.X == b.X && a.Y == b.Y
 }
 

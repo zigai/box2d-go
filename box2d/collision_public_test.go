@@ -100,21 +100,57 @@ func TestCollisionPublicPairs(t *testing.T) {
 			xf := Transform{position, MakeRot(angle)}
 			key := fmt.Sprintf("%d/%d/", a, p)
 			geometryCheckManifold(r, key+"circles", CollideCircles(&circle, &circle, xf))
-			geometryCheckManifold(r, key+"capsule-circle", CollideCapsuleAndCircle(&capsule, &circle, xf))
-			geometryCheckManifold(r, key+"segment-circle", CollideSegmentAndCircle(&segment, &circle, xf))
-			geometryCheckManifold(r, key+"polygon-circle", CollidePolygonAndCircle(&polygon, &circle, xf))
+			geometryCheckManifold(
+				r,
+				key+"capsule-circle",
+				CollideCapsuleAndCircle(&capsule, &circle, xf),
+			)
+			geometryCheckManifold(
+				r,
+				key+"segment-circle",
+				CollideSegmentAndCircle(&segment, &circle, xf),
+			)
+			geometryCheckManifold(
+				r,
+				key+"polygon-circle",
+				CollidePolygonAndCircle(&polygon, &circle, xf),
+			)
 			geometryCheckManifold(r, key+"capsules", CollideCapsules(&capsule, &capsule, xf))
-			geometryCheckManifold(r, key+"segment-capsule", CollideSegmentAndCapsule(&segment, &capsule, xf))
-			geometryCheckManifold(r, key+"polygon-capsule", CollidePolygonAndCapsule(&polygon, &capsule, xf))
+			geometryCheckManifold(
+				r,
+				key+"segment-capsule",
+				CollideSegmentAndCapsule(&segment, &capsule, xf),
+			)
+			geometryCheckManifold(
+				r,
+				key+"polygon-capsule",
+				CollidePolygonAndCapsule(&polygon, &capsule, xf),
+			)
 			geometryCheckManifold(r, key+"polygons", CollidePolygons(&polygon, &polygon, xf))
-			geometryCheckManifold(r, key+"segment-polygon", CollideSegmentAndPolygon(&segment, &polygon, xf))
+			geometryCheckManifold(
+				r,
+				key+"segment-polygon",
+				CollideSegmentAndPolygon(&segment, &polygon, xf),
+			)
 
 			for c := range chains {
 				prefix := fmt.Sprintf("%schain%d", key, c)
-				geometryCheckManifold(r, prefix+"-circle", CollideChainSegmentAndCircle(&chains[c], &circle, xf))
-				geometryCheckManifold(r, prefix+"-capsule", CollideChainSegmentAndCapsule(&chains[c], &capsule, xf, &capsuleCache[c]))
+				geometryCheckManifold(
+					r,
+					prefix+"-circle",
+					CollideChainSegmentAndCircle(&chains[c], &circle, xf),
+				)
+				geometryCheckManifold(
+					r,
+					prefix+"-capsule",
+					CollideChainSegmentAndCapsule(&chains[c], &capsule, xf, &capsuleCache[c]),
+				)
 				geometryCheckCache(r, prefix+"-capsule-cache", capsuleCache[c])
-				geometryCheckManifold(r, prefix+"-polygon", CollideChainSegmentAndPolygon(&chains[c], &polygon, xf, &polygonCache[c]))
+				geometryCheckManifold(
+					r,
+					prefix+"-polygon",
+					CollideChainSegmentAndPolygon(&chains[c], &polygon, xf, &polygonCache[c]),
+				)
 				geometryCheckCache(r, prefix+"-polygon-cache", polygonCache[c])
 			}
 		}

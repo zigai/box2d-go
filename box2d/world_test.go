@@ -51,7 +51,10 @@ func worldEncodeSteps(hashes []uint64) []byte {
 
 func worldDecodeSteps(data []byte) ([]uint64, error) {
 	if len(data)%8 != 0 {
-		return nil, fmt.Errorf("incomplete step hash: %d bytes", len(data)) //nolint:err113 // Test-only diagnostics; consumers report or check failure, not error identity.
+		return nil, fmt.Errorf( //nolint:err113 // Test error; callers never match it.
+			"incomplete step hash: %d bytes",
+			len(data),
+		)
 	}
 
 	hashes := make([]uint64, len(data)/8)
@@ -85,11 +88,22 @@ func (o *worldOracle) finish(t *testing.T) {
 	t.Helper()
 
 	if len(o.expected) != len(o.hashes) {
-		t.Fatalf("world/%s: first divergent source observation %d: got %d observations, C oracle %d", o.name, min(len(o.expected), len(o.hashes))+1, len(o.hashes), len(o.expected))
+		t.Fatalf(
+			"world/%s: first divergent source observation %d: got %d observations, C oracle %d",
+			o.name,
+			min(len(o.expected), len(o.hashes))+1,
+			len(o.hashes),
+			len(o.expected),
+		)
 	}
 
 	if len(o.richExpected) != len(o.richRows) {
-		t.Fatalf("world/%s: dynamics observation count C=%d Go=%d", o.name, len(o.richExpected), len(o.richRows))
+		t.Fatalf(
+			"world/%s: dynamics observation count C=%d Go=%d",
+			o.name,
+			len(o.richExpected),
+			len(o.richRows),
+		)
 	}
 
 	box2d.EndDynamics(o.Reader, o.richRows)
@@ -99,7 +113,12 @@ func (o *worldOracle) finish(t *testing.T) {
 // step records a source observation, not an implicit World.Step. The six
 // TestSetWorkerCount target observations directly record velocity without stepping.
 func (o *worldOracle) step(w *box2d.World, source string) {
-	row := box2d.ObserveDynamics(o.Reader, w, fmt.Sprintf("observation/%d/%s/", len(o.hashes)+1, source), len(o.hashes) == 0 || (len(o.hashes)+1)%60 == 0 || o.name == "TestSetWorkerCount")
+	row := box2d.ObserveDynamics(
+		o.Reader,
+		w,
+		fmt.Sprintf("observation/%d/%s/", len(o.hashes)+1, source),
+		len(o.hashes) == 0 || (len(o.hashes)+1)%60 == 0 || o.name == "TestSetWorkerCount",
+	)
 	box2d.CompareDynamics(o.t, "world/"+o.name+"/"+source, len(o.hashes)+1, row, o.richExpected)
 	o.richRows = append(o.richRows, row)
 	transforms := box2d.BodyTransforms(w)
@@ -107,7 +126,13 @@ func (o *worldOracle) step(w *box2d.World, source string) {
 
 	for _, body := range transforms {
 		transform := body.Transform
-		hash = oracle.HashTransform(hash, transform.P.X, transform.P.Y, transform.Q.C, transform.Q.S)
+		hash = oracle.HashTransform(
+			hash,
+			transform.P.X,
+			transform.P.Y,
+			transform.Q.C,
+			transform.Q.S,
+		)
 	}
 
 	o.hashes = append(o.hashes, hash)
@@ -118,7 +143,15 @@ func (o *worldOracle) step(w *box2d.World, source string) {
 	}
 
 	if hash != o.expected[index] {
-		o.t.Fatalf("world/%s: first divergent source observation %d (%s): transform-only diagnostic hash got %016x, C oracle %016x", o.name, index+1, source, hash, o.expected[index])
+		o.t.Fatalf(
+			"world/%s: first divergent source observation %d (%s): "+
+				"transform-only diagnostic hash got %016x, C oracle %016x",
+			o.name,
+			index+1,
+			source,
+			hash,
+			o.expected[index],
+		)
 	}
 
 	if len(o.hashes)%60 == 0 {
@@ -306,8 +339,6 @@ func helloWorld(t *testing.T, o *worldOracle) int {
 
 		o.Pos("hello.position", position.X, position.Y)
 		o.Rot("hello.rotation", rotation.C, rotation.S)
-
-		// printf("%4.2f %4.2f %4.2f\n", position.X, position.Y, rotation.Angle());
 	}
 
 	// When the world destructor is called, all bodies and joints are freed. This can
@@ -564,7 +595,12 @@ func testWorldRecycle(t *testing.T, o *worldOracle) int {
 }
 
 //nolint:unparam // Preserve the C CustomFilter test hook's two-shape callback contract used by TestWorldCoverage.
-func worldCustomFilter(t *testing.T, o *worldOracle, shapeIDA box2d.Shape, shapeIDB box2d.Shape) bool {
+func worldCustomFilter(
+	t *testing.T,
+	o *worldOracle,
+	shapeIDA box2d.Shape,
+	shapeIDB box2d.Shape,
+) bool {
 	t.Helper()
 
 	if !true {
@@ -576,7 +612,13 @@ func worldCustomFilter(t *testing.T, o *worldOracle, shapeIDA box2d.Shape, shape
 	return true
 }
 
-func worldPreSolveStatic(t *testing.T, _ *worldOracle, _ box2d.Shape, _ box2d.Shape, _ *box2d.Manifold) {
+func worldPreSolveStatic(
+	t *testing.T,
+	_ *worldOracle,
+	_ box2d.Shape,
+	_ box2d.Shape,
+	_ *box2d.Manifold,
+) {
 	t.Helper()
 }
 
@@ -638,8 +680,13 @@ func testWorldCoverage(t *testing.T, o *worldOracle) int {
 	o.Bool("L293", value == 100.0)
 	o.F32("L293:value", value)
 
-	worldID.SetCustomFilterCallback(func(a, b box2d.Shape) bool { return worldCustomFilter(t, o, a, b) })
-	worldID.SetPreSolveCallback(func(a, b box2d.Shape, m *box2d.Manifold) { worldPreSolveStatic(t, o, a, b, m) }, nil)
+	worldID.SetCustomFilterCallback(
+		func(a, b box2d.Shape) bool { return worldCustomFilter(t, o, a, b) },
+	)
+	worldID.SetPreSolveCallback(
+		func(a, b box2d.Shape, m *box2d.Manifold) { worldPreSolveStatic(t, o, a, b, m) },
+		nil,
+	)
 
 	var g box2d.Vec2 = box2d.Vec2{1.0, 2.0}
 	worldID.SetGravity(g)
@@ -764,7 +811,6 @@ func worldTestSensor(t *testing.T, o *worldOracle) int {
 		o.step(worldID, "L368")
 
 		var bulletPos box2d.Pos = bulletID.Position()
-		// printf( "Bullet pos: %g %g\n", bulletPos.X, bulletPos.Y );
 
 		beginEvents := slices.Collect(worldID.SensorBeginEvents())
 		endEvents := slices.Collect(worldID.SensorEndEvents())
@@ -1292,7 +1338,10 @@ func worldEnlargedProxyDestroyed(t *testing.T, o *worldOracle, workerCount int) 
 
 	// Resting bodies keep the tree deep enough that the mover has an ancestor that outlives it
 	for i := range 8 {
-		bodyDef.Position = box2d.Pos{oracle.Real(float32(2.0) * float32(i)), oracle.Real(float32(0.0))}
+		bodyDef.Position = box2d.Pos{
+			oracle.Real(float32(2.0) * float32(i)),
+			oracle.Real(float32(0.0)),
+		}
 
 		var restingID box2d.Body = worldID.CreateBody(&bodyDef)
 		restingID.CreateCircleShape(&shapeDef, &circle)
@@ -1365,7 +1414,13 @@ func worldEnlargedProxyDestroyedTest(t *testing.T, o *worldOracle) int {
 // come from the route under test. The count is every live contact, touching or not, which is what
 // the broad phase decides.
 
-func worldCreatePairBox(worldID *box2d.World, bodyType box2d.BodyType, x float32, y float32, shapeDef *box2d.ShapeDef) worldPairBox {
+func worldCreatePairBox(
+	worldID *box2d.World,
+	bodyType box2d.BodyType,
+	x float32,
+	y float32,
+	shapeDef *box2d.ShapeDef,
+) worldPairBox {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 
 	bodyDef.Type = bodyType
@@ -1517,7 +1572,10 @@ func worldPairTeleport(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L829", worldPairContactCount(worldID) == 0)
 	o.I32("L829:value", int32(worldPairContactCount(worldID)))
 
-	mover.BodyID.SetTransform(box2d.Pos{oracle.Real(float32(0.5)), oracle.Real(float32(0.0))}, box2d.Rot{C: 1})
+	mover.BodyID.SetTransform(
+		box2d.Pos{oracle.Real(float32(0.5)), oracle.Real(float32(0.0))},
+		box2d.Rot{C: 1},
+	)
 	stepPairWorld(o, worldID)
 
 	if worldPairContactCount(worldID) != 1 {
@@ -1527,7 +1585,10 @@ func worldPairTeleport(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L833", worldPairContactCount(worldID) == 1)
 	o.I32("L833:value", int32(worldPairContactCount(worldID)))
 
-	wall.BodyID.SetTransform(box2d.Pos{oracle.Real(float32(20.5)), oracle.Real(float32(0.0))}, box2d.Rot{C: 1})
+	wall.BodyID.SetTransform(
+		box2d.Pos{oracle.Real(float32(20.5)), oracle.Real(float32(0.0))},
+		box2d.Rot{C: 1},
+	)
 	stepPairWorld(o, worldID)
 
 	if worldPairContactCount(worldID) != 2 {
@@ -1550,7 +1611,10 @@ func worldPairTeleport(t *testing.T, o *worldOracle, workerCount int) int {
 	o.Bool("L843", worldPairContactCount(worldID) == 2)
 	o.I32("L843:value", int32(worldPairContactCount(worldID)))
 
-	pusher.BodyID.SetTransform(box2d.Pos{oracle.Real(float32(40.5)), oracle.Real(float32(0.0))}, box2d.Rot{C: 1})
+	pusher.BodyID.SetTransform(
+		box2d.Pos{oracle.Real(float32(40.5)), oracle.Real(float32(0.0))},
+		box2d.Rot{C: 1},
+	)
 	stepPairWorld(o, worldID)
 
 	if worldPairContactCount(worldID) != 3 {
@@ -1835,7 +1899,12 @@ func worldPairFilters(t *testing.T, o *worldOracle, workerCount int) int {
 // A body that outran its margin on the step it went to sleep still gets its contact. This is the
 // hazard behind section G: the marks live in the tree and do not care which set the body is in.
 
-func worldPairSleepEscape(t *testing.T, o *worldOracle, workerCount int, sleepBeforePairs bool) int {
+func worldPairSleepEscape(
+	t *testing.T,
+	o *worldOracle,
+	workerCount int,
+	sleepBeforePairs bool,
+) int {
 	t.Helper()
 
 	var worldDef box2d.WorldDef = box2d.DefaultWorldDef()
@@ -2193,7 +2262,13 @@ func worldPairSleepingStatic(t *testing.T, o *worldOracle, workerCount int) int 
 
 	var (
 		shapeDef box2d.ShapeDef = box2d.DefaultShapeDef()
-		sleeper  worldPairBox   = worldCreatePairBox(worldID, box2d.DynamicBody, 0.0, 0.0, &shapeDef)
+		sleeper  worldPairBox   = worldCreatePairBox(
+			worldID,
+			box2d.DynamicBody,
+			0.0,
+			0.0,
+			&shapeDef,
+		)
 	)
 	stepPairWorld(o, worldID)
 	sleeper.BodyID.SetAwake(false)
@@ -2280,7 +2355,12 @@ func stepLocatorWorld(o *worldOracle, worldID *box2d.World, stepCount int) {
 	}
 }
 
-func worldStepUntilAsleep(o *worldOracle, worldID *box2d.World, bodyID box2d.Body, maxSteps int) bool {
+func worldStepUntilAsleep(
+	o *worldOracle,
+	worldID *box2d.World,
+	bodyID box2d.Body,
+	maxSteps int,
+) bool {
 	for range maxSteps {
 		worldID.Step(1.0/60.0, 4)
 		o.step(worldID, "L1234")
@@ -2323,7 +2403,12 @@ func worldCreateLocatorGround(worldID *box2d.World, x float32, halfWidth float32
 	return bodyID
 }
 
-func worldCreateLocatorBox(worldID *box2d.World, bodyType box2d.BodyType, x float32, y float32) box2d.Body {
+func worldCreateLocatorBox(
+	worldID *box2d.World,
+	bodyType box2d.BodyType,
+	x float32,
+	y float32,
+) box2d.Body {
 	var bodyDef box2d.BodyDef = box2d.DefaultBodyDef()
 
 	bodyDef.Type = bodyType
@@ -2450,7 +2535,12 @@ func worldLocatorDestroyAwakeBody(t *testing.T, o *worldOracle, workerCount int,
 // Destroying a static body swaps the last static sim into the hole. The moved body still has awake
 // contacts, so its side of them has to be re-encoded or the collide task reads past the static set.
 
-func worldLocatorDestroyStaticBody(t *testing.T, o *worldOracle, workerCount int, hash *uint64) int {
+func worldLocatorDestroyStaticBody(
+	t *testing.T,
+	o *worldOracle,
+	workerCount int,
+	hash *uint64,
+) int {
 	t.Helper()
 
 	var worldID *box2d.World = createLocatorWorld(t, workerCount, false)
@@ -3103,7 +3193,14 @@ func worldObserveChainComponent(t *testing.T, o *worldOracle, key string, differ
 	o.F32(key, difference)
 }
 
-func worldCheckChainConversion(t *testing.T, o *worldOracle, worldID *box2d.World, bodyDef *box2d.BodyDef, shapeDef *box2d.ShapeDef, cs2 *box2d.ChainSegment) {
+func worldCheckChainConversion(
+	t *testing.T,
+	o *worldOracle,
+	worldID *box2d.World,
+	bodyDef *box2d.BodyDef,
+	shapeDef *box2d.ShapeDef,
+	cs2 *box2d.ChainSegment,
+) {
 	t.Helper()
 
 	var (

@@ -66,16 +66,348 @@ func Corpus() []Seed {
 		{"empty", nil},
 		{"zero_partial", []byte{0}},
 		{"maximum_operands", maximum},
-		{"lifecycle_reuse", []byte{0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 24, 0, 2, 1, 2, 0, 14, 0, 1, 3, 15, 0, 0, 0, 14, 0, 1, 3, 3, 0, 0, 0, 2, 0, 3, 0, 1, 1, 0, 0, 0, 1, 24, 0, 2, 1, 2, 0, 14, 1, 0, 3, 12, 0, 0, 3, 13, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0}},
-		{"contact_transitions", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 12, 0, 0, 3, 12, 0, 0, 3, 8, 1, 1, 0, 12, 0, 0, 3, 8, 1, 0, 15, 12, 0, 0, 3, 10, 1, 0, 0, 12, 0, 0, 3, 11, 1, 0, 0, 4, 1, 12, 0, 12, 0, 0, 3, 9, 1, 1, 0, 12, 0, 0, 3, 9, 1, 2, 0, 12, 0, 0, 3, 1, 0, 0, 0, 12, 0, 0, 3}},
-		{"snapshot_continuation", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 12, 0, 0, 3, 16, 0, 0, 0, 10, 1, 0, 0, 0, 2, 32, 32, 2, 2, 2, 0, 14, 1, 2, 3, 12, 0, 0, 3, 17, 0, 0, 0, 12, 0, 0, 3, 4, 1, 48, 0, 13, 0, 0, 0, 12, 0, 0, 3}},
-		{"replay_seek_restep", []byte{0, 0, 0, 0, 2, 0, 4, 0, 9, 0, 0, 0, 0, 1, 12, 0, 2, 1, 4, 0, 0, 2, 24, 24, 2, 2, 2, 0, 14, 1, 2, 3, 12, 0, 0, 3, 19, 0, 16, 240, 13, 0, 0, 0, 12, 0, 0, 3}},
-		{"force_velocity_zero_step", []byte{0, 0, 128, 127, 2, 0, 4, 0, 5, 0, 255, 127, 6, 0, 128, 0, 7, 0, 127, 128, 12, 0, 1, 3, 18, 0, 127, 128, 12, 0, 0, 3, 13, 0, 128, 127}},
+		{
+			"lifecycle_reuse",
+			[]byte{
+				0,
+				0,
+				0,
+				0,
+				2,
+				0,
+				0,
+				0,
+				0,
+				1,
+				24,
+				0,
+				2,
+				1,
+				2,
+				0,
+				14,
+				0,
+				1,
+				3,
+				15,
+				0,
+				0,
+				0,
+				14,
+				0,
+				1,
+				3,
+				3,
+				0,
+				0,
+				0,
+				2,
+				0,
+				3,
+				0,
+				1,
+				1,
+				0,
+				0,
+				0,
+				1,
+				24,
+				0,
+				2,
+				1,
+				2,
+				0,
+				14,
+				1,
+				0,
+				3,
+				12,
+				0,
+				0,
+				3,
+				13,
+				0,
+				0,
+				0,
+				20,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				2,
+				0,
+				0,
+				0,
+			},
+		},
+		{
+			"contact_transitions",
+			[]byte{
+				0,
+				0,
+				0,
+				0,
+				2,
+				0,
+				4,
+				0,
+				9,
+				0,
+				0,
+				0,
+				0,
+				1,
+				12,
+				0,
+				2,
+				1,
+				4,
+				0,
+				12,
+				0,
+				0,
+				3,
+				12,
+				0,
+				0,
+				3,
+				8,
+				1,
+				1,
+				0,
+				12,
+				0,
+				0,
+				3,
+				8,
+				1,
+				0,
+				15,
+				12,
+				0,
+				0,
+				3,
+				10,
+				1,
+				0,
+				0,
+				12,
+				0,
+				0,
+				3,
+				11,
+				1,
+				0,
+				0,
+				4,
+				1,
+				12,
+				0,
+				12,
+				0,
+				0,
+				3,
+				9,
+				1,
+				1,
+				0,
+				12,
+				0,
+				0,
+				3,
+				9,
+				1,
+				2,
+				0,
+				12,
+				0,
+				0,
+				3,
+				1,
+				0,
+				0,
+				0,
+				12,
+				0,
+				0,
+				3,
+			},
+		},
+		{
+			"snapshot_continuation",
+			[]byte{
+				0,
+				0,
+				0,
+				0,
+				2,
+				0,
+				4,
+				0,
+				9,
+				0,
+				0,
+				0,
+				0,
+				1,
+				12,
+				0,
+				2,
+				1,
+				4,
+				0,
+				12,
+				0,
+				0,
+				3,
+				16,
+				0,
+				0,
+				0,
+				10,
+				1,
+				0,
+				0,
+				0,
+				2,
+				32,
+				32,
+				2,
+				2,
+				2,
+				0,
+				14,
+				1,
+				2,
+				3,
+				12,
+				0,
+				0,
+				3,
+				17,
+				0,
+				0,
+				0,
+				12,
+				0,
+				0,
+				3,
+				4,
+				1,
+				48,
+				0,
+				13,
+				0,
+				0,
+				0,
+				12,
+				0,
+				0,
+				3,
+			},
+		},
+		{
+			"replay_seek_restep",
+			[]byte{
+				0,
+				0,
+				0,
+				0,
+				2,
+				0,
+				4,
+				0,
+				9,
+				0,
+				0,
+				0,
+				0,
+				1,
+				12,
+				0,
+				2,
+				1,
+				4,
+				0,
+				0,
+				2,
+				24,
+				24,
+				2,
+				2,
+				2,
+				0,
+				14,
+				1,
+				2,
+				3,
+				12,
+				0,
+				0,
+				3,
+				19,
+				0,
+				16,
+				240,
+				13,
+				0,
+				0,
+				0,
+				12,
+				0,
+				0,
+				3,
+			},
+		},
+		{
+			"force_velocity_zero_step",
+			[]byte{
+				0,
+				0,
+				128,
+				127,
+				2,
+				0,
+				4,
+				0,
+				5,
+				0,
+				255,
+				127,
+				6,
+				0,
+				128,
+				0,
+				7,
+				0,
+				127,
+				128,
+				12,
+				0,
+				1,
+				3,
+				18,
+				0,
+				127,
+				128,
+				12,
+				0,
+				0,
+				3,
+				13,
+				0,
+				128,
+				127,
+			},
+		},
 	}
 }
 
 func differentialScalar(x byte) float32 { return float32(int8(x)) / 16 }
-func differentialPosition(x, y byte) box2d.Pos {
+func differentialPosition(x byte, y byte) box2d.Pos {
 	return box2d.Pos{}.Add(box2d.Vec2{X: differentialScalar(x), Y: differentialScalar(y)})
 }
 
@@ -105,7 +437,7 @@ func (s *differentialSequence) pos(key string, p box2d.Pos) {
 	s.r.Pos(key, oracle.Real(p.X), oracle.Real(p.Y))
 }
 func (s *differentialSequence) rot(key string, q box2d.Rot) { s.r.Rot(key, q.C, q.S) }
-func (s *differentialSequence) pair(a, b box2d.Shape, c box2d.Contact) {
+func (s *differentialSequence) pair(a box2d.Shape, b box2d.Shape, c box2d.Contact) {
 	s.r.U64("pair.a", differentialID(a.ID()))
 	s.r.U64("pair.b", differentialID(b.ID()))
 	s.r.Bool("pair.a.valid", a.IsValid())
@@ -260,7 +592,7 @@ func (s *differentialSequence) observe() {
 	s.r.U64("world.hash", s.world.StateHash())
 }
 
-func (s *differentialSequence) query(w *box2d.World, x, y byte) {
+func (s *differentialSequence) query(w *box2d.World, x byte, y byte) {
 	p := differentialPosition(x, y)
 	a := box2d.AABB{LowerBound: box2d.Vec2{X: -2, Y: -2}, UpperBound: box2d.Vec2{X: 2, Y: 2}}
 	f := box2d.DefaultQueryFilter()
@@ -332,7 +664,7 @@ func (s *differentialSequence) replay(p *box2d.Replay) {
 	s.r.U64("world.hash", p.World().StateHash())
 }
 
-func (s *differentialSequence) recording(x, y byte) {
+func (s *differentialSequence) recording(x byte, y byte) {
 	r := box2d.NewRecording(0)
 
 	s.world.StartRecording(r)
@@ -392,7 +724,7 @@ func (s *differentialSequence) recording(x, y byte) {
 	s.replayRecording(r, x, y)
 }
 
-func (s *differentialSequence) replayRecording(r *box2d.Recording, x, y byte) {
+func (s *differentialSequence) replayRecording(r *box2d.Recording, x byte, y byte) {
 	p, err := box2d.NewReplay(r.Data(), 0)
 	s.r.Bool("replay.created", err == nil && p != nil)
 
@@ -442,7 +774,10 @@ func (s *differentialSequence) replayRecording(r *box2d.Recording, x, y byte) {
 
 	for i := range p.BodyCount() {
 		if b := p.Body(i); b.IsValid() {
-			b.ApplyForceToCenter(box2d.Vec2{X: differentialScalar(y), Y: differentialScalar(x)}, true)
+			b.ApplyForceToCenter(
+				box2d.Vec2{X: differentialScalar(y), Y: differentialScalar(x)},
+				true,
+			)
 		}
 	}
 
@@ -471,7 +806,14 @@ func (s *differentialSequence) execute(input []byte) {
 		var op [4]byte
 		copy(op[:], input[offset:min(offset+4, len(input))])
 		code, slot := op[0]%21, int(op[1]%4)
-		s.t.Logf("operation %d: opcode=%d slot=%d operands=%02x,%02x", offset/4, code, slot, op[2], op[3])
+		s.t.Logf(
+			"operation %d: opcode=%d slot=%d operands=%02x,%02x",
+			offset/4,
+			code,
+			slot,
+			op[2],
+			op[3],
+		)
 
 		s.r.U32("operation.index", uint32(offset/4))
 		s.r.U32("operation.code", uint32(code))
@@ -518,7 +860,10 @@ func (s *differentialSequence) bodyOperation(op [4]byte) bool {
 	case 6:
 		b.SetAngularVelocity(differentialScalar(op[2]))
 	case 7:
-		b.ApplyForceToCenter(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])}, true)
+		b.ApplyForceToCenter(
+			box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])},
+			true,
+		)
 	case 9:
 		b.SetType(box2d.BodyType(op[2] % 3))
 	case 10:
@@ -526,7 +871,10 @@ func (s *differentialSequence) bodyOperation(op [4]byte) bool {
 	case 11:
 		b.Enable()
 	case 18:
-		b.ApplyLinearImpulseToCenter(box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])}, true)
+		b.ApplyLinearImpulseToCenter(
+			box2d.Vec2{X: differentialScalar(op[2]), Y: differentialScalar(op[3])},
+			true,
+		)
 	default:
 		return false
 	}

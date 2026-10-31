@@ -31,7 +31,11 @@ func recordingObserveProperties(r recordingPropertyObserver, world *box2d.World,
 	recordingObserveJointProperties(r, world, prefix)
 }
 
-func recordingObserveWorldProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
+func recordingObserveWorldProperties(
+	r recordingPropertyObserver,
+	world *box2d.World,
+	prefix string,
+) {
 	r.Bool(prefix+"/IsSleepingEnabled", world.SleepingEnabled())
 	r.Bool(prefix+"/IsContinuousEnabled", world.ContinuousEnabled())
 	r.Bool(prefix+"/IsWarmStartingEnabled", world.WarmStartingEnabled())
@@ -50,7 +54,11 @@ func recordingObserveWorldProperties(r recordingPropertyObserver, world *box2d.W
 	r.F32(prefix+"/contactSpeed", s)
 }
 
-func recordingObserveBodyProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
+func recordingObserveBodyProperties(
+	r recordingPropertyObserver,
+	world *box2d.World,
+	prefix string,
+) {
 	for _, id := range box2d.RecordingBodies(world) {
 		key := fmt.Sprintf("%s/body%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -82,7 +90,11 @@ func recordingObserveBodyProperties(r recordingPropertyObserver, world *box2d.Wo
 	}
 }
 
-func recordingObserveShapeProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
+func recordingObserveShapeProperties(
+	r recordingPropertyObserver,
+	world *box2d.World,
+	prefix string,
+) {
 	for _, id := range box2d.RecordingShapes(world) {
 		key := fmt.Sprintf("%s/shape%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -143,7 +155,11 @@ func recordingObserveShapeProperties(r recordingPropertyObserver, world *box2d.W
 	}
 }
 
-func recordingObserveJointProperties(r recordingPropertyObserver, world *box2d.World, prefix string) {
+func recordingObserveJointProperties(
+	r recordingPropertyObserver,
+	world *box2d.World,
+	prefix string,
+) {
 	for _, id := range box2d.RecordingJoints(world) {
 		key := fmt.Sprintf("%s/joint%d", prefix, id.ID()>>32)
 		r.U32(key+"/generation", uint32(uint16(id.ID())))
@@ -271,7 +287,7 @@ type recordingPropertyFields struct {
 	byName map[string]int
 }
 
-func (f *recordingPropertyFields) field(key, kind string) *uint64 {
+func (f *recordingPropertyFields) field(key string, kind string) *uint64 {
 	relative := strings.TrimPrefix(key, f.prefix+"/")
 
 	family := relative
@@ -330,12 +346,12 @@ func (f *recordingPropertyFields) F32(key string, value float32) {
 	*hash = oracle.HashU32(*hash, math.Float32bits(value))
 }
 
-func (f *recordingPropertyFields) Vec2(key string, x, y float32) {
+func (f *recordingPropertyFields) Vec2(key string, x float32, y float32) {
 	hash := f.field(key, "vec2")
 	*hash = oracle.HashF32(oracle.HashF32(*hash, x), y)
 }
 
-func (f *recordingPropertyFields) Rot(key string, c, s float32) {
+func (f *recordingPropertyFields) Rot(key string, c float32, s float32) {
 	hash := f.field(key, "rot")
 	*hash = oracle.HashRot(*hash, c, s)
 }

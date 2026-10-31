@@ -58,7 +58,7 @@ func testMathAngles(t *testing.T, checks *mathChecks) {
 	}
 }
 
-func checkMathUnwoundAngle(t *testing.T, checks *mathChecks, angle, s, c float32) {
+func checkMathUnwoundAngle(t *testing.T, checks *mathChecks, angle float32, s float32, c float32) {
 	t.Helper()
 
 	xn := box2d.UnwindAngle(angle)
@@ -126,7 +126,12 @@ func testMathAtanAxes(t *testing.T, checks *mathChecks) {
 	checkMathAtanAxis(t, checks, 0, 0, 350, 94, 95)
 }
 
-func checkMathAtanAxis(t *testing.T, checks *mathChecks, y, x float32, valueSite, validSite, diffSite int) {
+func checkMathAtanAxis(
+	t *testing.T,
+	checks *mathChecks,
+	y float32, x float32,
+	valueSite int, validSite int, diffSite int,
+) {
 	t.Helper()
 
 	a1 := box2d.Atan2(y, x)
@@ -270,10 +275,12 @@ func testMathRotationInterpolation(t *testing.T, checks *mathChecks) {
 		angle := q.Angle()
 		checks.f32(159, float32(float32(alpha*0.5)*box2d.Pi)-angle)
 
-		if v := float32(float32(alpha*0.5)*box2d.Pi) - angle; v < -(5.0*box2d.Pi/180.0) || (5.0*box2d.Pi/180.0) < v {
+		if v := float32(
+			float32(alpha*0.5)*box2d.Pi,
+		) - angle; v < -(5.0*box2d.Pi/180.0) ||
+			(5.0*box2d.Pi/180.0) < v {
 			t.Fatalf("condition false: abs(%v) < %v", v, 5.0*box2d.Pi/180.0)
 		}
-		// printf("angle = [%g %g %g]\n", alpha, alpha * 0.5 * box2d.Pi, angle)
 	}
 }
 
@@ -505,7 +512,18 @@ func (r *mathChecks) f32(site int, value float32) {
 			distance = -distance
 		}
 
-		r.t.Fatalf("math first divergence: upstream line %d, site %d, checkpoint %d: C 0x%08x (%g), Go 0x%08x (%g), ULP distance %d", site%256, site, r.ordinal, math.Float32bits(want), want, math.Float32bits(value), value, distance)
+		r.t.Fatalf(
+			"math first divergence: upstream line %d, site %d, checkpoint %d: "+
+				"C 0x%08x (%g), Go 0x%08x (%g), ULP distance %d",
+			site%256,
+			site,
+			r.ordinal,
+			math.Float32bits(want),
+			want,
+			math.Float32bits(value),
+			value,
+			distance,
+		)
 	}
 }
 
@@ -515,7 +533,13 @@ func (r *mathChecks) boolean(site int, value bool) {
 
 	want := r.take(1)[0] != 0
 	if want != value {
-		r.t.Fatalf("math first divergence: upstream line %d, checkpoint %d: C %v, Go %v", site%256, r.ordinal, want, value)
+		r.t.Fatalf(
+			"math first divergence: upstream line %d, checkpoint %d: C %v, Go %v",
+			site%256,
+			r.ordinal,
+			want,
+			value,
+		)
 	}
 }
 
@@ -523,6 +547,10 @@ func (r *mathChecks) close() {
 	r.t.Helper()
 
 	if r.offset != len(r.data) {
-		r.t.Fatalf("math fixture: %d unread bytes after checkpoint %d", len(r.data)-r.offset, r.ordinal)
+		r.t.Fatalf(
+			"math fixture: %d unread bytes after checkpoint %d",
+			len(r.data)-r.offset,
+			r.ordinal,
+		)
 	}
 }

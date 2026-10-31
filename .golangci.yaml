@@ -7,7 +7,13 @@ formatters:
   enable:
     - goimports
     - gofumpt
+    - golines
   settings:
+    gofumpt:
+      extra:
+        balance-calls: true
+    golines:
+      max-len: 100
     goimports:
       local-prefixes:
         - github.com/zigai/box2d-go
@@ -36,6 +42,7 @@ linters:
     - errname
     - errorlint
     - exhaustive
+    - exhaustruct_v5
     - exptostd
     - fatcontext
     - forcetypeassert
@@ -63,11 +70,13 @@ linters:
     - interfacebloat
     - intrange
     - iotamixing
+    - lll
     - loggercheck
     - maintidx
     - makezero
     - mirror
     - misspell
+    - mnd
     - modernize
     - musttag
     - nakedret
@@ -97,6 +106,7 @@ linters:
     - testableexamples
     - testifylint
     - thelper
+    - unconvert
     - unparam
     - unqueryvet
     - unused
@@ -109,6 +119,16 @@ linters:
     - zerologlint
 
   settings:
+    mnd:
+      ignored-numbers:
+        - "0o600"
+        - "0o644"
+        - "0o700"
+        - "0o750"
+        - "0600"
+        - "0644"
+        - "0700"
+        - "0750"
     embeddedstructfieldcheck:
       forbid-mutex: true
     errcheck:
@@ -134,7 +154,11 @@ linters:
       min-complexity: 20
     goconst:
       min-occurrences: 16
+    lll:
+      line-length: 120
+      tab-width: 4
     gocritic:
+      enabled-tags: [diagnostic]
       settings:
         captLocal:
           paramsOnly: false
@@ -188,6 +212,8 @@ linters:
         - name: indent-error-flow
         - name: superfluous-else
         - name: modifies-parameter
+        - name: enforce-repeated-arg-type-style
+          arguments: ["full"]
         - name: unreachable-code
           disabled: true
         - name: redefines-builtin-id
@@ -195,6 +221,27 @@ linters:
     rowserrcheck:
       packages:
         - github.com/jmoiron/sqlx
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          yaml: snake
+          toml: snake
+    exhaustruct_v5:
+      allow-empty-returns: true
+      # Types whose zero fields mean "use the default". Mark such types in
+      # this module with //exhaustruct:optional instead of listing them here.
+      ignore-patterns:
+        - "^github\\.com/spf13/cobra\\..+$"
+        - "^github\\.com/spf13/pflag\\..+$"
+        - "^github\\.com/urfave/cli(/v[0-9]+)?\\..+$"
+        - "^net/http\\.(Client|Server|Transport)$"
+        - "^net\\.(Dialer|ListenConfig)$"
+        - "^net/url\\.URL$"
+        - "^crypto/tls\\.Config$"
+        - "^log/slog\\.HandlerOptions$"
+        - "^os/exec\\.Cmd$"
+        - "^syscall\\.SysProcAttr$"
     staticcheck:
       checks:
         - all
@@ -206,12 +253,12 @@ linters:
         - -ST1021
         - -ST1022
     nolintlint:
-      allow-no-explanation: [funlen, gocognit, golines]
+      allow-no-explanation: [gocognit, golines]
       require-explanation: true
       require-specific: true
     gosec:
       excludes:
-        - G204 # exec.Command from $EDITOR is user-controlled by design
+        - G204 # subprocess launched with variable
         - G301 # directory perms
         - G302 # file perms
         - G304 # file path from variable
@@ -223,34 +270,43 @@ linters:
     presets: []
     rules:
       - path: ".*_test\\.go"
-        linters: [decorder, funcorder, cyclop, gocognit]
+        linters: [decorder, funcorder, cyclop, gocognit, dupl, maintidx, exhaustruct_v5]
+
+      # Test-helper packages (named like httptest) only build fixtures.
+      - path: "(^|/)[a-z0-9]+test/"
+        linters: [exhaustruct_v5]
+
+      # Ported C and the harness that mirrors the C reference programs keep
+      # upstream's numeric literals and zero-initialized struct fields.
+      - path: "^(box2d|internal)/"
+        linters: [mnd, exhaustruct_v5]
       - path: "^box2d/body\\.go$"
         linters: [gocritic]
         source: "^[\\t ]*if bodyA\\.bodyType != DynamicBody && bodyB\\.bodyType != DynamicBody \\{$"
         text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
       - path: "^box2d/constraint_graph\\.go$"
         linters: [dupl]
-        source: "^func remove(Contact|Joint)FromGraph\\(world \\*World, bodyIDA int, bodyIDB int, colorIndex int, localIndex int\\) \\{$"
-        text: "^(?:134-161 lines are duplicate of `box2d/constraint_graph\\.go:229-254`|229-254 lines are duplicate of `box2d/constraint_graph\\.go:134-161`)$"
+        source: "^func remove(Contact|Joint)FromGraph\\("
+        text: "^(?:143-179 lines are duplicate of `box2d/constraint_graph\\.go:256-284`|256-284 lines are duplicate of `box2d/constraint_graph\\.go:143-179`)$"
       - path: "^box2d/contact_solver\\.go$"
         linters: [dupl]
         source: "^[\\t ]*\\{$"
-        text: "^(?:1510-1537 lines are duplicate of `box2d/contact_solver\\.go:1539-1566`|1539-1566 lines are duplicate of `box2d/contact_solver\\.go:1510-1537`)$"
+        text: "^(?:1673-1713 lines are duplicate of `box2d/contact_solver\\.go:1715-1755`|1715-1755 lines are duplicate of `box2d/contact_solver\\.go:1673-1713`)$"
       - path: "^box2d/distance_joint\\.go$"
         linters: [nestif]
         source: "^[\\t ]*if jnt\\.enableSpring && \\(jnt\\.minLength < jnt\\.maxLength \\|\\| !jnt\\.enableLimit\\) \\{$"
         text: "^(?:`if jnt\\.enableSpring && \\(jnt\\.minLength < jnt\\.maxLength \\|\\| !jnt\\.enableLimit\\)` has complex nested blocks \\(complexity: 5\\))$"
       - path: "^box2d/dynamic_tree\\.go$"
         linters: [cyclop, gocognit]
-        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) CastBox\\(input \\*BoxCastInput, maskBits uint64, callback TreeBoxCastCallbackFunc\\) TreeStats \\{$"
+        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) CastBox\\("
         text: "^(?:calculated cyclomatic complexity for function CastBox is 13, max is 12|cognitive complexity 30 of func `\\(\\*DynamicTree\\)\\.CastBox` is high \\(> 20\\))$"
       - path: "^box2d/dynamic_tree\\.go$"
         linters: [cyclop, gocognit]
-        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) CastRay\\(input \\*RayCastInput, maskBits uint64, callback TreeRayCastCallbackFunc\\) TreeStats \\{$"
+        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) CastRay\\("
         text: "^(?:calculated cyclomatic complexity for function CastRay is 13, max is 12|cognitive complexity 30 of func `\\(\\*DynamicTree\\)\\.CastRay` is high \\(> 20\\))$"
       - path: "^box2d/dynamic_tree\\.go$"
         linters: [gocognit]
-        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) Query\\(aabb AABB, maskBits uint64, callback TreeQueryCallbackFunc\\) TreeStats \\{$"
+        source: "^[\\t ]*func \\(tree \\*DynamicTree\\) Query\\("
         text: "^(?:cognitive complexity 21 of func `\\(\\*DynamicTree\\)\\.Query` is high \\(> 20\\))$"
       - path: "^box2d/dynamic_tree\\.go$"
         linters: [cyclop, gocognit]
@@ -278,15 +334,15 @@ linters:
         text: "^(?:calculated cyclomatic complexity for function runDynamicTreeTreeRayCastTest is 18, max is 12|Function name: runDynamicTreeTreeRayCastTest, Cyclomatic Complexity: 18, Halstead Volume: 11476\\.28, Maintainability Index: 13)$"
       - path: "^internal/oracle/oracle\\.go$"
         linters: [unparam]
-        source: "^[\\t ]*func \\(r \\*Reader\\) checkFloat\\(rec record, component, field string, width int, got uint64\\) \\{$"
+        source: "^[\\t ]*func \\(r \\*Reader\\) checkFloat\\("
         text: "^(?:\\(\\*Reader\\)\\.checkFloat - width always receives 32)$"
       - path: "^box2d/joint\\.go$"
         linters: [cyclop]
-        source: "^[\\t ]*func drawJointGeometry\\(draw \\*DebugDraw, jnt \\*joint, sim \\*jointSim, xfA, xfB WorldTransform\\) \\(Pos, Pos\\) \\{$"
+        source: "^[\\t ]*func drawJointGeometry\\("
         text: "^(?:calculated cyclomatic complexity for function drawJointGeometry is 13, max is 12)$"
       - path: "^box2d/joint\\.go$"
         linters: [cyclop]
-        source: "^[\\t ]*func placeJointInSolverSet\\(world \\*World, jnt \\*joint, bodyA, bodyB \\*body, maxSetIndex int\\) \\*jointSim \\{$"
+        source: "^[\\t ]*func placeJointInSolverSet\\("
         text: "^(?:calculated cyclomatic complexity for function placeJointInSolverSet is 13, max is 12)$"
       - path: "^box2d/joint\\.go$"
         linters: [gocritic, nestif]
@@ -298,15 +354,15 @@ linters:
         text: "^(?:ifElseChain: rewrite if-else to switch statement)$"
       - path: "^box2d/manifold\\.go$"
         linters: [cyclop, gocognit, maintidx]
-        source: "^[\\t ]*func CollideCapsules\\(capsuleA, capsuleB \\*Capsule, xf Transform\\) LocalManifold \\{$"
-        text: "^(?:calculated cyclomatic complexity for function CollideCapsules is 40, max is 12|cognitive complexity 56 of func `CollideCapsules` is high \\(> 20\\)|Function name: CollideCapsules, Cyclomatic Complexity: 40, Halstead Volume: 7234\\.59, Maintainability Index: 15)$"
+        source: "^[\\t ]*func CollideCapsules\\("
+        text: "^(?:calculated cyclomatic complexity for function CollideCapsules is 40, max is 12|cognitive complexity 56 of func `CollideCapsules` is high \\(> 20\\)|Function name: CollideCapsules, Cyclomatic Complexity: 40, Halstead Volume: 7248\\.68, Maintainability Index: 15)$"
       - path: "^box2d/manifold\\.go$"
         linters: [cyclop, gocognit, maintidx]
-        source: "^[\\t ]*func CollideChainSegmentAndPolygon\\(segmentA \\*ChainSegment, polygonB \\*Polygon, xf Transform, cache \\*SimplexCache\\) LocalManifold \\{$"
-        text: "^(?:calculated cyclomatic complexity for function CollideChainSegmentAndPolygon is 48, max is 12|cognitive complexity 102 of func `CollideChainSegmentAndPolygon` is high \\(> 20\\)|Function name: CollideChainSegmentAndPolygon, Cyclomatic Complexity: 48, Halstead Volume: 8994\\.84, Maintainability Index: 9)$"
+        source: "^[\\t ]*func CollideChainSegmentAndPolygon\\("
+        text: "^(?:calculated cyclomatic complexity for function CollideChainSegmentAndPolygon is 48, max is 12|cognitive complexity 102 of func `CollideChainSegmentAndPolygon` is high \\(> 20\\)|Function name: CollideChainSegmentAndPolygon, Cyclomatic Complexity: 48, Halstead Volume: 8965\\.45, Maintainability Index: 8)$"
       - path: "^box2d/manifold\\.go$"
         linters: [cyclop, gocognit]
-        source: "^[\\t ]*func CollidePolygons\\(polygonA, polygonB \\*Polygon, xf Transform\\) LocalManifold \\{$"
+        source: "^[\\t ]*func CollidePolygons\\("
         text: "^(?:calculated cyclomatic complexity for function CollidePolygons is 22, max is 12|cognitive complexity 32 of func `CollidePolygons` is high \\(> 20\\))$"
       - path: "^box2d/manifold\\.go$"
         linters: [nestif]
@@ -355,11 +411,11 @@ linters:
       - path: "^box2d/prismatic_joint\\.go$"
         linters: [maintidx]
         source: "^[\\t ]*func solvePrismaticJoint\\(base \\*jointSim, context \\*stepContext, useBias bool\\) \\{$"
-        text: "^(?:Function name: solvePrismaticJoint, Cyclomatic Complexity: 11, Halstead Volume: 8901\\.23, Maintainability Index: 19)$"
+        text: "^(?:Function name: solvePrismaticJoint, Cyclomatic Complexity: 11, Halstead Volume: 8901\\.23, Maintainability Index: 17)$"
       - path: "^box2d/prismatic_joint\\.go$"
         linters: [dupl]
         source: "^[\\t ]*if separation < speculativeDistance \\{$"
-        text: "^(?:598-617 lines are duplicate of `box2d/prismatic_joint\\.go:627-649`|627-649 lines are duplicate of `box2d/prismatic_joint\\.go:598-617`)$"
+        text: "^(?:648-679 lines are duplicate of `box2d/prismatic_joint\\.go:689-723`|689-723 lines are duplicate of `box2d/prismatic_joint\\.go:648-679`)$"
       - path: "^box2d/recording_mutations_test\\.go$"
         linters: [cyclop, maintidx]
         source: "^[\\t ]*func TestRecordingMutationParity\\(t \\*testing\\.T\\) \\{$"
@@ -387,11 +443,11 @@ linters:
       - path: "^box2d/solver\\.go$"
         linters: [cyclop, gocognit, maintidx]
         source: "^[\\t ]*func solve\\(world \\*World, stepContext \\*stepContext\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function solve is 17, max is 12|cognitive complexity 27 of func `solve` is high \\(> 20\\)|Function name: solve, Cyclomatic Complexity: 17, Halstead Volume: 7812\\.60, Maintainability Index: 15)$"
+        text: "^(?:calculated cyclomatic complexity for function solve is 17, max is 12|cognitive complexity 27 of func `solve` is high \\(> 20\\)|Function name: solve, Cyclomatic Complexity: 7, Halstead Volume: 5384\\.33, Maintainability Index: 18)$"
       - path: "^box2d/solver\\.go$"
         linters: [cyclop, gocognit, maintidx]
         source: "^[\\t ]*func solverTask\\(taskContext \\*workerContext\\) \\{$"
-        text: "^(?:calculated cyclomatic complexity for function solverTask is 18, max is 12|cognitive complexity 44 of func `solverTask` is high \\(> 20\\)|Function name: solverTask, Cyclomatic Complexity: 18, Halstead Volume: 4769\\.51, Maintainability Index: 19)$"
+        text: "^(?:calculated cyclomatic complexity for function solverTask is 18, max is 12|cognitive complexity 44 of func `solverTask` is high \\(> 20\\)|Function name: solverTask, Cyclomatic Complexity: 18, Halstead Volume: 4727\\.85, Maintainability Index: 18)$"
       - path: "^box2d/solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverArenaGrowthShrink\\(t \\*testing\\.T, workers int\\) \\{$"

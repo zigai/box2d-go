@@ -17,12 +17,23 @@ type Donut struct {
 	isSpawned bool
 }
 
-func (d *Donut) Create(worldID *box2d.World, position box2d.Pos, scale float32, groupIndex int, enableSensorEvents bool, userData any) {
+func (d *Donut) Create(
+	worldID *box2d.World,
+	position box2d.Pos,
+	scale float32,
+	groupIndex int,
+	enableSensorEvents bool,
+	userData any,
+) {
 	radius := 1.0 * scale
 	deltaAngle := 2.0 * box2d.Pi / donutSides
 	length := 2.0 * box2d.Pi * radius / donutSides
 
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5 * length}, Center2: box2d.Vec2{X: 0.0, Y: 0.5 * length}, Radius: 0.25 * scale}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: 0.0, Y: -0.5 * length},
+		Center2: box2d.Vec2{X: 0.0, Y: 0.5 * length},
+		Radius:  0.25 * scale,
+	}
 
 	center := position
 
@@ -39,7 +50,10 @@ func (d *Donut) Create(worldID *box2d.World, position box2d.Pos, scale float32, 
 	for i := range donutSides {
 		cosAngle := float32(math.Cos(float64(angle)))
 		sinAngle := float32(math.Sin(float64(angle)))
-		bodyDef.Position = box2d.Pos{X: posScalar(radius*cosAngle) + center.X, Y: posScalar(radius*sinAngle) + center.Y}
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(radius*cosAngle) + center.X,
+			Y: posScalar(radius*sinAngle) + center.Y,
+		}
 		bodyDef.Rotation = box2d.MakeRot(angle)
 
 		d.bodyIDs[i] = worldID.CreateBody(&bodyDef)

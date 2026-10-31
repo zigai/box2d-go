@@ -56,7 +56,10 @@ func NewRecording(byteCapacity int) *Recording {
 		byteCapacity = 65536
 	}
 
-	return &Recording{buffer: recBuffer{data: make([]byte, byteCapacity), capacity: byteCapacity}, lock: new(sync.Mutex)}
+	return &Recording{
+		buffer: recBuffer{data: make([]byte, byteCapacity), capacity: byteCapacity},
+		lock:   new(sync.Mutex),
+	}
 }
 
 // ReadRecording reads a recording written by WriteTo into a new recording buffer. It returns
@@ -72,7 +75,11 @@ func ReadRecording(src io.Reader) (*Recording, error) {
 	}
 
 	if binary.LittleEndian.Uint32(data) != recMagic {
-		return nil, fmt.Errorf("%w: recording magic 0x%08X", ErrBadMagic, binary.LittleEndian.Uint32(data))
+		return nil, fmt.Errorf(
+			"%w: recording magic 0x%08X",
+			ErrBadMagic,
+			binary.LittleEndian.Uint32(data),
+		)
 	}
 
 	r := NewRecording(len(data))
@@ -521,7 +528,10 @@ func recPatchU32(buf *recBuffer, offset int, v uint32) {
 }
 
 func recCommitRecord(rec *Recording, opcode uint8, payload []byte, payloadSize int) {
-	core.Assert(payloadSize >= 0 && payloadSize < 1<<24, "payloadSize >= 0 && payloadSize < ( 1 << 24 )")
+	core.Assert(
+		payloadSize >= 0 && payloadSize < 1<<24,
+		"payloadSize >= 0 && payloadSize < ( 1 << 24 )",
+	)
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
 
@@ -548,7 +558,13 @@ func recOverlapTrampoline(id Shape, ctx *recQueryWriter) bool {
 	return ret
 }
 
-func recCastTrampoline(id Shape, point Pos, normal Vec2, fraction float32, ctx *recQueryWriter) float32 {
+func recCastTrampoline(
+	id Shape,
+	point Pos,
+	normal Vec2,
+	fraction float32,
+	ctx *recQueryWriter,
+) float32 {
 	ret := ctx.userFcn.castFcn(id, point, normal, fraction)
 	recWSHAPEID(&ctx.buf, id)
 	recWPOSITION(&ctx.buf, point)

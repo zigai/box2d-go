@@ -307,7 +307,7 @@ func runContainerTestEmptyArrayProperties(t *testing.T) {
 		t.Fatal("condition false")
 	}
 
-	if a != nil { //nolint:govet // reason: nilness preserves oracle/tests/upstream/test_container.c:292's deliberate destroyed-array nil check.
+	if a != nil { //nolint:govet // nilness: mirrors the C test's destroyed-array nil check.
 		t.Fatal("condition false")
 	}
 

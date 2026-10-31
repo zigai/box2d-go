@@ -152,7 +152,18 @@ func (s *SensorFunnel) CreateElement() {
 		jointHertz := float32(6.0)
 		jointDamping := float32(0.5)
 		colorize := true
-		scenes.CreateHuman(human, s.worldID, center, scale, jointFriction, jointHertz, jointDamping, index+1, human, colorize)
+		scenes.CreateHuman(
+			human,
+			s.worldID,
+			center,
+			scale,
+			jointFriction,
+			jointHertz,
+			jointDamping,
+			index+1,
+			human,
+			colorize,
+		)
 		human.EnableSensorEvents(true)
 	}
 
@@ -274,13 +285,22 @@ func CreateSensorBookend(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
 
-		groundSegment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		groundSegment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 
-		groundSegment = box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: -10.0, Y: 10.0}}
+		groundSegment = box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: -10.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 
-		groundSegment = box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 10.0}}
+		groundSegment = box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 
 		s.isVisiting1 = false
@@ -522,7 +542,11 @@ func CreateFootSensor(context *SampleContext) Sampler {
 		shapeDef.Filter.CategoryBits = footPlayer
 		shapeDef.Filter.MaskBits = footGround
 		shapeDef.Material.Friction = 0.3
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.5}, Center2: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.5}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
+			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
+			Radius:  0.5,
+		}
 		s.playerID.CreateCapsuleShape(&shapeDef, &capsule)
 
 		box := box2d.MakeOffsetBox(0.5, 0.25, box2d.Vec2{X: 0.0, Y: -1.0}, box2d.RotIdentity)
@@ -595,7 +619,12 @@ func CreateContactEvent(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 
-		points := []box2d.Vec2{{X: 40.0, Y: -40.0}, {X: -40.0, Y: -40.0}, {X: -40.0, Y: 40.0}, {X: 40.0, Y: 40.0}}
+		points := []box2d.Vec2{
+			{X: 40.0, Y: -40.0},
+			{X: -40.0, Y: -40.0},
+			{X: -40.0, Y: 40.0},
+			{X: 40.0, Y: 40.0},
+		}
 
 		chainDef := box2d.DefaultChainDef()
 		chainDef.Points = points
@@ -671,7 +700,11 @@ func (s *ContactEvent) SpawnDebris() {
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 		s.debrisIDs[index].CreateCircleShape(&shapeDef, &circle)
 	} else if (index+1)%2 == 0 {
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: -0.25}, Center2: box2d.Vec2{X: 0.0, Y: 0.25}, Radius: 0.25}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -0.25},
+			Center2: box2d.Vec2{X: 0.0, Y: 0.25},
+			Radius:  0.25,
+		}
 		s.debrisIDs[index].CreateCapsuleShape(&shapeDef, &capsule)
 	} else {
 		box := box2d.MakeBox(0.4, 0.6)
@@ -904,10 +937,20 @@ func CreateBodyMove(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.1
 
-		box := box2d.MakeOffsetBox(12.0, 0.1, box2d.Vec2{X: -10.0, Y: -0.1}, box2d.MakeRot(-0.15*box2d.Pi))
+		box := box2d.MakeOffsetBox(
+			12.0,
+			0.1,
+			box2d.Vec2{X: -10.0, Y: -0.1},
+			box2d.MakeRot(-0.15*box2d.Pi),
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(12.0, 0.1, box2d.Vec2{X: 10.0, Y: -0.1}, box2d.MakeRot(0.15*box2d.Pi))
+		box = box2d.MakeOffsetBox(
+			12.0,
+			0.1,
+			box2d.Vec2{X: 10.0, Y: -0.1},
+			box2d.MakeRot(0.15*box2d.Pi),
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
 		shapeDef.Material.Restitution = 0.8
@@ -932,7 +975,11 @@ func CreateBodyMove(context *SampleContext) Sampler {
 }
 
 func (s *BodyMove) CreateBodies() {
-	capsule := box2d.Capsule{Center1: box2d.Vec2{X: -0.25, Y: 0.0}, Center2: box2d.Vec2{X: 0.25, Y: 0.0}, Radius: 0.25}
+	capsule := box2d.Capsule{
+		Center1: box2d.Vec2{X: -0.25, Y: 0.0},
+		Center2: box2d.Vec2{X: 0.25, Y: 0.0},
+		Radius:  0.25,
+	}
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.35}
 	square := box2d.MakeSquare(0.35)
 
@@ -1057,13 +1104,22 @@ func CreateSensorTypes(context *SampleContext) Sampler {
 		shapeDef.Filter.MaskBits = sensorTypesDefault
 		shapeDef.EnableSensorEvents = true
 
-		groundSegment := box2d.Segment{Point1: box2d.Vec2{X: -6.0, Y: 0.0}, Point2: box2d.Vec2{X: 6.0, Y: 0.0}}
+		groundSegment := box2d.Segment{
+			Point1: box2d.Vec2{X: -6.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 6.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 
-		groundSegment = box2d.Segment{Point1: box2d.Vec2{X: -6.0, Y: 0.0}, Point2: box2d.Vec2{X: -6.0, Y: 4.0}}
+		groundSegment = box2d.Segment{
+			Point1: box2d.Vec2{X: -6.0, Y: 0.0},
+			Point2: box2d.Vec2{X: -6.0, Y: 4.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 
-		groundSegment = box2d.Segment{Point1: box2d.Vec2{X: 6.0, Y: 0.0}, Point2: box2d.Vec2{X: 6.0, Y: 4.0}}
+		groundSegment = box2d.Segment{
+			Point1: box2d.Vec2{X: 6.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 6.0, Y: 4.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 	}
 
@@ -1203,7 +1259,10 @@ func CreateJointEvent(context *SampleContext) Sampler {
 	groundID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	segment := box2d.Segment{Point1: box2d.Vec2{X: -40.0, Y: 0.0}, Point2: box2d.Vec2{X: 40.0, Y: 0.0}}
+	segment := box2d.Segment{
+		Point1: box2d.Vec2{X: -40.0, Y: 0.0},
+		Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	position := box2d.Pos{X: -12.5, Y: 10.0}
@@ -1454,7 +1513,13 @@ func (s *PersistentContact) Step() {
 			p2 := p1.Add(data.Manifold.Normal.Scale(manifoldPoint.TotalNormalImpulse))
 			s.draw.DrawLine(p1, p2, box2d.ColorCrimson)
 			s.draw.DrawPoint(p1, 6.0, box2d.ColorCrimson)
-			s.draw.DrawString(s.camera, p1, box2d.ColorWhite, "%.2f", manifoldPoint.TotalNormalImpulse)
+			s.draw.DrawString(
+				s.camera,
+				p1,
+				box2d.ColorWhite,
+				"%.2f",
+				manifoldPoint.TotalNormalImpulse,
+			)
 		}
 	} else {
 		s.contactID = box2d.Contact{}
@@ -1502,10 +1567,16 @@ func CreateSensorHits(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
 
-		groundSegment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		groundSegment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 
-		groundSegment = box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 10.0}}
+		groundSegment = box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 10.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &groundSegment)
 	}
 
@@ -1520,7 +1591,10 @@ func CreateSensorHits(context *SampleContext) Sampler {
 		shapeDef.IsSensor = true
 		shapeDef.EnableSensorEvents = true
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 0.0, Y: 0.0}, Point2: box2d.Vec2{X: 0.0, Y: 10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 0.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 0.0, Y: 10.0},
+		}
 		s.staticSensorID = bodyID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -1537,7 +1611,10 @@ func CreateSensorHits(context *SampleContext) Sampler {
 		shapeDef.IsSensor = true
 		shapeDef.EnableSensorEvents = true
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 0.0, Y: 0.0}, Point2: box2d.Vec2{X: 0.0, Y: 10.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 0.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 0.0, Y: 10.0},
+		}
 		s.kinematicSensorID = s.kinematicBodyID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -1553,7 +1630,11 @@ func CreateSensorHits(context *SampleContext) Sampler {
 		shapeDef.IsSensor = true
 		shapeDef.EnableSensorEvents = true
 
-		capsule := box2d.Capsule{Center1: box2d.Vec2{X: 0.0, Y: 1.0}, Center2: box2d.Vec2{X: 0.0, Y: 9.0}, Radius: 0.1}
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: 1.0},
+			Center2: box2d.Vec2{X: 0.0, Y: 9.0},
+			Radius:  0.1,
+		}
 		s.dynamicSensorID = s.dynamicBodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
 		pivot := bodyDef.Position.Add(box2d.Vec2{X: 0.0, Y: 6.0})
@@ -1699,10 +1780,16 @@ func CreateProjectileEvent(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.EnableSensorEvents = true
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: 10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 20.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 20.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		segment = box2d.Segment{Point1: box2d.Vec2{X: -30.0, Y: 0.0}, Point2: box2d.Vec2{X: 30.0, Y: 0.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: -30.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 30.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -1798,7 +1885,9 @@ func (s *ProjectileEvent) Step() {
 
 				if data.Manifold.PointCount > 0 {
 					explosionDef := box2d.DefaultExplosionDef()
-					explosionDef.Position = data.ShapeA.Body().WorldCenter().Add(data.Manifold.Points[0].AnchorA)
+					explosionDef.Position = data.ShapeA.Body().
+						WorldCenter().
+						Add(data.Manifold.Points[0].AnchorA)
 					explosionDef.Radius = 1.0
 					explosionDef.ImpulsePerLength = 20.0
 					s.worldID.Explode(&explosionDef)
@@ -1846,7 +1935,10 @@ func CreateCircleImpulse(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -10.0, Y: 0.0}, Point2: box2d.Vec2{X: 10.0, Y: 0.0}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
@@ -1938,11 +2030,21 @@ func (s *CircleImpulse) Step() {
 	if s.useRestitution {
 		restitution = s.restitution
 	}
-	s.DrawScreenTextLine("mass = %.6g, gravity = %.6g, restitution = %.6g", s.mass, gravity, restitution)
+	s.DrawScreenTextLine(
+		"mass = %.6g, gravity = %.6g, restitution = %.6g",
+		s.mass,
+		gravity,
+		restitution,
+	)
 
 	for _, e := range s.events {
-		s.DrawScreenTextLine("hit speed = %.6g, hit momentum = %.6g, final impulse = %.6g, total impulse = %.6g", e.speed,
-			s.mass*e.speed, e.impulse, e.totalImpulse)
+		s.DrawScreenTextLine(
+			"hit speed = %.6g, hit momentum = %.6g, final impulse = %.6g, total impulse = %.6g",
+			e.speed,
+			s.mass*e.speed,
+			e.impulse,
+			e.totalImpulse,
+		)
 	}
 }
 

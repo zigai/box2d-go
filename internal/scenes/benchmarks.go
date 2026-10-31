@@ -115,7 +115,10 @@ func CreateJointGrid(worldID *box2d.World) {
 	shapeDef.Filter.MaskBits = uint64(^uint32(2))
 
 	var (
-		circle   = box2d.Circle{Center: box2d.Vec2{X: float32(0.0), Y: float32(0.0)}, Radius: float32(0.4)}
+		circle = box2d.Circle{
+			Center: box2d.Vec2{X: float32(0.0), Y: float32(0.0)},
+			Radius: float32(0.4),
+		}
 		jointDef = box2d.DefaultRevoluteJointDef()
 	)
 
@@ -195,7 +198,13 @@ func CreateLargePyramid(worldID *box2d.World) {
 	for i := range baseCount {
 		y := (float32(float32(2.0)*float32(i)) + float32(1.0)) * shift
 		for j := i; j < baseCount; j++ {
-			x := float32((float32(i)+float32(1.0))*shift) + float32(float32(2.0)*(float32(j)-float32(i))*shift) - float32(a*float32(baseCount))
+			x := float32(
+				(float32(i)+float32(1.0))*shift,
+			) + float32(
+				float32(2.0)*(float32(j)-float32(i))*shift,
+			) - float32(
+				a*float32(baseCount),
+			)
 
 			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 
@@ -216,12 +225,19 @@ func CreateManyPyramids(worldID *box2d.World) {
 		bodyDef      = box2d.DefaultBodyDef()
 		groundID     = worldID.CreateBody(&bodyDef)
 		groundDeltaY = float32(2.0) * extent * (float32(baseCount) + float32(1.0))
-		groundWidth  = float32(2.0) * extent * float32(columnCount) * (float32(baseCount) + float32(1.0))
-		shapeDef     = box2d.DefaultShapeDef()
-		groundY      = float32(0.0)
+		groundWidth  = float32(
+			2.0,
+		) * extent * float32(
+			columnCount,
+		) * (float32(baseCount) + float32(1.0))
+		shapeDef = box2d.DefaultShapeDef()
+		groundY  = float32(0.0)
 	)
 	for range rowCount {
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -float32(0.5) * groundWidth, Y: groundY}, Point2: box2d.Vec2{X: float32(0.5) * groundWidth, Y: groundY}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -float32(0.5) * groundWidth, Y: groundY},
+			Point2: box2d.Vec2{X: float32(0.5) * groundWidth, Y: groundY},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		groundY += groundDeltaY
@@ -234,7 +250,13 @@ func CreateManyPyramids(worldID *box2d.World) {
 
 	for range rowCount {
 		for j := range columnCount {
-			centerX := float32(-float32(0.5)*groundWidth) + float32(float32(j)*(baseWidth+float32(float32(2.0)*extent))) + float32(float32(2.0)*extent)
+			centerX := float32(
+				-float32(0.5)*groundWidth,
+			) + float32(
+				float32(j)*(baseWidth+float32(float32(2.0)*extent)),
+			) + float32(
+				float32(2.0)*extent,
+			)
 			createSmallPyramid(worldID, baseCount, extent, centerX, baseY)
 		}
 
@@ -243,7 +265,14 @@ func CreateManyPyramids(worldID *box2d.World) {
 }
 
 func GetManyPyramidsCapacity() box2d.Capacity {
-	c := box2d.Capacity{StaticShapeCount: 20, StaticBodyCount: 1, DynamicShapeCount: 22000, DynamicBodyCount: 22000, ContactCount: 58000}
+	c := box2d.Capacity{
+		StaticShapeCount:  20,
+		StaticBodyCount:   1,
+		DynamicShapeCount: 22000,
+		DynamicBodyCount:  22000,
+		ContactCount:      58000,
+	}
+
 	return c
 }
 
@@ -263,7 +292,12 @@ func CreateRain(worldID *box2d.World) {
 		for range rainRowCount {
 			x := -float32(0.5) * float32(gRainData.gridCount) * gRainData.gridSize
 			for j := 0; j <= gRainData.gridCount; j++ {
-				box := box2d.MakeOffsetBox(float32(0.5)*width, float32(0.5)*height, box2d.Vec2{X: x, Y: y}, box2d.Rot{C: 1})
+				box := box2d.MakeOffsetBox(
+					float32(0.5)*width,
+					float32(0.5)*height,
+					box2d.Vec2{X: x, Y: y},
+					box2d.Rot{C: 1},
+				)
 				groundID.CreatePolygonShape(&shapeDef, &box)
 
 				x += gRainData.gridSize
@@ -277,9 +311,13 @@ func CreateRain(worldID *box2d.World) {
 	gRainData.columnIndex = 0
 }
 
-func CreateGroup(worldID *box2d.World, rowIndex, columnIndex int) {
+func CreateGroup(worldID *box2d.World, rowIndex int, columnIndex int) {
 	if rowIndex >= rainRowCount || columnIndex >= rainColumnCount {
-		panic(&box2d.AssertError{Condition: "rowIndex < RAIN_ROW_COUNT && columnIndex < RAIN_COLUMN_COUNT"})
+		panic(
+			&box2d.AssertError{
+				Condition: "rowIndex < RAIN_ROW_COUNT && columnIndex < RAIN_COLUMN_COUNT",
+			},
+		)
 	}
 
 	var (
@@ -289,7 +327,9 @@ func CreateGroup(worldID *box2d.World, rowIndex, columnIndex int) {
 		position      box2d.Pos
 	)
 
-	position.X = box2d.Vec2{X: float32(-float32(0.5)*span) + float32(groupDistance*(float32(columnIndex)+float32(0.5)))}.Pos().X
+	position.X = box2d.Vec2{
+		X: float32(-float32(0.5)*span) + float32(groupDistance*(float32(columnIndex)+float32(0.5))),
+	}.Pos().X
 	position.Y = box2d.Vec2{Y: float32(40.0) + float32(float32(45.0)*float32(rowIndex))}.Pos().Y
 
 	var (
@@ -301,14 +341,29 @@ func CreateGroup(worldID *box2d.World, rowIndex, columnIndex int) {
 
 	for i := range rainGroupSize {
 		human := &gRainData.groups[groupIndex].humans[i]
-		CreateHuman(human, worldID, position, scale, jointFriction, jointHertz, jointDamping, i+1, nil, false)
+		CreateHuman(
+			human,
+			worldID,
+			position,
+			scale,
+			jointFriction,
+			jointHertz,
+			jointDamping,
+			i+1,
+			nil,
+			false,
+		)
 		position.X += 0.5
 	}
 }
 
-func DestroyGroup(rowIndex, columnIndex int) {
+func DestroyGroup(rowIndex int, columnIndex int) {
 	if rowIndex >= rainRowCount || columnIndex >= rainColumnCount {
-		panic(&box2d.AssertError{Condition: "rowIndex < RAIN_ROW_COUNT && columnIndex < RAIN_COLUMN_COUNT"})
+		panic(
+			&box2d.AssertError{
+				Condition: "rowIndex < RAIN_ROW_COUNT && columnIndex < RAIN_COLUMN_COUNT",
+			},
+		)
 	}
 
 	groupIndex := rowIndex*rainColumnCount + columnIndex
@@ -399,8 +454,15 @@ func CreateSpinner(worldID *box2d.World) {
 	}
 
 	var (
-		capsule = box2d.Capsule{Center1: box2d.Vec2{X: -float32(0.25), Y: float32(0.0)}, Center2: box2d.Vec2{X: float32(0.25), Y: float32(0.0)}, Radius: float32(0.25)}
-		circle  = box2d.Circle{Center: box2d.Vec2{X: float32(0.0), Y: float32(0.0)}, Radius: float32(0.35)}
+		capsule = box2d.Capsule{
+			Center1: box2d.Vec2{X: -float32(0.25), Y: float32(0.0)},
+			Center2: box2d.Vec2{X: float32(0.25), Y: float32(0.0)},
+			Radius:  float32(0.25),
+		}
+		circle = box2d.Circle{
+			Center: box2d.Vec2{X: float32(0.0), Y: float32(0.0)},
+			Radius: float32(0.35),
+		}
 		square  = box2d.MakeSquare(float32(0.35))
 		bodyDef = box2d.DefaultBodyDef()
 	)
@@ -484,7 +546,9 @@ func CreateSmash(worldID *box2d.World) {
 	for i := range columns {
 		for j := range rows {
 			bodyDef.Position.X = box2d.Vec2{X: float32(float32(i)*d) + float32(30.0)}.Pos().X
-			bodyDef.Position.Y = box2d.Vec2{Y: (float32(j) - float32(rows)/float32(2.0)) * d}.Pos().Y
+			bodyDef.Position.Y = box2d.Vec2{
+				Y: (float32(j) - float32(rows)/float32(2.0)) * d,
+			}.Pos().Y
 
 			bodyID := worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
@@ -514,13 +578,33 @@ func CreateTumbler(worldID *box2d.World) {
 
 		var polygon box2d.Polygon
 
-		polygon = box2d.MakeOffsetBox(float32(0.5), float32(10.0), box2d.Vec2{X: float32(10.0), Y: float32(0.0)}, box2d.Rot{C: 1})
+		polygon = box2d.MakeOffsetBox(
+			float32(0.5),
+			float32(10.0),
+			box2d.Vec2{X: float32(10.0), Y: float32(0.0)},
+			box2d.Rot{C: 1},
+		)
 		bodyID.CreatePolygonShape(&shapeDef, &polygon)
-		polygon = box2d.MakeOffsetBox(float32(0.5), float32(10.0), box2d.Vec2{X: -float32(10.0), Y: float32(0.0)}, box2d.Rot{C: 1})
+		polygon = box2d.MakeOffsetBox(
+			float32(0.5),
+			float32(10.0),
+			box2d.Vec2{X: -float32(10.0), Y: float32(0.0)},
+			box2d.Rot{C: 1},
+		)
 		bodyID.CreatePolygonShape(&shapeDef, &polygon)
-		polygon = box2d.MakeOffsetBox(float32(10.0), float32(0.5), box2d.Vec2{X: float32(0.0), Y: float32(10.0)}, box2d.Rot{C: 1})
+		polygon = box2d.MakeOffsetBox(
+			float32(10.0),
+			float32(0.5),
+			box2d.Vec2{X: float32(0.0), Y: float32(10.0)},
+			box2d.Rot{C: 1},
+		)
 		bodyID.CreatePolygonShape(&shapeDef, &polygon)
-		polygon = box2d.MakeOffsetBox(float32(10.0), float32(0.5), box2d.Vec2{X: float32(0.0), Y: -float32(10.0)}, box2d.Rot{C: 1})
+		polygon = box2d.MakeOffsetBox(
+			float32(10.0),
+			float32(0.5),
+			box2d.Vec2{X: float32(0.0), Y: -float32(10.0)},
+			box2d.Rot{C: 1},
+		)
 		bodyID.CreatePolygonShape(&shapeDef, &polygon)
 
 		var (
@@ -702,7 +786,12 @@ func CreateJunkyard(worldID *box2d.World) {
 			x        = -float32(80.0) * gridSize
 		)
 		for range 161 {
-			box := box2d.MakeOffsetBox(float32(0.55)*gridSize, float32(0.5)*gridSize, box2d.Vec2{X: x, Y: y}, box2d.Rot{C: 1})
+			box := box2d.MakeOffsetBox(
+				float32(0.55)*gridSize,
+				float32(0.5)*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.Rot{C: 1},
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 
 			x += gridSize
@@ -712,7 +801,12 @@ func CreateJunkyard(worldID *box2d.World) {
 
 		x = -float32(80.0) * gridSize
 		for range 50 {
-			box := box2d.MakeOffsetBox(float32(0.5)*gridSize, float32(0.55)*gridSize, box2d.Vec2{X: x, Y: y}, box2d.Rot{C: 1})
+			box := box2d.MakeOffsetBox(
+				float32(0.5)*gridSize,
+				float32(0.55)*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.Rot{C: 1},
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 
 			y += gridSize
@@ -722,7 +816,12 @@ func CreateJunkyard(worldID *box2d.World) {
 
 		x = float32(80.0) * gridSize
 		for range 50 {
-			box := box2d.MakeOffsetBox(float32(0.5)*gridSize, float32(0.55)*gridSize, box2d.Vec2{X: x, Y: y}, box2d.Rot{C: 1})
+			box := box2d.MakeOffsetBox(
+				float32(0.5)*gridSize,
+				float32(0.55)*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.Rot{C: 1},
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 
 			y += gridSize
@@ -783,7 +882,12 @@ func CreateJunkyard(worldID *box2d.World) {
 	bodyDef.Position = box2d.Pos{}
 	gJunkyardData.pusherID = worldID.CreateBody(&bodyDef)
 
-	box := box2d.MakeOffsetBox(float32(2.0), float32(4.0), box2d.Vec2{X: float32(0.0), Y: float32(4.0)}, box2d.Rot{C: 1})
+	box := box2d.MakeOffsetBox(
+		float32(2.0),
+		float32(4.0),
+		box2d.Vec2{X: float32(0.0), Y: float32(4.0)},
+		box2d.Rot{C: 1},
+	)
 	gJunkyardData.pusherID.CreatePolygonShape(&shapeDef, &box)
 }
 
@@ -792,7 +896,10 @@ func StepJunkyard(worldID *box2d.World, stepCount int) float32 {
 		timeStep = float32(1.0) / float32(60.0)
 		time     = timeStep * float32(stepCount)
 		cs       = box2d.ComputeCosSin(float32(0.2) * time)
-		target   = box2d.WorldTransform{P: box2d.Vec2{X: float32(60.0) * cs.Sine, Y: float32(0.0)}.Pos(), Q: box2d.Rot{C: 1}}
+		target   = box2d.WorldTransform{
+			P: box2d.Vec2{X: float32(60.0) * cs.Sine, Y: float32(0.0)}.Pos(),
+			Q: box2d.Rot{C: 1},
+		}
 	)
 	gJunkyardData.pusherID.SetTargetTransform(target, timeStep, true)
 
@@ -823,8 +930,21 @@ func CreateSleep(worldID *box2d.World) {
 	}
 
 	for i := range sleepPyramidCount {
-		centerX := float32(-float32(0.5)*span) + float32(float32(i)*pitch) - float32(float32(0.5)*baseWidth)
-		createSleepPyramid(worldID, baseCount, extent, centerX, &gSleepData.bodyIDA[i], &gSleepData.bodyIDB[i])
+		centerX := float32(
+			-float32(0.5)*span,
+		) + float32(
+			float32(i)*pitch,
+		) - float32(
+			float32(0.5)*baseWidth,
+		)
+		createSleepPyramid(
+			worldID,
+			baseCount,
+			extent,
+			centerX,
+			&gSleepData.bodyIDA[i],
+			&gSleepData.bodyIDB[i],
+		)
 	}
 }
 
@@ -857,7 +977,12 @@ func CreateCompounds(worldID *box2d.World) {
 			x        = -float32(40.0) * gridSize
 		)
 		for range 81 {
-			box := box2d.MakeOffsetBox(float32(0.55)*gridSize, float32(0.5)*gridSize, box2d.Vec2{X: x, Y: y}, box2d.Rot{C: 1})
+			box := box2d.MakeOffsetBox(
+				float32(0.55)*gridSize,
+				float32(0.5)*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.Rot{C: 1},
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 
 			x += gridSize
@@ -867,7 +992,12 @@ func CreateCompounds(worldID *box2d.World) {
 
 		x = -float32(40.0) * gridSize
 		for range 100 {
-			box := box2d.MakeOffsetBox(float32(0.5)*gridSize, float32(0.55)*gridSize, box2d.Vec2{X: x, Y: y}, box2d.Rot{C: 1})
+			box := box2d.MakeOffsetBox(
+				float32(0.5)*gridSize,
+				float32(0.55)*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.Rot{C: 1},
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 
 			y += gridSize
@@ -877,26 +1007,42 @@ func CreateCompounds(worldID *box2d.World) {
 
 		x = float32(40.0) * gridSize
 		for range 100 {
-			box := box2d.MakeOffsetBox(float32(0.5)*gridSize, float32(0.55)*gridSize, box2d.Vec2{X: x, Y: y}, box2d.Rot{C: 1})
+			box := box2d.MakeOffsetBox(
+				float32(0.5)*gridSize,
+				float32(0.55)*gridSize,
+				box2d.Vec2{X: x, Y: y},
+				box2d.Rot{C: 1},
+			)
 			groundID.CreatePolygonShape(&shapeDef, &box)
 
 			y += gridSize
 		}
 
-		segment := box2d.Segment{Point1: box2d.Vec2{X: -float32(800.0), Y: -float32(80.0)}, Point2: box2d.Vec2{X: float32(800.0), Y: -float32(80.0)}}
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -float32(800.0), Y: -float32(80.0)},
+			Point2: box2d.Vec2{X: float32(800.0), Y: -float32(80.0)},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	var (
 		columnCount = 20
 		rowCount    = 150
-		leftPoints  = [3]box2d.Vec2{{X: -float32(1.0), Y: float32(0.0)}, {X: float32(0.5), Y: float32(1.0)}, {X: float32(0.0), Y: float32(2.0)}}
+		leftPoints  = [3]box2d.Vec2{
+			{X: -float32(1.0), Y: float32(0.0)},
+			{X: float32(0.5), Y: float32(1.0)},
+			{X: float32(0.0), Y: float32(2.0)},
+		}
 		leftHull    = box2d.ComputeHull(leftPoints[:])
 		left        = box2d.MakePolygon(&leftHull, float32(0.0))
-		rightPoints = [3]box2d.Vec2{{X: float32(1.0), Y: float32(0.0)}, {X: -float32(0.5), Y: float32(1.0)}, {X: float32(0.0), Y: float32(2.0)}}
-		rightHull   = box2d.ComputeHull(rightPoints[:])
-		right       = box2d.MakePolygon(&rightHull, float32(0.0))
-		bodyDef     = box2d.DefaultBodyDef()
+		rightPoints = [3]box2d.Vec2{
+			{X: float32(1.0), Y: float32(0.0)},
+			{X: -float32(0.5), Y: float32(1.0)},
+			{X: float32(0.0), Y: float32(2.0)},
+		}
+		rightHull = box2d.ComputeHull(rightPoints[:])
+		right     = box2d.MakePolygon(&rightHull, float32(0.0))
+		bodyDef   = box2d.DefaultBodyDef()
 	)
 
 	bodyDef.Type = box2d.DynamicBody
@@ -939,9 +1085,12 @@ func CreateQueries(worldID *box2d.World) {
 		fill      = float32(0.1)
 		pileX     = float32(0.4) * extent
 		pileY     = float32(0.3) * extent
-		clearance = box2d.AABB{LowerBound: box2d.Vec2{X: pileX - float32(10.0), Y: pileY - float32(10.0)}, UpperBound: box2d.Vec2{X: pileX + float32(50.0), Y: pileY + float32(60.0)}}
-		bodyDef   = box2d.DefaultBodyDef()
-		shapeDef  = box2d.DefaultShapeDef()
+		clearance = box2d.AABB{
+			LowerBound: box2d.Vec2{X: pileX - float32(10.0), Y: pileY - float32(10.0)},
+			UpperBound: box2d.Vec2{X: pileX + float32(50.0), Y: pileY + float32(60.0)},
+		}
+		bodyDef  = box2d.DefaultBodyDef()
+		shapeDef = box2d.DefaultShapeDef()
 	)
 
 	createQueryObstacles(worldID, cellCount, fill, clearance, &bodyDef, &shapeDef)
@@ -952,7 +1101,10 @@ func CreateQueries(worldID *box2d.World) {
 
 		var (
 			groundID = worldID.CreateBody(&bodyDef)
-			segment  = box2d.Segment{Point1: box2d.Vec2{X: pileX - float32(10.0), Y: pileY}, Point2: box2d.Vec2{X: pileX + float32(50.0), Y: pileY}}
+			segment  = box2d.Segment{
+				Point1: box2d.Vec2{X: pileX - float32(10.0), Y: pileY},
+				Point2: box2d.Vec2{X: pileX + float32(50.0), Y: pileY},
+			}
 		)
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -964,7 +1116,10 @@ func CreateQueries(worldID *box2d.World) {
 		sensorBox := box2d.MakeSquare(float32(2.0))
 
 		for i := range 8 {
-			bodyDef.Position = box2d.Vec2{X: pileX + float32(float32(4.0)*float32(i)), Y: pileY + float32(2.0)}.Pos()
+			bodyDef.Position = box2d.Vec2{
+				X: pileX + float32(float32(4.0)*float32(i)),
+				Y: pileY + float32(2.0),
+			}.Pos()
 
 			sensorID := worldID.CreateBody(&bodyDef)
 			sensorID.CreatePolygonShape(&sensorDef, &sensorBox)
@@ -982,7 +1137,10 @@ func CreateQueries(worldID *box2d.World) {
 
 		for i := range rowCount {
 			for j := range columnCount {
-				bodyDef.Position = box2d.Vec2{X: pileX + float32(spacing*float32(j)), Y: pileY + float32(1.0) + float32(spacing*float32(i))}.Pos()
+				bodyDef.Position = box2d.Vec2{
+					X: pileX + float32(spacing*float32(j)),
+					Y: pileY + float32(1.0) + float32(spacing*float32(i)),
+				}.Pos()
 
 				bodyID := worldID.CreateBody(&bodyDef)
 				bodyID.CreatePolygonShape(&shapeDef, &box)
@@ -1061,9 +1219,15 @@ func StepQueries(worldID *box2d.World, stepCount int) float32 {
 		for i := range queryTotal {
 			var (
 				fraction  = float32(1.0)
-				castStats = worldID.CastShape(data.origins[i], &circle, data.translations[i], filter, func(id box2d.Shape, point box2d.Pos, normal box2d.Vec2, value float32) float32 {
-					return queryCastClosest(id, point, normal, value, &fraction)
-				})
+				castStats = worldID.CastShape(
+					data.origins[i],
+					&circle,
+					data.translations[i],
+					filter,
+					func(id box2d.Shape, point box2d.Pos, normal box2d.Vec2, value float32) float32 {
+						return queryCastClosest(id, point, normal, value, &fraction)
+					},
+				)
 			)
 
 			stats.NodeVisits += castStats.NodeVisits
@@ -1077,8 +1241,16 @@ func StepQueries(worldID *box2d.World, stepCount int) float32 {
 		for i := range queryTotal {
 			var (
 				overlapCount = 0
-				aabb         = box2d.AABB{LowerBound: box2d.Vec2{X: -float32(5.0), Y: -float32(5.0)}, UpperBound: box2d.Vec2{X: float32(5.0), Y: float32(5.0)}}
-				overlapStats = worldID.OverlapAABB(data.origins[i], aabb, filter, func(id box2d.Shape) bool { return queryOverlapCount(&overlapCount) })
+				aabb         = box2d.AABB{
+					LowerBound: box2d.Vec2{X: -float32(5.0), Y: -float32(5.0)},
+					UpperBound: box2d.Vec2{X: float32(5.0), Y: float32(5.0)},
+				}
+				overlapStats = worldID.OverlapAABB(
+					data.origins[i],
+					aabb,
+					filter,
+					func(id box2d.Shape) bool { return queryOverlapCount(&overlapCount) },
+				)
 			)
 
 			stats.NodeVisits += overlapStats.NodeVisits
@@ -1131,7 +1303,10 @@ func CreateTreeCast(worldID *box2d.World) {
 		fill      = float32(0.1)
 		pileX     = float32(0.4) * extent
 		pileY     = float32(0.3) * extent
-		clearance = box2d.AABB{LowerBound: box2d.Vec2{X: pileX - float32(10.0), Y: pileY - float32(10.0)}, UpperBound: box2d.Vec2{X: pileX + float32(50.0), Y: pileY + float32(60.0)}}
+		clearance = box2d.AABB{
+			LowerBound: box2d.Vec2{X: pileX - float32(10.0), Y: pileY - float32(10.0)},
+			UpperBound: box2d.Vec2{X: pileX + float32(50.0), Y: pileY + float32(60.0)},
+		}
 	)
 
 	data.proxyCapacity = cellCount * cellCount / 5
@@ -1144,7 +1319,12 @@ func CreateTreeCast(worldID *box2d.World) {
 	treeCastAddBox(box2d.Vec2{X: pileX + float32(20.0), Y: pileY}, float32(30.0), float32(0.0), 1)
 
 	for i := range 8 {
-		treeCastAddBox(box2d.Vec2{X: pileX + float32(float32(4.0)*float32(i)), Y: pileY + float32(2.0)}, float32(2.0), float32(2.0), 1)
+		treeCastAddBox(
+			box2d.Vec2{X: pileX + float32(float32(4.0)*float32(i)), Y: pileY + float32(2.0)},
+			float32(2.0),
+			float32(2.0),
+			1,
+		)
 	}
 
 	lengths := [treeCastLengthCount]float32{float32(0.0), float32(25.0), float32(5.0)}
@@ -1193,13 +1373,21 @@ func StepTreeCast(worldID *box2d.World, stepCount int) float32 {
 
 		for m := range 2 {
 			for i := range rayCount {
-				input := box2d.RayCastInput{Origin: data.origins[i], Translation: translations[i], MaxFraction: float32(1.0)}
+				input := box2d.RayCastInput{
+					Origin:      data.origins[i],
+					Translation: translations[i],
+					MaxFraction: float32(1.0),
+				}
 
 				context := treeCastContext{tightBoxes: data.tightBoxes, fraction: 1}
 
-				castStats := tree.CastRay(&input, masks[m], func(input *box2d.RayCastInput, id int, value uint64) float32 {
-					return treeCastRayCallback(input, value, &context)
-				})
+				castStats := tree.CastRay(
+					&input,
+					masks[m],
+					func(input *box2d.RayCastInput, id int, value uint64) float32 {
+						return treeCastRayCallback(input, value, &context)
+					},
+				)
 
 				stats.NodeVisits += castStats.NodeVisits
 				stats.LeafVisits += castStats.LeafVisits
@@ -1212,16 +1400,27 @@ func StepTreeCast(worldID *box2d.World, stepCount int) float32 {
 
 		for i := range rayCount {
 			var (
-				o     = data.origins[i]
-				box   = box2d.AABB{LowerBound: box2d.Vec2{X: o.X - treeCastBoxExtent, Y: o.Y - treeCastBoxExtent}, UpperBound: box2d.Vec2{X: o.X + treeCastBoxExtent, Y: o.Y + treeCastBoxExtent}}
-				input = box2d.BoxCastInput{Box: box, Translation: translations[i], MaxFraction: float32(1.0)}
+				o   = data.origins[i]
+				box = box2d.AABB{
+					LowerBound: box2d.Vec2{X: o.X - treeCastBoxExtent, Y: o.Y - treeCastBoxExtent},
+					UpperBound: box2d.Vec2{X: o.X + treeCastBoxExtent, Y: o.Y + treeCastBoxExtent},
+				}
+				input = box2d.BoxCastInput{
+					Box:         box,
+					Translation: translations[i],
+					MaxFraction: float32(1.0),
+				}
 			)
 
 			context := treeCastContext{tightBoxes: data.tightBoxes, fraction: 1}
 
-			castStats := tree.CastBox(&input, box2d.DefaultMaskBits, func(input *box2d.BoxCastInput, id int, value uint64) float32 {
-				return treeCastBoxCallback(input, value, &context)
-			})
+			castStats := tree.CastBox(
+				&input,
+				box2d.DefaultMaskBits,
+				func(input *box2d.BoxCastInput, id int, value uint64) float32 {
+					return treeCastBoxCallback(input, value, &context)
+				},
+			)
 
 			stats.NodeVisits += castStats.NodeVisits
 			stats.LeafVisits += castStats.LeafVisits
@@ -1310,18 +1509,24 @@ func StepTileWorld(worldID *box2d.World, stepCount int) float32 {
 	data.xLeft += data.bodySpan
 
 	var (
-		state    = uint32(1234) + uint32(7919)*uint32(stepCount)
-		span     = float32(data.groundCount) * data.bodySpan
-		filter   = box2d.DefaultQueryFilter()
-		aabb     = box2d.AABB{LowerBound: box2d.Vec2{X: -float32(5.0), Y: -float32(5.0)}, UpperBound: box2d.Vec2{X: float32(5.0), Y: float32(5.0)}}
+		state  = uint32(1234) + uint32(7919)*uint32(stepCount)
+		span   = float32(data.groundCount) * data.bodySpan
+		filter = box2d.DefaultQueryFilter()
+		aabb   = box2d.AABB{
+			LowerBound: box2d.Vec2{X: -float32(5.0), Y: -float32(5.0)},
+			UpperBound: box2d.Vec2{X: float32(5.0), Y: float32(5.0)},
+		}
 		stats    = box2d.TreeStats{}
 		hitCount = 0
 	)
 
 	for range tileQueryCount {
 		var (
-			origin = box2d.Vec2{X: data.xLeft + tileRandom(&state, float32(0.0), span), Y: tileRandom(&state, -float32(2.0), float32(18.0))}.Pos()
-			angle  = tileRandom(&state, float32(0.0), float32(2.0)*box2d.Pi)
+			origin = box2d.Vec2{
+				X: data.xLeft + tileRandom(&state, float32(0.0), span),
+				Y: tileRandom(&state, -float32(2.0), float32(18.0)),
+			}.Pos()
+			angle = tileRandom(&state, float32(0.0), float32(2.0)*box2d.Pi)
 		)
 
 		sine, cosine := boundedSinCos(angle)
@@ -1340,7 +1545,12 @@ func StepTileWorld(worldID *box2d.World, stepCount int) float32 {
 
 		var (
 			overlapCount = 0
-			overlapStats = worldID.OverlapAABB(origin, aabb, filter, func(id box2d.Shape) bool { return tileOverlapCount(&overlapCount) })
+			overlapStats = worldID.OverlapAABB(
+				origin,
+				aabb,
+				filter,
+				func(id box2d.Shape) bool { return tileOverlapCount(&overlapCount) },
+			)
 		)
 
 		stats.NodeVisits += overlapStats.NodeVisits
@@ -1400,7 +1610,14 @@ func boundedSinCos(angle float32) (float32, float32) {
 	return sine, cosine
 }
 
-func createQueryObstacles(worldID *box2d.World, cellCount int, fill float32, clearance box2d.AABB, bodyDef *box2d.BodyDef, shapeDef *box2d.ShapeDef) {
+func createQueryObstacles(
+	worldID *box2d.World,
+	cellCount int,
+	fill float32,
+	clearance box2d.AABB,
+	bodyDef *box2d.BodyDef,
+	shapeDef *box2d.ShapeDef,
+) {
 	for i := range cellCount {
 		y := float32(i)
 
@@ -1418,7 +1635,9 @@ func createQueryObstacles(worldID *box2d.World, cellCount int, fill float32, cle
 				continue
 			}
 
-			if clearance.LowerBound.X <= x && x <= clearance.UpperBound.X && clearance.LowerBound.Y <= y && y <= clearance.UpperBound.Y {
+			if clearance.LowerBound.X <= x && x <= clearance.UpperBound.X &&
+				clearance.LowerBound.Y <= y &&
+				y <= clearance.UpperBound.Y {
 				continue
 			}
 
@@ -1458,7 +1677,9 @@ func createTreeCastObstacles(cellCount int, fill float32, clearance box2d.AABB) 
 				continue
 			}
 
-			if clearance.LowerBound.X <= x && x <= clearance.UpperBound.X && clearance.LowerBound.Y <= y && y <= clearance.UpperBound.Y {
+			if clearance.LowerBound.X <= x && x <= clearance.UpperBound.X &&
+				clearance.LowerBound.Y <= y &&
+				y <= clearance.UpperBound.Y {
 				continue
 			}
 
@@ -1474,7 +1695,13 @@ func createTreeCastObstacles(cellCount int, fill float32, clearance box2d.AABB) 
 	}
 }
 
-func createSmallPyramid(worldID *box2d.World, baseCount int, extent, centerX, baseY float32) {
+func createSmallPyramid(
+	worldID *box2d.World,
+	baseCount int,
+	extent float32,
+	centerX float32,
+	baseY float32,
+) {
 	bodyDef := box2d.DefaultBodyDef()
 
 	bodyDef.Type = box2d.DynamicBody
@@ -1486,7 +1713,13 @@ func createSmallPyramid(worldID *box2d.World, baseCount int, extent, centerX, ba
 	for i := range baseCount {
 		y := float32((float32(float32(2.0)*float32(i))+float32(1.0))*extent) + baseY
 		for j := i; j < baseCount; j++ {
-			x := float32((float32(i)+float32(1.0))*extent) + float32(float32(2.0)*(float32(j)-float32(i))*extent) + centerX - float32(0.5)
+			x := float32(
+				(float32(i)+float32(1.0))*extent,
+			) + float32(
+				float32(2.0)*(float32(j)-float32(i))*extent,
+			) + centerX - float32(
+				0.5,
+			)
 
 			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 
@@ -1496,7 +1729,12 @@ func createSmallPyramid(worldID *box2d.World, baseCount int, extent, centerX, ba
 	}
 }
 
-func createSleepPyramid(worldID *box2d.World, baseCount int, extent, centerX float32, bodyIDA, bodyIDB *box2d.Body) {
+func createSleepPyramid(
+	worldID *box2d.World,
+	baseCount int,
+	extent float32, centerX float32,
+	bodyIDA *box2d.Body, bodyIDB *box2d.Body,
+) {
 	bodyDef := box2d.DefaultBodyDef()
 
 	bodyDef.Type = box2d.DynamicBody
@@ -1509,7 +1747,11 @@ func createSleepPyramid(worldID *box2d.World, baseCount int, extent, centerX flo
 	for i := range baseCount {
 		y := (float32(float32(2.0)*float32(i)) + float32(1.0)) * extent
 		for j := i; j < baseCount; j++ {
-			x := float32((float32(i)+float32(1.0))*extent) + float32(float32(2.0)*(float32(j)-float32(i))*extent) + centerX
+			x := float32(
+				(float32(i)+float32(1.0))*extent,
+			) + float32(
+				float32(2.0)*(float32(j)-float32(i))*extent,
+			) + centerX
 
 			bodyDef.Position = box2d.Vec2{X: x, Y: y}.Pos()
 
@@ -1525,7 +1767,7 @@ func createSleepPyramid(worldID *box2d.World, baseCount int, extent, centerX flo
 	}
 }
 
-func queryRandom(lower, upper float32) float32 {
+func queryRandom(lower float32, upper float32) float32 {
 	gQueryRandomState = uint32(1664525)*gQueryRandomState + uint32(1013904223)
 
 	unit := float32((gQueryRandomState >> 8)) * (float32(1.0) / float32(16777216.0))
@@ -1533,7 +1775,13 @@ func queryRandom(lower, upper float32) float32 {
 	return lower + float32((upper-lower)*unit)
 }
 
-func queryCastClosest(shapeID box2d.Shape, point box2d.Pos, normal box2d.Vec2, fraction float32, result *float32) float32 {
+func queryCastClosest(
+	shapeID box2d.Shape,
+	point box2d.Pos,
+	normal box2d.Vec2,
+	fraction float32,
+	result *float32,
+) float32 {
 	*result = fraction
 	return fraction
 }
@@ -1543,7 +1791,7 @@ func queryOverlapCount(count *int) bool {
 	return true
 }
 
-func treeCastRayBox(box box2d.AABB, p, d box2d.Vec2, maxFraction float32) float32 {
+func treeCastRayBox(box box2d.AABB, p box2d.Vec2, d box2d.Vec2, maxFraction float32) float32 {
 	tmin, tmax := float32(0.0), maxFraction
 	if !treeCastRaySlab(box.LowerBound.X, box.UpperBound.X, p.X, d.X, &tmin, &tmax) {
 		return -float32(1.0)
@@ -1560,7 +1808,14 @@ func treeCastRayBox(box box2d.AABB, p, d box2d.Vec2, maxFraction float32) float3
 	return tmin
 }
 
-func treeCastRaySlab(lower, upper, p, d float32, tmin, tmax *float32) bool {
+func treeCastRaySlab(
+	lower float32,
+	upper float32,
+	p float32,
+	d float32,
+	tmin *float32,
+	tmax *float32,
+) bool {
 	if d == float32(0.0) {
 		return !(p < lower || upper < p)
 	}
@@ -1583,10 +1838,19 @@ func treeCastRaySlab(lower, upper, p, d float32, tmin, tmax *float32) bool {
 	return !(*tmin > *tmax)
 }
 
-func treeCastRayCallback(input *box2d.RayCastInput, userData uint64, context *treeCastContext) float32 {
+func treeCastRayCallback(
+	input *box2d.RayCastInput,
+	userData uint64,
+	context *treeCastContext,
+) float32 {
 	var (
 		cast     = context
-		fraction = treeCastRayBox(cast.tightBoxes[userData], input.Origin, input.Translation, input.MaxFraction)
+		fraction = treeCastRayBox(
+			cast.tightBoxes[userData],
+			input.Origin,
+			input.Translation,
+			input.MaxFraction,
+		)
 	)
 	if fraction < float32(0.0) {
 		return -float32(1.0)
@@ -1597,12 +1861,19 @@ func treeCastRayCallback(input *box2d.RayCastInput, userData uint64, context *tr
 	return fraction
 }
 
-func treeCastBoxCallback(input *box2d.BoxCastInput, userData uint64, context *treeCastContext) float32 {
+func treeCastBoxCallback(
+	input *box2d.BoxCastInput,
+	userData uint64,
+	context *treeCastContext,
+) float32 {
 	var (
-		cast     = context
-		tight    = cast.tightBoxes[userData]
-		extents  = input.Box.Extents()
-		grown    = box2d.AABB{LowerBound: tight.LowerBound.Sub(extents), UpperBound: tight.UpperBound.Add(extents)}
+		cast    = context
+		tight   = cast.tightBoxes[userData]
+		extents = input.Box.Extents()
+		grown   = box2d.AABB{
+			LowerBound: tight.LowerBound.Sub(extents),
+			UpperBound: tight.UpperBound.Add(extents),
+		}
 		fraction = treeCastRayBox(grown, input.Box.Center(), input.Translation, input.MaxFraction)
 	)
 	if fraction < float32(0.0) {
@@ -1614,15 +1885,27 @@ func treeCastBoxCallback(input *box2d.BoxCastInput, userData uint64, context *tr
 	return fraction
 }
 
-func treeCastAddBox(center box2d.Vec2, hx, hy float32, categoryBits uint64) {
+func treeCastAddBox(center box2d.Vec2, hx float32, hy float32, categoryBits uint64) {
 	data := &gTreeCast
 	if data.proxyCount >= data.proxyCapacity {
 		panic(&box2d.AssertError{Condition: "data->proxyCount < data->proxyCapacity"})
 	}
 
 	var (
-		tight = box2d.AABB{LowerBound: box2d.Vec2{X: center.X - hx, Y: center.Y - hy}, UpperBound: box2d.Vec2{X: center.X + hx, Y: center.Y + hy}}
-		fat   = box2d.AABB{LowerBound: box2d.Vec2{X: tight.LowerBound.X - float32(2*box2d.SpeculativeDistance()), Y: tight.LowerBound.Y - float32(2*box2d.SpeculativeDistance())}, UpperBound: box2d.Vec2{X: tight.UpperBound.X + float32(2*box2d.SpeculativeDistance()), Y: tight.UpperBound.Y + float32(2*box2d.SpeculativeDistance())}}
+		tight = box2d.AABB{
+			LowerBound: box2d.Vec2{X: center.X - hx, Y: center.Y - hy},
+			UpperBound: box2d.Vec2{X: center.X + hx, Y: center.Y + hy},
+		}
+		fat = box2d.AABB{
+			LowerBound: box2d.Vec2{
+				X: tight.LowerBound.X - float32(2*box2d.SpeculativeDistance()),
+				Y: tight.LowerBound.Y - float32(2*box2d.SpeculativeDistance()),
+			},
+			UpperBound: box2d.Vec2{
+				X: tight.UpperBound.X + float32(2*box2d.SpeculativeDistance()),
+				Y: tight.UpperBound.Y + float32(2*box2d.SpeculativeDistance()),
+			},
+		}
 		index = data.proxyCount
 	)
 
@@ -1631,7 +1914,7 @@ func treeCastAddBox(center box2d.Vec2, hx, hy float32, categoryBits uint64) {
 	data.tree.CreateProxy(fat, categoryBits, uint64(index))
 }
 
-func tileRandom(state *uint32, lower, upper float32) float32 {
+func tileRandom(state *uint32, lower float32, upper float32) float32 {
 	*state = uint32(1664525)**state + uint32(1013904223)
 
 	unit := float32((*state >> 8)) * (float32(1.0) / float32(16777216.0))
@@ -1657,11 +1940,18 @@ func createTileGround(worldID *box2d.World, xBody float32) box2d.Body {
 	)
 	for range tileColumnsPerBody {
 		var (
-			columnCount = int(math.Round(float64(float32(4.0)*float32(math.Cos(float64(omega*(xBody+xShape))))))) + 12
-			y           = float32(0.0)
+			columnCount = int(
+				math.Round(float64(float32(4.0)*float32(math.Cos(float64(omega*(xBody+xShape)))))),
+			) + 12
+			y = float32(0.0)
 		)
 		for range columnCount {
-			square := box2d.MakeOffsetBox(float32(0.4)*tileGridSize, float32(0.4)*tileGridSize, box2d.Vec2{X: xShape, Y: y}, box2d.Rot{C: 1})
+			square := box2d.MakeOffsetBox(
+				float32(0.4)*tileGridSize,
+				float32(0.4)*tileGridSize,
+				box2d.Vec2{X: xShape, Y: y},
+				box2d.Rot{C: 1},
+			)
 
 			square.Radius = float32(0.1)
 			groundID.CreatePolygonShape(&shapeDef, &square)

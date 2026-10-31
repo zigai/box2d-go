@@ -217,11 +217,17 @@ func (q Rot) Invert() Rot {
 
 // Normalized linear interpolation
 // https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/
-// https://web.archive.org/web/20170825184056/http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
+// http://number-none.com/product/Understanding%20Slerp,%20Then%20Not%20Using%20It/
 func (q Rot) NLerp(q2 Rot, t float32) Rot {
 	omt := 1 - t
 	interpolated := Rot{float32(omt*q.C) + float32(t*q2.C), float32(omt*q.S) + float32(t*q2.S)}
-	mag := float32(math.Sqrt(float64(float32(interpolated.S*interpolated.S) + float32(interpolated.C*interpolated.C))))
+	mag := float32(
+		math.Sqrt(
+			float64(
+				float32(interpolated.S*interpolated.S) + float32(interpolated.C*interpolated.C),
+			),
+		),
+	)
 
 	var invMag float32
 	if mag > 0 {
@@ -445,7 +451,10 @@ func MakeWorldTransform(t Transform) WorldTransform {
 
 // Multiply a 2-by-2 matrix times a 2D vector.
 func (a Mat22) MulVec(v Vec2) Vec2 {
-	return Vec2{float32(a.Cx.X*v.X) + float32(a.Cy.X*v.Y), float32(a.Cx.Y*v.X) + float32(a.Cy.Y*v.Y)}
+	return Vec2{
+		float32(a.Cx.X*v.X) + float32(a.Cy.X*v.Y),
+		float32(a.Cx.Y*v.X) + float32(a.Cy.Y*v.Y),
+	}
 }
 
 // Get the inverse of a 2-by-2 matrix.
@@ -470,7 +479,10 @@ func (a Mat22) Solve(b Vec2) Vec2 {
 		det = 1 / det
 	}
 
-	return Vec2{det * (float32(a22*b.X) - float32(a12*b.Y)), det * (float32(a11*b.Y) - float32(a21*b.X))}
+	return Vec2{
+		det * (float32(a22*b.X) - float32(a12*b.Y)),
+		det * (float32(a11*b.Y) - float32(a21*b.X)),
+	}
 }
 
 // Does a fully contain b.
@@ -508,7 +520,8 @@ func (a AABB) Union(b AABB) AABB {
 
 // Do a and b overlap.
 func (a AABB) Overlaps(b AABB) bool {
-	return !(b.LowerBound.X > a.UpperBound.X || b.LowerBound.Y > a.UpperBound.Y || a.LowerBound.X > b.UpperBound.X || a.LowerBound.Y > b.UpperBound.Y)
+	return !(b.LowerBound.X > a.UpperBound.X || b.LowerBound.Y > a.UpperBound.Y ||
+		a.LowerBound.X > b.UpperBound.X || a.LowerBound.Y > b.UpperBound.Y)
 }
 
 // Compute the bounding box of an array of circles.
@@ -539,7 +552,13 @@ func (plane Plane) Separation(point Vec2) float32 {
 // position += timeStep * newVelocity
 // This drives towards a zero position. By using implicit integration we get a stable solution
 // that doesn't require transcendental functions.
-func SpringDamper(hertz float32, dampingRatio float32, position float32, velocity float32, timeStep float32) float32 {
+func SpringDamper(
+	hertz float32,
+	dampingRatio float32,
+	position float32,
+	velocity float32,
+	timeStep float32,
+) float32 {
 	omega := 2 * Pi * hertz
 	omegaH := omega * timeStep
 
@@ -693,8 +712,14 @@ func ComputeCosSin(radians float32) CosSin {
 
 // Compute the rotation between two unit vectors.
 func ComputeRotationBetweenUnitVectors(v1 Vec2, v2 Vec2) Rot {
-	core.Assert(absFloat(1-v1.Length()) < float32(100)*float32(0x1p-23), "AbsFloat(1.0f - Length(v1)) < 100.0f * FLT_EPSILON")
-	core.Assert(absFloat(1-v2.Length()) < float32(100)*float32(0x1p-23), "AbsFloat(1.0f - Length(v2)) < 100.0f * FLT_EPSILON")
+	core.Assert(
+		absFloat(1-v1.Length()) < float32(100)*float32(0x1p-23),
+		"AbsFloat(1.0f - Length(v1)) < 100.0f * FLT_EPSILON",
+	)
+	core.Assert(
+		absFloat(1-v2.Length()) < float32(100)*float32(0x1p-23),
+		"AbsFloat(1.0f - Length(v2)) < 100.0f * FLT_EPSILON",
+	)
 
 	var rot Rot
 
@@ -716,7 +741,10 @@ func (p Pos) Add(d Vec2) Pos {
 
 // World position interpolation for sweeps and sampling.
 func (p Pos) Lerp(b Pos, t float32) Pos {
-	return Pos{posScalar(posScalar(1-t)*p.X) + posScalar(posScalar(t)*b.X), posScalar(posScalar(1-t)*p.Y) + posScalar(posScalar(t)*b.Y)}
+	return Pos{
+		posScalar(posScalar(1-t)*p.X) + posScalar(posScalar(t)*b.X),
+		posScalar(posScalar(1-t)*p.Y) + posScalar(posScalar(t)*b.Y),
+	}
 }
 
 // @return the absolute value of an integer.

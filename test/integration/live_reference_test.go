@@ -36,7 +36,12 @@ func TestLiveReferenceProfileRejectsInvalidSettings(t *testing.T) {
 		reject       bool
 	}{
 		{name: "designated"},
-		{name: "assertions-disabled", member: "assertions", value: json.RawMessage(`false`), reject: true},
+		{
+			name:   "assertions-disabled",
+			member: "assertions",
+			value:  json.RawMessage(`false`),
+			reject: true,
+		},
 		{name: "release", member: "build_type", value: json.RawMessage(`"Release"`), reject: true},
 	}
 	for _, tc := range cases {
@@ -62,9 +67,14 @@ func TestLiveReferenceProfileRejectsInvalidSettings(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestLiveReferenceProfileRejectsInvalidSettings$")
+			cmd := exec.CommandContext(
+				ctx,
+				os.Args[0],
+				"-test.run=^TestLiveReferenceProfileRejectsInvalidSettings$",
+			)
 			for _, value := range os.Environ() {
-				if !strings.HasPrefix(value, child+"=") && !strings.HasPrefix(value, "BOX2D_ORACLE_DIR=") {
+				if !strings.HasPrefix(value, child+"=") &&
+					!strings.HasPrefix(value, "BOX2D_ORACLE_DIR=") {
 					cmd.Env = append(cmd.Env, value)
 				}
 			}
@@ -79,7 +89,12 @@ func TestLiveReferenceProfileRejectsInvalidSettings(t *testing.T) {
 				}
 			}
 			if (err != nil) != tc.reject {
-				t.Fatalf("reference profile rejection=%t, want %t\n%s", err != nil, tc.reject, output)
+				t.Fatalf(
+					"reference profile rejection=%t, want %t\n%s",
+					err != nil,
+					tc.reject,
+					output,
+				)
 			}
 		})
 	}

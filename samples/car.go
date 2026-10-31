@@ -14,7 +14,11 @@ type Car struct {
 	isSpawned    bool
 }
 
-func createWheelAxle(worldID *box2d.World, chassisID, wheelID box2d.Body, scale, hertz, dampingRatio, torque float32) box2d.WheelJoint {
+func createWheelAxle(
+	worldID *box2d.World,
+	chassisID, wheelID box2d.Body,
+	scale, hertz, dampingRatio, torque float32,
+) box2d.WheelJoint {
 	pivot := wheelID.Position()
 
 	jointDef := box2d.DefaultWheelJointDef()
@@ -34,9 +38,22 @@ func createWheelAxle(worldID *box2d.World, chassisID, wheelID box2d.Body, scale,
 	return worldID.CreateWheelJoint(&jointDef)
 }
 
-func (c *Car) Spawn(worldID *box2d.World, position box2d.Pos, scale, hertz, dampingRatio, torque float32, userData any) {
+func (c *Car) Spawn(
+	worldID *box2d.World,
+	position box2d.Pos,
+	scale, hertz, dampingRatio, torque float32,
+	userData any,
+) {
 	vertices := []box2d.Vec2{
-		{X: -1.5, Y: -0.5}, {X: 1.5, Y: -0.5}, {X: 1.5, Y: 0.0}, {X: 0.0, Y: 0.9}, {X: -1.15, Y: 0.9}, {X: -1.5, Y: 0.2},
+		{
+			X: -1.5,
+			Y: -0.5,
+		},
+		{X: 1.5, Y: -0.5},
+		{X: 1.5, Y: 0.0},
+		{X: 0.0, Y: 0.9},
+		{X: -1.15, Y: 0.9},
+		{X: -1.5, Y: 0.2},
 	}
 
 	for i := range vertices {
@@ -73,8 +90,24 @@ func (c *Car) Spawn(worldID *box2d.World, position box2d.Pos, scale, hertz, damp
 	c.frontWheelID = worldID.CreateBody(&bodyDef)
 	c.frontWheelID.CreateCircleShape(&shapeDef, &circle)
 
-	c.rearAxleID = createWheelAxle(worldID, c.chassisID, c.rearWheelID, scale, hertz, dampingRatio, torque)
-	c.frontAxleID = createWheelAxle(worldID, c.chassisID, c.frontWheelID, scale, hertz, dampingRatio, torque)
+	c.rearAxleID = createWheelAxle(
+		worldID,
+		c.chassisID,
+		c.rearWheelID,
+		scale,
+		hertz,
+		dampingRatio,
+		torque,
+	)
+	c.frontAxleID = createWheelAxle(
+		worldID,
+		c.chassisID,
+		c.frontWheelID,
+		scale,
+		hertz,
+		dampingRatio,
+		torque,
+	)
 }
 
 func (c *Car) Despawn() {
@@ -116,9 +149,21 @@ type Truck struct {
 	isSpawned    bool
 }
 
-func (t *Truck) Spawn(worldID *box2d.World, position box2d.Pos, scale, hertz, dampingRatio, torque, density float32, userData any) {
+func (t *Truck) Spawn(
+	worldID *box2d.World,
+	position box2d.Pos,
+	scale, hertz, dampingRatio, torque, density float32,
+	userData any,
+) {
 	vertices := []box2d.Vec2{
-		{X: -0.65, Y: -0.4}, {X: 1.5, Y: -0.4}, {X: 1.5, Y: 0.0}, {X: 0.0, Y: 0.9}, {X: -0.65, Y: 0.9},
+		{
+			X: -0.65,
+			Y: -0.4,
+		},
+		{X: 1.5, Y: -0.4},
+		{X: 1.5, Y: 0.0},
+		{X: 0.0, Y: 0.9},
+		{X: -0.65, Y: 0.9},
 	}
 
 	for i := range vertices {
@@ -140,11 +185,21 @@ func (t *Truck) Spawn(worldID *box2d.World, position box2d.Pos, scale, hertz, da
 	t.chassisID = worldID.CreateBody(&bodyDef)
 	t.chassisID.CreatePolygonShape(&shapeDef, &chassis)
 
-	box := box2d.MakeOffsetBox(1.25*scale, 0.1*scale, box2d.Vec2{X: -2.05 * scale, Y: -0.275 * scale}, box2d.RotIdentity)
+	box := box2d.MakeOffsetBox(
+		1.25*scale,
+		0.1*scale,
+		box2d.Vec2{X: -2.05 * scale, Y: -0.275 * scale},
+		box2d.RotIdentity,
+	)
 	box.Radius = 0.1 * scale
 	t.chassisID.CreatePolygonShape(&shapeDef, &box)
 
-	box = box2d.MakeOffsetBox(0.05*scale, 0.35*scale, box2d.Vec2{X: -3.25 * scale, Y: 0.375 * scale}, box2d.RotIdentity)
+	box = box2d.MakeOffsetBox(
+		0.05*scale,
+		0.35*scale,
+		box2d.Vec2{X: -3.25 * scale, Y: 0.375 * scale},
+		box2d.RotIdentity,
+	)
 	box.Radius = 0.1 * scale
 	t.chassisID.CreatePolygonShape(&shapeDef, &box)
 
@@ -161,8 +216,24 @@ func (t *Truck) Spawn(worldID *box2d.World, position box2d.Pos, scale, hertz, da
 	t.frontWheelID = worldID.CreateBody(&bodyDef)
 	t.frontWheelID.CreateCircleShape(&shapeDef, &circle)
 
-	t.rearAxleID = createWheelAxle(worldID, t.chassisID, t.rearWheelID, scale, hertz, dampingRatio, torque)
-	t.frontAxleID = createWheelAxle(worldID, t.chassisID, t.frontWheelID, scale, hertz, dampingRatio, torque)
+	t.rearAxleID = createWheelAxle(
+		worldID,
+		t.chassisID,
+		t.rearWheelID,
+		scale,
+		hertz,
+		dampingRatio,
+		torque,
+	)
+	t.frontAxleID = createWheelAxle(
+		worldID,
+		t.chassisID,
+		t.frontWheelID,
+		scale,
+		hertz,
+		dampingRatio,
+		torque,
+	)
 }
 
 func (t *Truck) Despawn() {

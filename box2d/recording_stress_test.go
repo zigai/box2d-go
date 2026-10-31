@@ -15,7 +15,14 @@ import (
 	"github.com/zigai/box2d-go/internal/scenes"
 )
 
-func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingTrace, build func(*box2d.World), name string, workerCount, churnFrame, restepCount, reps int) int {
+func recordingRestepRaceStress(
+	t *testing.T,
+	r *oracle.Reader,
+	trace *recordingTrace,
+	build func(*box2d.World),
+	name string,
+	workerCount int, churnFrame int, restepCount int, reps int,
+) int {
 	t.Helper()
 
 	const dt float32 = 1.0 / 60.0
@@ -68,8 +75,16 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 		if rep == 0 {
 			ref = h
 		} else if h != ref {
-			t.Logf("restep race: %s rep %d differs (wc %d churn %d restep %d): %d vs ref %d\n", name, rep, workerCount,
-				churnFrame, restepCount, h, ref)
+			t.Logf(
+				"restep race: %s rep %d differs (wc %d churn %d restep %d): %d vs ref %d\n",
+				name,
+				rep,
+				workerCount,
+				churnFrame,
+				restepCount,
+				h,
+				ref,
+			)
 
 			result = 1
 		}
@@ -84,7 +99,17 @@ func TestReStepRace(t *testing.T) {
 	r := oracle.Open(t, "recording/ReStepRaceTest")
 	trace := newRecordingTrace(t, "ReStepRaceTest")
 
-	check1123 := recordingRestepRaceStress(t, r, trace, scenes.CreateJunkyard, "junkyard", 2, 150, 50, 16) == 0
+	check1123 := recordingRestepRaceStress(
+		t,
+		r,
+		trace,
+		scenes.CreateJunkyard,
+		"junkyard",
+		2,
+		150,
+		50,
+		16,
+	) == 0
 	if !check1123 {
 		t.Fatal("condition false")
 	}

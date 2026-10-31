@@ -37,7 +37,14 @@ func jointScalarGetter(r *oracle.Reader, key string, get func() float32) {
 	}
 }
 
-func observeJoint(r *oracle.Reader, phase string, w *box2d.World, j box2d.Joint, a, b box2d.Body) {
+func observeJoint(
+	r *oracle.Reader,
+	phase string,
+	w *box2d.World,
+	j box2d.Joint,
+	a box2d.Body,
+	b box2d.Body,
+) {
 	jointBodyState(r, phase+"/bodyA", a)
 	jointBodyState(r, phase+"/bodyB", b)
 	r.I32(phase+"/jointCount", int32(w.Counters().JointCount))
@@ -159,7 +166,14 @@ func observeJoint(r *oracle.Reader, phase string, w *box2d.World, j box2d.Joint,
 	}
 }
 
-func createParityJoint(family box2d.JointType, w *box2d.World, a, b box2d.Body, fa, fb box2d.Transform, partition int, loaded bool) box2d.Joint {
+func createParityJoint(
+	family box2d.JointType,
+	w *box2d.World,
+	a box2d.Body, b box2d.Body,
+	fa box2d.Transform, fb box2d.Transform,
+	partition int,
+	loaded bool,
+) box2d.Joint {
 	switch family {
 	case box2d.DistanceJointType:
 		d := box2d.DefaultDistanceJointDef()
@@ -248,7 +262,15 @@ func mutateParityJoint(j box2d.Joint, stage int) {
 	}
 }
 
-func jointRunSteps(r *oracle.Reader, action string, count int, loaded bool, w *box2d.World, j box2d.Joint, a, b box2d.Body) {
+func jointRunSteps(
+	r *oracle.Reader,
+	action string,
+	count int,
+	loaded bool,
+	w *box2d.World,
+	j box2d.Joint,
+	a box2d.Body, b box2d.Body,
+) {
 	for step := range count {
 		i := step + 1
 
@@ -265,7 +287,7 @@ func jointRunSteps(r *oracle.Reader, action string, count int, loaded bool, w *b
 	}
 }
 
-func jointBoundary(j box2d.Joint, a, b box2d.Body, value float32) {
+func jointBoundary(j box2d.Joint, a box2d.Body, b box2d.Body, value float32) {
 	// Exact binary offset anchors and a quarter turn retain a rotated mechanism
 	// without rounding the initial translation away from an equality boundary.
 	fa := box2d.Transform{P: box2d.Vec2{X: 0.25, Y: -0.5}, Q: box2d.Rot{C: 1}}
@@ -311,7 +333,11 @@ func jointBoundary(j box2d.Joint, a, b box2d.Body, value float32) {
 		}
 
 		f.SetLimits(lower, upper)
-	case box2d.FilterJointType, box2d.MotorJointType, box2d.MoverJointType, box2d.PogoJointType, box2d.WeldJointType:
+	case box2d.FilterJointType,
+		box2d.MotorJointType,
+		box2d.MoverJointType,
+		box2d.PogoJointType,
+		box2d.WeldJointType:
 		// These joint families have no boundary limits to configure.
 	}
 }
@@ -323,7 +349,13 @@ func TestJointParity(t *testing.T) {
 		for partner := range 3 {
 			for load := range 2 {
 				for partition := range 3 {
-					name := fmt.Sprintf("%d/partner%d/loaded%d/partition%d", family, partner, load, partition)
+					name := fmt.Sprintf(
+						"%d/partner%d/loaded%d/partition%d",
+						family,
+						partner,
+						load,
+						partition,
+					)
 					t.Run(name, func(t *testing.T) {
 						runJointParityScenario(t, name, family, partner, load, partition)
 					})
@@ -333,7 +365,13 @@ func TestJointParity(t *testing.T) {
 	}
 }
 
-func jointCollisionObserve(r *oracle.Reader, phase string, w *box2d.World, a, b box2d.Body, sa, sb box2d.Shape) {
+func jointCollisionObserve(
+	r *oracle.Reader,
+	phase string,
+	w *box2d.World,
+	a box2d.Body, b box2d.Body,
+	sa box2d.Shape, sb box2d.Shape,
+) {
 	r.I32(phase+"/contactCount", int32(w.Counters().ContactCount))
 	r.I32(phase+"/jointCount", int32(w.Counters().JointCount))
 	jointBodyState(r, phase+"/bodyA", a)
@@ -667,7 +705,14 @@ func mutateParityWheelJoint(j box2d.Joint, stage int, forceLimit float32) {
 	f.SetLimits(-0.5, 0.5)
 }
 
-func runJointParityScenario(t *testing.T, name string, family, partner, load, partition int) {
+func runJointParityScenario(
+	t *testing.T,
+	name string,
+	family int,
+	partner int,
+	load int,
+	partition int,
+) {
 	t.Helper()
 
 	loaded := load != 0
@@ -721,7 +766,16 @@ func runJointParityScenario(t *testing.T, name string, family, partner, load, pa
 
 	jointRunSteps(r, "initial", 60, loaded, w, j, a, b)
 
-	stages := []string{"featuresOff", "springOn", "limitsOn", "positiveMotor", "negativeMotor", "zeroCaps", "highCaps", "retargetAndDamp"}
+	stages := []string{
+		"featuresOff",
+		"springOn",
+		"limitsOn",
+		"positiveMotor",
+		"negativeMotor",
+		"zeroCaps",
+		"highCaps",
+		"retargetAndDamp",
+	}
 	for stage, action := range stages {
 		mutateParityJoint(j, stage)
 		observeJoint(r, action+"/afterSetters", w, j, a, b)
@@ -730,7 +784,10 @@ func runJointParityScenario(t *testing.T, name string, family, partner, load, pa
 	}
 
 	switch family {
-	case int(box2d.DistanceJointType), int(box2d.PrismaticJointType), int(box2d.RevoluteJointType), int(box2d.WheelJointType):
+	case int(box2d.DistanceJointType),
+		int(box2d.PrismaticJointType),
+		int(box2d.RevoluteJointType),
+		int(box2d.WheelJointType):
 		values := []float32{-0.8, -0.5, 0, 0.5, 0.8}
 		labels := []string{"belowLower", "atLower", "inside", "atUpper", "aboveUpper"}
 		lengths := []float32{0.25, 0.5, 1, 1.5, 1.75}
@@ -814,7 +871,13 @@ func runJointParityScenario(t *testing.T, name string, family, partner, load, pa
 	jointBodyState(r, "survivor", a)
 }
 
-func createParityPogoJoint(w *box2d.World, a, b box2d.Body, fa, fb box2d.Transform, partition int, loaded bool) box2d.Joint {
+func createParityPogoJoint(
+	w *box2d.World,
+	a box2d.Body, b box2d.Body,
+	fa box2d.Transform, fb box2d.Transform,
+	partition int,
+	loaded bool,
+) box2d.Joint {
 	d := box2d.DefaultPogoJointDef()
 	d.Base.BodyA, d.Base.BodyB = a, b
 	d.Base.LocalFrameA, d.Base.LocalFrameB = fa, fb

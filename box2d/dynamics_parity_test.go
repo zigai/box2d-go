@@ -91,7 +91,13 @@ func dynamicsWorld(t *testing.T, def WorldDef) *World {
 	return w
 }
 
-func dynamicsBox(w *World, typ BodyType, x, y float32, hx, hy float32, material SurfaceMaterial) (Body, Shape) {
+func dynamicsBox(
+	w *World,
+	typ BodyType,
+	x float32, y float32,
+	hx float32, hy float32,
+	material SurfaceMaterial,
+) (Body, Shape) {
 	bd := DefaultBodyDef()
 	bd.Type = typ
 	bd.Position = Pos{oracle.Real(x), oracle.Real(y)}
@@ -228,7 +234,13 @@ func TestDynamicsContinuous(t *testing.T) {
 		for bullet := range 2 {
 			for continuous := range 2 {
 				for geometry := range 4 {
-					name := fmt.Sprintf("target%d_bullet%d_continuous%d_geometry%d", target, bullet, continuous, geometry)
+					name := fmt.Sprintf(
+						"target%d_bullet%d_continuous%d_geometry%d",
+						target,
+						bullet,
+						continuous,
+						geometry,
+					)
 					t.Run(name, func(t *testing.T) {
 						r := dynamicsOpen(t, "dynamics/"+name)
 						wd := DefaultWorldDef()
@@ -385,7 +397,12 @@ func dynamicsCheckRestitutionPropagation(t *testing.T) {
 	for propagation := range 2 {
 		for iterationCase := range 3 {
 			for supportsCase := range 2 {
-				name := fmt.Sprintf("propagation%d_iterations%d_supports%d", propagation, iterationCase, supportsCase)
+				name := fmt.Sprintf(
+					"propagation%d_iterations%d_supports%d",
+					propagation,
+					iterationCase,
+					supportsCase,
+				)
 				t.Run(name, func(t *testing.T) {
 					r := dynamicsOpen(t, "dynamics/"+name)
 					wd := DefaultWorldDef()
@@ -413,7 +430,7 @@ func dynamicsCheckRestitutionPropagation(t *testing.T) {
 	}
 }
 
-func dynamicsContinuousBodyDef(geometry, bullet int) BodyDef {
+func dynamicsContinuousBodyDef(geometry int, bullet int) BodyDef {
 	x := float32(-2)
 	if geometry == 1 {
 		x = -.1
@@ -438,7 +455,7 @@ func dynamicsContinuousBodyDef(geometry, bullet int) BodyDef {
 	return bd
 }
 
-func dynamicsSettleIsland(r *dynamicsOracle, w *World, lower, upper Body) {
+func dynamicsSettleIsland(r *dynamicsOracle, w *World, lower Body, upper Body) {
 	r.t.Helper()
 
 	for i := range 900 {
@@ -583,7 +600,14 @@ func ObserveDynamics(r *oracle.Reader, id *World, prefix string, direct bool) [3
 	return h
 }
 
-func dynamicsShape(r *oracle.Reader, key string, s Shape, worldID *World, h *[36]uint64, direct bool) {
+func dynamicsShape(
+	r *oracle.Reader,
+	key string,
+	s Shape,
+	worldID *World,
+	h *[36]uint64,
+	direct bool,
+) {
 	h[1] = oracle.HashU32(h[1], uint32(s.index1))
 	if direct {
 		r.I32(key+"index", s.index1)
@@ -605,7 +629,15 @@ func dynamicsShape(r *oracle.Reader, key string, s Shape, worldID *World, h *[36
 	}
 }
 
-func dynamicsContact(r *oracle.Reader, key string, c Contact, a, b Shape, worldID *World, h *[36]uint64, direct bool) {
+func dynamicsContact(
+	r *oracle.Reader,
+	key string,
+	c Contact,
+	a Shape, b Shape,
+	worldID *World,
+	h *[36]uint64,
+	direct bool,
+) {
 	h[1] = oracle.HashU32(h[1], uint32(c.index1))
 	if direct {
 		r.I32(key+"index", c.index1)
@@ -692,7 +724,13 @@ func dynamicsBodyState(r *oracle.Reader, key string, b Body, w *World, h *[36]ui
 	}
 }
 
-func dynamicsManifoldPoint(r *oracle.Reader, pk string, p ManifoldPoint, h *[36]uint64, direct bool) {
+func dynamicsManifoldPoint(
+	r *oracle.Reader,
+	pk string,
+	p ManifoldPoint,
+	h *[36]uint64,
+	direct bool,
+) {
 	h[14] = oracle.HashRot(h[14], p.AnchorA.X, p.AnchorA.Y)
 	if direct {
 		r.Vec2(pk+"anchorA", p.AnchorA.X, p.AnchorA.Y)
@@ -744,7 +782,14 @@ func dynamicsManifoldPoint(r *oracle.Reader, pk string, p ManifoldPoint, h *[36]
 	}
 }
 
-func dynamicsBodyContacts(r *oracle.Reader, key string, b Body, w *World, h *[36]uint64, direct bool) {
+func dynamicsBodyContacts(
+	r *oracle.Reader,
+	key string,
+	b Body,
+	w *World,
+	h *[36]uint64,
+	direct bool,
+) {
 	count := 0
 
 	for c := range b.ContactData() {
@@ -838,7 +883,13 @@ func dynamicsMoveEvents(r *oracle.Reader, id *World, prefix string, h *[36]uint6
 	}
 }
 
-func dynamicsContactTransitions(r *oracle.Reader, id *World, prefix string, h *[36]uint64, direct bool) {
+func dynamicsContactTransitions(
+	r *oracle.Reader,
+	id *World,
+	prefix string,
+	h *[36]uint64,
+	direct bool,
+) {
 	w := id
 	count := 0
 
@@ -913,7 +964,13 @@ func dynamicsHitEvents(r *oracle.Reader, id *World, prefix string, h *[36]uint64
 	}
 }
 
-func dynamicsSensorTransitions(r *oracle.Reader, id *World, prefix string, h *[36]uint64, direct bool) {
+func dynamicsSensorTransitions(
+	r *oracle.Reader,
+	id *World,
+	prefix string,
+	h *[36]uint64,
+	direct bool,
+) {
 	w := id
 	count := 0
 
@@ -954,7 +1011,11 @@ func dynamicsSensorTransitions(r *oracle.Reader, id *World, prefix string, h *[3
 	}
 }
 
-const DynamicsSchema = "bodyCount,index,generation,world,position,rotation,velocity,angularVelocity,awake,enabled,type,normal,rollingImpulse,pointCount,anchorA,anchorB,separation,normalImpulse,tangentImpulse,totalNormalImpulse,normalVelocity,baseSeparation,id,persisted,contactCount,fellAsleep,moveCount,beginCount,endCount,point,approachSpeed,hitCount,sensorBeginCount,sensorEndCount,valid,canonicalState"
+const DynamicsSchema = "bodyCount,index,generation,world,position,rotation,velocity,angularVelocity," +
+	"awake,enabled,type,normal,rollingImpulse,pointCount,anchorA,anchorB,separation,normalImpulse," +
+	"tangentImpulse,totalNormalImpulse,normalVelocity,baseSeparation,id,persisted,contactCount," +
+	"fellAsleep,moveCount,beginCount,endCount,point,approachSpeed,hitCount,sensorBeginCount," +
+	"sensorEndCount,valid,canonicalState"
 
 var dynamicsFields = strings.Split(DynamicsSchema, ",")
 
@@ -995,7 +1056,14 @@ func CompareDynamics(tb testing.TB, label string, step int, got [36]uint64, want
 
 	for i, v := range got {
 		if v != want[step-1][i] {
-			tb.Fatalf("%s: first divergent observation %d field %s: C=%016x Go=%016x", label, step, dynamicsFields[i], want[step-1][i], v)
+			tb.Fatalf(
+				"%s: first divergent observation %d field %s: C=%016x Go=%016x",
+				label,
+				step,
+				dynamicsFields[i],
+				want[step-1][i],
+				v,
+			)
 		}
 	}
 }

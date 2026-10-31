@@ -3,6 +3,6 @@
 
 package box2d
 
-func unionV(a, b AABB) AABB {
+func unionV(a AABB, b AABB) AABB {
 	return a.Union(b)
 }

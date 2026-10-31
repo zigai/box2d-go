@@ -163,7 +163,13 @@ func resizeWindowCallback(_ *glfw.Window, width, height int) {
 	sContext.camera.height = float32(height)
 }
 
-func keyCallback(window *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+func keyCallback(
+	window *glfw.Window,
+	key glfw.Key,
+	scancode int,
+	action glfw.Action,
+	mods glfw.ModifierKey,
+) {
 	imglfw.KeyCallback(sImguiWindow, int32(key), int32(scancode), int32(action), int32(mods))
 	if imgui.CurrentIO().WantCaptureKeyboard() {
 		return
@@ -256,7 +262,10 @@ func updateCameraKeys(frameTime float32) {
 
 	zoomRate := float32(0.3)
 	if window.GetKey(glfw.KeyZ) == glfw.Press {
-		camera.zoom = min(float32(math.Exp(float64(zoomRate*dt)))*camera.zoom, max(camera.zoom, 100.0))
+		camera.zoom = min(
+			float32(math.Exp(float64(zoomRate*dt)))*camera.zoom,
+			max(camera.zoom, 100.0),
+		)
 	} else if window.GetKey(glfw.KeyX) == glfw.Press {
 		camera.zoom = max(float32(math.Exp(float64(-zoomRate*dt)))*camera.zoom, 0.5)
 	}
@@ -289,7 +298,12 @@ func charCallback(window *glfw.Window, c rune) {
 	}
 }
 
-func mouseButtonCallback(window *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+func mouseButtonCallback(
+	window *glfw.Window,
+	button glfw.MouseButton,
+	action glfw.Action,
+	mods glfw.ModifierKey,
+) {
 	imglfw.MouseButtonCallback(sImguiWindow, int32(button), int32(action), int32(mods))
 
 	if imgui.CurrentIO().WantCaptureMouse() {
@@ -392,7 +406,13 @@ func run() int {
 	if box2d.IsDoublePrecision() {
 		precision = "double"
 	}
-	title := fmt.Sprintf("Box2D Version %d.%d.%d - %s precision", version.Major, version.Minor, version.Revision, precision)
+	title := fmt.Sprintf(
+		"Box2D Version %d.%d.%d - %s precision",
+		version.Major,
+		version.Minor,
+		version.Revision,
+		precision,
+	)
 
 	if primaryMonitor := glfw.GetPrimaryMonitor(); primaryMonitor != nil {
 		contentScale, _ := primaryMonitor.GetContentScale()
@@ -406,7 +426,13 @@ func run() int {
 		}
 	}
 
-	window, err := glfw.CreateWindow(int(sContext.camera.width), int(sContext.camera.height), title, nil, nil)
+	window, err := glfw.CreateWindow(
+		int(sContext.camera.width),
+		int(sContext.camera.height),
+		title,
+		nil,
+		nil,
+	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open GLFW window: %v\n", err)
 		glfw.Terminate()

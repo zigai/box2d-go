@@ -40,9 +40,17 @@ func checkSolverArenaCapacity(t *testing.T, state *World) {
 	}
 
 	overflowCount := len(state.constraintGraph.colors[overflowIndex].contactSims)
-	if cap(state.solverWideScratch) < wideCount || cap(state.solverOverflowScratch) < overflowCount {
-		t.Fatalf("scratch capacity is below active need: wide=%d want>=%d overflow=%d want>=%d",
-			cap(state.solverWideScratch), wideCount, cap(state.solverOverflowScratch), overflowCount)
+	if cap(state.solverWideScratch) < wideCount ||
+		cap(state.solverOverflowScratch) < overflowCount {
+		t.Fatalf(
+			"scratch capacity is below active need: wide=%d want>=%d overflow=%d want>=%d",
+			cap(
+				state.solverWideScratch,
+			),
+			wideCount,
+			cap(state.solverOverflowScratch),
+			overflowCount,
+		)
 	}
 }
 
@@ -85,8 +93,13 @@ func poisonSolverArena(state *World) {
 
 	for i := range state.solverOverflowScratch {
 		state.solverOverflowScratch[i] = contactConstraint{
-			indexA: 91, pointCount: 2, rollingImpulse: 51,
-			points: [2]contactConstraintPoint{{normalImpulse: 11, totalNormalImpulse: 31}, {normalImpulse: 21, tangentImpulse: 41}},
+			indexA:         91,
+			pointCount:     2,
+			rollingImpulse: 51,
+			points: [2]contactConstraintPoint{
+				{normalImpulse: 11, totalNormalImpulse: 31},
+				{normalImpulse: 21, tangentImpulse: 41},
+			},
 		}
 	}
 }
@@ -216,7 +229,9 @@ func testSolverArenaGrowthShrink(t *testing.T, workers int) {
 
 	stepSolverArenaZero(t, w)
 
-	if &state.solverWideScratch[0] != &wide[0] || &state.solverOverflowScratch[0] != &overflow[0] || cap(state.solverWideScratch) != cap(wide) || cap(state.solverOverflowScratch) != cap(overflow) {
+	if &state.solverWideScratch[0] != &wide[0] || &state.solverOverflowScratch[0] != &overflow[0] ||
+		cap(state.solverWideScratch) != cap(wide) ||
+		cap(state.solverOverflowScratch) != cap(overflow) {
 		t.Fatal("shrinking contacts replaced or shrank high-water scratch")
 	}
 
@@ -249,7 +264,8 @@ func testSolverArenaSleep(t *testing.T, workers int) {
 	w.Step(1.0/60.0, 4)
 	checkSolverScratchReleased(t, w)
 
-	if cap(state.solverWideScratch) != cap(wide) || cap(state.solverOverflowScratch) != cap(overflow) {
+	if cap(state.solverWideScratch) != cap(wide) ||
+		cap(state.solverOverflowScratch) != cap(overflow) {
 		t.Fatal("inactive world changed scratch capacity")
 	}
 
@@ -528,10 +544,19 @@ func checkSolverScratchReleased(t *testing.T, w *World) {
 	state := w
 	for i := range state.constraintGraph.colors {
 		color := &state.constraintGraph.colors[i]
-		if color.wideConstraints != nil || color.overflowConstraints != nil || color.wideConstraintCount != 0 {
-			t.Errorf("color %d retains solver scratch: wide=%d/%d overflow=%d/%d count=%d", i,
-				len(color.wideConstraints), cap(color.wideConstraints),
-				len(color.overflowConstraints), cap(color.overflowConstraints), color.wideConstraintCount)
+		if color.wideConstraints != nil || color.overflowConstraints != nil ||
+			color.wideConstraintCount != 0 {
+			t.Errorf(
+				"color %d retains solver scratch: wide=%d/%d overflow=%d/%d count=%d",
+				i,
+				len(color.wideConstraints),
+				cap(color.wideConstraints),
+				len(
+					color.overflowConstraints,
+				),
+				cap(color.overflowConstraints),
+				color.wideConstraintCount,
+			)
 		}
 	}
 }
@@ -562,7 +587,12 @@ func testSolverScratchRepeatedContacts(t *testing.T, workers int) {
 		w.Step(1.0/60.0, 4)
 
 		if len(observed.wide) == 0 || len(observed.overflow) == 0 {
-			t.Fatalf("step %d did not expose both scratch buffers at task completion: wide=%d overflow=%d", step, len(observed.wide), len(observed.overflow))
+			t.Fatalf(
+				"step %d did not expose both scratch buffers at task completion: wide=%d overflow=%d",
+				step,
+				len(observed.wide),
+				len(observed.overflow),
+			)
 		}
 
 		checkSolverScratchReleased(t, w)
@@ -574,7 +604,11 @@ func testSolverScratchInactiveContacts(t *testing.T, workers int) {
 	w.Step(1.0/60.0, 4)
 
 	if len(observed.wide) == 0 || len(observed.overflow) == 0 {
-		t.Fatalf("contact step did not use both scratch buffers: wide=%d overflow=%d", len(observed.wide), len(observed.overflow))
+		t.Fatalf(
+			"contact step did not use both scratch buffers: wide=%d overflow=%d",
+			len(observed.wide),
+			len(observed.overflow),
+		)
 	}
 
 	body.SetTransform(Pos{X: 100, Y: 0.5}, Rot{C: 1})
@@ -599,7 +633,11 @@ func testSolverScratchSleepingContacts(t *testing.T, workers int) {
 	w.Step(1.0/60.0, 4)
 
 	if len(observed.wide) == 0 || len(observed.overflow) == 0 {
-		t.Fatalf("contact step did not use both scratch buffers: wide=%d overflow=%d", len(observed.wide), len(observed.overflow))
+		t.Fatalf(
+			"contact step did not use both scratch buffers: wide=%d overflow=%d",
+			len(observed.wide),
+			len(observed.overflow),
+		)
 	}
 
 	body.SetAwake(false)

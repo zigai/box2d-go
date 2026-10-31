@@ -50,7 +50,10 @@ func (d DistanceJoint) SetLength(length float32) {
 
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointSetLength(world.recording, &recArgsDistanceJointSetLength{joint: d.Joint, length: length})
+		recWriteDistanceJointSetLength(
+			world.recording,
+			&recArgsDistanceJointSetLength{joint: d.Joint, length: length},
+		)
 	}
 
 	var (
@@ -79,7 +82,10 @@ func (d DistanceJoint) Length() float32 {
 func (d DistanceJoint) SetLimitEnabled(enableLimit bool) {
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointEnableLimit(world.recording, &recArgsDistanceJointEnableLimit{joint: d.Joint, enableLimit: enableLimit})
+		recWriteDistanceJointEnableLimit(
+			world.recording,
+			&recArgsDistanceJointEnableLimit{joint: d.Joint, enableLimit: enableLimit},
+		)
 	}
 
 	var (
@@ -103,7 +109,14 @@ func (d DistanceJoint) SetLengthRange(minLength float32, maxLength float32) {
 
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointSetLengthRange(world.recording, &recArgsDistanceJointSetLengthRange{joint: d.Joint, minLength: minLength, maxLength: maxLength})
+		recWriteDistanceJointSetLengthRange(
+			world.recording,
+			&recArgsDistanceJointSetLengthRange{
+				joint:     d.Joint,
+				minLength: minLength,
+				maxLength: maxLength,
+			},
+		)
 	}
 
 	var (
@@ -169,7 +182,10 @@ func (d DistanceJoint) CurrentLength() float32 {
 func (d DistanceJoint) SetSpringEnabled(enableSpring bool) {
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointEnableSpring(world.recording, &recArgsDistanceJointEnableSpring{joint: d.Joint, enableSpring: enableSpring})
+		recWriteDistanceJointEnableSpring(
+			world.recording,
+			&recArgsDistanceJointEnableSpring{joint: d.Joint, enableSpring: enableSpring},
+		)
 	}
 
 	base := getJointSimCheckType(d.Joint, DistanceJointType)
@@ -190,7 +206,14 @@ func (d DistanceJoint) SetSpringForceRange(lowerForce float32, upperForce float3
 
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointSetSpringForceRange(world.recording, &recArgsDistanceJointSetSpringForceRange{joint: d.Joint, lowerForce: lowerForce, upperForce: upperForce})
+		recWriteDistanceJointSetSpringForceRange(
+			world.recording,
+			&recArgsDistanceJointSetSpringForceRange{
+				joint:      d.Joint,
+				lowerForce: lowerForce,
+				upperForce: upperForce,
+			},
+		)
 	}
 
 	core.Assert(lowerForce <= upperForce, "lowerForce <= upperForce")
@@ -217,7 +240,10 @@ func (d DistanceJoint) SetSpringHertz(hertz float32) {
 
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointSetSpringHertz(world.recording, &recArgsDistanceJointSetSpringHertz{joint: d.Joint, hertz: hertz})
+		recWriteDistanceJointSetSpringHertz(
+			world.recording,
+			&recArgsDistanceJointSetSpringHertz{joint: d.Joint, hertz: hertz},
+		)
 	}
 
 	base := getJointSimCheckType(d.Joint, DistanceJointType)
@@ -231,7 +257,10 @@ func (d DistanceJoint) SetSpringDampingRatio(dampingRatio float32) {
 
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointSetSpringDampingRatio(world.recording, &recArgsDistanceJointSetSpringDampingRatio{joint: d.Joint, dampingRatio: dampingRatio})
+		recWriteDistanceJointSetSpringDampingRatio(
+			world.recording,
+			&recArgsDistanceJointSetSpringDampingRatio{joint: d.Joint, dampingRatio: dampingRatio},
+		)
 	}
 
 	base := getJointSimCheckType(d.Joint, DistanceJointType)
@@ -277,7 +306,10 @@ func (d DistanceJoint) SpringForce() float32 {
 func (d DistanceJoint) SetMotorEnabled(enableMotor bool) {
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointEnableMotor(world.recording, &recArgsDistanceJointEnableMotor{joint: d.Joint, enableMotor: enableMotor})
+		recWriteDistanceJointEnableMotor(
+			world.recording,
+			&recArgsDistanceJointEnableMotor{joint: d.Joint, enableMotor: enableMotor},
+		)
 	}
 
 	jnt := getJointSimCheckType(d.Joint, DistanceJointType)
@@ -299,7 +331,10 @@ func (d DistanceJoint) SetMotorSpeed(motorSpeed float32) {
 
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointSetMotorSpeed(world.recording, &recArgsDistanceJointSetMotorSpeed{joint: d.Joint, motorSpeed: motorSpeed})
+		recWriteDistanceJointSetMotorSpeed(
+			world.recording,
+			&recArgsDistanceJointSetMotorSpeed{joint: d.Joint, motorSpeed: motorSpeed},
+		)
 	}
 
 	jnt := getJointSimCheckType(d.Joint, DistanceJointType)
@@ -329,7 +364,10 @@ func (d DistanceJoint) SetMaxMotorForce(force float32) {
 
 	world := d.Joint.world
 	if world.recording != nil {
-		recWriteDistanceJointSetMaxMotorForce(world.recording, &recArgsDistanceJointSetMaxMotorForce{joint: d.Joint, force: force})
+		recWriteDistanceJointSetMaxMotorForce(
+			world.recording,
+			&recArgsDistanceJointSetMaxMotorForce{joint: d.Joint, force: force},
+		)
 	}
 
 	jnt := getJointSimCheckType(d.Joint, DistanceJointType)
@@ -358,7 +396,9 @@ func getDistanceJointForce(world *World, base *jointSim) Vec2 {
 		pB    = transformB.Apply(base.localFrameB.P)
 		d     = pB.Sub(pA)
 		axis  = d.Normalize()
-		force = float32((jnt.impulse + jnt.lowerImpulse - jnt.upperImpulse + jnt.motorImpulse) * world.invH)
+		force = float32(
+			(jnt.impulse + jnt.lowerImpulse - jnt.upperImpulse + jnt.motorImpulse) * world.invH,
+		)
 	)
 
 	return axis.Scale(force)
@@ -379,7 +419,10 @@ func prepareDistanceJoint(base *jointSim, context *stepContext) {
 		bodyB = &world.bodies[idB]
 	)
 
-	core.Assert(bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet, "bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet")
+	core.Assert(
+		bodyA.setIndex == awakeSet || bodyB.setIndex == awakeSet,
+		"bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet",
+	)
 
 	var (
 		setA = &world.solverSets[bodyA.setIndex]
@@ -553,7 +596,7 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 	if jnt.enableSpring && (jnt.minLength < jnt.maxLength || !jnt.enableLimit) {
 		// spring
 		if jnt.hertz > 0.0 {
-			// Cdot = dot(u, v + cross(w, r))
+			// Spring velocity: Cdot = dot(u, v + cross(w, r))
 			var (
 				vr   = vB.Sub(vA).Add(rB.ScalarCross(wB).Sub(rA.ScalarCross(wA)))
 				cdot = axis.Dot(vr)
@@ -564,12 +607,20 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 			var (
 				m          = float32(jnt.distanceSoftness.massScale * jnt.axialMass)
 				oldImpulse = jnt.impulse
-				impulse    = float32(-m*(cdot+bias)) - float32(jnt.distanceSoftness.impulseScale*oldImpulse)
+				impulse    = float32(
+					-m*(cdot+bias),
+				) - float32(
+					jnt.distanceSoftness.impulseScale*oldImpulse,
+				)
 			)
 
 			h := context.h
 
-			jnt.impulse = clampFloat(jnt.impulse+impulse, float32(jnt.lowerSpringForce*h), float32(jnt.upperSpringForce*h))
+			jnt.impulse = clampFloat(
+				jnt.impulse+impulse,
+				float32(jnt.lowerSpringForce*h),
+				float32(jnt.upperSpringForce*h),
+			)
 			impulse = jnt.impulse - oldImpulse
 
 			impulseVector := axis.Scale(impulse)
@@ -610,10 +661,19 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 
 				c := length - jnt.minLength
 
-				bias, massScale, impulseScale := jointLimitBias(c, context.invH, useBias, base.constraintSoftness)
+				bias, massScale, impulseScale := jointLimitBias(
+					c,
+					context.invH,
+					useBias,
+					base.constraintSoftness,
+				)
 
 				var (
-					impulse    = float32(float32(-massScale*jnt.axialMass)*(cdot+bias)) - float32(impulseScale*jnt.lowerImpulse)
+					impulse = float32(
+						float32(-massScale*jnt.axialMass)*(cdot+bias),
+					) - float32(
+						impulseScale*jnt.lowerImpulse,
+					)
 					newImpulse = maxFloat(0.0, jnt.lowerImpulse+impulse)
 				)
 
@@ -637,10 +697,19 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 
 				separation := jnt.maxLength - length
 
-				bias, massScale, impulseScale := jointLimitBias(separation, context.invH, useBias, base.constraintSoftness)
+				bias, massScale, impulseScale := jointLimitBias(
+					separation,
+					context.invH,
+					useBias,
+					base.constraintSoftness,
+				)
 
 				var (
-					impulse    = float32(float32(-massScale*jnt.axialMass)*(velocityError+bias)) - float32(impulseScale*jnt.upperImpulse)
+					impulse = float32(
+						float32(-massScale*jnt.axialMass)*(velocityError+bias),
+					) - float32(
+						impulseScale*jnt.upperImpulse,
+					)
 					newImpulse = maxFloat(0.0, jnt.upperImpulse+impulse)
 				)
 
@@ -676,7 +745,11 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 			impulseScale = base.constraintSoftness.impulseScale
 		}
 
-		impulse := float32(float32(-massScale*jnt.axialMass)*(velocityError+bias)) - float32(impulseScale*jnt.impulse)
+		impulse := float32(
+			float32(-massScale*jnt.axialMass)*(velocityError+bias),
+		) - float32(
+			impulseScale*jnt.impulse,
+		)
 
 		jnt.impulse += impulse
 
@@ -699,7 +772,12 @@ func solveDistanceJoint(base *jointSim, context *stepContext, useBias bool) {
 	}
 }
 
-func drawDistanceJoint(draw *DebugDraw, base *jointSim, transformA WorldTransform, transformB WorldTransform) {
+func drawDistanceJoint(
+	draw *DebugDraw,
+	base *jointSim,
+	transformA WorldTransform,
+	transformB WorldTransform,
+) {
 	core.Assert(base.jointType == DistanceJointType, "base->type == b2_distanceJoint")
 
 	jnt := &base.distanceJoint
@@ -741,14 +819,20 @@ func drawDistanceJoint(draw *DebugDraw, base *jointSim, transformA WorldTransfor
 	}
 }
 
-func jointLimitBias(separation, invH float32, useBias bool, constraintSoftness softness) (float32, float32, float32) {
+func jointLimitBias(
+	separation float32, invH float32,
+	useBias bool,
+	constraintSoftness softness,
+) (float32, float32, float32) {
 	if separation > 0.0 {
 		// speculative
 		return float32(separation * invH), 1.0, 0.0
 	}
 
 	if useBias {
-		return float32(constraintSoftness.biasRate * separation), constraintSoftness.massScale, constraintSoftness.impulseScale
+		return float32(
+			constraintSoftness.biasRate * separation,
+		), constraintSoftness.massScale, constraintSoftness.impulseScale
 	}
 
 	return 0.0, 1.0, 0.0

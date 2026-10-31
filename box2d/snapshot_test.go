@@ -58,7 +58,10 @@ func snapshotBuildScene(t *testing.T, outIDs *snapshotIDs) *World {
 		for i := range 8 {
 			bd := DefaultBodyDef()
 			bd.Type = DynamicBody
-			bd.Position = Pos{X: 0.0, Y: oracle.Real(float32(0.5) + float32(float32(i)*float32(1.1)))}
+			bd.Position = Pos{
+				X: 0.0,
+				Y: oracle.Real(float32(0.5) + float32(float32(i)*float32(1.1))),
+			}
 			bodyID := worldID.CreateBody(&bd)
 			bodyID.CreatePolygonShape(&sd, &box)
 			stackTop = bodyID
@@ -159,7 +162,10 @@ func snapshotBuildScene(t *testing.T, outIDs *snapshotIDs) *World {
 		for i := range 6 {
 			bd := DefaultBodyDef()
 			bd.Type = DynamicBody
-			bd.Position = Pos{X: 40.0, Y: oracle.Real(float32(0.5) + float32(float32(i)*float32(1.1)))}
+			bd.Position = Pos{
+				X: 40.0,
+				Y: oracle.Real(float32(0.5) + float32(float32(i)*float32(1.1))),
+			}
 			bodyID := worldID.CreateBody(&bd)
 			bodyID.CreatePolygonShape(&sd, &box)
 		}
@@ -225,7 +231,11 @@ func TestSnapshot(t *testing.T) {
 	recBufFree(&buf)
 }
 
-func snapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer) (*World, *World, *World, *World) {
+func snapshotCloneParity(
+	t *testing.T,
+	r *oracle.Reader,
+	buf *recBuffer,
+) (*World, *World, *World, *World) {
 	t.Helper()
 	worldAId := snapshotBuildScene(t, nil)
 	snapshotStepUntilSleep(r, worldAId)
@@ -243,7 +253,7 @@ func snapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer) (*World
 	}
 
 	r.Bool("L250", worldA.broadPhase.trees[StaticBody].pairFreeList != int32(nullIndex))
-	r.I32("L250/value0", int32(worldA.broadPhase.trees[StaticBody].pairFreeList))
+	r.I32("L250/value0", worldA.broadPhase.trees[StaticBody].pairFreeList)
 	r.I32("L250/value1", int32(nullIndex))
 
 	serializeWorld(worldA, buf)
@@ -549,7 +559,12 @@ func snapshotMovingContinuation(t *testing.T, r *oracle.Reader) {
 		r.U64(fmt.Sprintf("moving/clone/%d/state", step), cID.StateHash())
 
 		if cID.StateHash() != realDeepTail[step] {
-			t.Fatalf("moving continuation canonical state at step %d: got %x, uninterrupted %x", step, cID.StateHash(), realDeepTail[step])
+			t.Fatalf(
+				"moving continuation canonical state at step %d: got %x, uninterrupted %x",
+				step,
+				cID.StateHash(),
+				realDeepTail[step],
+			)
 		}
 
 		if realTail[step] != hashWorldState(clone) {
@@ -713,7 +728,7 @@ func snapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
 	wID.Close()
 }
 
-func snapshotCloneTrees(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
+func snapshotCloneTrees(t *testing.T, r *oracle.Reader, worldA *World, worldB *World) {
 	t.Helper()
 
 	for treeType := range int(BodyTypeCount) {
@@ -725,16 +740,16 @@ func snapshotCloneTrees(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
 		}
 
 		r.Bool("L278", treeA.nodeEnd == treeB.nodeEnd)
-		r.I32("L278/value0", int32(treeA.nodeEnd))
-		r.I32("L278/value1", int32(treeB.nodeEnd))
+		r.I32("L278/value0", treeA.nodeEnd)
+		r.I32("L278/value1", treeB.nodeEnd)
 
 		if treeA.pairFreeList != treeB.pairFreeList {
 			t.Fatal("condition false")
 		}
 
 		r.Bool("L279", treeA.pairFreeList == treeB.pairFreeList)
-		r.I32("L279/value0", int32(treeA.pairFreeList))
-		r.I32("L279/value1", int32(treeB.pairFreeList))
+		r.I32("L279/value0", treeA.pairFreeList)
+		r.I32("L279/value1", treeB.pairFreeList)
 
 		for pair := treeA.pairFreeList; pair != int32(nullIndex); pair = treeA.parents[pair] {
 			if treeA.parents[pair] != treeB.parents[pair] {
@@ -742,29 +757,41 @@ func snapshotCloneTrees(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
 			}
 
 			r.Bool("L283", treeA.parents[pair] == treeB.parents[pair])
-			r.I32("L283/value0", int32(treeA.parents[pair]))
-			r.I32("L283/value1", int32(treeB.parents[pair]))
+			r.I32("L283/value0", treeA.parents[pair])
+			r.I32("L283/value1", treeB.parents[pair])
 
 			if treeA.parents[pair+1] != treeB.parents[pair+1] {
 				t.Fatal("condition false")
 			}
 
 			r.Bool("L284", treeA.parents[pair+1] == treeB.parents[pair+1])
-			r.I32("L284/value0", int32(treeA.parents[pair+1]))
-			r.I32("L284/value1", int32(treeB.parents[pair+1]))
+			r.I32("L284/value0", treeA.parents[pair+1])
+			r.I32("L284/value1", treeB.parents[pair+1])
 		}
 	}
 }
 
-func snapshotTreeCapacity(t *testing.T, r *oracle.Reader, rID *World, image []byte, snapHash uint64) {
+func snapshotTreeCapacity(
+	t *testing.T,
+	r *oracle.Reader,
+	rID *World,
+	image []byte,
+	snapHash uint64,
+) {
 	t.Helper()
 
 	rWorld := rID
 	imageSize := len(image)
 	staticTree := &rWorld.broadPhase.trees[StaticBody]
-	treeHead := int32(staticTree.nodeEnd)
+	treeHead := staticTree.nodeEnd
 
-	treeTail := []int32{staticTree.pairFreeList, staticTree.proxyCount, staticTree.proxyCapacity, staticTree.proxyFreeList, 0}
+	treeTail := []int32{
+		staticTree.pairFreeList,
+		staticTree.proxyCount,
+		staticTree.proxyCapacity,
+		staticTree.proxyFreeList,
+		0,
+	}
 	if staticTree.dfsOrdered {
 		treeTail[4] = 1
 	}
@@ -772,7 +799,8 @@ func snapshotTreeCapacity(t *testing.T, r *oracle.Reader, rID *World, image []by
 	treeOffset := -1
 
 	for i := 0; i+28 <= imageSize; i++ {
-		if binary.LittleEndian.Uint32(image[i:]) == uint32(treeHead) && snapshotTreeTailMatches(image[i+8:i+28], treeTail) {
+		if binary.LittleEndian.Uint32(image[i:]) == uint32(treeHead) &&
+			snapshotTreeTailMatches(image[i+8:i+28], treeTail) {
 			treeOffset = i
 			break
 		}
@@ -807,8 +835,8 @@ func snapshotTreeCapacity(t *testing.T, r *oracle.Reader, rID *World, image []by
 	}
 
 	r.Bool("L424", staticTree.nodeCapacity <= 2*staticTree.nodeEnd)
-	r.I32("L424/value0", int32(staticTree.nodeCapacity))
-	r.I32("L424/value1", int32(2*staticTree.nodeEnd))
+	r.I32("L424/value0", staticTree.nodeCapacity)
+	r.I32("L424/value1", 2*staticTree.nodeEnd)
 
 	for range 3 {
 		if rID.UnmarshalBinary(image) != nil {
@@ -825,7 +853,7 @@ func snapshotTreeCapacity(t *testing.T, r *oracle.Reader, rID *World, image []by
 	r.Bool("L432", hashWorldStateDeep(rWorld) == snapHash)
 }
 
-func snapshotCloneHashes(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
+func snapshotCloneHashes(t *testing.T, r *oracle.Reader, worldA *World, worldB *World) {
 	t.Helper()
 
 	hashA0 := hashWorldState(worldA)
@@ -853,7 +881,7 @@ func snapshotCloneHashes(t *testing.T, r *oracle.Reader, worldA, worldB *World) 
 	r.Bool("L270", deepA0 == deepB0)
 }
 
-func snapshotCloneContinuation(t *testing.T, r *oracle.Reader, worldAId, worldBId *World) {
+func snapshotCloneContinuation(t *testing.T, r *oracle.Reader, worldAId *World, worldBId *World) {
 	t.Helper()
 
 	worldA, worldB := worldAId, worldBId
@@ -896,7 +924,7 @@ func snapshotCloneContinuation(t *testing.T, r *oracle.Reader, worldAId, worldBI
 	}
 }
 
-func snapshotWorkerContinuation(t *testing.T, r *oracle.Reader, worldA1Id, worldCId *World) {
+func snapshotWorkerContinuation(t *testing.T, r *oracle.Reader, worldA1Id *World, worldCId *World) {
 	t.Helper()
 
 	worldA1, worldC := worldA1Id, worldCId
@@ -925,7 +953,13 @@ func snapshotWorkerContinuation(t *testing.T, r *oracle.Reader, worldA1Id, world
 	}
 }
 
-func snapshotRestoredHandles(t *testing.T, r *oracle.Reader, rID *World, ids *snapshotIDs, postBody Body) {
+func snapshotRestoredHandles(
+	t *testing.T,
+	r *oracle.Reader,
+	rID *World,
+	ids *snapshotIDs,
+	postBody Body,
+) {
 	t.Helper()
 
 	if !rID.IsValid() {

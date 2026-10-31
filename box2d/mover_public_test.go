@@ -36,7 +36,14 @@ func TestCastMoverSkipsSensors(t *testing.T) {
 	shapeDef.IsSensor = false
 	body.CreatePolygonShape(&shapeDef, &box)
 
-	if got := world.CastMover(box2d.Pos{}, &mover, box2d.Vec2{X: 6}, filter); math.Abs(float64(got-3.2/6)) > 0.01 {
+	if got := world.CastMover(
+		box2d.Pos{},
+		&mover,
+		box2d.Vec2{X: 6},
+		filter,
+	); math.Abs(
+		float64(got-3.2/6),
+	) > 0.01 {
 		t.Fatalf("solid behind sensor cast fraction = %g, want near %g", got, 3.2/6)
 	}
 }
@@ -52,10 +59,20 @@ func TestCastMoverPreservesNearContactAndInitialOverlap(t *testing.T) {
 	shapeDef := box2d.DefaultShapeDef()
 	body.CreatePolygonShape(&shapeDef, &box)
 
-	near := box2d.Capsule{Center1: box2d.Vec2{X: -0.9955, Y: -0.2}, Center2: box2d.Vec2{X: -0.9955, Y: 0.2}, Radius: 0.5}
+	near := box2d.Capsule{
+		Center1: box2d.Vec2{X: -0.9955, Y: -0.2},
+		Center2: box2d.Vec2{X: -0.9955, Y: 0.2},
+		Radius:  0.5,
+	}
 
 	filter := box2d.DefaultQueryFilter()
-	if got := world.CastMover(box2d.Pos{}, &near, box2d.Vec2{X: 1}, filter); got <= 0 || got >= 0.02 {
+	if got := world.CastMover(
+		box2d.Pos{},
+		&near,
+		box2d.Vec2{X: 1},
+		filter,
+	); got <= 0 ||
+		got >= 0.02 {
 		t.Fatalf("near-contact cast fraction = %g, want a small positive advance", got)
 	}
 
@@ -65,7 +82,11 @@ func TestCastMoverPreservesNearContactAndInitialOverlap(t *testing.T) {
 	}
 }
 
-func geometryMoverObserve(r *oracle.Reader, result box2d.PlaneSolverResult, planes []box2d.CollisionPlane) {
+func geometryMoverObserve(
+	r *oracle.Reader,
+	result box2d.PlaneSolverResult,
+	planes []box2d.CollisionPlane,
+) {
 	r.Vec2("full/delta", result.Delta.X, result.Delta.Y)
 	r.I32("full/iterations", int32(result.IterationCount))
 	r.I32("full/plane-count", int32(len(planes)))
@@ -87,20 +108,108 @@ func TestMoverOffsetsLimitsAndClipPolicies(t *testing.T) {
 		target box2d.Vec2
 		planes []box2d.CollisionPlane
 	}{
-		{"positive-offset-penetration", box2d.Vec2{0.75, -1}, []box2d.CollisionPlane{{Plane: box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.25}, PushLimit: math.MaxFloat32, Push: 7, ClipVelocity: true}}},
-		{"negative-offset-separated", box2d.Vec2{0.75, 0.25}, []box2d.CollisionPlane{{Plane: box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: -0.5}, PushLimit: math.MaxFloat32, Push: 7, ClipVelocity: true}}},
-		{"zero-limit", box2d.Vec2{0.75, -1}, []box2d.CollisionPlane{{Plane: box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.25}, PushLimit: 0, Push: 7, ClipVelocity: true}}},
-		{"finite-slope", box2d.Vec2{-1, -1}, []box2d.CollisionPlane{{Plane: box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: 0.15}, PushLimit: 0.3, Push: 7, ClipVelocity: false}}},
-		{"rigid-slope", box2d.Vec2{-1, -1}, []box2d.CollisionPlane{{Plane: box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: -0.15}, PushLimit: math.MaxFloat32, Push: 7, ClipVelocity: true}}},
-		{"mixed-soft-rigid", box2d.Vec2{-1, -1}, []box2d.CollisionPlane{
-			{Plane: box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.1}, PushLimit: 0.2, Push: 7, ClipVelocity: false},
-			{Plane: box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: -0.1}, PushLimit: math.MaxFloat32, Push: 7, ClipVelocity: true},
-		}},
-		{"three-level-corner", box2d.Vec2{-1, -1}, []box2d.CollisionPlane{
-			{Plane: box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.1}, PushLimit: math.MaxFloat32, Push: 7, ClipVelocity: true},
-			{Plane: box2d.Plane{Normal: box2d.Vec2{1, 0}, Offset: -0.2}, PushLimit: math.MaxFloat32, Push: 7, ClipVelocity: true},
-			{Plane: box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: 0.5}, PushLimit: 0.1, Push: 7, ClipVelocity: false},
-		}},
+		{
+			"positive-offset-penetration",
+			box2d.Vec2{0.75, -1},
+			[]box2d.CollisionPlane{
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.25},
+					PushLimit:    math.MaxFloat32,
+					Push:         7,
+					ClipVelocity: true,
+				},
+			},
+		},
+		{
+			"negative-offset-separated",
+			box2d.Vec2{0.75, 0.25},
+			[]box2d.CollisionPlane{
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: -0.5},
+					PushLimit:    math.MaxFloat32,
+					Push:         7,
+					ClipVelocity: true,
+				},
+			},
+		},
+		{
+			"zero-limit",
+			box2d.Vec2{0.75, -1},
+			[]box2d.CollisionPlane{
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.25},
+					PushLimit:    0,
+					Push:         7,
+					ClipVelocity: true,
+				},
+			},
+		},
+		{
+			"finite-slope",
+			box2d.Vec2{-1, -1},
+			[]box2d.CollisionPlane{
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: 0.15},
+					PushLimit:    0.3,
+					Push:         7,
+					ClipVelocity: false,
+				},
+			},
+		},
+		{
+			"rigid-slope",
+			box2d.Vec2{-1, -1},
+			[]box2d.CollisionPlane{
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: -0.15},
+					PushLimit:    math.MaxFloat32,
+					Push:         7,
+					ClipVelocity: true,
+				},
+			},
+		},
+		{
+			"mixed-soft-rigid",
+			box2d.Vec2{-1, -1},
+			[]box2d.CollisionPlane{
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.1},
+					PushLimit:    0.2,
+					Push:         7,
+					ClipVelocity: false,
+				},
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: -0.1},
+					PushLimit:    math.MaxFloat32,
+					Push:         7,
+					ClipVelocity: true,
+				},
+			},
+		},
+		{
+			"three-level-corner",
+			box2d.Vec2{-1, -1},
+			[]box2d.CollisionPlane{
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0, 1}, Offset: 0.1},
+					PushLimit:    math.MaxFloat32,
+					Push:         7,
+					ClipVelocity: true,
+				},
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{1, 0}, Offset: -0.2},
+					PushLimit:    math.MaxFloat32,
+					Push:         7,
+					ClipVelocity: true,
+				},
+				{
+					Plane:        box2d.Plane{Normal: box2d.Vec2{0.8, 0.6}, Offset: 0.5},
+					PushLimit:    0.1,
+					Push:         7,
+					ClipVelocity: false,
+				},
+			},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

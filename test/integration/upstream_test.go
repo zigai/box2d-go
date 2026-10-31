@@ -80,7 +80,11 @@ func oracleBuildDir(t testing.TB) string {
 	dir := filepath.Join(base, precision)
 	data, err := os.ReadFile(filepath.Join(dir, "reference.json"))
 	if err != nil {
-		t.Fatalf("explicit box2d_oracle mode requires an independently built C reference in %s: %v; run just oracle", dir, err)
+		t.Fatalf(
+			"explicit box2d_oracle mode requires an independently built C reference in %s: %v; run just oracle",
+			dir,
+			err,
+		)
 	}
 	var identity struct {
 		Upstream    string            `json:"upstream"`
@@ -104,7 +108,8 @@ func oracleBuildDir(t testing.TB) string {
 		t.Fatalf("C build has wrong reference identity/profile: %s", data)
 	}
 	for name, expected := range identity.Sources {
-		if !strings.HasPrefix(name, "oracle/") || filepath.ToSlash(filepath.Clean(name)) != name || strings.Contains(name, "../") {
+		if !strings.HasPrefix(name, "oracle/") || filepath.ToSlash(filepath.Clean(name)) != name ||
+			strings.Contains(name, "../") {
 			t.Fatalf("invalid C adapter provenance path %q", name)
 		}
 		content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
@@ -153,9 +158,18 @@ func TestUpstreamSuite(t *testing.T) {
 	if err := os.WriteFile(nativeLog, nativeOutput, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	check := exec.CommandContext(ctx, "cmake", "-DLOG="+nativeLog,
+	check := exec.CommandContext(
+		ctx,
+		"cmake",
+		"-DLOG="+nativeLog,
 		"-DINVENTORY="+filepath.Join(root, "oracle", "cases.json"),
-		"-DOUTPUT="+filepath.Join(artifacts, "native.json"), "-P", filepath.Join(root, "oracle", "check-upstream.cmake"))
+		"-DOUTPUT="+filepath.Join(
+			artifacts,
+			"native.json",
+		),
+		"-P",
+		filepath.Join(root, "oracle", "check-upstream.cmake"),
+	)
 	if output, err := check.CombinedOutput(); err != nil {
 		t.Fatalf("native case collection failed: %v\n%s", err, output)
 	}
@@ -199,7 +213,8 @@ func TestUpstreamSuite(t *testing.T) {
 			_ = command.Wait()
 			t.Fatalf("malformed Go collection: %v", err)
 		}
-		if (event.Package == "github.com/zigai/box2d-go/box2d" || strings.HasPrefix(event.Package, "github.com/zigai/box2d-go/internal/")) && event.Test != "" {
+		if (event.Package == "github.com/zigai/box2d-go/box2d" || strings.HasPrefix(event.Package, "github.com/zigai/box2d-go/internal/")) &&
+			event.Test != "" {
 			switch event.Action {
 			case "pass":
 				passed[event.Test]++
@@ -213,7 +228,8 @@ func TestUpstreamSuite(t *testing.T) {
 		if match := fixtureLine.FindStringSubmatch(event.Output); match != nil {
 			used[match[1]]++
 		}
-		if event.Action == "output" && (strings.Contains(event.Output, "FAIL") || strings.Contains(event.Output, "oracle:")) {
+		if event.Action == "output" &&
+			(strings.Contains(event.Output, "FAIL") || strings.Contains(event.Output, "oracle:")) {
 			t.Log(strings.TrimSpace(event.Output))
 		}
 	}
@@ -223,7 +239,12 @@ func TestUpstreamSuite(t *testing.T) {
 	require := func(name string) {
 		t.Helper()
 		if passed[name] != 1 || skipped[name] != 0 {
-			t.Errorf("required Go case %s: passed=%d, skipped=%d", name, passed[name], skipped[name])
+			t.Errorf(
+				"required Go case %s: passed=%d, skipped=%d",
+				name,
+				passed[name],
+				skipped[name],
+			)
 		}
 	}
 	active := 0
@@ -266,7 +287,9 @@ func TestUpstreamSuite(t *testing.T) {
 			t.Errorf("upstream-disabled case %s is not separately reported", disabled.Go)
 		}
 	}
-	manifestData, err := os.ReadFile(filepath.Join(root, "testdata", "oracle", precision, "manifest.json"))
+	manifestData, err := os.ReadFile(
+		filepath.Join(root, "testdata", "oracle", precision, "manifest.json"),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,5 +309,12 @@ func TestUpstreamSuite(t *testing.T) {
 			t.Errorf("Go consumed undeclared C fixture %s", name)
 		}
 	}
-	t.Logf("%s: %d unchanged C suites / %d active cases; %d C fixtures consumed; %d disabled upstream cases separately reported", precision, len(catalog.Suites), active, len(used), len(catalog.Disabled))
+	t.Logf(
+		"%s: %d unchanged C suites / %d active cases; %d C fixtures consumed; %d disabled upstream cases separately reported",
+		precision,
+		len(catalog.Suites),
+		active,
+		len(used),
+		len(catalog.Disabled),
+	)
 }

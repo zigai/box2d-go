@@ -1,5 +1,0 @@
-- Passes go build and go vet for the module after moving the package to box2d/, and the samples app builds against the new module path.
-- Passes just lint with the exclusions repointed to box2d/ paths.
-- Passes just test, the default float and double checks.
-- Passes just stress, the full-size scene and replay comparisons, in both precisions.
-- Passes just oracle-check, the live C comparisons, in both precisions.

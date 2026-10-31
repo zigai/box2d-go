@@ -2,7 +2,13 @@
 
 <p align="center"><img src="assets/logo.svg" alt="Box2D Go logo" width="248"></p>
 
-Go port of the [Box2D](https://github.com/erincatto/box2d) v3 physics engine.
+Go port of the [Box2D](https://github.com/erincatto/box2d) physics engine.
+
+[![Tests](https://img.shields.io/github/actions/workflow/status/zigai/box2d-go/ci.yml?branch=master&label=Tests)](https://github.com/zigai/box2d-go/actions/workflows/ci.yml)
+[![C Parity](https://img.shields.io/github/actions/workflow/status/zigai/box2d-go/oracle.yml?branch=master&label=C%20Parity)](https://github.com/zigai/box2d-go/actions/workflows/oracle.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zigai/box2d-go/box2d.svg)](https://pkg.go.dev/github.com/zigai/box2d-go/box2d)
+[![Go version](https://img.shields.io/github/go-mod/go-version/zigai/box2d-go)](https://github.com/zigai/box2d-go/blob/master/go.mod)
+[![License: MIT](https://img.shields.io/github/license/zigai/box2d-go)](https://github.com/zigai/box2d-go/blob/master/LICENSE)
 
 ## Installation
 

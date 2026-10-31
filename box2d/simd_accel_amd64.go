@@ -22,6 +22,7 @@ func loadAABBV(aabb *AABB) aabbV {
 func overlapNode(av aabbV, node *TreeNode) bool {
 	if !simdEnabled {
 		bounds := &node.AABB
+
 		return av[0] <= bounds.UpperBound.X && av[1] <= bounds.UpperBound.Y &&
 			bounds.LowerBound.X <= av[2] &&
 			bounds.LowerBound.Y <= av[3]
@@ -34,7 +35,7 @@ func overlapNode(av aabbV, node *TreeNode) bool {
 	return lower.LessEqual(rightVector.ConcatPermuteScalars(2, 3, 6, 7, leftVector)).ToBits() == 15
 }
 
-func overlapV(left, right *AABB) bool {
+func overlapV(left *AABB, right *AABB) bool {
 	if !simdEnabled {
 		return left.LowerBound.X <= right.UpperBound.X && left.LowerBound.Y <= right.UpperBound.Y &&
 			right.LowerBound.X <= left.UpperBound.X &&

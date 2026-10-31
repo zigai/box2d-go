@@ -19,7 +19,7 @@ type SceneBodyTransformForTest struct {
 func SceneBodyTransformsForTest(worldID *World) []SceneBodyTransformForTest {
 	world := worldID
 
-	var transforms []SceneBodyTransformForTest
+	transforms := make([]SceneBodyTransformForTest, 0, len(world.bodies))
 
 	for index := range world.bodies {
 		body := &world.bodies[index]
@@ -186,6 +186,8 @@ func SceneStateForTest(w *World) [3]SceneObservationForTest {
 func SceneEventsForTest(w *World) [7]SceneObservationForTest {
 	var lanes [7][][]byte
 
+	// The largest record, a double-precision contact hit, is 52 bytes.
+	record := func() []byte { return make([]byte, 0, 52) }
 	u := func(p []byte, v uint32) []byte { return binary.LittleEndian.AppendUint32(p, v) }
 	id := func(p []byte, v uint64) []byte { p = u(p, uint32(v>>32)); return u(p, uint32(v&0xffff)) }
 	contact := func(p []byte, v Contact) []byte { p = u(p, uint32(v.index1)); return u(p, v.generation) }
@@ -203,8 +205,10 @@ func SceneEventsForTest(w *World) [7]SceneObservationForTest {
 
 		return f(p, float32(v.Y))
 	}
+
+	lanes[0] = make([][]byte, 0, len(w.bodyMoveEvents))
 	for e := range w.BodyMoveEvents() {
-		p := id(nil, e.Body.ID())
+		p := id(record(), e.Body.ID())
 		p = pos(p, e.Transform.P)
 		p = f(p, e.Transform.Q.C)
 		p = f(p, e.Transform.Q.S)
@@ -225,30 +229,36 @@ func SceneEventsForTest(w *World) [7]SceneObservationForTest {
 	}
 
 	for e := range w.SensorBeginEvents() {
-		lanes[1] = append(lanes[1], id(id(nil, e.SensorShape.ID()), e.VisitorShape.ID()))
+		lanes[1] = append(lanes[1], id(id(record(), e.SensorShape.ID()), e.VisitorShape.ID()))
 	}
 
 	for e := range w.SensorEndEvents() {
-		lanes[2] = append(lanes[2], id(id(nil, e.SensorShape.ID()), e.VisitorShape.ID()))
+		lanes[2] = append(lanes[2], id(id(record(), e.SensorShape.ID()), e.VisitorShape.ID()))
 	}
 
 	for e := range w.ContactBeginEvents() {
-		lanes[3] = append(lanes[3], contact(id(id(nil, e.ShapeA.ID()), e.ShapeB.ID()), e.Contact))
+		lanes[3] = append(
+			lanes[3],
+			contact(id(id(record(), e.ShapeA.ID()), e.ShapeB.ID()), e.Contact),
+		)
 	}
 
 	for e := range w.ContactEndEvents() {
-		lanes[4] = append(lanes[4], contact(id(id(nil, e.ShapeA.ID()), e.ShapeB.ID()), e.Contact))
+		lanes[4] = append(
+			lanes[4],
+			contact(id(id(record(), e.ShapeA.ID()), e.ShapeB.ID()), e.Contact),
+		)
 	}
 
 	for e := range w.ContactHitEvents() {
-		p := contact(id(id(nil, e.ShapeA.ID()), e.ShapeB.ID()), e.Contact)
+		p := contact(id(id(record(), e.ShapeA.ID()), e.ShapeB.ID()), e.Contact)
 		p = pos(p, e.Point)
 		p = vec(p, e.Normal)
 		lanes[5] = append(lanes[5], f(p, e.ApproachSpeed))
 	}
 
 	for e := range w.JointEvents() {
-		p := id(nil, e.Joint.ID())
+		p := id(record(), e.Joint.ID())
 
 		v := uint32(0)
 		if e.UserData == nil {

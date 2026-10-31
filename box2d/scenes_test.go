@@ -136,7 +136,7 @@ func checkScene(
 	transforms := box2d.SceneBodyTransformsForTest(world)
 	hash := uint64(14695981039346656037)
 
-	var stateBytes []byte
+	stateBytes := make([]byte, 0, len(transforms)*(2*sceneWidth()+12))
 	for _, body := range transforms {
 		stateBytes = binary.LittleEndian.AppendUint32(stateBytes, uint32(body.Index))
 

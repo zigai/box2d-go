@@ -1,4 +1,5 @@
 #!/bin/sh
+
 set -eu
 
 # Run from the repository root with box2d_stress enabled in the supplied tags.
@@ -17,5 +18,6 @@ all)
 	exit 2
 	;;
 esac
+
 go test "$@" -run '^TestScenes$' ./...
 go test "$@" -run '^TestParallelScenes$' ./...

@@ -1,0 +1,21 @@
+---
+# DeprecatedOrUnsafeBufferHandling asks for C11 Annex K functions that glibc lacks.
+# Padding: observation structs keep their field order readable; size is irrelevant here.
+# suspicious-include: programs include upstream test and scene .c files by design.
+# signed-bitwise flags every shift by a signed literal, such as `v >> 8` on a uint32_t.
+Checks: >
+  -*,
+  clang-analyzer-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-optin.performance.Padding,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-suspicious-include,
+  -bugprone-signed-bitwise
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/oracle/(tests/|sample/|debug/|bench/)?[^/]*\.h$|.*/oracle/tests/scenes/[^/]*\.h$'
+SystemHeaders: false
+FormatStyle: file
+CheckOptions:
+  bugprone-reserved-identifier.AllowedIdentifiers: '^_POSIX_C_SOURCE$'
+  bugprone-implicit-widening-of-multiplication-result.IgnoreConstantIntExpr: true

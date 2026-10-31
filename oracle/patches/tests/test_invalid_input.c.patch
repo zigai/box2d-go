@@ -33,7 +33,7 @@
  		if ( logCount != countBefore )                                                                                           \
  		{                                                                                                                        \
  			printf( "wrongly rejected: " #CALL "\n" );                                                                           \
-@@ -76,10 +85,154 @@
+@@ -76,10 +85,157 @@
  		   b2IsValidVec2( b2Body_GetLinearVelocity( bodyId ) ) && b2IsValidFloat( b2Body_GetAngularVelocity( bodyId ) );
  }
  
@@ -61,8 +61,11 @@
 +		b2ShapeId* shapes = calloc( count > 0 ? count : 1, sizeof( b2ShapeId ) );
 +		if ( shapes == NULL ) { abort(); }
 +		int returned = b2Body_GetShapes( id, shapes, count );
++		if ( returned > count ) { abort(); }
 +		for ( int s = 0; s < returned; ++s )
 +		{
++			// returned <= count is checked above; the analyzer loses the allocation size.
++			// NOLINTNEXTLINE(clang-analyzer-security.ArrayBound)
 +			b2ShapeId shape = shapes[s];
 +			ORACLE_BOOL( "settings.shape.valid", b2Shape_IsValid( shape ) );
 +			ORACLE_BOOL( "settings.shape.owner", B2_ID_EQUALS( b2Shape_GetBody( shape ), id ) );
@@ -188,7 +191,7 @@
  
  	b2Vec2 gravity = b2World_GetGravity( worldId );
  	float restitutionThreshold = b2World_GetRestitutionThreshold( worldId );
-@@ -104,27 +257,40 @@
+@@ -104,27 +260,40 @@
  		REJECTS( b2World_SetContactTuning( worldId, 30.0f, bad, 3.0f ) );
  		REJECTS( b2World_SetContactTuning( worldId, 30.0f, 10.0f, bad ) );
  		REJECTS( b2World_Step( worldId, bad, 4 ) );
@@ -229,7 +232,7 @@
  	b2WorldDef worldDef = b2DefaultWorldDef();
  	b2WorldId worldId = b2CreateWorld( &worldDef );
  
-@@ -181,18 +347,28 @@
+@@ -181,18 +350,28 @@
  	for ( int i = 0; i < 30; ++i )
  	{
  		b2World_Step( worldId, 1.0f / 60.0f, 4 );
@@ -258,7 +261,7 @@
  	b2WorldDef worldDef = b2DefaultWorldDef();
  	b2WorldId worldId = b2CreateWorld( &worldDef );
  
-@@ -249,25 +425,41 @@
+@@ -249,25 +428,41 @@
  	for ( int i = 0; i < 10; ++i )
  	{
  		b2World_Step( worldId, 1.0f / 60.0f, 4 );
@@ -300,7 +303,7 @@
  	b2WorldDef worldDef = b2DefaultWorldDef();
  	b2WorldId worldId = b2CreateWorld( &worldDef );
  
-@@ -308,27 +500,41 @@
+@@ -308,27 +503,41 @@
  		REJECTS( b2RevoluteJoint_SetLimits( jointId, -1.0f, bad ) );
  		REJECTS( b2RevoluteJoint_SetMotorSpeed( jointId, bad ) );
  		REJECTS( b2RevoluteJoint_SetMaxMotorTorque( jointId, bad ) );
@@ -342,7 +345,7 @@
  	b2WorldDef worldDef = b2DefaultWorldDef();
  	b2WorldId worldId = b2CreateWorld( &worldDef );
  
-@@ -346,32 +552,64 @@
+@@ -346,32 +555,64 @@
  	{
  		float bad = badValues[i];
  		b2Vec2 badVec = { bad, 0.0f };
@@ -413,7 +416,7 @@
  
  		b2Vec2 chainPoints[4] = { { -4.0f, 0.0f }, { 0.0f, 0.0f }, { 4.0f, 0.0f }, { 8.0f, 0.0f } };
  		chainPoints[2] = badVec;
-@@ -382,35 +620,59 @@
+@@ -382,35 +623,59 @@
  		badChainDef.materials = &material;
  		badChainDef.materialCount = 1;
  		badChainDef.isLoop = true;
@@ -475,7 +478,7 @@
  	b2WorldDef worldDef = b2DefaultWorldDef();
  	worldDef.gravity = (b2Vec2){ 0.0f, -10.0f };
  	worldDef.workerCount = 1;
-@@ -446,12 +708,24 @@
+@@ -446,12 +711,24 @@
  
  		b2ShapeDef badShapeDef = b2DefaultShapeDef();
  		badShapeDef.density = bad;
@@ -501,7 +504,7 @@
  	ENSURE( IsBodyFinite( bodyId ) );
  
  	b2World_StopRecording( worldId );
-@@ -459,13 +733,25 @@
+@@ -459,13 +736,25 @@
  
  	const uint8_t* data = b2Recording_GetData( recording );
  	int size = b2Recording_GetSize( recording );

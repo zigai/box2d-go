@@ -4,7 +4,6 @@
 #include "oracle.h"
 #include "upstream/test_mover.c"
 
-int main( void )
-{
-	return MoverTest();
+int main(void) {
+    return MoverTest();
 }

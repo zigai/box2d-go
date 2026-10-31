@@ -4,7 +4,6 @@
 #include "oracle.h"
 #include "upstream/test_shape.c"
 
-int main( void )
-{
-	return ShapeTest();
+int main(void) {
+    return ShapeTest();
 }

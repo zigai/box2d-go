@@ -34,8 +34,42 @@ set_target_properties(test PROPERTIES
 	OUTPUT_NAME upstream_tests
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/upstream")
 
+include(CheckCCompilerFlag)
+set(ORACLE_WARNINGS -Werror)
+foreach(warning IN ITEMS
+		-Wall
+		-Wextra
+		-Wpedantic
+		-Wno-unused-value
+		-Wmissing-prototypes
+		-Wconversion
+		-Wsign-conversion
+		-Wshadow
+		-Wformat=2
+		-Wundef
+		-Wnull-dereference
+		-Wimplicit-fallthrough
+		-Wcast-align
+		-Wcast-qual
+		-Wredundant-decls
+		-Wswitch-enum
+		-Walloca
+		-Wvla
+		-Wduplicated-cond
+		-Wduplicated-branches
+		-Wlogical-op
+		-Wcomma)
+	string(MAKE_C_IDENTIFIER "ORACLE_HAS${warning}" supported)
+	check_c_compiler_flag("${warning}" ${supported})
+	if(${supported})
+		list(APPEND ORACLE_WARNINGS "${warning}")
+	endif()
+endforeach()
+
 add_library(oracle STATIC oracle.c)
+target_compile_options(oracle PRIVATE ${ORACLE_WARNINGS})
 target_include_directories(oracle PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(oracle SYSTEM PRIVATE "${BOX2D_UPSTREAM_DIR}/include")
 target_link_libraries(oracle PUBLIC box2d)
 set_target_properties(oracle PROPERTIES C_STANDARD 17 C_STANDARD_REQUIRED YES)
 
@@ -71,13 +105,17 @@ function(oracle_program dir path)
 		set(target "${dir}_${name}")
 	endif()
 	add_executable(${target} "${path}")
-	target_include_directories(${target} PRIVATE
+	# Upstream code compiled into these programs is not ours to fix, so SYSTEM keeps
+	# ORACLE_WARNINGS on our own sources only.
+	target_include_directories(${target} SYSTEM PRIVATE
+		"${BOX2D_UPSTREAM_DIR}"
 		"${BOX2D_UPSTREAM_DIR}/include"
 		"${BOX2D_UPSTREAM_DIR}/src"
 		"${BOX2D_UPSTREAM_DIR}/shared"
 		"${BOX2D_UPSTREAM_DIR}/test"
 		"${ORACLE_PATCHED_DIR}")
 	target_compile_definitions(${target} PRIVATE ${ORACLE_SIMD_DEFINITIONS})
+	target_compile_options(${target} PRIVATE ${ORACLE_WARNINGS})
 	target_link_libraries(${target} PRIVATE oracle shared box2d)
 	set_target_properties(${target} PROPERTIES
 		C_STANDARD 17
@@ -112,8 +150,9 @@ set_target_properties(tests_distance_debug_public PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
 
 add_executable(bench_scenes bench/scenes.c)
-target_include_directories(bench_scenes PRIVATE "${BOX2D_UPSTREAM_DIR}/include")
+target_include_directories(bench_scenes SYSTEM PRIVATE "${BOX2D_UPSTREAM_DIR}/include" "${BOX2D_UPSTREAM_DIR}/shared")
 target_compile_definitions(bench_scenes PRIVATE ${ORACLE_SIMD_DEFINITIONS})
+target_compile_options(bench_scenes PRIVATE ${ORACLE_WARNINGS})
 target_link_libraries(bench_scenes PRIVATE shared box2d)
 set_target_properties(bench_scenes PROPERTIES
 	C_STANDARD 17

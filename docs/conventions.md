@@ -428,7 +428,7 @@ an oracle fixture captured from C:
   `ENSURE( c )` becomes `if !(c) { t.Fatal(...) }`. There are no shared
   `Ensure` helpers.
 - Each case has one fixture, named `<file>/<case>`, such as
-  `world/HelloWorld`. The C program calls `ORACLE_OPEN( "world/HelloWorld" )`
+  `world/HelloWorld`. The C program calls `ORACLE_OPEN("world/HelloWorld")`
   and the Go test calls `oracle.Open(t, "world/HelloWorld")`, then both make
   the same sequence of checks. Keys are stable strings. Search for a fixture
   name to find the C and Go pair.

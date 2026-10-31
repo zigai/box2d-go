@@ -4,7 +4,6 @@
 #include "oracle.h"
 #include "upstream/test_collision.c"
 
-int main( void )
-{
-	return CollisionTest();
+int main(void) {
+    return CollisionTest();
 }

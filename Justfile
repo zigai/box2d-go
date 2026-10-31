@@ -37,6 +37,8 @@ format:
     golangci-lint run --fix --enable-only whitespace --issues-exit-code=0 --build-tags box2d_stress
     golangci-lint run --fix --enable-only whitespace --issues-exit-code=0 --build-tags box2d_stress,{{ tags }}
     golangci-lint fmt
+    git ls-files -z 'oracle/*.c' 'oracle/*.h' | xargs -0 clang-format -i
+    git ls-files -z '*.sh' | xargs -0 shfmt -w
 
 fix:
     golangci-lint run --fix --build-tags box2d_stress
@@ -60,7 +62,7 @@ test-all:
     ./test/run.sh all -race -timeout 90m -tags box2d_stress
     ./test/run.sh all -race -timeout 90m -tags box2d_stress,{{ tags }}
 
-lint:
+lint: clang-tidy
     golangci-lint run --build-tags box2d_stress
     golangci-lint run --build-tags box2d_stress,{{ tags }}
     go vet -tags box2d_stress ./...
@@ -69,6 +71,12 @@ lint:
     go -C internal/lint build -o "$PWD/bin/box2dlint" ./cmd/box2dlint
     go vet -vettool="$PWD/bin/box2dlint" -tags box2d_stress ./...
     go vet -vettool="$PWD/bin/box2dlint" -tags box2d_stress,{{ tags }} ./...
+    git ls-files -z 'oracle/*.c' 'oracle/*.h' | xargs -0 clang-format --dry-run --Werror
+    git ls-files -z '*.sh' | xargs -0 shfmt -d
+
+clang-tidy:
+    cmake -S oracle -B oracle/.build/tidy -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=clang -DBOX2D_UPSTREAM_DIR="$PWD/oracle/.upstream/box2d" -DBOX2D_DISABLE_SIMD=ON >/dev/null
+    git ls-files -z 'oracle/*.c' ':!oracle/debug/*' | xargs -0 -P "$(nproc)" -n 1 clang-tidy -p oracle/.build/tidy --quiet
 
 skips:
     #!/usr/bin/env bash

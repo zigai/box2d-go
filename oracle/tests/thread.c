@@ -3,7 +3,6 @@
 
 #include "upstream/test_thread.c"
 
-int main( void )
-{
-	return ThreadTest();
+int main(void) {
+    return ThreadTest();
 }

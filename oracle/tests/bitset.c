@@ -3,7 +3,6 @@
 
 #include "upstream/test_bitset.c"
 
-int main( void )
-{
-	return BitSetTest();
+int main(void) {
+    return BitSetTest();
 }

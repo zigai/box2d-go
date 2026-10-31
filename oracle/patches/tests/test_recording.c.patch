@@ -418,7 +418,7 @@
  		if ( withQueries )
  		{
  			IssuePileQueries( worldId );
-@@ -946,36 +1045,51 @@
+@@ -946,36 +1045,53 @@
  {
  	b2Replay* ref = b2CreateReplay( recData, recSize, workerCount );
  	ENSURE( ref != NULL );
@@ -435,6 +435,8 @@
 +	ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( ref ), "reference seed", 0 );
  	for ( int f = 1; f <= frameCount; ++f )
  	{
++		// ENSURE returns early on failure and the test process then exits.
++		// NOLINTNEXTLINE(clang-analyzer-unix.Malloc)
  		ENSURE( b2Replay_StepFrame( ref ) );
 +		ORACLE_BOOL( "check 957", true );
 +		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( ref ), "step 957", b2Replay_GetFrame( ref ) );
@@ -470,7 +472,7 @@
  		if ( got != refHash[t] || diverged )
  		{
  			// Deep hash matches but the player diverged => an order sensitive query re-verification
-@@ -1001,15 +1115,19 @@
+@@ -1001,15 +1117,19 @@
  	const uint8_t* recData = b2Recording_GetData( rec );
  	int recSize = b2Recording_GetSize( rec );
  	ENSURE( recSize > 0 );
@@ -490,7 +492,7 @@
  	return 0;
  }
  
-@@ -1021,6 +1139,7 @@
+@@ -1021,6 +1141,7 @@
  {
  	b2Recording* rec = RecordScene( BuildPyramidScene, 1, 80 );
  	ENSURE( ScrubRecording( rec, 1 ) == 0 );
@@ -498,7 +500,7 @@
  	b2DestroyRecording( rec );
  	return 0;
  }
-@@ -1032,6 +1151,7 @@
+@@ -1032,6 +1153,7 @@
  {
  	b2Recording* rec = RecordSceneEx( BuildPyramidScene, 1, 80, true );
  	ENSURE( ScrubRecording( rec, 1 ) == 0 );
@@ -506,7 +508,7 @@
  	b2DestroyRecording( rec );
  	return 0;
  }
-@@ -1041,7 +1161,8 @@
+@@ -1041,7 +1163,8 @@
  // sample) and run `test.exe ReplayFileScrubDiag` to pinpoint it. No-op when the file is absent.
  int ReplayFileScrubDiag( void )
  {
@@ -516,7 +518,7 @@
  	b2Recording* rec = b2LoadRecordingFromFile( path );
  	if ( rec == NULL )
  	{
-@@ -1072,6 +1193,7 @@
+@@ -1072,6 +1195,7 @@
  	for ( int i = 0; i < churnFrame; ++i )
  	{
  		b2World_Step( liveId, dt, subSteps );
@@ -524,7 +526,7 @@
  	}
  
  	int size = b2World_GetSnapshot( liveId, NULL, 0 );
-@@ -1089,11 +1211,14 @@
+@@ -1089,11 +1213,14 @@
  	for ( int rep = 0; rep < reps && result == 0; ++rep )
  	{
  		ENSURE( b2World_Restore( cloneId, image, size ) );
@@ -539,7 +541,7 @@
  		if ( rep == 0 )
  		{
  			ref = h;
-@@ -1121,5 +1246,6 @@
+@@ -1121,5 +1248,6 @@
  int ReStepRaceTest( void )
  {
  	ENSURE( RestepRaceStress( CreateJunkyard, "junkyard", 2, 150, 50, 16 ) == 0 );

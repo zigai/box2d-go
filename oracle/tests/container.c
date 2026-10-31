@@ -3,7 +3,6 @@
 
 #include "upstream/test_container.c"
 
-int main( void )
-{
-	return ContainerTest();
+int main(void) {
+    return ContainerTest();
 }

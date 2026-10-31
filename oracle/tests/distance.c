@@ -4,7 +4,6 @@
 #include "oracle.h"
 #include "upstream/test_distance.c"
 
-int main( void )
-{
-	return DistanceTest();
+int main(void) {
+    return DistanceTest();
 }

@@ -99,5 +99,18 @@ oracle-check:
 oracle-bench:
     ORACLE_BENCH_ONLY=1 ./oracle/build.sh
 
+bench samples="6" steps="300" cpus="2":
+    [ -x oracle/.build/float/bench/bench_scenes ] && [ -x oracle/.build/double/bench/bench_scenes ] || just oracle-bench
+    BENCH_SAMPLES={{ samples }} BENCH_STEPS={{ steps }} GOMAXPROCS={{ cpus }} ./bench/run.sh
+
+bench-go:
+    go test -run '^$' -bench BenchmarkScenes ./bench
+
+samples *args:
+    go -C samples run . {{ args }}
+
+samples-double *args:
+    go -C samples run -tags {{ tags }} . {{ args }}
+
 alias cov := coverage
 alias fmt := format

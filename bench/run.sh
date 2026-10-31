@@ -16,6 +16,18 @@ die() {
 	exit 2
 }
 
+say() {
+	printf 'bench: %s\n' "$*" >&2
+}
+
+command -v benchstat >/dev/null 2>&1 ||
+	die 'benchstat is required: go install golang.org/x/perf/cmd/benchstat@latest'
+
+for precision in float double; do
+	[ -x "$build/$precision/bench/bench_scenes" ] ||
+		die "missing C benchmark $build/$precision/bench/bench_scenes: run just oracle-bench"
+done
+
 case "$samples" in
 '' | *[!0-9]* | 0) die 'BENCH_SAMPLES must be a positive finite integer' ;;
 esac
@@ -74,6 +86,7 @@ for precision in float double; do
 
 	printf 'GOEXPERIMENT=%s BOX2D_SIMD=%s BENCH_STEPS=%s go test -timeout 60m -tags %s -cpu %s -run ^$ -bench ^BenchmarkScenes$ -benchtime=1x -count=%s -benchmem ./bench\n' \
 		"$goexperiment" "${BOX2D_SIMD-}" "$steps" "$tags" "$GOMAXPROCS" "$samples" >"$output/command-$precision.txt"
+	say "measuring Go ($precision, $samples samples, $steps steps)"
 	go test -timeout 60m -tags "$tags" -cpu "$GOMAXPROCS" -run '^$' -bench '^BenchmarkScenes$' -benchtime=1x -count="$samples" -benchmem ./bench \
 		>"$output/go-$precision.txt" 2>"$output/go-$precision.stderr.txt"
 
@@ -81,6 +94,7 @@ for precision in float double; do
 	awk '/^goos:|^goarch:|^pkg:|^cpu:/ {print}' "$output/go-$precision.txt" >"$output/c-$precision.txt"
 	: >"$output/c-$precision.stderr.txt"
 
+	say "measuring C ($precision)"
 	for workers in 1 4; do
 		printf '%s %s %s %s %s\n' "$bench_scenes" "$samples" "$workers" "$GOMAXPROCS" "$steps" >>"$output/command-$precision.txt"
 		"$bench_scenes" "$samples" "$workers" "$GOMAXPROCS" "$steps" >>"$output/c-$precision.txt" 2>>"$output/c-$precision.stderr.txt"
@@ -91,3 +105,10 @@ for precision in float double; do
 	benchstat "$output/c-$precision.txt" "$output/go-$precision.txt" \
 		>"$output/benchstat-$precision.txt" 2>"$output/benchstat-$precision.stderr.txt"
 done
+
+for precision in float double; do
+	printf '\n== %s: C is the base, Go is compared to it ==\n' "$precision"
+	cat "$output/benchstat-$precision.txt"
+done
+
+say "full results in $output/"

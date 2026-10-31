@@ -106,11 +106,8 @@ bench samples="6" steps="300" cpus="2":
 bench-go:
     go test -run '^$' -bench BenchmarkScenes ./bench
 
-samples *args:
-    go -C samples run . {{ args }}
-
-samples-double *args:
-    go -C samples run -tags {{ tags }} . {{ args }}
+samples precision="float" *args:
+    go -C samples run {{ if precision == "double" { "-tags " + tags } else if precision == "float" { "" } else { error("precision must be float or double") } }} . {{ args }}
 
 alias cov := coverage
 alias fmt := format

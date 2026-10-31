@@ -18,15 +18,15 @@ just samples
 Run the double-precision build:
 
 ```sh
-just samples-double
+just samples double
 ```
 
-The app uses OpenGL 3.3 through GLFW and Dear ImGui, so it needs a C compiler with `CGO_ENABLED=1`, and the OpenGL and windowing development headers for your system. It runs inside `samples/` and saves window and sample settings to `samples/settings.ini`.
+The app uses OpenGL 3.3 through GLFW and Dear ImGui, so it needs a C compiler with `CGO_ENABLED=1`.
 
-Pass a recording file, relative to `samples/`, to open it in the replay sample:
+Pass a recording file after the precision, relative to `samples/`, to open it in the replay sample:
 
 ```sh
-just samples path/to/recording.b2rec
+just samples float path/to/recording.b2rec
 ```
 
 ## Controls

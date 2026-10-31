@@ -1,4 +1,4 @@
-module github.com/zigai/box2d/internal/lint
+module github.com/zigai/box2d-go/internal/lint
 
 go 1.27
 

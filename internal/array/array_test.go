@@ -6,7 +6,7 @@ package array
 import (
 	"testing"
 
-	"github.com/zigai/box2d/internal/oracle"
+	"github.com/zigai/box2d-go/internal/oracle"
 )
 
 type containerFoo struct {

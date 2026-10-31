@@ -3,7 +3,7 @@
 
 package main
 
-import "github.com/zigai/box2d"
+import "github.com/zigai/box2d-go/box2d"
 
 type Doohickey struct {
 	wheelID1  box2d.Body

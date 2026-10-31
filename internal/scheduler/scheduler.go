@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/zigai/box2d/internal/core"
-	"github.com/zigai/box2d/internal/timer"
+	"github.com/zigai/box2d-go/internal/core"
+	"github.com/zigai/box2d-go/internal/timer"
 )
 
 const (

@@ -6,8 +6,8 @@ package idpool
 import (
 	"slices"
 
-	"github.com/zigai/box2d/internal/array"
-	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d-go/internal/array"
+	"github.com/zigai/box2d-go/internal/core"
 )
 
 type Pool struct {

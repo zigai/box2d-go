@@ -8,8 +8,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/zigai/box2d"
-	"github.com/zigai/box2d/internal/oracle"
+	"github.com/zigai/box2d-go/box2d"
+	"github.com/zigai/box2d-go/internal/oracle"
 )
 
 func TestBoundedSceneTrig(t *testing.T) {

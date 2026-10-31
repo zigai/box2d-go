@@ -19,8 +19,8 @@ import (
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/go-gl/glfw/v3.4/glfw"
 
-	"github.com/zigai/box2d"
-	"github.com/zigai/box2d/internal/scenes"
+	"github.com/zigai/box2d-go/box2d"
+	"github.com/zigai/box2d-go/internal/scenes"
 )
 
 func init() {

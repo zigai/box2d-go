@@ -8,8 +8,8 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 
-	"github.com/zigai/box2d"
-	"github.com/zigai/box2d/internal/scenes"
+	"github.com/zigai/box2d-go/box2d"
+	"github.com/zigai/box2d-go/internal/scenes"
 )
 
 type FallingHinges struct {

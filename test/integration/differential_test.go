@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/oracle/sequence"
+	"github.com/zigai/box2d-go/internal/oracle"
+	"github.com/zigai/box2d-go/internal/oracle/sequence"
 )
 
 // Both corpus replay and fuzzing execute a new native process for every input.

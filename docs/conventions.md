@@ -1,6 +1,6 @@
 # Box2D port conventions
 
-`github.com/zigai/box2d` is a Go port of the Box2D C engine. The port has two
+`github.com/zigai/box2d-go/box2d` is a Go port of the Box2D C engine. The port has two
 goals: it must produce the same bits as the C engine, and it must stay easy to
 compare with upstream when upstream changes. These conventions explain how C patterns map to Go so
 that a change you make keeps both goals. Read them before you change the
@@ -376,8 +376,8 @@ deterministic. Alignment macros, `B2_RESTRICT` and `B2_INLINE` are dropped.
 The repository has the following layout:
 
 ```
-github.com/zigai/box2d
-  *.go                  the library, flat; one Go file per upstream file (body.c, body.h -> body.go)
+github.com/zigai/box2d-go
+  box2d/                the library, flat; one Go file per upstream file (body.c, body.h -> body.go)
   internal/scenes/      benchmark, human and determinism scenes; uses only the public API
   internal/<helper>/    array, bitset, core, hashset, idpool, qsort, scheduler, timer
   internal/oracle/      fixture reader; takes primitive values, so package box2d can import it

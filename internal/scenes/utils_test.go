@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/zigai/box2d/internal/oracle"
+	"github.com/zigai/box2d-go/internal/oracle"
 )
 
 func TestRandomHelpers(t *testing.T) {

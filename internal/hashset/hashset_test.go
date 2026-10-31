@@ -6,9 +6,9 @@ package hashset
 import (
 	"testing"
 
-	"github.com/zigai/box2d/internal/core"
-	"github.com/zigai/box2d/internal/oracle"
-	"github.com/zigai/box2d/internal/timer"
+	"github.com/zigai/box2d-go/internal/core"
+	"github.com/zigai/box2d-go/internal/oracle"
+	"github.com/zigai/box2d-go/internal/timer"
 )
 
 const tableItemCount = (317*317 - 317) / 2

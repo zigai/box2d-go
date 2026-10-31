@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zigai/box2d"
+	"github.com/zigai/box2d-go/box2d"
 )
 
 func TestLiveReferenceProfileRejectsInvalidSettings(t *testing.T) {

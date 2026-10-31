@@ -8,8 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/zigai/box2d"
-	"github.com/zigai/box2d/internal/oracle"
+	"github.com/zigai/box2d-go/box2d"
+	"github.com/zigai/box2d-go/internal/oracle"
 )
 
 // InputLimit bounds a history to 64 fixed-width operations.

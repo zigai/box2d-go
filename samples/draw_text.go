@@ -8,7 +8,7 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 
-	"github.com/zigai/box2d"
+	"github.com/zigai/box2d-go/box2d"
 )
 
 func (draw *Draw) DrawScreenString(x, y float32, color box2d.HexColor, format string, args ...any) {

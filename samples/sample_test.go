@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zigai/box2d"
+	"github.com/zigai/box2d-go/box2d"
 )
 
 func TestSampleRefusedRecordingPreservesSavedFile(t *testing.T) {

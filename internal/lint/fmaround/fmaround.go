@@ -13,7 +13,7 @@ import (
 var Analyzer = &analysis.Analyzer{
 	Name:     "fmaround",
 	Doc:      "flag float32 products that feed an addition or subtraction without explicit float32(...) rounding",
-	URL:      "https://github.com/zigai/box2d/tree/master/internal/lint",
+	URL:      "https://github.com/zigai/box2d-go/tree/master/internal/lint",
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
 }

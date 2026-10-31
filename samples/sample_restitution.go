@@ -8,7 +8,7 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 
-	"github.com/zigai/box2d"
+	"github.com/zigai/box2d-go/box2d"
 )
 
 func computeEnergy(worldID *box2d.World, bodyIDs []box2d.Body) (linear, angular, potential float32) {

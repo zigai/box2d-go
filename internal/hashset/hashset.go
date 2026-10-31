@@ -3,7 +3,7 @@
 
 package hashset
 
-import "github.com/zigai/box2d/internal/core"
+import "github.com/zigai/box2d-go/internal/core"
 
 type Item struct {
 	Key uint64

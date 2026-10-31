@@ -7,7 +7,7 @@ Go port of the [Box2D](https://github.com/erincatto/box2d) v3 physics engine. Re
 ## Installation
 
 ```sh
-go get github.com/zigai/box2d
+go get github.com/zigai/box2d-go/box2d
 ```
 
 Requires Go 1.27 or newer.

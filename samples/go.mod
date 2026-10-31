@@ -1,8 +1,6 @@
-module github.com/zigai/box2d/samples
+module github.com/zigai/box2d-go/samples
 
 go 1.27
-
-require github.com/zigai/box2d v0.0.0
 
 require (
 	github.com/AllenDang/cimgui-go v1.6.0 // indirect
@@ -13,8 +11,9 @@ require (
 	github.com/josephspurrier/goversioninfo v1.7.0 // indirect
 	github.com/ncruces/zenity v0.10.15 // indirect
 	github.com/randall77/makefat v0.0.0-20260406194835-1b91746796b7 // indirect
+	github.com/zigai/box2d-go v0.0.0
 	golang.org/x/image v0.44.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 )
 
-replace github.com/zigai/box2d => ../
+replace github.com/zigai/box2d-go => ../

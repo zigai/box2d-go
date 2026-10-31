@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/zigai/box2d"
+import "github.com/zigai/box2d-go/box2d"
 
 type UnstablePrismaticJoints struct {
 	Sample

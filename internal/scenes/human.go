@@ -3,7 +3,7 @@
 
 package scenes
 
-import "github.com/zigai/box2d"
+import "github.com/zigai/box2d-go/box2d"
 
 const (
 	BoneHip BoneID = iota

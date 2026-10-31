@@ -6,7 +6,7 @@ package main
 import (
 	"math"
 
-	"github.com/zigai/box2d"
+	"github.com/zigai/box2d-go/box2d"
 )
 
 type GeometricMoverDef struct {

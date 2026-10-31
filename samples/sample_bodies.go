@@ -8,7 +8,7 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 
-	"github.com/zigai/box2d"
+	"github.com/zigai/box2d-go/box2d"
 )
 
 type BodyType struct {

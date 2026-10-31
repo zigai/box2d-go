@@ -13,8 +13,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/zigai/box2d"
-	"github.com/zigai/box2d/internal/oracle"
+	"github.com/zigai/box2d-go/box2d"
+	"github.com/zigai/box2d-go/internal/oracle"
 )
 
 type queryDigest struct{ h uint64 }

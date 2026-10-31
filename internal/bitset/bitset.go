@@ -6,7 +6,7 @@ package bitset
 import (
 	"math/bits"
 
-	"github.com/zigai/box2d/internal/core"
+	"github.com/zigai/box2d-go/internal/core"
 )
 
 type Set struct {

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/zigai/box2d"
-	"github.com/zigai/box2d/internal/scenes"
+	"github.com/zigai/box2d-go/box2d"
+	"github.com/zigai/box2d-go/internal/scenes"
 )
 
-//go:linkname randomSeed github.com/zigai/box2d/internal/scenes.gRandomSeed
+//go:linkname randomSeed github.com/zigai/box2d-go/internal/scenes.gRandomSeed
 var randomSeed uint32
 
 func BenchmarkScenes(b *testing.B) {

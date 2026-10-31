@@ -3,7 +3,7 @@
 
 package array
 
-import "github.com/zigai/box2d/internal/core"
+import "github.com/zigai/box2d-go/internal/core"
 
 func Push[T any](s []T, value T) []T {
 	if len(s) >= cap(s) {

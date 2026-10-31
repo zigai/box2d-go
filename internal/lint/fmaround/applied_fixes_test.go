@@ -16,7 +16,7 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/zigai/box2d/internal/lint/fmaround"
+	"github.com/zigai/box2d-go/internal/lint/fmaround"
 )
 
 // Unlike the text goldens, these tests apply the analyzer's actual edits to

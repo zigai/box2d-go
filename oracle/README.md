@@ -1,34 +1,21 @@
 # Oracle
 
-The C reference for the Go port. It builds the Box2D C engine at the commit in [`UPSTREAM`](../UPSTREAM), runs small C programs against it, and records what the engine does. The Go tests replay those recordings offline and require the Go port to match them bit for bit.
+C programs that record what the Box2D C engine at the commit in [`UPSTREAM`](../UPSTREAM) does. The Go tests replay these recordings offline and must match them bit for bit.
 
-- **Fixtures:** each program writes typed records, with floats stored as exact bits, to `testdata/oracle/float/` and `testdata/oracle/double/`.
-- **Paired tests:** a C program and its Go test share a fixture name, so a search for the name finds both sides.
-- **Upstream tests:** the upstream test suite runs with recording calls added through patches, so its cases check the Go port too.
-- **Cross-checks:** SIMD and clang builds are compared with the scalar `gcc` reference, and any fixture that differs is reported.
-- **Freshness:** `manifest.json` hashes every source here. Changing one makes the Go tests fail as stale until the fixtures are regenerated.
+- Recordings go to `testdata/oracle/float/` and `testdata/oracle/double/`, with floats stored as exact bits.
+- A C program and its Go test share a fixture name. Search for the name to find both.
+- The upstream test suite also runs here, with recording calls added through patches.
+- `manifest.json` hashes every source here. Changing one fails the Go tests until the fixtures are regenerated.
 
 ## Usage
 
-Regenerate every fixture and the manifest after changing anything in this folder or `UPSTREAM`:
-
 ```sh
-just oracle
+just oracle         # build the C engine and regenerate every fixture
+just oracle-check   # run the live C comparisons
+just oracle-bench   # build only the C side of the benchmarks
 ```
 
-This takes about 25 minutes. It needs `cmake`, `gcc`, `clang`, `git`, `gzip`, and network access to fetch the pinned upstream into `oracle/.upstream/`. Commit the regenerated fixtures together with the change that caused them.
-
-Run the live comparisons against the built C programs, including generated operation histories:
-
-```sh
-just oracle-check
-```
-
-Build only the C side of the scene benchmarks:
-
-```sh
-just oracle-bench
-```
+`just oracle` needs `cmake`, `gcc`, `clang`, `git`, `gzip`, and network access. Commit the regenerated fixtures together with the change that caused them.
 
 ## Options
 
@@ -44,4 +31,4 @@ just oracle-bench
 
 ## Code style
 
-The C code has its own `.clang-format` and `.clang-tidy`, and builds with warnings as errors. `just format` formats it, and `just lint` checks formatting and runs clang-tidy.
+The C code has its own `.clang-format` and `.clang-tidy` and builds with warnings as errors. `just format` formats it, and `just lint` checks it.

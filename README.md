@@ -39,10 +39,8 @@ The interactive app in `samples/` shows many more scenes.
 ## Build options
 
 - `-tags box2d_double`: double-precision positions for large worlds.
-- `GOEXPERIMENT=simd`: experimental AVX backend on amd64. See [SIMD notes](bench/simd_optimization.md).
+- `GOEXPERIMENT=simd`: experimental AVX backend on amd64. See [SIMD notes](docs/simd.md).
 
 ## License
 
 [MIT](LICENSE)
-
-The logo is based on the [Box2D](https://github.com/erincatto/box2d) logo and the Go gopher by Renee French ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).

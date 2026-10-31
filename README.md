@@ -1,5 +1,7 @@
 # Box2D Go
 
+<p align="center"><img src="assets/logo.svg" alt="Box2D Go logo" width="248"></p>
+
 Go port of the [Box2D](https://github.com/erincatto/box2d) v3 physics engine. Results match the C engine at the commit in `UPSTREAM`.
 
 ## Installation
@@ -42,3 +44,5 @@ The interactive app in `samples/` shows many more scenes.
 ## License
 
 [MIT](LICENSE)
+
+The logo is based on the [Box2D](https://github.com/erincatto/box2d) logo and the Go gopher by Renee French ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).

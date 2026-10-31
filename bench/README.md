@@ -1,6 +1,6 @@
 # Bench
 
-Compares the speed of the Go port with the Box2D C engine on the same scenes. Both sides run identical workloads with the same step count, worker counts, and concurrency, so the numbers are comparable.
+Benchmarks that time the Go port against the Box2D C engine on the same scenes and settings.
 
 - **Matched workloads:** every benchmark scene runs in Go and in C with 1 and 4 workers.
 - **Both precisions:** the float and double builds are measured separately.

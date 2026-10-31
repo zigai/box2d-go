@@ -1,5 +1,0 @@
-- Regenerates all C fixtures with just oracle after the reformat, warning fixes and shared-scene switch; every fixture file is byte-identical and only the two manifest.json files change.
-- Builds the oracle with warnings as errors under gcc and clang, in float and double, scalar and SIMD, plus both Debug distance builds, with no warnings.
-- Passes just lint, including clang-format, shfmt and clang-tidy over the oracle C code.
-- Passes just oracle-check, the live C comparisons, in both precisions.
-- Passes just test in both precisions.

@@ -19,11 +19,11 @@ static void trig_dump(int index, float angle)
 {
  volatile float argument = angle;
  float s = sinf(argument), c = cosf(argument);
- ORACLE_F32(scenes_key(index, "angle"), angle);
- ORACLE_F32(scenes_key(index, "sin"), s);
- ORACLE_F32(scenes_key(index, "cos"), c);
- ORACLE_F32(scenes_key(index, "y"), 25.0f*s);
- ORACLE_F32(scenes_key(index, "x"), 25.0f*c);
+ ORACLE_F32(scene_key(index, "angle"), angle);
+ ORACLE_F32(scene_key(index, "sin"), s);
+ ORACLE_F32(scene_key(index, "cos"), c);
+ ORACLE_F32(scene_key(index, "y"), 25.0f*s);
+ ORACLE_F32(scene_key(index, "x"), 25.0f*c);
 }
 
 int main(void)
@@ -47,7 +47,7 @@ int main(void)
    hash = trig_hash(hash, 25.0f*c);
    if (step == 0 && ray == 41) trig_dump(0, angle);
   }
-  ORACLE_U64(scenes_key(step, "hash"), hash);
+  ORACLE_U64(scene_key(step, "hash"), hash);
  }
  trig_dump(1, B2_PI/18.0f);
  trig_dump(2, 0.1f*(B2_PI/18.0f));

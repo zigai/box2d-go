@@ -25,7 +25,7 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 	wd := box2d.DefaultWorldDef()
 	wd.WorkerCount = workerCount
 	liveID := box2d.NewWorld(&wd)
-	box2d.BTWorldCleanup(t, liveID)
+	box2d.CleanupWorld(t, liveID)
 	build(liveID)
 
 	for i := range churnFrame {
@@ -33,13 +33,13 @@ func recordingRestepRaceStress(t *testing.T, r *oracle.Reader, trace *recordingT
 		trace.Check(t, r, liveID, "step 1074", i+1)
 	}
 
-	image := box2d.BTSnapshot(liveID)
+	image := box2d.MarshalSnapshot(liveID)
 	liveID.Close()
 
 	cd := box2d.DefaultWorldDef()
 	cd.WorkerCount = workerCount
 	cloneID := box2d.NewWorld(&cd)
-	box2d.BTWorldCleanup(t, cloneID)
+	box2d.CleanupWorld(t, cloneID)
 	clone := cloneID
 
 	var ref uint64

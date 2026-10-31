@@ -195,234 +195,60 @@ func diagnoseSceneFull(t *testing.T, step int, want, got []byte) {
 	}
 }
 
-const (
-	sceneLimit  = 32 << 20
-	sceneWindow = 1 << 20
-)
-
 var sceneSteps = []int{-1, 59, 119, 179, 239, 299}
 
 func sceneWidth() int { return int(unsafe.Sizeof(box2d.Pos{})) / 2 }
 
-func sceneDictionaryKey(p []byte) uint32 {
-	return binary.LittleEndian.Uint32(p) * 2654435761 >> 12
+func encodeSceneBundle(full map[int][]byte, width int) []byte {
+	stride := 2*width + 12
+
+	var data []byte
+
+	for _, step := range sceneSteps {
+		state := full[step]
+		data = binary.LittleEndian.AppendUint32(data, uint32(int32(step)))
+		data = binary.LittleEndian.AppendUint32(data, uint32(len(state)/stride))
+		data = append(data, state...)
+	}
+
+	return data
 }
 
-func packSceneLZ(raw []byte) []byte {
-	if len(raw) > sceneLimit {
-		panic("scene packet exceeds limit")
-	}
+//nolint:err113 // Test-only decoding diagnostics; consumers report the failure, not its identity.
+func decodeSceneBundle(p []byte, width int) (map[int][]byte, error) {
+	stride := 2*width + 12
+	states := make(map[int][]byte, len(sceneSteps))
 
-	out := binary.LittleEndian.AppendUint32(nil, uint32(len(raw)))
-	table := make([]uint32, sceneWindow)
-
-	start, i := 0, 0
-	for i+4 <= len(raw) {
-		key := sceneDictionaryKey(raw[i:])
-		entry := table[key]
-		table[key] = uint32(i) + 1
-
-		previous := int(entry) - 1
-		count := sceneMatchLength(raw, i, previous)
-
-		if count == 0 {
-			i++
-			continue
+	for _, step := range sceneSteps {
+		if len(p) < 8 {
+			return nil, errors.New("short checkpoint header")
 		}
 
-		if i > start {
-			out = binary.AppendUvarint(out, uint64((i-start-1)<<1))
-			out = append(out, raw[start:i]...)
+		if got := int(int32(binary.LittleEndian.Uint32(p))); got != step {
+			return nil, fmt.Errorf("checkpoint step %d, want %d", got, step)
 		}
 
-		out = binary.AppendUvarint(out, uint64((count-4)<<1|1))
+		count := int(binary.LittleEndian.Uint32(p[4:]))
+		p = p[8:]
 
-		out = binary.AppendUvarint(out, uint64(i-previous))
-		for j := i + 1; j < i+count && j+4 <= len(raw); j++ {
-			table[sceneDictionaryKey(raw[j:])] = uint32(j) + 1
+		if count > 100000 || len(p) < count*stride {
+			return nil, fmt.Errorf("checkpoint %d: invalid body count %d", step, count)
 		}
 
-		i += count
-		start = i
-	}
+		state := p[:count*stride]
+		p = p[count*stride:]
 
-	if start < len(raw) {
-		out = binary.AppendUvarint(out, uint64((len(raw)-start-1)<<1))
-		out = append(out, raw[start:]...)
-	}
-
-	return out
-}
-
-func sceneVarint(p *[]byte) (uint32, error) {
-	var value uint32
-
-	for i := range 5 {
-		if len(*p) == 0 {
-			return 0, errors.New("truncated varint") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-		}
-
-		b := (*p)[0]
-		*p = (*p)[1:]
-
-		if i == 4 && b > 15 {
-			return 0, errors.New("overflowing varint") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-		}
-
-		value |= uint32(b&127) << (7 * i)
-		if b < 128 {
-			if i > 0 && b == 0 {
-				return 0, errors.New("noncanonical varint") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-			}
-
-			return value, nil
-		}
-	}
-
-	return 0, errors.New("overflowing varint") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-}
-
-func unpackSceneLZ(p []byte) ([]byte, error) {
-	if len(p) < 4 {
-		return nil, errors.New("short packet") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-	}
-
-	declared := binary.LittleEndian.Uint32(p)
-	p = p[4:]
-
-	if declared > sceneLimit {
-		return nil, errors.New("packet exceeds limit") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-	}
-
-	size := int(declared)
-
-	out := make([]byte, 0, size)
-	for len(out) < size {
-		command, err := sceneVarint(&p)
-		if err != nil {
-			return nil, err
-		}
-
-		if command>>1 >= sceneLimit {
-			return nil, errors.New("command exceeds limit") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-		}
-
-		count := int(command>>1) + 1
-		if command&1 == 0 {
-			if count > size-len(out) || count > len(p) {
-				return nil, errors.New("invalid literal length") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-			}
-
-			out = append(out, p[:count]...)
-			p = p[count:]
-		} else {
-			out, err = decodeSceneMatch(&p, out, size, count)
-			if err != nil {
-				return nil, err
+		for i := stride; i < len(state); i += stride {
+			if binary.LittleEndian.Uint32(state[i:]) <= binary.LittleEndian.Uint32(state[i-stride:]) {
+				return nil, fmt.Errorf("checkpoint %d: body IDs are not ascending", step)
 			}
 		}
+
+		states[step] = state
 	}
 
 	if len(p) != 0 {
-		return nil, errors.New("trailing packet bytes") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-	}
-
-	return out, nil
-}
-
-func packSceneBundle(full map[int][]byte, width int) []byte {
-	components, stride := 2*width+8, 2*width+12
-	raw := []byte{'S', 'C', 'N', 'L', byte(width), 6}
-	total := 0
-
-	for _, step := range sceneSteps {
-		state := full[step]
-		if len(state)%stride != 0 || len(state)/stride > 100000 {
-			panic("invalid scene state")
-		}
-
-		raw = binary.LittleEndian.AppendUint32(raw, uint32(int32(step)))
-		raw = binary.LittleEndian.AppendUint32(raw, uint32(len(state)/stride))
-		total += len(state) / stride
-	}
-
-	planes := make([]byte, total*components)
-	history := make(map[uint32][]byte)
-	record := 0
-
-	for _, step := range sceneSteps {
-		state := full[step]
-		preceding := uint32(math.MaxUint32)
-
-		for i := 0; i < len(state); i += stride {
-			id := binary.LittleEndian.Uint32(state[i:])
-			if id >= sceneWindow || preceding != math.MaxUint32 && id <= preceding {
-				panic("invalid scene ID")
-			}
-
-			raw = binary.AppendUvarint(raw, uint64(id-preceding))
-			preceding = id
-
-			previous := history[id]
-			if previous == nil {
-				previous = make([]byte, components)
-				history[id] = previous
-			}
-
-			for lane := range components {
-				planes[lane*total+record] = state[i+4+lane] ^ previous[lane]
-				previous[lane] = state[i+4+lane]
-			}
-
-			record++
-		}
-	}
-
-	return packSceneLZ(append(raw, planes...))
-}
-
-func unpackSceneBundle(p []byte, width int) (map[int][]byte, error) {
-	raw, err := unpackSceneLZ(p)
-	if err != nil {
-		return nil, err
-	}
-
-	counts, total, err := readSceneBundleHeader(raw, width)
-	if err != nil {
-		return nil, err
-	}
-
-	components, stride := 2*width+8, 2*width+12
-
-	p = raw[54:]
-	if len(p) < total*(components+1) {
-		return nil, errors.New("short body planes") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-	}
-
-	states, maxID, err := decodeSceneBodyIDs(&p, counts, stride)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(p) != total*components {
-		return nil, errors.New("body plane length mismatch") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-	}
-
-	history := make([]byte, (int(maxID)+1)*components)
-	record := 0
-
-	for _, step := range sceneSteps {
-		state := states[step]
-		for i := 0; i < len(state); i += stride {
-			id := int(binary.LittleEndian.Uint32(state[i:]))
-			for lane := range components {
-				value := p[lane*total+record] ^ history[id*components+lane]
-				state[i+4+lane] = value
-				history[id*components+lane] = value
-			}
-
-			record++
-		}
+		return nil, errors.New("trailing checkpoint bytes")
 	}
 
 	return states, nil
@@ -502,7 +328,7 @@ func validateSceneValue(record sceneRecord, width int) error {
 func readSceneRecords(t *testing.T, config, name string) ([]sceneRecord, []byte, map[int][]byte) {
 	t.Helper()
 
-	data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/" + name + ".jsonl")
+	data, err := oracle.ReadFile(config, "scenes/"+name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +340,7 @@ func readSceneRecords(t *testing.T, config, name string) ([]sceneRecord, []byte,
 
 	records, packed := decodeSceneRecords(t, data, width)
 
-	full, err := unpackSceneBundle(packed, width)
+	full, err := decodeSceneBundle(packed, width)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -535,29 +361,7 @@ func readSceneFull(t *testing.T, name string) map[int][]byte {
 	return full
 }
 
-func TestSceneCodec(t *testing.T) {
-	for _, width := range []int{4, 8} {
-		t.Run(strconv.Itoa(width), func(t *testing.T) {
-			states := sceneCodecStates(width)
-
-			packet := packSceneBundle(states, width)
-
-			got, err := unpackSceneBundle(packet, width)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			for _, step := range sceneSteps {
-				if !bytes.Equal(got[step], states[step]) {
-					t.Fatalf("step %d bits changed", step)
-				}
-			}
-
-			checkSceneBundleMalformed(t, packet, width)
-		})
-	}
-
-	checkSceneLZCodec(t)
+func TestSceneRecordParsing(t *testing.T) {
 	checkSceneRecordCodec(t)
 }
 
@@ -673,7 +477,7 @@ func checkSceneWorkerFixture(t *testing.T, config, fixture, name string, workers
 	t.Helper()
 
 	records, packed, full := readSceneRecords(t, config, fixture)
-	if !bytes.Equal(packSceneBundle(full, width), packed) {
+	if !bytes.Equal(encodeSceneBundle(full, width), packed) {
 		t.Fatal("C/Go deterministic encoding mismatch")
 	}
 
@@ -717,7 +521,7 @@ func checkSceneWorkerFixture(t *testing.T, config, fixture, name string, workers
 		t.Fatal("extra fixture records")
 	}
 
-	info, err := os.Stat("testdata/oracle/" + config + "/scenes/" + fixture + ".jsonl")
+	info, err := os.Stat("testdata/oracle/" + config + "/scenes/" + fixture + ".jsonl.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -739,15 +543,15 @@ func checkSceneFixtureDirectory(t *testing.T, config string, names []string) {
 		t.Fatalf("want 43 area fixtures (32 worker traces, six query payloads, two extended helpers, Utils/Trig/Helpers), got %d", len(entries))
 	}
 
-	expectedNames := map[string]bool{"Utils.jsonl": true, "Trig.jsonl": true, "Helpers.jsonl": true}
+	expectedNames := map[string]bool{"Utils.jsonl.gz": true, "Trig.jsonl.gz": true, "Helpers.jsonl.gz": true}
 
 	for _, workers := range []int{1, 4} {
 		for _, name := range names {
-			expectedNames[fmt.Sprintf("%s_workers%d.jsonl", name, workers)] = true
+			expectedNames[fmt.Sprintf("%s_workers%d.jsonl.gz", name, workers)] = true
 		}
 
 		for _, name := range []string{"QueriesPayload", "TreeCastPayload", "TileWorldPayload", "ExtendedHelpers"} {
-			expectedNames[fmt.Sprintf("%s_workers%d.jsonl", name, workers)] = true
+			expectedNames[fmt.Sprintf("%s_workers%d.jsonl.gz", name, workers)] = true
 		}
 	}
 
@@ -767,7 +571,7 @@ func checkSceneFixtureDirectory(t *testing.T, config string, names []string) {
 func checkSceneUtilityFixture(t *testing.T, config string, width int) {
 	t.Helper()
 
-	data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/Utils.jsonl")
+	data, err := oracle.ReadFile(config, "scenes/Utils")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -875,7 +679,7 @@ func testBenchmarkScene(t *testing.T, workers int, tc sceneTestCase) {
 		}
 	}
 
-	r.Bytes("full", packSceneBundle(actual, sceneWidth()))
+	r.Bytes("full", encodeSceneBundle(actual, sceneWidth()))
 }
 
 func testFallingHingesScene(t *testing.T, workers int) {
@@ -907,7 +711,7 @@ func testFallingHingesScene(t *testing.T, workers int) {
 		checkScene(t, r, full, actual, world, step)
 	}
 
-	r.Bytes("full", packSceneBundle(actual, sceneWidth()))
+	r.Bytes("full", encodeSceneBundle(actual, sceneWidth()))
 }
 
 func testHumanScene(t *testing.T, workers int) {
@@ -944,7 +748,7 @@ func testHumanScene(t *testing.T, workers int) {
 
 	scenes.DestroyHuman(&human)
 	checkScene(t, r, full, actual, world, 300)
-	r.Bytes("full", packSceneBundle(actual, sceneWidth()))
+	r.Bytes("full", encodeSceneBundle(actual, sceneWidth()))
 }
 
 func applySceneHumanAction(human *scenes.Human, step int) {
@@ -996,117 +800,6 @@ func checkSceneHumanSensors(t *testing.T, r *oracle.Reader, human *scenes.Human,
 	}
 }
 
-func sceneCodecStates(width int) map[int][]byte {
-	states := make(map[int][]byte)
-	stride := 2*width + 12
-
-	for k, step := range sceneSteps {
-		ids := []uint32{0, 2, 7}
-		if k == 1 {
-			ids = []uint32{2, 7, 9}
-		}
-
-		if k == 2 {
-			ids = nil
-		}
-
-		for _, id := range ids {
-			body := make([]byte, stride)
-			binary.LittleEndian.PutUint32(body, id)
-
-			for i := 4; i < stride; i++ {
-				body[i] = byte(int(id)*31 + i + k)
-			}
-
-			if id == 0 {
-				if width == 8 {
-					binary.LittleEndian.PutUint64(body[4:], 0x8000000000000000)
-				} else {
-					binary.LittleEndian.PutUint32(body[4:], 0x80000000)
-				}
-
-				binary.LittleEndian.PutUint32(body[stride-4:], 0x7fc01234)
-			}
-
-			states[step] = append(states[step], body...)
-		}
-	}
-
-	return states
-}
-
-func checkSceneBundleMalformed(t *testing.T, packet []byte, width int) {
-	t.Helper()
-
-	if _, err := unpackSceneBundle(packet, 12-width); err == nil {
-		t.Fatal("accepted wrong precision")
-	}
-
-	raw, err := unpackSceneLZ(packet)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, offset := range []int{0, 4, 5, 6, 10, 54} {
-		bad := bytes.Clone(raw)
-
-		bad[offset] ^= 255
-		if _, err := unpackSceneBundle(packSceneLZ(bad), width); err == nil {
-			t.Fatalf("accepted malformed field %d", offset)
-		}
-	}
-
-	for _, change := range []func([]byte){
-		func(p []byte) { binary.LittleEndian.PutUint32(p[10:], 100001) },
-		func(p []byte) { p[54] = 0 },
-		func(p []byte) { p[55] = 0 },
-		func(p []byte) { binary.LittleEndian.PutUint32(p[14:], uint32(math.MaxUint32)) },
-	} {
-		bad := bytes.Clone(raw)
-		change(bad)
-
-		if _, err := unpackSceneBundle(packSceneLZ(bad), width); err == nil {
-			t.Fatal("accepted invalid counts, IDs or cadence")
-		}
-	}
-
-	for end := range packet {
-		if _, err := unpackSceneBundle(packet[:end], width); err == nil {
-			t.Fatalf("accepted truncation %d", end)
-		}
-	}
-}
-
-func checkSceneLZCodec(t *testing.T) {
-	t.Helper()
-
-	for _, raw := range [][]byte{nil, []byte("abcdabcdabcdabcdabcd"), bytes.Repeat([]byte{0}, 70000), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 200000)} {
-		got, err := unpackSceneLZ(packSceneLZ(raw))
-		if err != nil || !bytes.Equal(got, raw) {
-			t.Fatalf("LZ round trip: %v", err)
-		}
-	}
-
-	malformed := [][]byte{
-		{1, 0, 0, 0, 0x80},
-		{1, 0, 0, 0, 0x80, 0},
-		{1, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0x10},
-		{4, 0, 0, 0, 1, 0},
-		{4, 0, 0, 0, 0xfe, 0xff, 0xff, 0xff, 0x0f},
-		{4, 0, 0, 0, 1, 1},
-		{1, 0, 0, 0, 2, 0, 0},
-		{0, 0, 0, 0, 0},
-		{0xff, 0xff, 0xff, 0xff},
-		{5, 0, 0, 0, 0, 'a', 1, 2},
-		{5, 0, 0, 0, 0, 'a', 1, 0x81, 0x80, 0x40},
-	}
-	for i, p := range malformed {
-		if _, err := unpackSceneLZ(p); err == nil {
-			t.Fatalf("accepted malformed LZ %d", i)
-		}
-	}
-}
-
 func checkSceneRecordCodec(t *testing.T) {
 	t.Helper()
 
@@ -1118,93 +811,6 @@ func checkSceneRecordCodec(t *testing.T) {
 			t.Fatalf("accepted malformed record %s", line)
 		}
 	}
-}
-
-func sceneMatchLength(raw []byte, index, previous int) int {
-	if previous < 0 || index-previous > sceneWindow || !bytes.Equal(raw[previous:previous+4], raw[index:index+4]) {
-		return 0
-	}
-
-	count := 4
-	for count < 65535 && index+count < len(raw) && raw[previous+count] == raw[index+count] {
-		count++
-	}
-
-	return count
-}
-
-func decodeSceneMatch(p *[]byte, out []byte, size, count int) ([]byte, error) {
-	count += 3
-
-	distance, err := sceneVarint(p)
-	if err != nil {
-		return nil, err
-	}
-
-	if count > 65535 || count > size-len(out) || distance == 0 || distance > sceneWindow || int(distance) > len(out) {
-		return nil, errors.New("invalid match") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-	}
-
-	for range count {
-		out = append(out, out[len(out)-int(distance)])
-	}
-
-	return out, nil
-}
-
-func readSceneBundleHeader(raw []byte, width int) ([]int, int, error) {
-	if len(raw) < 54 || string(raw[:4]) != "SCNL" || width != 4 && width != 8 || int(raw[4]) != width || raw[5] != 6 {
-		return nil, 0, errors.New("invalid bundle header") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-	}
-
-	counts := make([]int, 6)
-	total := 0
-
-	for k, step := range sceneSteps {
-		if int32(binary.LittleEndian.Uint32(raw[6+8*k:])) != int32(step) {
-			return nil, 0, errors.New("invalid checkpoint cadence") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-		}
-
-		count := binary.LittleEndian.Uint32(raw[10+8*k:])
-		if count > 100000 {
-			return nil, 0, errors.New("body count exceeds limit") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-		}
-
-		counts[k] = int(count)
-		total += counts[k]
-	}
-
-	return counts, total, nil
-}
-
-func decodeSceneBodyIDs(p *[]byte, counts []int, stride int) (map[int][]byte, uint32, error) {
-	states := make(map[int][]byte)
-	maxID := uint32(0)
-
-	for k, step := range sceneSteps {
-		state := make([]byte, counts[k]*stride)
-		preceding := uint32(math.MaxUint32)
-
-		for i := range counts[k] {
-			gap, err := sceneVarint(p)
-			if err != nil {
-				return nil, 0, err
-			}
-
-			id := preceding + gap
-			if gap == 0 || id >= sceneWindow || preceding != math.MaxUint32 && id <= preceding {
-				return nil, 0, errors.New("invalid body order") //nolint:err113 // Test-only codec diagnostics; consumers report or check failure, not error identity.
-			}
-
-			binary.LittleEndian.PutUint32(state[i*stride:], id)
-			preceding = id
-			maxID = max(maxID, id)
-		}
-
-		states[step] = state
-	}
-
-	return states, maxID, nil
 }
 
 func decodeSceneRecordField(dec *json.Decoder, record *sceneRecord, seen map[string]bool) error {

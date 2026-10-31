@@ -66,23 +66,23 @@
       "cases": {
         "SegmentCountTest": {
           "go": "TestChain/SegmentCountTest",
-          "fixture": "input/chain/SegmentCountTest"
+          "fixture": "chain/SegmentCountTest"
         },
         "SegmentGeometryTest": {
           "go": "TestChain/SegmentGeometryTest",
-          "fixture": "input/chain/SegmentGeometryTest"
+          "fixture": "chain/SegmentGeometryTest"
         },
         "LoopMaterialTest": {
           "go": "TestChain/LoopMaterialTest",
-          "fixture": "input/chain/LoopMaterialTest"
+          "fixture": "chain/LoopMaterialTest"
         },
         "OpenMaterialTest": {
           "go": "TestChain/OpenMaterialTest",
-          "fixture": "input/chain/OpenMaterialTest"
+          "fixture": "chain/OpenMaterialTest"
         },
         "SingleMaterialTest": {
           "go": "TestChain/SingleMaterialTest",
-          "fixture": "input/chain/SingleMaterialTest"
+          "fixture": "chain/SingleMaterialTest"
         }
       }
     },
@@ -204,15 +204,15 @@
       "cases": {
         "MultithreadingTest": {
           "go": "TestDeterminism/MultithreadingTest",
-          "fixture": "input/determinism/MultithreadingTest"
+          "fixture": "determinism/MultithreadingTest"
         },
         "BuiltInSchedulerTest": {
           "go": "TestDeterminism/BuiltInSchedulerTest",
-          "fixture": "input/determinism/BuiltInSchedulerTest"
+          "fixture": "determinism/BuiltInSchedulerTest"
         },
         "CrossPlatformTest": {
           "go": "TestDeterminism/CrossPlatformTest",
-          "fixture": "input/determinism/CrossPlatformTest"
+          "fixture": "determinism/CrossPlatformTest"
         }
       }
     },
@@ -323,27 +323,27 @@
       "cases": {
         "WorldInputTest": {
           "go": "TestInvalidInput/WorldInputTest",
-          "fixture": "input/invalid_input/WorldInputTest"
+          "fixture": "invalid_input/WorldInputTest"
         },
         "BodyInputTest": {
           "go": "TestInvalidInput/BodyInputTest",
-          "fixture": "input/invalid_input/BodyInputTest"
+          "fixture": "invalid_input/BodyInputTest"
         },
         "ShapeInputTest": {
           "go": "TestInvalidInput/ShapeInputTest",
-          "fixture": "input/invalid_input/ShapeInputTest"
+          "fixture": "invalid_input/ShapeInputTest"
         },
         "JointInputTest": {
           "go": "TestInvalidInput/JointInputTest",
-          "fixture": "input/invalid_input/JointInputTest"
+          "fixture": "invalid_input/JointInputTest"
         },
         "CreateInputTest": {
           "go": "TestInvalidInput/CreateInputTest",
-          "fixture": "input/invalid_input/CreateInputTest"
+          "fixture": "invalid_input/CreateInputTest"
         },
         "RecordReplayTest": {
           "go": "TestInvalidInput/RecordReplayTest",
-          "fixture": "input/invalid_input/RecordReplayTest"
+          "fixture": "invalid_input/RecordReplayTest"
         }
       }
     },

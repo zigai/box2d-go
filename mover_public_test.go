@@ -14,7 +14,7 @@ import (
 func TestCastMoverSkipsSensors(t *testing.T) {
 	worldDef := box2d.DefaultWorldDef()
 	world := box2d.NewWorld(&worldDef)
-	box2d.BTWorldCleanup(t, world)
+	box2d.CleanupWorld(t, world)
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Position = box2d.Vec2{X: 2}.Pos()
@@ -44,7 +44,7 @@ func TestCastMoverSkipsSensors(t *testing.T) {
 func TestCastMoverPreservesNearContactAndInitialOverlap(t *testing.T) {
 	worldDef := box2d.DefaultWorldDef()
 	world := box2d.NewWorld(&worldDef)
-	box2d.BTWorldCleanup(t, world)
+	box2d.CleanupWorld(t, world)
 
 	bodyDef := box2d.DefaultBodyDef()
 	body := world.CreateBody(&bodyDef)

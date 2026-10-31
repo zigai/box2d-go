@@ -8,26 +8,26 @@
 static void query_pos( b2Pos p )
 {
 	uint8_t bytes[sizeof( b2Pos ) + 8];
-	scenes_event_pos( bytes, p );
-	scenes_hash_bytes( bytes, sizeof( b2Pos ) );
+	scene_event_pos( bytes, p );
+	scene_hash_bytes( bytes, sizeof( b2Pos ) );
 }
 static void query_stats( b2TreeStats s )
 {
-	scenes_hash_u32( s.nodeVisits );
-	scenes_hash_u32( s.leafVisits );
+	scene_hash_u32( s.nodeVisits );
+	scene_hash_u32( s.leafVisits );
 }
 static void query_result( b2RayResult r )
 {
-	scenes_hash_u32( r.hit );
+	scene_hash_u32( r.hit );
 	if ( r.hit )
 	{
-		scenes_hash_id( r.shapeId.index1, r.shapeId.generation );
+		scene_hash_id( r.shapeId.index1, r.shapeId.generation );
 		query_pos( r.point );
-		scenes_hash_vec( r.normal );
-		scenes_hash_f32( r.fraction );
+		scene_hash_vec( r.normal );
+		scene_hash_f32( r.fraction );
 	}
-	scenes_hash_u32( r.nodeVisits );
-	scenes_hash_u32( r.leafVisits );
+	scene_hash_u32( r.nodeVisits );
+	scene_hash_u32( r.leafVisits );
 }
 static void query_emit( int step, int partition, const char* kind, const char* field, uint64_t value )
 {
@@ -76,9 +76,9 @@ static void hash_overlaps( Overlaps* o )
 {
 	if ( o->count > 1 )
 		qsort( o->ids, (size_t)o->count, sizeof( uint64_t ), compare_ids );
-	scenes_hash_u32( o->count );
+	scene_hash_u32( o->count );
 	for ( int i = 0; i < o->count; ++i )
-		scenes_hash_id( (int)( o->ids[i] >> 32 ), (uint32_t)o->ids[i] );
+		scene_hash_id( (int)( o->ids[i] >> 32 ), (uint32_t)o->ids[i] );
 	free( o->ids );
 }
 static void queries_payload( b2WorldId world, int step )
@@ -92,28 +92,28 @@ static void queries_payload( b2WorldId world, int step )
 		for ( int kind = 0; kind < 3; ++kind )
 		{
 			const char* name = kind == 0 ? "ray" : kind == 1 ? "circle" : "overlap";
-			scenes_digest = UINT64_C( 14695981039346656037 );
-			scenes_hash_u32( (uint32_t)filter.maskBits );
-			scenes_hash_u32( (uint32_t)( filter.maskBits >> 32 ) );
+			scene_digest = UINT64_C( 14695981039346656037 );
+			scene_hash_u32( (uint32_t)filter.maskBits );
+			scene_hash_u32( (uint32_t)( filter.maskBits >> 32 ) );
 			for ( int i = 0; i < QUERY_COUNT; ++i )
 			{
-				scenes_hash_u32( i );
+				scene_hash_u32( i );
 				query_pos( g_queryBenchmark.origins[i] );
 				if ( kind != 2 )
-					scenes_hash_vec( g_queryBenchmark.translations[i] );
+					scene_hash_vec( g_queryBenchmark.translations[i] );
 				else
 				{
-					scenes_hash_vec( (b2Vec2){ -5, -5 } );
-					scenes_hash_vec( (b2Vec2){ 5, 5 } );
+					scene_hash_vec( (b2Vec2){ -5, -5 } );
+					scene_hash_vec( (b2Vec2){ 5, 5 } );
 				}
 				if ( kind == 1 )
-					scenes_hash_f32( .1f );
+					scene_hash_f32( .1f );
 			}
-			query_emit( step, f, name, "inputs", scenes_digest );
-			scenes_digest = UINT64_C( 14695981039346656037 );
+			query_emit( step, f, name, "inputs", scene_digest );
+			scene_digest = UINT64_C( 14695981039346656037 );
 			for ( int i = 0; i < QUERY_COUNT; ++i )
 			{
-				scenes_hash_u32( i );
+				scene_hash_u32( i );
 				if ( kind == 0 )
 					query_result(
 						b2World_CastRayClosest( world, g_queryBenchmark.origins[i], g_queryBenchmark.translations[i], filter ) );
@@ -122,13 +122,13 @@ static void queries_payload( b2WorldId world, int step )
 					Closest c = { .fraction = 1 };
 					b2TreeStats s = b2World_CastShape( world, g_queryBenchmark.origins[i], &circle,
 													   g_queryBenchmark.translations[i], filter, closest, &c );
-					scenes_hash_u32( c.hit );
+					scene_hash_u32( c.hit );
 					if ( c.hit )
 					{
-						scenes_hash_id( c.id.index1, c.id.generation );
+						scene_hash_id( c.id.index1, c.id.generation );
 						query_pos( c.point );
-						scenes_hash_vec( c.normal );
-						scenes_hash_f32( c.fraction );
+						scene_hash_vec( c.normal );
+						scene_hash_f32( c.fraction );
 					}
 					query_stats( s );
 				}
@@ -141,7 +141,7 @@ static void queries_payload( b2WorldId world, int step )
 					query_stats( s );
 				}
 			}
-			query_emit( step, f, name, "payload", scenes_digest );
+			query_emit( step, f, name, "payload", scene_digest );
 		}
 	}
 }
@@ -180,20 +180,20 @@ static void tree_payload( int step )
 		{
 			uint64_t mask = kind == 1 ? 1 : B2_DEFAULT_MASK_BITS;
 			const char* name = kind == 0 ? "rayAll" : kind == 1 ? "rayMask1" : "box";
-			scenes_digest = UINT64_C( 14695981039346656037 );
-			scenes_hash_u32( (uint32_t)mask );
-			scenes_hash_u32( (uint32_t)( mask >> 32 ) );
+			scene_digest = UINT64_C( 14695981039346656037 );
+			scene_hash_u32( (uint32_t)mask );
+			scene_hash_u32( (uint32_t)( mask >> 32 ) );
 			for ( int i = 0; i < TREE_CAST_RAY_COUNT; ++i )
 			{
-				scenes_hash_u32( i );
-				scenes_hash_vec( g_treeCast.origins[i] );
-				scenes_hash_vec( g_treeCast.translations[k][i] );
-				scenes_hash_f32( 1 );
+				scene_hash_u32( i );
+				scene_hash_vec( g_treeCast.origins[i] );
+				scene_hash_vec( g_treeCast.translations[k][i] );
+				scene_hash_f32( 1 );
 				if ( kind == 2 )
-					scenes_hash_f32( TREE_CAST_BOX_EXTENT );
+					scene_hash_f32( TREE_CAST_BOX_EXTENT );
 			}
-			query_emit( step, k, name, "inputs", scenes_digest );
-			scenes_digest = UINT64_C( 14695981039346656037 );
+			query_emit( step, k, name, "inputs", scene_digest );
+			scene_digest = UINT64_C( 14695981039346656037 );
 			for ( int i = 0; i < TREE_CAST_RAY_COUNT; ++i )
 			{
 				TreeClosest c = { { g_treeCast.tightBoxes, 1 }, -1, UINT64_MAX };
@@ -212,14 +212,14 @@ static void tree_payload( int step )
 										  1 };
 					s = b2DynamicTree_CastBox( &g_treeCast.tree, &in, mask, tree_box, &c );
 				}
-				scenes_hash_u32( i );
-				scenes_hash_u32( (uint32_t)c.proxy );
-				scenes_hash_u32( (uint32_t)c.identity );
-				scenes_hash_u32( (uint32_t)( c.identity >> 32 ) );
-				scenes_hash_f32( c.cast.fraction );
+				scene_hash_u32( i );
+				scene_hash_u32( (uint32_t)c.proxy );
+				scene_hash_u32( (uint32_t)c.identity );
+				scene_hash_u32( (uint32_t)( c.identity >> 32 ) );
+				scene_hash_f32( c.cast.fraction );
 				query_stats( s );
 			}
-			query_emit( step, k, name, "payload", scenes_digest );
+			query_emit( step, k, name, "payload", scene_digest );
 		}
 }
 static void tile_payload( b2WorldId world, int step )
@@ -229,33 +229,33 @@ static void tile_payload( b2WorldId world, int step )
 	{
 		const char* name = kind == 0 ? "ray" : "overlap";
 		uint32_t state = 1234u + 7919u * (uint32_t)step;
-		scenes_digest = UINT64_C( 14695981039346656037 );
+		scene_digest = UINT64_C( 14695981039346656037 );
 		for ( int i = 0; i < TILE_QUERY_COUNT; ++i )
 		{
 			b2Pos origin = { g_tileWorld.xLeft + TileRandom( &state, 0, g_tileWorld.groundCount * g_tileWorld.bodySpan ),
 							 TileRandom( &state, -2, 18 ) };
 			float a = TileRandom( &state, 0, 2 * B2_PI );
 			b2Vec2 t = { TILE_RAY_LENGTH * cosf( a ), TILE_RAY_LENGTH * sinf( a ) };
-			scenes_hash_u32( i );
+			scene_hash_u32( i );
 			query_pos( origin );
 			if ( kind == 0 )
-				scenes_hash_vec( t );
+				scene_hash_vec( t );
 			else
 			{
-				scenes_hash_vec( (b2Vec2){ -5, -5 } );
-				scenes_hash_vec( (b2Vec2){ 5, 5 } );
+				scene_hash_vec( (b2Vec2){ -5, -5 } );
+				scene_hash_vec( (b2Vec2){ 5, 5 } );
 			}
 		}
-		query_emit( step, 0, name, "inputs", scenes_digest );
+		query_emit( step, 0, name, "inputs", scene_digest );
 		state = 1234u + 7919u * (uint32_t)step;
-		scenes_digest = UINT64_C( 14695981039346656037 );
+		scene_digest = UINT64_C( 14695981039346656037 );
 		for ( int i = 0; i < TILE_QUERY_COUNT; ++i )
 		{
 			b2Pos origin = { g_tileWorld.xLeft + TileRandom( &state, 0, g_tileWorld.groundCount * g_tileWorld.bodySpan ),
 							 TileRandom( &state, -2, 18 ) };
 			float a = TileRandom( &state, 0, 2 * B2_PI );
 			b2Vec2 t = { TILE_RAY_LENGTH * cosf( a ), TILE_RAY_LENGTH * sinf( a ) };
-			scenes_hash_u32( i );
+			scene_hash_u32( i );
 			if ( kind == 0 )
 				query_result( b2World_CastRayClosest( world, origin, t, filter ) );
 			else
@@ -266,7 +266,7 @@ static void tile_payload( b2WorldId world, int step )
 				query_stats( s );
 			}
 		}
-		query_emit( step, 0, name, "payload", scenes_digest );
+		query_emit( step, 0, name, "payload", scene_digest );
 	}
 }
 int main( void )

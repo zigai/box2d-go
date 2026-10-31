@@ -54,7 +54,7 @@ func recordingObserveQueries(t *testing.T, r *oracle.Reader, p *box2d.Replay, pr
 	}
 
 	draw := box2d.DefaultDebugDraw()
-	drawFuncs := &box2d.BTFuncDrawer{}
+	drawFuncs := &box2d.FuncDrawer{}
 	draw.Drawer = drawFuncs
 	hash, calls := uint64(oracle.HashInit), 0
 	pos := func(p box2d.Pos) { hash = oracle.HashPos(hash, oracle.Real(p.X), oracle.Real(p.Y)) }
@@ -180,7 +180,7 @@ func recordingLifecycleSource(t *testing.T, steps int) *box2d.Recording {
 	wd.Gravity = box2d.Vec2{}
 	wd.WorkerCount = 1
 	w := box2d.NewWorld(&wd)
-	box2d.BTWorldCleanup(t, w)
+	box2d.CleanupWorld(t, w)
 
 	bd := box2d.DefaultBodyDef()
 	bd.Type = box2d.DynamicBody
@@ -367,7 +367,7 @@ func TestRecordingFileAndFramingParity(t *testing.T) {
 		data := box2d.RecordingMalformed(rec.Data(), name)
 		p, err := box2d.NewReplay(data, 0)
 		r.Bool(name+"/open", p != nil && err == nil)
-		destroy := box2d.BTReplayCleanup(t, p)
+		destroy := box2d.CleanupReplay(t, p)
 
 		r.Bool(name+"/validate", box2d.ValidateReplay(data, 0) == nil)
 
@@ -423,5 +423,5 @@ func recordingParityPlayer(t *testing.T, data []byte, workers int) (*box2d.Repla
 		t.Fatal(err)
 	}
 
-	return p, box2d.BTReplayCleanup(t, p)
+	return p, box2d.CleanupReplay(t, p)
 }

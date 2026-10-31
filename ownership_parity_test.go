@@ -39,7 +39,7 @@ func newOwnershipScene(t *testing.T, variant, workers int, enqueue box2d.Enqueue
 
 	wd.UserData = variant
 	s.w = box2d.NewWorld(&wd)
-	box2d.BTWorldCleanup(t, s.w)
+	box2d.CleanupWorld(t, s.w)
 
 	bd := box2d.DefaultBodyDef()
 	bd.Position = box2d.Pos{Y: -0.5}

@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"math"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -2328,7 +2327,7 @@ func treeOpen(t *testing.T, name string, seed uint32) *treeOracle {
 		config = "double"
 	}
 
-	data, err := os.ReadFile("testdata/oracle/" + config + "/dynamic_tree/" + name + ".jsonl")
+	data, err := oracle.ReadFile(config, "dynamic_tree/"+name)
 	if err != nil {
 		t.Fatal(err)
 	}

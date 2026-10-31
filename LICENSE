@@ -20,7 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Scenes bounded float trigonometry numeric data: Arm optimized-routines,
+Scene bounded float trigonometry numeric data: Arm optimized-routines,
 commit 375f32ed2f7098090f41795ad363822752a25a65, math/sincosf_data.c.
 Additional relevant source: math/sincosf.h. MIT option selected.
 Copyright (c) 2018-2019, Arm Limited.

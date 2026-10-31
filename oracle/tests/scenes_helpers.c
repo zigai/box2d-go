@@ -9,9 +9,9 @@
 static void counts(b2WorldId world, int step)
 {
  b2Counters c = b2World_GetCounters(world);
- ORACLE_I32(scenes_key(step, "b"), c.bodyCount);
- ORACLE_I32(scenes_key(step, "s"), c.shapeCount);
- ORACLE_I32(scenes_key(step, "j"), c.jointCount);
+ ORACLE_I32(scene_key(step, "b"), c.bodyCount);
+ ORACLE_I32(scene_key(step, "s"), c.shapeCount);
+ ORACLE_I32(scene_key(step, "j"), c.jointCount);
 }
 
 static void group_flags(int step, int column)
@@ -25,9 +25,9 @@ static void group_flags(int step, int column)
    for (int b = 0; b < bone_count; ++b)
     cleared = cleared && B2_IS_NULL(h->bones[b].bodyId) && B2_IS_NULL(h->bones[b].jointId);
   }
- ORACLE_BOOL(scenes_key(step, "spawned"), spawned);
- ORACLE_BOOL(scenes_key(step, "cleared"), cleared);
- ORACLE_I32(scenes_key(step, "column"), g_rainData.columnIndex);
+ ORACLE_BOOL(scene_key(step, "spawned"), spawned);
+ ORACLE_BOOL(scene_key(step, "cleared"), cleared);
+ ORACLE_I32(scene_key(step, "column"), g_rainData.columnIndex);
  if (spawned != (step != 1) || cleared != (step == 1)) abort();
 }
 
@@ -68,15 +68,15 @@ int main(void)
  {
   b2Body_SetTransform(g_queryBenchmark.paddleId, (b2Pos){positions[i], 0}, b2Rot_identity);
   b2Body_SetLinearVelocity(g_queryBenchmark.paddleId, (b2Vec2){i < 2 ? 5 : -5, 0});
-  ORACLE_F32(scenes_key(i, "q"), StepQueries(world, i));
-  ORACLE_POS(scenes_key(i, "position"), b2Body_GetPosition(g_queryBenchmark.paddleId));
-  ORACLE_VEC2(scenes_key(i, "velocity"), b2Body_GetLinearVelocity(g_queryBenchmark.paddleId));
+  ORACLE_F32(scene_key(i, "q"), StepQueries(world, i));
+  ORACLE_POS(scene_key(i, "position"), b2Body_GetPosition(g_queryBenchmark.paddleId));
+  ORACLE_VEC2(scene_key(i, "velocity"), b2Body_GetLinearVelocity(g_queryBenchmark.paddleId));
   float expected[4] = {-5, 5, 5, -5};
   b2Vec2 velocity = b2Body_GetLinearVelocity(g_queryBenchmark.paddleId);
   if (velocity.x != expected[i] || velocity.y != 0) abort();
   b2TreeStats s = GetQueryBenchmarkStats();
-  ORACLE_I32(scenes_key(i, "n"), s.nodeVisits);
-  ORACLE_I32(scenes_key(i, "l"), s.leafVisits);
+  ORACLE_I32(scene_key(i, "n"), s.nodeVisits);
+  ORACLE_I32(scene_key(i, "l"), s.leafVisits);
  }
  b2DestroyWorld(world);
  ORACLE_CLOSE();

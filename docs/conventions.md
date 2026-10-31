@@ -1,9 +1,8 @@
 # Box2D port conventions
 
-`github.com/zigai/box2d` is a Go port of the Box2D C engine. It lives in the
-sibling `box2d-go` repository. The port has two goals: it must produce the
-same bits as the C engine, and it must stay easy to compare with upstream
-when upstream changes. These conventions explain how C patterns map to Go so
+`github.com/zigai/box2d` is a Go port of the Box2D C engine. The port has two
+goals: it must produce the same bits as the C engine, and it must stay easy to
+compare with upstream when upstream changes. These conventions explain how C patterns map to Go so
 that a change you make keeps both goals. Read them before you change the
 port.
 
@@ -25,7 +24,9 @@ or newer.
 
 ## Names
 
-The library is one flat package, `box2d`, with no sub-packages. Public names
+The public API is one package, `box2d`. Upstream's standalone helpers live
+in packages under `internal/`, described in
+[Repository layout](#repository-layout). Public names
 are upstream's names without the `b2` or `B2_` prefix, in Go capitalization.
 The following table shows common cases:
 
@@ -318,7 +319,7 @@ type posScalar = float32
 
 ## Sorting
 
-`qsort.h` is ported as `qsort.go`, with its Alexey Tourbin MIT notice.
+`qsort.h` is ported as `internal/qsort`, with its Alexey Tourbin MIT notice.
 `broad_phase.c` sorts pair keys with it. Quicksort isn't stable, so another
 algorithm could order equal keys differently, change the pair order and
 change the simulation.
@@ -335,7 +336,7 @@ upstream sorts.
 Its scalar branch is the default, in `simd_scalar.go`, with
 `type aabbV = AABB`. An optional amd64 AVX backend in `simd_accel_amd64.go`
 builds only with `GOEXPERIMENT=simd`, and `BOX2D_SIMD=0` selects the scalar
-fallback at run time. The `box2d-go` README covers how to try it.
+fallback at run time. [SIMD notes](simd.md) covers how to try it.
 
 The contact solver's `b2FloatW` layer is the scalar struct `floatW` in
 `contact_solver.go`, with four lanes processed one after another.
@@ -352,9 +353,8 @@ func mulAddW(a, b, c floatW) floatW {
 
 ## Containers, memory and threads
 
-`b2Array(T)` becomes a `[]T` plus five generic helpers in `container.go`:
-`arrayPush`, `arrayEmplace`, `arrayPop`, `arrayRemoveSwap` and
-`arrayReserve`. They keep `b2Array`'s growth: the first push allocates 8,
+`b2Array(T)` becomes a `[]T` plus five generic helpers in `internal/array`:
+`Push`, `Emplace`, `Pop`, `RemoveSwap` and `Reserve`. They keep `b2Array`'s growth: the first push allocates 8,
 then capacity doubles, and a reserve allocates exactly. The container tests
 check capacities, and allocation should not differ from the code you diff
 against. Code that doesn't depend on growth uses `append`, `slices` and
@@ -364,7 +364,8 @@ Upstream's allocator functions and byte counters are not ported, because Go
 allocates and collects. The arena allocator is not ported either. Per-step
 scratch arrays are slices that the world keeps and reuses.
 
-`b2HashSet`, `b2BitSet` and the ID pool are ported function by function.
+`b2HashSet`, `b2BitSet` and the ID pool are ported function by function, in
+`internal/hashset`, `internal/bitset` and `internal/idpool`.
 Atomics become `sync/atomic` typed values, bit scans become `math/bits`,
 `b2Mutex` becomes `sync.Mutex` and a thread becomes a goroutine.
 `b2ParallelFor` keeps the same block-claiming split, so the work split stays
@@ -378,24 +379,27 @@ The repository has the following layout:
 github.com/zigai/box2d
   *.go                  the library, flat; one Go file per upstream file (body.c, body.h -> body.go)
   internal/scenes/      benchmark, human and determinism scenes; uses only the public API
+  internal/<helper>/    array, bitset, core, hashset, idpool, qsort, scheduler, timer
   internal/oracle/      fixture reader; takes primitive values, so package box2d can import it
   internal/lint/        fmaround analyzer and the box2dlint command, in its own module
-  oracle/               C harness at the pin; oracle/tests/*.c are upstream tests with dump calls
-  testdata/oracle/      fixtures, in float/ and double/, plus manifest.json
+  oracle/               C harness at the pin; oracle/tests/*.c are fixture programs
+  oracle/patches/tests/ dump calls added to upstream tests, applied at build time
+  oracle/tests/scenes/  scene drivers shared by the scenes_*.c programs
+  testdata/oracle/      gzipped fixtures, in float/ and double/, plus manifest.json
   test/integration/     live C comparisons and differential fuzzing
   bench/                scene benchmarks and the Go and C comparison script
   samples/              interactive samples, in their own module
 ```
 
-The `box2d-go` repository's `AGENTS.md` and README cover the oracle workflow,
-which checks each change needs, and how long they take.
+`AGENTS.md` covers the oracle workflow, which checks each change needs, and
+how long they take.
 
 ## File headers and comments
 
 Each ported Go file starts with upstream's two SPDX lines, copied from the
 upstream file, so the year differs per file. A blank line follows, which keeps
-the header out of the package doc. `qsort.go` carries the Alexey Tourbin
-notice instead.
+the header out of the package doc. `internal/qsort/qsort.go` carries the
+Alexey Tourbin notice instead.
 
 ```go
 // SPDX-FileCopyrightText: 2023 Erin Catto
@@ -435,7 +439,8 @@ an oracle fixture captured from C:
 - A test that only uses the public API, or imports `internal/scenes`, is in
   `package box2d_test`. `internal/scenes` imports `box2d`, so an in-package
   test can't import it. A test that reaches internals and needs no scenes,
-  such as the `table`, `bitset` and `container` tests, is in `package box2d`.
+  such as `solver_test.go`, is in `package box2d`. Tests of an `internal/`
+  helper live in that helper's package.
 - A `box2d_test` test that needs internals uses an `export_*_test.go` file in
   `package box2d`, such as `export_world_test.go`, that exports only what that
   test needs.
@@ -446,16 +451,9 @@ or `UPSTREAM` makes the tests fail as stale until you regenerate.
 
 ## Go 1.27 findings
 
-The rules in [The float rule](#the-float-rule) rest on these findings. They
-come from compiling and running probe programs with `go1.27.1 linux/amd64`,
-plus code generation with `GOARCH=arm64`, `riscv64` and
-`GOOS=js GOARCH=wasm`.
-
-### Fused multiply-add
-
-The probe compiled `a*b + c`, `float32(a*b) + c`, `t := a*b; return t + c`,
-`c - a*b`, `c += a*b`, `c -= a*b` and `a*b + c*d` with `-gcflags=-S`. The
-following table shows the instructions each target emits:
+[The float rule](#the-float-rule) rests on probe programs built with
+`go1.27.1` for amd64, arm64, riscv64 and wasm. This table shows the
+instructions each target emits, from `-gcflags=-S`:
 
 | Target | `a*b + c` | `float32(a*b) + c` | `t := a*b; t + c` | `c - a*b`, `c -= a*b` | `c += a*b` | `a*b + c*d` |
 |---|---|---|---|---|---|---|
@@ -465,43 +463,18 @@ following table shows the instructions each target emits:
 | amd64, default (`v1`) | `MULSS`, `ADDSS` | same | same | same | same | `MULSS`, `MULSS`, `ADDSS` |
 | wasm | `F32Mul`, `F32Add` | same | same | `F32Mul`, `F32Sub` | not run | not run |
 
-An explicit `float32(...)` conversion is the only thing that prevents fusion.
-Assigning to a local variable does not. A sum of two products needs both
-products rounded, because the compiler fuses one of them into the add. Wasm
-never fuses. An amd64 build with `GOAMD64=v3` or higher fuses, so CI runs
-`v3` cells on amd64 as well as arm64 cells.
-
-### Constants
-
-`const a float32 = 0.1; const b float32 = a * a` gives bits `3c23d70b`, the
-same as the runtime product of two float32 values. The untyped
-`const v = 0.1 * 0.1` converted to float32 gives `3c23d70a`. Untyped constant
-arithmetic is exact in Go, while typed float32 constants round per operation,
-like C `0.1f * 0.1f`.
-
-### Square root, min, max and abs
-
-`float32(math.Sqrt(float64(x)))` matched a 24-bit `math/big` float, rounded to
-nearest even, on 2,000,000 random float32 inputs with no mismatch.
-
-Builtin `min(-0, +0)` is `-0` and `min(NaN, 1)` is NaN, where `b2MinFloat`
-gives `+0` and `1`. `math.Abs(-0)` is `+0`, where `b2AbsFloat(-0)` is `-0`.
-
-### Float to int
-
-`int32(float32(3.0e9))` is `-2147483648` on amd64. The result is
-implementation-specific in Go and undefined behavior in C.
-
-### Other features
-
-The following table lists other Go features the port uses or rejects:
-
-| Feature | Finding | Use in the port |
-|---|---|---|
-| Generic methods | Compile and run, but a type with one can't satisfy an interface. | Not used. User data is `any`. |
-| `iter.Seq` and range over func | Work, including early `break`. | Events and list getters. |
-| Range over int, per-iteration loop variables | Work. | Used freely. |
-| `slices` | Works. | Not where upstream sorts. |
-| `sync.WaitGroup.Go`, typed atomics | Work. | The built-in scheduler. |
-| `testing.B.Loop` | Works. | Benchmarks. |
-| `simd` and `simd/archsimd` | Need `GOEXPERIMENT=simd`. `simd/archsimd` is amd64 only and outside the Go 1 compatibility promise. The portable `simd` vector length depends on the hardware, so it can't give the fixed width 4 that contact batching needs. | The optional AABB overlap backend only. |
+- Only an explicit `float32(...)` conversion prevents fusion. A local
+  variable does not. In a sum of two products, the compiler fuses one of them
+  into the add. Wasm never fuses, and amd64 fuses from `GOAMD64=v3`, so CI
+  runs `v3` cells on amd64 as well as arm64 cells.
+- Typed float32 constants round per operation, like C: with
+  `const a float32 = 0.1`, `const b float32 = a * a` gives bits `3c23d70b`.
+  The untyped `0.1 * 0.1` converted to float32 gives `3c23d70a`.
+- `float32(math.Sqrt(float64(x)))` matched a correctly rounded result on
+  2,000,000 random float32 inputs.
+- Builtin `min(-0, +0)` is `-0` and `min(NaN, 1)` is NaN, where `b2MinFloat`
+  gives `+0` and `1`. `math.Abs(-0)` is `+0`, where `b2AbsFloat(-0)` is `-0`.
+- `int32(float32(3.0e9))` is `-2147483648` on amd64. C leaves it undefined.
+- The portable `simd` package's vector width depends on the hardware, so it
+  can't give the fixed width 4 that contact batching needs. `simd/archsimd`
+  is amd64 only and outside the Go 1 compatibility promise.

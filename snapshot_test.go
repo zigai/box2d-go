@@ -13,7 +13,7 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
-type snapshotSnapshotIDs struct {
+type snapshotIDs struct {
 	body  Body
 	shape Shape
 	joint Joint
@@ -30,7 +30,7 @@ func snapshotTreeTailMatches(data []byte, tail []int32) bool {
 	return true
 }
 
-func snapshotBuildScene(t *testing.T, outIDs *snapshotSnapshotIDs) *World {
+func snapshotBuildScene(t *testing.T, outIDs *snapshotIDs) *World {
 	t.Helper()
 
 	var heldJoint Joint
@@ -40,7 +40,7 @@ func snapshotBuildScene(t *testing.T, outIDs *snapshotSnapshotIDs) *World {
 	def := DefaultWorldDef()
 	def.WorkerCount = 1
 	worldID := NewWorld(&def)
-	BTWorldCleanup(t, worldID)
+	CleanupWorld(t, worldID)
 	{
 		bd := DefaultBodyDef()
 		bd.Position = Pos{X: 0.0, Y: -1.0}
@@ -191,7 +191,7 @@ func snapshotStepUntilSleep(r *oracle.Reader, worldID *World) {
 	maxSteps := 500
 	for step := range maxSteps {
 		worldID.Step(dt, subSteps)
-		snapshotTransformTrace(r, worldID, fmt.Sprintf("L227/step/%d", step), step)
+		traceTransforms(r, worldID, fmt.Sprintf("L227/step/%d", step), step)
 
 		awake := worldID.AwakeBodyCount()
 		if awake == 0 {
@@ -206,12 +206,12 @@ func TestSnapshot(t *testing.T) {
 
 	var buf recBuffer
 
-	worldAId, worldBId, worldA1Id, worldCId := snapshotSnapshotCloneParity(t, r, &buf)
-	rID, sID, freshID := snapshotSnapshotRestoreParity(t, r)
-	snapshotSnapshotRecording(t, r, snapPath)
-	snapshotSnapshotMovingContinuation(t, r)
-	snapshotSnapshotReplayRestart(t, r)
-	snapshotSnapshotClearsEndEvents(t, r)
+	worldAId, worldBId, worldA1Id, worldCId := snapshotCloneParity(t, r, &buf)
+	rID, sID, freshID := snapshotRestoreParity(t, r)
+	snapshotRecording(t, r, snapPath)
+	snapshotMovingContinuation(t, r)
+	snapshotReplayRestart(t, r)
+	snapshotClearsEndEvents(t, r)
 
 	_ = os.Remove(snapPath)
 
@@ -225,7 +225,7 @@ func TestSnapshot(t *testing.T) {
 	recBufFree(&buf)
 }
 
-func snapshotSnapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer) (*World, *World, *World, *World) {
+func snapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer) (*World, *World, *World, *World) {
 	t.Helper()
 	worldAId := snapshotBuildScene(t, nil)
 	snapshotStepUntilSleep(r, worldAId)
@@ -254,7 +254,7 @@ func snapshotSnapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer)
 
 	r.Bool("L255", buf.size > 0)
 	worldBId, err := NewWorldFromSnapshot(buf.data, 1)
-	BTWorldCleanup(t, worldBId)
+	CleanupWorld(t, worldBId)
 
 	if err != nil || !worldBId.IsValid() {
 		t.Fatal("condition false")
@@ -262,17 +262,17 @@ func snapshotSnapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer)
 
 	r.Bool("L259", worldBId.IsValid())
 	worldB := worldBId
-	snapshotSnapshotCloneHashes(t, r, worldA, worldB)
+	snapshotCloneHashes(t, r, worldA, worldB)
 
-	snapshotSnapshotCloneTrees(t, r, worldA, worldB)
+	snapshotCloneTrees(t, r, worldA, worldB)
 
-	snapshotSnapshotCloneContinuation(t, r, worldAId, worldBId)
+	snapshotCloneContinuation(t, r, worldAId, worldBId)
 
 	recBufFree(buf)
 	*buf = recBuffer{}
 	serializeWorld(worldA, buf)
 	worldA1Id, err := NewWorldFromSnapshot(buf.data, 1)
-	BTWorldCleanup(t, worldA1Id)
+	CleanupWorld(t, worldA1Id)
 
 	if err != nil || !worldA1Id.IsValid() {
 		t.Fatal("condition false")
@@ -281,7 +281,7 @@ func snapshotSnapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer)
 	r.Bool("L322", worldA1Id.IsValid())
 	worldA1 := worldA1Id
 	worldCId, err := NewWorldFromSnapshot(buf.data, 4)
-	BTWorldCleanup(t, worldCId)
+	CleanupWorld(t, worldCId)
 
 	if err != nil || !worldCId.IsValid() {
 		t.Fatal("condition false")
@@ -296,23 +296,23 @@ func snapshotSnapshotCloneParity(t *testing.T, r *oracle.Reader, buf *recBuffer)
 
 	r.Bool("L329", hashWorldState(worldA1) == hashWorldState(worldC))
 
-	snapshotSnapshotWorkerContinuation(t, r, worldA1Id, worldCId)
+	snapshotWorkerContinuation(t, r, worldA1Id, worldCId)
 
 	return worldAId, worldBId, worldA1Id, worldCId
 }
 
-func snapshotSnapshotRestoreParity(t *testing.T, r *oracle.Reader) (*World, *World, *World) {
+func snapshotRestoreParity(t *testing.T, r *oracle.Reader) (*World, *World, *World) {
 	t.Helper()
 
 	dt := float32(1.0) / 60.0
 	subSteps := 4
 
-	var ids snapshotSnapshotIDs
+	var ids snapshotIDs
 
 	rID := snapshotBuildScene(t, &ids)
 	snapshotStepUntilSleep(r, rID)
 	rWorld := rID
-	image := BTSnapshot(rID)
+	image := MarshalSnapshot(rID)
 
 	imageSize := len(image)
 	if imageSize <= 0 {
@@ -321,7 +321,7 @@ func snapshotSnapshotRestoreParity(t *testing.T, r *oracle.Reader) (*World, *Wor
 
 	r.Bool("L354", imageSize > 0)
 
-	image = BTSnapshot(rID)
+	image = MarshalSnapshot(rID)
 
 	written := len(image)
 	if written != imageSize {
@@ -342,7 +342,7 @@ func snapshotSnapshotRestoreParity(t *testing.T, r *oracle.Reader) (*World, *Wor
 	postBody := rID.CreateBody(&postDef)
 	for step := range 30 {
 		rID.Step(dt, subSteps)
-		snapshotTransformTrace(r, rID, fmt.Sprintf("L370/step/%d", step), step)
+		traceTransforms(r, rID, fmt.Sprintf("L370/step/%d", step), step)
 	}
 
 	if hashWorldStateDeep(rWorld) == snapHash {
@@ -363,17 +363,17 @@ func snapshotSnapshotRestoreParity(t *testing.T, r *oracle.Reader) (*World, *Wor
 
 	r.Bool("L377", hashWorldStateDeep(rWorld) == snapHash)
 
-	snapshotSnapshotRestoredHandles(t, r, rID, &ids, postBody)
-	snapshotSnapshotRejectedCorruption(t, r, rID, image)
+	snapshotRestoredHandles(t, r, rID, &ids, postBody)
+	snapshotRejectedCorruption(t, r, rID, image)
 
-	snapshotSnapshotTreeCapacity(t, r, rID, image, snapHash)
+	snapshotTreeCapacity(t, r, rID, image, snapHash)
 
-	sID, freshID := snapshotSnapshotRestoredContinuation(t, r, image)
+	sID, freshID := snapshotRestoredContinuation(t, r, image)
 
 	return rID, sID, freshID
 }
 
-func snapshotSnapshotRecording(t *testing.T, r *oracle.Reader, snapPath string) {
+func snapshotRecording(t *testing.T, r *oracle.Reader, snapPath string) {
 	t.Helper()
 
 	dt := float32(1.0) / 60.0
@@ -382,7 +382,7 @@ func snapshotSnapshotRecording(t *testing.T, r *oracle.Reader, snapPath string) 
 
 	for step := range 20 {
 		wID.Step(dt, subSteps)
-		snapshotTransformTrace(r, wID, fmt.Sprintf("L469/step/%d", step), step)
+		traceTransforms(r, wID, fmt.Sprintf("L469/step/%d", step), step)
 	}
 
 	rec := NewRecording(0)
@@ -390,7 +390,7 @@ func snapshotSnapshotRecording(t *testing.T, r *oracle.Reader, snapPath string) 
 
 	for step := range 60 {
 		wID.Step(dt, subSteps)
-		snapshotTransformTrace(r, wID, fmt.Sprintf("L476/step/%d", step), step)
+		traceTransforms(r, wID, fmt.Sprintf("L476/step/%d", step), step)
 	}
 
 	wID.StopRecording()
@@ -430,15 +430,15 @@ func snapshotSnapshotRecording(t *testing.T, r *oracle.Reader, snapPath string) 
 
 	r.Bool("L490", true)
 
-	snapshotSnapshotReplayPlayback(t, r, recData)
+	snapshotReplayPlayback(t, r, recData)
 }
 
-func snapshotSnapshotReplayPlayback(t *testing.T, r *oracle.Reader, recData []byte) {
+func snapshotReplayPlayback(t *testing.T, r *oracle.Reader, recData []byte) {
 	t.Helper()
 
 	player, err := NewReplay(recData, 0)
 
-	destroyPlayer := BTReplayCleanup(t, player)
+	destroyPlayer := CleanupReplay(t, player)
 	if err != nil || player == nil {
 		t.Fatal("condition false")
 	}
@@ -449,7 +449,7 @@ func snapshotSnapshotReplayPlayback(t *testing.T, r *oracle.Reader, recData []by
 	frames := 0
 	for player.StepFrame() {
 		frames += 1
-		snapshotTransformTrace(r, player.World(), fmt.Sprintf("L501/step/%d", frames), frames-1)
+		traceTransforms(r, player.World(), fmt.Sprintf("L501/step/%d", frames), frames-1)
 	}
 
 	if frames != 60 {
@@ -485,7 +485,7 @@ func snapshotSnapshotReplayPlayback(t *testing.T, r *oracle.Reader, recData []by
 	frames2 := 0
 	for player.StepFrame() {
 		frames2 += 1
-		snapshotTransformTrace(r, player.World(), fmt.Sprintf("L514/step/%d", frames2), frames2-1)
+		traceTransforms(r, player.World(), fmt.Sprintf("L514/step/%d", frames2), frames2-1)
 	}
 
 	if frames2 != 60 {
@@ -504,7 +504,7 @@ func snapshotSnapshotReplayPlayback(t *testing.T, r *oracle.Reader, recData []by
 	destroyPlayer()
 }
 
-func snapshotSnapshotMovingContinuation(t *testing.T, r *oracle.Reader) {
+func snapshotMovingContinuation(t *testing.T, r *oracle.Reader) {
 	t.Helper()
 
 	dt := float32(1.0) / 60.0
@@ -513,10 +513,10 @@ func snapshotSnapshotMovingContinuation(t *testing.T, r *oracle.Reader) {
 
 	for step := range 20 {
 		wID.Step(dt, subSteps)
-		snapshotTransformTrace(r, wID, fmt.Sprintf("L531/step/%d", step), step)
+		traceTransforms(r, wID, fmt.Sprintf("L531/step/%d", step), step)
 	}
 
-	snap := BTSnapshot(wID)
+	snap := MarshalSnapshot(wID)
 	origin := wID
 
 	const tailSteps = 90
@@ -527,14 +527,14 @@ func snapshotSnapshotMovingContinuation(t *testing.T, r *oracle.Reader) {
 	)
 	for step := range tailSteps {
 		wID.Step(dt, subSteps)
-		snapshotTransformTrace(r, wID, fmt.Sprintf("L547/step/%d", step), step)
+		traceTransforms(r, wID, fmt.Sprintf("L547/step/%d", step), step)
 		r.U64(fmt.Sprintf("moving/origin/%d/state", step), wID.StateHash())
 		realTail[step] = hashWorldState(origin)
 		realDeepTail[step] = wID.StateHash()
 	}
 
 	cID, err := NewWorldFromSnapshot(snap, 1)
-	BTWorldCleanup(t, cID)
+	CleanupWorld(t, cID)
 
 	if err != nil || !cID.IsValid() {
 		t.Fatal("condition false")
@@ -545,7 +545,7 @@ func snapshotSnapshotMovingContinuation(t *testing.T, r *oracle.Reader) {
 	clone := cID
 	for step := range tailSteps {
 		cID.Step(dt, subSteps)
-		snapshotTransformTrace(r, cID, fmt.Sprintf("L556/step/%d", step), step)
+		traceTransforms(r, cID, fmt.Sprintf("L556/step/%d", step), step)
 		r.U64(fmt.Sprintf("moving/clone/%d/state", step), cID.StateHash())
 
 		if cID.StateHash() != realDeepTail[step] {
@@ -565,7 +565,7 @@ func snapshotSnapshotMovingContinuation(t *testing.T, r *oracle.Reader) {
 	cID.Close()
 }
 
-func snapshotSnapshotReplayRestart(t *testing.T, r *oracle.Reader) {
+func snapshotReplayRestart(t *testing.T, r *oracle.Reader) {
 	t.Helper()
 
 	dt := float32(1.0) / 60.0
@@ -573,7 +573,7 @@ func snapshotSnapshotReplayRestart(t *testing.T, r *oracle.Reader) {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	wID := NewWorld(&wd)
-	BTWorldCleanup(t, wID)
+	CleanupWorld(t, wID)
 
 	rec := NewRecording(0)
 	wID.StartRecording(rec)
@@ -588,7 +588,7 @@ func snapshotSnapshotReplayRestart(t *testing.T, r *oracle.Reader) {
 
 	for step := range 30 {
 		wID.Step(dt, subSteps)
-		snapshotTransformTrace(r, wID, fmt.Sprintf("L589/step/%d", step), step)
+		traceTransforms(r, wID, fmt.Sprintf("L589/step/%d", step), step)
 	}
 
 	wID.StopRecording()
@@ -596,7 +596,7 @@ func snapshotSnapshotReplayRestart(t *testing.T, r *oracle.Reader) {
 
 	player, err := NewReplay(rec.Data(), 0)
 
-	destroyPlayer := BTReplayCleanup(t, player)
+	destroyPlayer := CleanupReplay(t, player)
 	if err != nil || player == nil {
 		t.Fatal("condition false")
 	}
@@ -606,7 +606,7 @@ func snapshotSnapshotReplayRestart(t *testing.T, r *oracle.Reader) {
 	pid0 := player.World()
 	for i := range 5 {
 		player.StepFrame()
-		snapshotTransformTrace(r, player.World(), fmt.Sprintf("L599/step/%d", i), i)
+		traceTransforms(r, player.World(), fmt.Sprintf("L599/step/%d", i), i)
 	}
 
 	player.Restart()
@@ -628,7 +628,7 @@ func snapshotSnapshotReplayRestart(t *testing.T, r *oracle.Reader) {
 	destroyPlayer()
 }
 
-func snapshotSnapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
+func snapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
 	t.Helper()
 
 	dt := float32(1.0) / 60.0
@@ -636,7 +636,7 @@ func snapshotSnapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	wID := NewWorld(&wd)
-	BTWorldCleanup(t, wID)
+	CleanupWorld(t, wID)
 	w := wID
 	gbd := DefaultBodyDef()
 	gbd.Position = Pos{X: 0.0, Y: -1.0}
@@ -657,7 +657,7 @@ func snapshotSnapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
 
 	for step := range 60 {
 		wID.Step(dt, subSteps)
-		snapshotTransformTrace(r, wID, fmt.Sprintf("L637/step/%d", step), step)
+		traceTransforms(r, wID, fmt.Sprintf("L637/step/%d", step), step)
 	}
 
 	if wID.StateHash() != hashWorldStateDeep(w) {
@@ -665,7 +665,7 @@ func snapshotSnapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
 	}
 
 	r.Bool("L641", wID.StateHash() == hashWorldStateDeep(w))
-	snap := BTSnapshot(wID)
+	snap := MarshalSnapshot(wID)
 
 	box.Disable()
 
@@ -696,7 +696,7 @@ func snapshotSnapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
 	r.Bool("L656", len(w.contactEndEvents[1]) == 0)
 	r.I32("L656/value0", int32(len(w.contactEndEvents[1])))
 	wID.Step(dt, subSteps)
-	snapshotTransformTrace(r, wID, "L659/step/0", 0)
+	traceTransforms(r, wID, "L659/step/0", 0)
 
 	endCount := 0
 	for range wID.ContactEndEvents() {
@@ -713,7 +713,7 @@ func snapshotSnapshotClearsEndEvents(t *testing.T, r *oracle.Reader) {
 	wID.Close()
 }
 
-func snapshotSnapshotCloneTrees(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
+func snapshotCloneTrees(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
 	t.Helper()
 
 	for treeType := range int(BodyTypeCount) {
@@ -756,7 +756,7 @@ func snapshotSnapshotCloneTrees(t *testing.T, r *oracle.Reader, worldA, worldB *
 	}
 }
 
-func snapshotSnapshotTreeCapacity(t *testing.T, r *oracle.Reader, rID *World, image []byte, snapHash uint64) {
+func snapshotTreeCapacity(t *testing.T, r *oracle.Reader, rID *World, image []byte, snapHash uint64) {
 	t.Helper()
 
 	rWorld := rID
@@ -825,7 +825,7 @@ func snapshotSnapshotTreeCapacity(t *testing.T, r *oracle.Reader, rID *World, im
 	r.Bool("L432", hashWorldStateDeep(rWorld) == snapHash)
 }
 
-func snapshotSnapshotCloneHashes(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
+func snapshotCloneHashes(t *testing.T, r *oracle.Reader, worldA, worldB *World) {
 	t.Helper()
 
 	hashA0 := hashWorldState(worldA)
@@ -853,7 +853,7 @@ func snapshotSnapshotCloneHashes(t *testing.T, r *oracle.Reader, worldA, worldB 
 	r.Bool("L270", deepA0 == deepB0)
 }
 
-func snapshotSnapshotCloneContinuation(t *testing.T, r *oracle.Reader, worldAId, worldBId *World) {
+func snapshotCloneContinuation(t *testing.T, r *oracle.Reader, worldAId, worldBId *World) {
 	t.Helper()
 
 	worldA, worldB := worldAId, worldBId
@@ -862,9 +862,9 @@ func snapshotSnapshotCloneContinuation(t *testing.T, r *oracle.Reader, worldAId,
 	subSteps := 4
 	for step := range 120 {
 		worldAId.Step(dt, subSteps)
-		snapshotTransformTrace(r, worldAId, fmt.Sprintf("L293/step/%d", step), step)
+		traceTransforms(r, worldAId, fmt.Sprintf("L293/step/%d", step), step)
 		worldBId.Step(dt, subSteps)
-		snapshotTransformTrace(r, worldBId, fmt.Sprintf("L294/step/%d", step), step)
+		traceTransforms(r, worldBId, fmt.Sprintf("L294/step/%d", step), step)
 
 		sA := hashWorldState(worldA)
 		r.U64("L296/value", sA)
@@ -896,7 +896,7 @@ func snapshotSnapshotCloneContinuation(t *testing.T, r *oracle.Reader, worldAId,
 	}
 }
 
-func snapshotSnapshotWorkerContinuation(t *testing.T, r *oracle.Reader, worldA1Id, worldCId *World) {
+func snapshotWorkerContinuation(t *testing.T, r *oracle.Reader, worldA1Id, worldCId *World) {
 	t.Helper()
 
 	worldA1, worldC := worldA1Id, worldCId
@@ -905,9 +905,9 @@ func snapshotSnapshotWorkerContinuation(t *testing.T, r *oracle.Reader, worldA1I
 
 	for step := range 120 {
 		worldA1Id.Step(dt, subSteps)
-		snapshotTransformTrace(r, worldA1Id, fmt.Sprintf("L333/step/%d", step), step)
+		traceTransforms(r, worldA1Id, fmt.Sprintf("L333/step/%d", step), step)
 		worldCId.Step(dt, subSteps)
-		snapshotTransformTrace(r, worldCId, fmt.Sprintf("L334/step/%d", step), step)
+		traceTransforms(r, worldCId, fmt.Sprintf("L334/step/%d", step), step)
 
 		sA1 := hashWorldState(worldA1)
 		r.U64("L336/value", sA1)
@@ -925,7 +925,7 @@ func snapshotSnapshotWorkerContinuation(t *testing.T, r *oracle.Reader, worldA1I
 	}
 }
 
-func snapshotSnapshotRestoredHandles(t *testing.T, r *oracle.Reader, rID *World, ids *snapshotSnapshotIDs, postBody Body) {
+func snapshotRestoredHandles(t *testing.T, r *oracle.Reader, rID *World, ids *snapshotIDs, postBody Body) {
 	t.Helper()
 
 	if !rID.IsValid() {
@@ -965,7 +965,7 @@ func snapshotSnapshotRestoredHandles(t *testing.T, r *oracle.Reader, rID *World,
 	r.Bool("L387", postBody.IsValid() == false)
 }
 
-func snapshotSnapshotRejectedCorruption(t *testing.T, r *oracle.Reader, rID *World, image []byte) {
+func snapshotRejectedCorruption(t *testing.T, r *oracle.Reader, rID *World, image []byte) {
 	t.Helper()
 
 	rWorld := rID
@@ -996,7 +996,7 @@ func snapshotSnapshotRejectedCorruption(t *testing.T, r *oracle.Reader, rID *Wor
 	r.Bool("L396", hashWorldStateDeep(rWorld) == preBadHash)
 }
 
-func snapshotSnapshotRestoredContinuation(t *testing.T, r *oracle.Reader, image []byte) (*World, *World) {
+func snapshotRestoredContinuation(t *testing.T, r *oracle.Reader, image []byte) (*World, *World) {
 	t.Helper()
 
 	dt := float32(1.0) / 60.0
@@ -1004,7 +1004,7 @@ func snapshotSnapshotRestoredContinuation(t *testing.T, r *oracle.Reader, image 
 	def4 := DefaultWorldDef()
 	def4.WorkerCount = 4
 	sID := NewWorld(&def4)
-	BTWorldCleanup(t, sID)
+	CleanupWorld(t, sID)
 
 	if sID.UnmarshalBinary(image) != nil {
 		t.Fatal("condition false")
@@ -1014,7 +1014,7 @@ func snapshotSnapshotRestoredContinuation(t *testing.T, r *oracle.Reader, image 
 
 	sWorld := sID
 	freshID, err := NewWorldFromSnapshot(image, 1)
-	BTWorldCleanup(t, freshID)
+	CleanupWorld(t, freshID)
 
 	if err != nil || !freshID.IsValid() {
 		t.Fatal("condition false")
@@ -1031,9 +1031,9 @@ func snapshotSnapshotRestoredContinuation(t *testing.T, r *oracle.Reader, image 
 
 	for step := range 120 {
 		sID.Step(dt, subSteps)
-		snapshotTransformTrace(r, sID, fmt.Sprintf("L449/step/%d", step), step)
+		traceTransforms(r, sID, fmt.Sprintf("L449/step/%d", step), step)
 		freshID.Step(dt, subSteps)
-		snapshotTransformTrace(r, freshID, fmt.Sprintf("L450/step/%d", step), step)
+		traceTransforms(r, freshID, fmt.Sprintf("L450/step/%d", step), step)
 		r.U64(fmt.Sprintf("continuation/in-place/%d/state", step), sID.StateHash())
 		r.U64(fmt.Sprintf("continuation/fresh/%d/state", step), freshID.StateHash())
 

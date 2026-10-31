@@ -5,11 +5,10 @@ package box2d_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"math"
-	"os"
-	"strconv"
 	"testing"
 	"unsafe"
 
@@ -18,7 +17,7 @@ import (
 )
 
 func TestMath(t *testing.T) {
-	checks := collisionOpenMath(t)
+	checks := openMath(t)
 	testMathAngles(t, checks)
 	testMathAtanGrid(t, checks)
 	testMathAtanAxes(t, checks)
@@ -32,14 +31,14 @@ func TestMath(t *testing.T) {
 	checks.close()
 }
 
-func testMathAngles(t *testing.T, checks *collisionMathChecks) {
+func testMathAngles(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	for angleT := float32(-10.0); angleT < 10.0; angleT += 0.01 {
 		angle := float32(box2d.Pi * angleT)
 		r := box2d.MakeRot(angle)
-		c := checks.reference(20)
-		s := checks.reference(21)
+		c := checks.reference()
+		s := checks.reference()
 
 		// The cosine and sine approximations are accurate to about 0.1 degrees (0.002 radians)
 		// printf( "%g %g\n", r.C - c, r.S - s )
@@ -59,7 +58,7 @@ func testMathAngles(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-func checkMathUnwoundAngle(t *testing.T, checks *collisionMathChecks, angle, s, c float32) {
+func checkMathUnwoundAngle(t *testing.T, checks *mathChecks, angle, s, c float32) {
 	t.Helper()
 
 	xn := box2d.UnwindAngle(angle)
@@ -93,13 +92,13 @@ func checkMathUnwoundAngle(t *testing.T, checks *collisionMathChecks, angle, s, 
 	}
 }
 
-func testMathAtanGrid(t *testing.T, checks *collisionMathChecks) {
+func testMathAtanGrid(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	for y := float32(-1.0); y <= 1.0; y += 0.01 {
 		for x := float32(-1.0); x <= 1.0; x += 0.01 {
 			a1 := box2d.Atan2(y, x)
-			a2 := checks.reference(51)
+			a2 := checks.reference()
 			diff := float32(math.Abs(float64(a1 - a2)))
 			checks.f32(309, a1)
 			checks.boolean(53, box2d.IsValidFloat(a1))
@@ -117,21 +116,21 @@ func testMathAtanGrid(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-func testMathAtanAxes(t *testing.T, checks *collisionMathChecks) {
+func testMathAtanAxes(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
-	checkMathAtanAxis(t, checks, 1, 0, 60, 318, 62, 63)
-	checkMathAtanAxis(t, checks, -1, 0, 68, 326, 70, 71)
-	checkMathAtanAxis(t, checks, 0, 1, 76, 334, 78, 79)
-	checkMathAtanAxis(t, checks, 0, -1, 84, 342, 86, 87)
-	checkMathAtanAxis(t, checks, 0, 0, 92, 350, 94, 95)
+	checkMathAtanAxis(t, checks, 1, 0, 318, 62, 63)
+	checkMathAtanAxis(t, checks, -1, 0, 326, 70, 71)
+	checkMathAtanAxis(t, checks, 0, 1, 334, 78, 79)
+	checkMathAtanAxis(t, checks, 0, -1, 342, 86, 87)
+	checkMathAtanAxis(t, checks, 0, 0, 350, 94, 95)
 }
 
-func checkMathAtanAxis(t *testing.T, checks *collisionMathChecks, y, x float32, referenceSite, valueSite, validSite, diffSite int) {
+func checkMathAtanAxis(t *testing.T, checks *mathChecks, y, x float32, valueSite, validSite, diffSite int) {
 	t.Helper()
 
 	a1 := box2d.Atan2(y, x)
-	a2 := checks.reference(referenceSite)
+	a2 := checks.reference()
 	diff := float32(math.Abs(float64(a1 - a2)))
 	checks.f32(valueSite, a1)
 	checks.boolean(validSite, box2d.IsValidFloat(a1))
@@ -147,7 +146,7 @@ func checkMathAtanAxis(t *testing.T, checks *collisionMathChecks, y, x float32, 
 	}
 }
 
-func testMathVectors(t *testing.T, checks *collisionMathChecks) {
+func testMathVectors(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	zero := box2d.Vec2Zero
@@ -182,7 +181,7 @@ func testMathVectors(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-func testMathTransforms(t *testing.T, checks *collisionMathChecks) {
+func testMathTransforms(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	two := box2d.Vec2{2.0, 2.0}
@@ -224,7 +223,7 @@ func testMathTransforms(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-func testMathUnitRotations(t *testing.T, checks *collisionMathChecks) {
+func testMathUnitRotations(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	var v, u box2d.Vec2
@@ -256,7 +255,7 @@ func testMathUnitRotations(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-func testMathRotationInterpolation(t *testing.T, checks *collisionMathChecks) {
+func testMathRotationInterpolation(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	// NLerp of Rot has an error of over 4 degrees.
@@ -278,7 +277,7 @@ func testMathRotationInterpolation(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-func testMathRelativeAngles(t *testing.T, checks *collisionMathChecks) {
+func testMathRelativeAngles(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	var q1, q2 box2d.Rot
@@ -301,7 +300,7 @@ func testMathRelativeAngles(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-func testMathWorldTransforms(t *testing.T, checks *collisionMathChecks) {
+func testMathWorldTransforms(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	// World position boundary helpers. With large world mode off these collapse to the float
@@ -354,7 +353,7 @@ func testMathWorldTransforms(t *testing.T, checks *collisionMathChecks) {
 	testMathWorldTransformRoundTrips(t, checks)
 }
 
-func testMathWorldTransformRoundTrips(t *testing.T, checks *collisionMathChecks) {
+func testMathWorldTransformRoundTrips(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	wt := box2d.WorldTransform{box2d.Pos{3.0, -4.0}, box2d.MakeRot(0.7)}
@@ -400,7 +399,7 @@ func testMathWorldTransformRoundTrips(t *testing.T, checks *collisionMathChecks)
 	}
 }
 
-func testMathLargeWorldPositions(t *testing.T, checks *collisionMathChecks) {
+func testMathLargeWorldPositions(t *testing.T, checks *mathChecks) {
 	t.Helper()
 
 	if unsafe.Sizeof(box2d.Pos{}.X) == 8 {
@@ -426,18 +425,14 @@ func testMathLargeWorldPositions(t *testing.T, checks *collisionMathChecks) {
 	}
 }
 
-type collisionMathChecks struct {
-	t        *testing.T
-	data     []byte
-	bit      uint32
-	limit    uint32
-	previous [1024]uint32
-	leading  [1024]uint32
-	width    [1024]uint32
-	ordinal  int
+type mathChecks struct {
+	t       *testing.T
+	data    []byte
+	offset  int
+	ordinal int
 }
 
-func collisionOpenMath(t *testing.T) *collisionMathChecks {
+func openMath(t *testing.T) *mathChecks {
 	t.Helper()
 	r := oracle.Open(t, "math/MathTest")
 
@@ -446,94 +441,55 @@ func collisionOpenMath(t *testing.T) *collisionMathChecks {
 		config = "double"
 	}
 
-	data, err := os.ReadFile("testdata/oracle/" + config + "/math/MathTest.jsonl")
+	data, err := oracle.ReadFile(config, "math/MathTest")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var records []struct {
+	var rec struct {
 		Key   string `json:"k"`
 		Type  string `json:"t"`
 		Value string `json:"v"`
 	}
-	for line := range bytes.SplitSeq(bytes.TrimSpace(data), []byte{'\n'}) {
-		var rec struct {
-			Key   string `json:"k"`
-			Type  string `json:"t"`
-			Value string `json:"v"`
-		}
-		if err := json.Unmarshal(line, &rec); err != nil {
-			t.Fatal(err)
-		}
-
-		records = append(records, rec)
+	if err := json.Unmarshal(bytes.TrimSpace(data), &rec); err != nil || rec.Key != "checks" {
+		t.Fatalf("math fixture: want one checks record: %v", err)
 	}
 
-	if len(records) != 2 {
-		t.Fatalf("math fixture: got %d records, want 2", len(records))
-	}
-
-	limit, err := strconv.ParseUint(records[0].Value, 16, 32)
+	checks, err := hex.DecodeString(rec.Value)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	packed, err := hex.DecodeString(records[1].Value)
-	if err != nil {
-		t.Fatal(err)
-	}
+	r.Bytes("checks", checks)
 
-	r.U32("bits", uint32(limit))
-	r.Bytes("checks", packed)
-
-	if uint64(len(packed)) != (limit+7)/8 {
-		t.Fatal("math fixture: invalid bit count")
-	}
-
-	return &collisionMathChecks{t: t, data: packed, limit: uint32(limit)}
+	return &mathChecks{t: t, data: checks}
 }
 
-func (r *collisionMathChecks) bits(count uint32) uint32 {
+func (r *mathChecks) take(width int) []byte {
 	r.t.Helper()
 
-	if r.bit+count > r.limit {
-		r.t.Fatalf("math fixture exhausted at checkpoint %d, bit %d", r.ordinal, r.bit)
+	if r.offset+width > len(r.data) {
+		r.t.Fatalf("math fixture exhausted at checkpoint %d", r.ordinal)
 	}
 
-	var value uint32
-	for i := range count {
-		value |= uint32((r.data[r.bit/8]>>(r.bit%8))&1) << i
-		r.bit++
-	}
+	value := r.data[r.offset : r.offset+width]
+	r.offset += width
 
 	return value
 }
 
-func (r *collisionMathChecks) reference(site int) float32 {
+func (r *mathChecks) reference() float32 {
 	r.t.Helper()
 
 	r.ordinal++
-	if r.bits(1) != 0 {
-		if r.bits(1) != 0 {
-			r.leading[site] = r.bits(5)
-			r.width[site] = r.bits(5) + 1
-		}
 
-		leading, width := r.leading[site], r.width[site]
-		if width == 0 || leading+width > 32 {
-			r.t.Fatalf("math fixture: invalid delta at checkpoint %d", r.ordinal)
-		}
-
-		r.previous[site] ^= r.bits(width) << (32 - leading - width)
-	}
-
-	return math.Float32frombits(r.previous[site])
+	return math.Float32frombits(binary.LittleEndian.Uint32(r.take(4)))
 }
 
-func (r *collisionMathChecks) f32(site int, value float32) {
+func (r *mathChecks) f32(site int, value float32) {
 	r.t.Helper()
 
-	want := r.reference(site)
+	want := r.reference()
 	if math.Float32bits(want) != math.Float32bits(value) {
 		ordered := func(v float32) int64 {
 			bits := math.Float32bits(v)
@@ -553,20 +509,20 @@ func (r *collisionMathChecks) f32(site int, value float32) {
 	}
 }
 
-func (r *collisionMathChecks) boolean(site int, value bool) {
+func (r *mathChecks) boolean(site int, value bool) {
 	r.t.Helper()
 	r.ordinal++
 
-	want := r.bits(1) != 0
+	want := r.take(1)[0] != 0
 	if want != value {
 		r.t.Fatalf("math first divergence: upstream line %d, checkpoint %d: C %v, Go %v", site%256, r.ordinal, want, value)
 	}
 }
 
-func (r *collisionMathChecks) close() {
+func (r *mathChecks) close() {
 	r.t.Helper()
 
-	if r.bit != r.limit {
-		r.t.Fatalf("math fixture: %d unread bits after checkpoint %d", r.limit-r.bit, r.ordinal)
+	if r.offset != len(r.data) {
+		r.t.Fatalf("math fixture: %d unread bytes after checkpoint %d", len(r.data)-r.offset, r.ordinal)
 	}
 }

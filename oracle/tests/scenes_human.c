@@ -18,7 +18,7 @@ int main( void )
 		b2WorldId world = b2CreateWorld( &def );
 		Human human = { 0 };
 		CreateHuman( &human, world, (b2Pos){ 0, 5 }, 1.0f, 0.05f, 5.0f, 0.5f, 1, NULL, true );
-		scenes_dump( world, -1 );
+		scene_dump( world, -1 );
 		for ( int step = 0; step < 300; ++step )
 		{
 			if ( step == 0 )
@@ -45,21 +45,21 @@ int main( void )
 			{
 				b2ShapeId shape = b2_nullShapeId;
 				int count = b2Body_GetShapes( human.bones[bone_torso].bodyId, &shape, 1 );
-				ORACLE_I32( scenes_key( step, "torsoShapes" ), count );
+				ORACLE_I32( scene_key( step, "torsoShapes" ), count );
 				bool enabled = b2Shape_AreSensorEventsEnabled( shape );
-				ORACLE_BOOL( scenes_key( step, "sensor" ), enabled );
+				ORACLE_BOOL( scene_key( step, "sensor" ), enabled );
 				if ( count != 1 || enabled != ( step == 140 ) )
 					abort();
 			}
 			if ( step == 0 || ( step >= 20 && step <= 180 && step % 20 == 0 ) )
-				scenes_state( world, 2000 + step );
+				scene_state( world, 2000 + step );
 			b2World_Step( world, 1.0f / 60.0f, 4 );
-			scenes_dump( world, step );
+			scene_dump( world, step );
 		}
 		DestroyHuman( &human );
-		scenes_dump( world, 300 );
+		scene_dump( world, 300 );
 		b2DestroyWorld( world );
-		scenes_flush();
+		scene_flush();
 		ORACLE_CLOSE();
 	}
 	return 0;

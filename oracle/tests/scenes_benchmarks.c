@@ -30,7 +30,7 @@ int main(void)
    g_randomSeed=12345;
    char name[64]; snprintf(name,sizeof(name),"scenes/%s_workers%d",cases[i].name,workers); ORACLE_OPEN(name);
    b2WorldDef def=b2DefaultWorldDef();def.workerCount=workers;b2WorldId world=b2CreateWorld(&def);
-   cases[i].create(world);scenes_dump(world,-1);
+   cases[i].create(world);scene_dump(world,-1);
    if(strcmp(cases[i].name,"ManyPyramids")==0) {
     b2Capacity c=GetManyPyramidsCapacity();ORACLE_I32("staticShapeCount",c.staticShapeCount);ORACLE_I32("staticBodyCount",c.staticBodyCount);ORACLE_I32("dynamicShapeCount",c.dynamicShapeCount);ORACLE_I32("dynamicBodyCount",c.dynamicBodyCount);ORACLE_I32("contactCount",c.contactCount);
    }
@@ -39,11 +39,11 @@ int main(void)
     b2Pos origin;b2Vec2 translation;GetQueryBenchmarkRay(0,&origin,&translation);ORACLE_POS("origin0",origin);ORACLE_VEC2("translation0",translation);GetQueryBenchmarkRay(GetQueryBenchmarkCount()-1,&origin,&translation);ORACLE_POS("origin999",origin);ORACLE_VEC2("translation999",translation);
    }
    for(int step=0;step<cases[i].horizon;++step) {
-    if(cases[i].step) ORACLE_F32(scenes_key(step,"v"),cases[i].step(world,step));
-    b2World_Step(world,1.0f/60.0f,4);scenes_dump(world,step);
-    if(cases[i].stats) {b2TreeStats s=cases[i].stats();ORACLE_I32(scenes_key(step,"n"),s.nodeVisits);ORACLE_I32(scenes_key(step,"l"),s.leafVisits);}
+    if(cases[i].step) ORACLE_F32(scene_key(step,"v"),cases[i].step(world,step));
+    b2World_Step(world,1.0f/60.0f,4);scene_dump(world,step);
+    if(cases[i].stats) {b2TreeStats s=cases[i].stats();ORACLE_I32(scene_key(step,"n"),s.nodeVisits);ORACLE_I32(scene_key(step,"l"),s.leafVisits);}
    }
-   if(cases[i].destroy) cases[i].destroy();b2DestroyWorld(world);scenes_flush();ORACLE_CLOSE();
+   if(cases[i].destroy) cases[i].destroy();b2DestroyWorld(world);scene_flush();ORACLE_CLOSE();
   }
  }
  return 0;

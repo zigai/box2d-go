@@ -11,17 +11,16 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os"
 	"testing"
 
 	"github.com/zigai/box2d/internal/oracle"
 )
 
 const (
-	restitutionTimeStep              float32 = 1.0 / 60.0
-	restitutionSubStepCount                  = 4
-	restitutionRestitutionIterations         = 4
-	restitutionImpactSpeed           float32 = 5.0
+	restitutionTimeStep       float32 = 1.0 / 60.0
+	restitutionSubStepCount           = 4
+	restitutionTestIterations         = 4
+	restitutionImpactSpeed    float32 = 5.0
 )
 
 func restitutionMakeWorld(r *restitutionOracle, gravityY float32) *World {
@@ -30,7 +29,7 @@ func restitutionMakeWorld(r *restitutionOracle, gravityY float32) *World {
 	worldDef.Gravity = Vec2{float32(0.0), gravityY}
 	worldDef.EnableSleep = false
 	id := NewWorld(&worldDef)
-	BTWorldCleanup(r.t, id)
+	CleanupWorld(r.t, id)
 
 	return id
 }
@@ -40,9 +39,9 @@ func restitutionMakeWorldIterations(r *restitutionOracle, gravityY float32) *Wor
 
 	worldDef.Gravity = Vec2{float32(0.0), gravityY}
 	worldDef.EnableSleep = false
-	worldDef.RestitutionIterations = restitutionRestitutionIterations
+	worldDef.RestitutionIterations = restitutionTestIterations
 	id := NewWorld(&worldDef)
-	BTWorldCleanup(r.t, id)
+	CleanupWorld(r.t, id)
 
 	return id
 }
@@ -165,10 +164,10 @@ func restitutionMeasureSupportedBounce(r *restitutionOracle, restitution float32
 	worldDef.Gravity = Vec2{float32(0.0), float32(0.0)}
 	worldDef.EnableSleep = false
 	worldDef.EnableRestitutionPropagation = propagate
-	worldDef.RestitutionIterations = restitutionRestitutionIterations
+	worldDef.RestitutionIterations = restitutionTestIterations
 
 	var worldID *World = NewWorld(&worldDef)
-	BTWorldCleanup(r.t, worldID)
+	CleanupWorld(r.t, worldID)
 	restitutionMakeGround(worldID, float32(0.0))
 
 	for i := range supportCount {
@@ -1268,7 +1267,7 @@ func restitutionRunWorkerScene(r *restitutionOracle, workerCount int) uint64 {
 	worldDef.WorkerCount = workerCount
 
 	var worldID *World = NewWorld(&worldDef)
-	BTWorldCleanup(r.t, worldID)
+	CleanupWorld(r.t, worldID)
 	restitutionMakeGround(worldID, float32(0.6))
 
 	for i := range 20 {
@@ -1315,16 +1314,15 @@ func restitutionWorkerParityTest(r *restitutionOracle) int {
 type restitutionOracle struct {
 	*oracle.Reader
 
-	t                  *testing.T
-	steps              []byte
-	transformSteps     []byte
-	fullStates         []byte
-	previousTransforms []restitutionTransform
-	snapshots          []restitutionSnapshot
-	nextSnapshot       int
-	richExpected       [][][36]uint64
-	richRows           [][36]uint64
-	richScenario       int
+	t              *testing.T
+	steps          []byte
+	transformSteps []byte
+	fullStates     []byte
+	snapshots      []restitutionSnapshot
+	nextSnapshot   int
+	richExpected   [][][36]uint64
+	richRows       [][36]uint64
+	richScenario   int
 }
 
 type restitutionTransform struct {
@@ -1351,7 +1349,7 @@ func restitutionRecords(t *testing.T, name string) []restitutionRecord {
 		config = "double"
 	}
 
-	data, err := os.ReadFile("testdata/oracle/" + config + "/restitution/" + name + ".jsonl")
+	data, err := oracle.ReadFile(config, "restitution/"+name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1381,13 +1379,13 @@ func restitutionOpen(t *testing.T, name string) *restitutionOracle {
 
 	r := &restitutionOracle{Reader: oracle.Open(t, "restitution/"+name), t: t}
 	for _, record := range restitutionRecords(t, name) {
-		if record.Key == "dynamics/rle-u32-36u64-le" {
+		if record.Key == "dynamics/rows-36u64-le" {
 			data, err := hex.DecodeString(record.Value)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			r.richExpected = append(r.richExpected, BTDynamicsUnpack(t, data))
+			r.richExpected = append(r.richExpected, DecodeDynamics(t, data))
 		}
 
 		if record.Key == "transforms/full" {
@@ -1396,11 +1394,9 @@ func restitutionOpen(t *testing.T, name string) *restitutionOracle {
 				t.Fatal(err)
 			}
 
-			var previous []restitutionTransform
 			for step := 60; len(data) > 0; step += 60 {
-				full := restitutionDecodeSnapshot(t, &data, previous)
+				full := restitutionDecodeSnapshot(t, &data)
 				r.snapshots = append(r.snapshots, restitutionSnapshot{key: fmt.Sprintf("transforms/step/%d", step), full: full})
-				previous = full
 			}
 		}
 	}
@@ -1416,31 +1412,11 @@ func restitutionTransformWidth(component int) int {
 	return 4
 }
 
-func restitutionPackSnapshot(full, previous []restitutionTransform) []byte {
-	var data []byte
-	if previous == nil {
-		data = binary.LittleEndian.AppendUint32(data, uint32(len(full)))
-	}
-
-	for i, body := range full {
-		var mask byte
-
+func restitutionEncodeSnapshot(full []restitutionTransform) []byte {
+	data := binary.LittleEndian.AppendUint32(nil, uint32(len(full)))
+	for _, body := range full {
+		data = binary.LittleEndian.AppendUint32(data, uint32(body.bodyID))
 		for component, value := range body.values {
-			if i >= len(previous) || previous[i].bodyID != body.bodyID || previous[i].values[component] != value {
-				mask |= 1 << component
-			}
-		}
-
-		if previous == nil {
-			data = binary.LittleEndian.AppendUint32(data, uint32(body.bodyID))
-		}
-
-		data = append(data, mask)
-		for component, value := range body.values {
-			if mask&(1<<component) == 0 {
-				continue
-			}
-
 			if restitutionTransformWidth(component) == 8 {
 				data = binary.LittleEndian.AppendUint64(data, value)
 			} else {
@@ -1452,7 +1428,7 @@ func restitutionPackSnapshot(full, previous []restitutionTransform) []byte {
 	return data
 }
 
-func restitutionDecodeSnapshot(t *testing.T, data *[]byte, previous []restitutionTransform) []restitutionTransform {
+func restitutionDecodeSnapshot(t *testing.T, data *[]byte) []restitutionTransform {
 	t.Helper()
 
 	take := func(width int) []byte {
@@ -1466,33 +1442,19 @@ func restitutionDecodeSnapshot(t *testing.T, data *[]byte, previous []restitutio
 		return value
 	}
 
-	count := len(previous)
-	if previous == nil {
-		count = int(binary.LittleEndian.Uint32(take(4)))
-	}
-
+	count := int(binary.LittleEndian.Uint32(take(4)))
 	if count <= 0 || count > 64 {
-		t.Fatal("condition false")
+		t.Fatalf("restitution snapshot has %d bodies", count)
 	}
 
 	full := make([]restitutionTransform, count)
 	for i := range full {
-		var mask byte
-
-		full[i], mask = restitutionDecodeTransformHeader(t, take, previous, i)
-		id := full[i].bodyID
-
-		if i > 0 {
-			if full[i-1].bodyID >= id {
-				t.Fatal("condition false")
-			}
+		full[i].bodyID = int(binary.LittleEndian.Uint32(take(4)))
+		if i > 0 && full[i-1].bodyID >= full[i].bodyID {
+			t.Fatal("restitution snapshot body IDs are not ascending")
 		}
 
 		for component := range full[i].values {
-			if mask&(1<<component) == 0 {
-				continue
-			}
-
 			if restitutionTransformWidth(component) == 8 {
 				full[i].values[component] = binary.LittleEndian.Uint64(take(8))
 			} else {
@@ -1534,17 +1496,16 @@ func (r *restitutionOracle) snapshot(step int, full []restitutionTransform) {
 		}
 	}
 
-	r.fullStates = append(r.fullStates, restitutionPackSnapshot(full, r.previousTransforms)...)
-	r.previousTransforms = full
+	r.fullStates = append(r.fullStates, restitutionEncodeSnapshot(full)...)
 }
 
 func (r *restitutionOracle) step(worldID *World) {
-	row := BTObserveDynamics(r.Reader, worldID, fmt.Sprintf("observation/%d/", len(r.steps)/8+1), len(r.steps) == 0 || (len(r.steps)/8+1)%60 == 0)
+	row := ObserveDynamics(r.Reader, worldID, fmt.Sprintf("observation/%d/", len(r.steps)/8+1), len(r.steps) == 0 || (len(r.steps)/8+1)%60 == 0)
 	if r.richScenario >= len(r.richExpected) {
 		r.t.Fatal("unexpected dynamics scenario")
 	}
 
-	BTDynamicsCompare(r.t, fmt.Sprintf("restitution/%s/scenario/%d", r.t.Name(), r.richScenario+1), len(r.steps)/8+1, row, r.richExpected[r.richScenario])
+	CompareDynamics(r.t, fmt.Sprintf("restitution/%s/scenario/%d", r.t.Name(), r.richScenario+1), len(r.steps)/8+1, row, r.richExpected[r.richScenario])
 	r.richRows = append(r.richRows, row)
 	world := worldID
 	hash := uint64(14695981039346656037)
@@ -1623,7 +1584,7 @@ func (r *restitutionOracle) end() {
 		r.t.Fatal("dynamics scenario step count differs")
 	}
 
-	BTDynamicsEnd(r.Reader, r.richRows)
+	EndDynamics(r.Reader, r.richRows)
 	r.richRows = nil
 	r.richScenario++
 	r.Bytes("transforms/steps", r.transformSteps)
@@ -1632,7 +1593,6 @@ func (r *restitutionOracle) end() {
 	r.steps = r.steps[:0]
 	r.transformSteps = r.transformSteps[:0]
 	r.fullStates = r.fullStates[:0]
-	r.previousTransforms = nil
 }
 
 func TestRestitution(t *testing.T) {
@@ -1689,47 +1649,17 @@ func TestRestitutionTraceFixtures(t *testing.T) {
 	}
 }
 
-func restitutionDecodeTransformHeader(t *testing.T, take func(int) []byte, previous []restitutionTransform, i int) (restitutionTransform, byte) {
-	t.Helper()
-
-	var id int
-	if previous == nil {
-		id = int(binary.LittleEndian.Uint32(take(4)))
-	} else {
-		id = previous[i].bodyID
-	}
-
-	mask := take(1)[0]
-	if mask&0xf0 != 0 {
-		t.Fatal("condition false")
-	}
-
-	var decoded restitutionTransform
-	if i < len(previous) && previous[i].bodyID == id {
-		decoded = previous[i]
-	} else if mask != 0x0f {
-		t.Fatal("condition false")
-	}
-
-	decoded.bodyID = id
-
-	return decoded, mask
-}
-
 func restitutionCheckSnapshotFrames(t *testing.T, encoded, trace []byte) {
 	t.Helper()
 
 	data := encoded
 
-	var (
-		previous []restitutionTransform
-		repacked []byte
-	)
+	var repacked []byte
 
 	frames := 0
 
 	for len(data) > 0 {
-		full := restitutionDecodeSnapshot(t, &data, previous)
+		full := restitutionDecodeSnapshot(t, &data)
 		frames++
 
 		step := frames * 60
@@ -1754,8 +1684,7 @@ func restitutionCheckSnapshotFrames(t *testing.T, encoded, trace []byte) {
 			t.Fatalf("snapshot at step %d hashes to 0x%x; transform trace has 0x%x", step, hash, want)
 		}
 
-		repacked = append(repacked, restitutionPackSnapshot(full, previous)...)
-		previous = full
+		repacked = append(repacked, restitutionEncodeSnapshot(full)...)
 	}
 
 	if frames != (len(trace)/8)/60 {

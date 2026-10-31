@@ -7,9 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "recording/replay_events.h"
-#include "recording/replay_observe.h"
-#include "recording/replay_properties.h"
+#include "replay_events.h"
+#include "replay_observe.h"
+#include "replay_properties.h"
 #define REQUIRE( x )                                                                                                             \
 	do                                                                                                                           \
 	{                                                                                                                            \

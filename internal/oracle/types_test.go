@@ -70,13 +70,13 @@ func TestTypesRealCaptureComparisonIsReadOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	capture, err := os.ReadFile(filepath.Join(root, "testdata", "oracle", config, "types.jsonl"))
+	capture, err := readGzip(fixturePath(root, config, "types"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	path := filepath.Join(t.TempDir(), "types.jsonl")
-	if err := os.WriteFile(path, capture, 0o400); err != nil { //nolint:gosec // G703: fixed filename under t.TempDir's private test-owned tree.
+	if err := os.WriteFile(path, capture, 0o400); err != nil {
 		t.Fatal(err)
 	}
 

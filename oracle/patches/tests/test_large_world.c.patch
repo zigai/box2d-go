@@ -1,0 +1,212 @@
+--- a/test_large_world.c
++++ b/test_large_world.c
+@@ -1,5 +1,6 @@
+ // SPDX-FileCopyrightText: 2023 Erin Catto
+ // SPDX-License-Identifier: MIT
++#include "oracle.h"
+ 
+ #include "body.h"
+ #include "physics_world.h"
+@@ -73,6 +74,7 @@
+ 	for ( int step = 0; step < 250; ++step )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_TRANSFORM_TRACE( worldId, ORACLE_KEY( "L75/step/%d", step ), step );
+ 
+ 		if ( result.sleepStep < 0 )
+ 		{
+@@ -98,20 +100,29 @@
+ // build cannot resolve the body positions at 1e7, which is the whole point of large world mode.
+ static int LargeWorldPyramidTest( void )
+ {
++	ORACLE_OPEN( "large_world/LargeWorldPyramidTest" );
+ 	PyramidResult origin = RunPyramid( (b2Pos){ 0.0f, 0.0f } );
+ 	ENSURE( origin.sleepStep > 0 );
++	ORACLE_BOOL( "L102", origin.sleepStep > 0 );
++	ORACLE_I32( "L102/value0", origin.sleepStep );
+ 
+ #if defined( BOX2D_DOUBLE_PRECISION )
+ 	PyramidResult large = RunPyramid( (b2Pos){ 1.0e7f, 0.0f } );
+ 
+ 	ENSURE( large.sleepStep == origin.sleepStep );
++	ORACLE_BOOL( "L107", large.sleepStep == origin.sleepStep );
++	ORACLE_I32( "L107/value0", large.sleepStep );
++	ORACLE_I32( "L107/value1", origin.sleepStep );
+ 	for ( int i = 0; i < PYRAMID_BODY_COUNT; ++i )
+ 	{
+ 		ENSURE_SMALL( large.rel[i].x - origin.rel[i].x, 1e-3f );
++		ORACLE_F32( "L110", large.rel[i].x - origin.rel[i].x );
+ 		ENSURE_SMALL( large.rel[i].y - origin.rel[i].y, 1e-3f );
++		ORACLE_F32( "L111", large.rel[i].y - origin.rel[i].y );
+ 	}
+ #endif
+ 
++ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -148,6 +159,7 @@
+ 	for ( int step = 0; step < 30; ++step )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_TRANSFORM_TRACE( worldId, ORACLE_KEY( "L150/step/%d", step ), step );
+ 	}
+ 
+ 	float relX = BodyRelativeCenter( worldId, bulletId, baseVec ).x;
+@@ -159,16 +171,22 @@
+ // likely place to drop the hit. The re-centered TOI must still catch the wall with no tunneling.
+ static int LargeWorldBulletTest( void )
+ {
++	ORACLE_OPEN( "large_world/LargeWorldBulletTest" );
+ 	// At the origin the bullet must stop at the near face in both precision modes. Wall face at
+ 	// 0.05 plus the 0.1 bullet radius puts the rest position near 0.15.
+ 	float relX = RunBullet( (b2Pos){ 0.0f, 0.0f } );
+ 	ENSURE( relX > 0.0f && relX < 0.5f );
++	ORACLE_BOOL( "L165", relX > 0.0f && relX < 0.5f );
++	ORACLE_F32( "L165/value0", relX );
+ 
+ #if defined( BOX2D_DOUBLE_PRECISION )
+ 	relX = RunBullet( (b2Pos){ 1.0e7f, 0.0f } );
+ 	ENSURE( relX > 0.0f && relX < 0.5f );
++	ORACLE_BOOL( "L169", relX > 0.0f && relX < 0.5f );
++	ORACLE_F32( "L169/value0", relX );
+ #endif
+ 
++ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -203,16 +221,22 @@
+ // plus per-shape re-centering keeps the analytic hit point accurate far from the origin.
+ static int LargeWorldRayCastTest( void )
+ {
++	ORACLE_OPEN( "large_world/LargeWorldRayCastTest" );
+ 	b2Vec2 rel = RunRayCast( (b2Pos){ 0.0f, 0.0f } );
+ 	ENSURE_SMALL( rel.x + 0.5f, 1e-4f );
++	ORACLE_F32( "L207", rel.x + 0.5f );
+ 	ENSURE_SMALL( rel.y, 1e-4f );
++	ORACLE_F32( "L208", rel.y );
+ 
+ #if defined( BOX2D_DOUBLE_PRECISION )
+ 	rel = RunRayCast( (b2Pos){ 1.0e7f, 0.0f } );
+ 	ENSURE_SMALL( rel.x + 0.5f, 1e-4f );
++	ORACLE_F32( "L212", rel.x + 0.5f );
+ 	ENSURE_SMALL( rel.y, 1e-4f );
++	ORACLE_F32( "L213", rel.y );
+ #endif
+ 
++ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -307,18 +331,31 @@
+ 
+ static int LargeWorldOriginQueryTest( void )
+ {
++	ORACLE_OPEN( "large_world/LargeWorldOriginQueryTest" );
+ 	OriginQueryData origin = RunOriginQueries( b2Pos_zero );
+ 	ENSURE( origin.overlapCount == 1 );
++	ORACLE_BOOL( "L311", origin.overlapCount == 1 );
++	ORACLE_I32( "L311/value0", origin.overlapCount );
+ 	ENSURE( origin.castFraction < 1.0f );
++	ORACLE_BOOL( "L312", origin.castFraction < 1.0f );
++	ORACLE_F32( "L312/value0", origin.castFraction );
+ 	ENSURE( origin.moverFraction < 1.0f );
++	ORACLE_BOOL( "L313", origin.moverFraction < 1.0f );
++	ORACLE_F32( "L313/value0", origin.moverFraction );
+ 	ENSURE( origin.planeCount >= 1 );
++	ORACLE_BOOL( "L314", origin.planeCount >= 1 );
++	ORACLE_I32( "L314/value0", origin.planeCount );
+ 	ENSURE( origin.insidePoint == true );
++	ORACLE_BOOL( "L315", origin.insidePoint == true );
+ 	ENSURE( origin.shapeRayHit == true );
++	ORACLE_BOOL( "L316", origin.shapeRayHit == true );
+ 
+ 	b2Vec2 castRel = b2SubPos( origin.castPoint, b2Pos_zero );
+ 	ENSURE_SMALL( castRel.x + 0.5f, 1e-3f );
++	ORACLE_F32( "L319", castRel.x + 0.5f );
+ 	b2Vec2 rayRel = b2SubPos( origin.shapeRayPoint, b2Pos_zero );
+ 	ENSURE_SMALL( rayRel.x + 0.5f, 1e-3f );
++	ORACLE_F32( "L321", rayRel.x + 0.5f );
+ 
+ #if defined( BOX2D_DOUBLE_PRECISION )
+ 	// The same relative queries far from the origin must reproduce the origin run. A float query
+@@ -326,21 +363,36 @@
+ 	b2Pos base = { 1.0e7f, 0.0f };
+ 	OriginQueryData large = RunOriginQueries( base );
+ 	ENSURE( large.overlapCount == origin.overlapCount );
++	ORACLE_BOOL( "L328", large.overlapCount == origin.overlapCount );
++	ORACLE_I32( "L328/value0", large.overlapCount );
++	ORACLE_I32( "L328/value1", origin.overlapCount );
+ 	ENSURE( large.planeCount == origin.planeCount );
++	ORACLE_BOOL( "L329", large.planeCount == origin.planeCount );
++	ORACLE_I32( "L329/value0", large.planeCount );
++	ORACLE_I32( "L329/value1", origin.planeCount );
+ 	ENSURE( large.insidePoint == origin.insidePoint );
++	ORACLE_BOOL( "L330", large.insidePoint == origin.insidePoint );
+ 	ENSURE( large.shapeRayHit == origin.shapeRayHit );
++	ORACLE_BOOL( "L331", large.shapeRayHit == origin.shapeRayHit );
+ 	ENSURE_SMALL( large.castFraction - origin.castFraction, 1e-4f );
++	ORACLE_F32( "L332", large.castFraction - origin.castFraction );
+ 	ENSURE_SMALL( large.moverFraction - origin.moverFraction, 1e-4f );
++	ORACLE_F32( "L333", large.moverFraction - origin.moverFraction );
+ 
+ 	b2Vec2 castRelLarge = b2SubPos( large.castPoint, base );
+ 	ENSURE_SMALL( castRelLarge.x - castRel.x, 1e-3f );
++	ORACLE_F32( "L336", castRelLarge.x - castRel.x );
+ 	ENSURE_SMALL( castRelLarge.y - castRel.y, 1e-3f );
++	ORACLE_F32( "L337", castRelLarge.y - castRel.y );
+ 
+ 	b2Vec2 rayRelLarge = b2SubPos( large.shapeRayPoint, base );
+ 	ENSURE_SMALL( rayRelLarge.x - rayRel.x, 1e-3f );
++	ORACLE_F32( "L340", rayRelLarge.x - rayRel.x );
+ 	ENSURE_SMALL( rayRelLarge.y - rayRel.y, 1e-3f );
++	ORACLE_F32( "L341", rayRelLarge.y - rayRel.y );
+ #endif
+ 
++ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -350,6 +402,7 @@
+ // positions are float either way, so this is a plain recording round trip.
+ static int LargeWorldRecordingTest( void )
+ {
++	ORACLE_OPEN( "large_world/LargeWorldRecordingTest" );
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	worldDef.workerCount = 1;
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+@@ -399,6 +452,7 @@
+ 	for ( int step = 0; step < 30; ++step )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_TRANSFORM_TRACE( worldId, ORACLE_KEY( "L401/step/%d", step ), step );
+ 	}
+ 
+ 	b2WorldTransform sliderXf = b2Body_GetTransform( sliderId );
+@@ -407,6 +461,7 @@
+ 	for ( int step = 0; step < 30; ++step )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_TRANSFORM_TRACE( worldId, ORACLE_KEY( "L409/step/%d", step ), step + 30 );
+ 	}
+ 
+ 	b2World_StopRecording( worldId );
+@@ -415,13 +470,17 @@
+ 	const uint8_t* data = b2Recording_GetData( rec );
+ 	int size = b2Recording_GetSize( rec );
+ 	ENSURE( size > 0 );
++	ORACLE_BOOL( "L417", size > 0 );
+ 
+ 	// Replay at the recorded worker count and a different one. A demoted op stream position would
+ 	// diverge the state hash; the double precision wire format reproduces the run exactly.
+ 	ENSURE( b2ValidateReplay( data, size, 0 ) );
++	ORACLE_BOOL( "L421", true );
+ 	ENSURE( b2ValidateReplay( data, size, 4 ) );
++	ORACLE_BOOL( "L422", true );
+ 
+ 	b2DestroyRecording( rec );
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 

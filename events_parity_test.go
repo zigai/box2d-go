@@ -32,8 +32,8 @@ func evStart(t *testing.T, name string, gravity box2d.Vec2, sleep bool) *evOracl
 	d.Gravity = gravity
 	d.EnableSleep = sleep
 	d.WorkerCount = 1
-	e := &evOracle{t: t, r: oracle.Open(t, "api/events/"+name), w: box2d.NewWorld(&d), tags: make(map[box2d.Shape]int)}
-	box2d.BTWorldCleanup(t, e.w)
+	e := &evOracle{t: t, r: oracle.Open(t, "events/"+name), w: box2d.NewWorld(&d), tags: make(map[box2d.Shape]int)}
+	box2d.CleanupWorld(t, e.w)
 
 	return e
 }
@@ -700,7 +700,7 @@ func evEarlyStopWorld(t *testing.T, family string) (*box2d.World, []box2d.Body) 
 	wd.Gravity = box2d.Vec2{}
 	wd.EnableSleep = false
 	w := box2d.NewWorld(&wd)
-	box2d.BTWorldCleanup(t, w)
+	box2d.CleanupWorld(t, w)
 
 	bodies := make([]box2d.Body, 0, 2)
 

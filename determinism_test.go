@@ -14,13 +14,13 @@ import (
 	"github.com/zigai/box2d/internal/scenes"
 )
 
-func inputSingleMultithreading(t *testing.T, r *oracle.Reader, trace *inputTransformTrace, workerCount int) int {
+func determinismSingleMultithreading(t *testing.T, r *oracle.Reader, trace *transformTrace, workerCount int) int {
 	t.Helper()
 
 	worldDef := box2d.DefaultWorldDef()
 	worldDef.WorkerCount = workerCount
 	worldID := box2d.NewWorld(&worldDef)
-	box2d.BTWorldCleanup(t, worldID)
+	box2d.CleanupWorld(t, worldID)
 	data := scenes.CreateFallingHinges(worldID)
 	timeStep := float32(1.0 / 60.0)
 
@@ -56,18 +56,18 @@ func inputSingleMultithreading(t *testing.T, r *oracle.Reader, trace *inputTrans
 
 func TestDeterminism(t *testing.T) {
 	// Test multithreaded determinism.
-	t.Run("MultithreadingTest", func(t *testing.T) { inputCheckMultithreadingTest(t) })
+	t.Run("MultithreadingTest", func(t *testing.T) { determinismCheckMultithreadingTest(t) })
 	// Test determinism using the built-in scheduler (no external task system).
-	t.Run("BuiltInSchedulerTest", func(t *testing.T) { inputCheckBuiltInSchedulerTest(t) })
+	t.Run("BuiltInSchedulerTest", func(t *testing.T) { determinismCheckBuiltInSchedulerTest(t) })
 	// Test cross-platform determinism.
-	t.Run("CrossPlatformTest", func(t *testing.T) { inputCheckCrossPlatformTest(t) })
+	t.Run("CrossPlatformTest", func(t *testing.T) { determinismCheckCrossPlatformTest(t) })
 }
 
-type inputTransformTrace struct {
+type transformTrace struct {
 	snapshots [][]box2d.WorldTransform
 }
 
-func inputSameTransforms(a, b []box2d.WorldTransform) bool {
+func determinismSameTransforms(a, b []box2d.WorldTransform) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -84,8 +84,8 @@ func inputSameTransforms(a, b []box2d.WorldTransform) bool {
 	return true
 }
 
-func (trace *inputTransformTrace) read(r *oracle.Reader, worldID *box2d.World, key string, fullState bool) {
-	transforms := box2d.InputBodyTransforms(worldID)
+func (trace *transformTrace) read(r *oracle.Reader, worldID *box2d.World, key string, fullState bool) {
+	transforms := box2d.BodyTransformsInSlotOrder(worldID)
 
 	hash := oracle.HashInit
 	for _, transform := range transforms {
@@ -100,9 +100,9 @@ func (trace *inputTransformTrace) read(r *oracle.Reader, worldID *box2d.World, k
 	r.I32(key+".contacts", int32(counters.ContactCount))
 	r.I32(key+".joints", int32(counters.JointCount))
 
-	bodies := box2d.InputBodies(worldID)
+	bodies := box2d.BodiesInSlotOrder(worldID)
 
-	inputReadBodyMoves(r, worldID, key, fullState, bodies)
+	determinismReadBodyMoves(r, worldID, key, fullState, bodies)
 
 	for _, body := range bodies {
 		if fullState {
@@ -117,14 +117,14 @@ func (trace *inputTransformTrace) read(r *oracle.Reader, worldID *box2d.World, k
 		}
 	}
 
-	inputReadEventCounts(r, worldID, key)
+	determinismReadEventCounts(r, worldID, key)
 
 	if !fullState {
 		return
 	}
 
 	index := 0
-	for index < len(trace.snapshots) && !inputSameTransforms(transforms, trace.snapshots[index]) {
+	for index < len(trace.snapshots) && !determinismSameTransforms(transforms, trace.snapshots[index]) {
 		index++
 	}
 
@@ -143,14 +143,14 @@ func (trace *inputTransformTrace) read(r *oracle.Reader, worldID *box2d.World, k
 	}
 }
 
-func inputCheckMultithreadingTest(t *testing.T) {
+func determinismCheckMultithreadingTest(t *testing.T) {
 	t.Helper()
-	r := oracle.Open(t, "input/determinism/MultithreadingTest")
-	trace := inputTransformTrace{}
+	r := oracle.Open(t, "determinism/MultithreadingTest")
+	trace := transformTrace{}
 
 	for range 3 {
 		for workerCount := 1; workerCount < 16; workerCount += 2 {
-			result := inputSingleMultithreading(t, r, &trace, workerCount)
+			result := determinismSingleMultithreading(t, r, &trace, workerCount)
 			r.Bool("check.65", result == 0)
 
 			if result != 0 {
@@ -159,7 +159,7 @@ func inputCheckMultithreadingTest(t *testing.T) {
 		}
 
 		for workerCount := 32; workerCount >= 0; workerCount -= 5 {
-			result := inputSingleMultithreading(t, r, &trace, workerCount)
+			result := determinismSingleMultithreading(t, r, &trace, workerCount)
 			r.Bool("check.71", result == 0)
 
 			if result != 0 {
@@ -169,16 +169,16 @@ func inputCheckMultithreadingTest(t *testing.T) {
 	}
 }
 
-func inputCheckBuiltInSchedulerTest(t *testing.T) {
+func determinismCheckBuiltInSchedulerTest(t *testing.T) {
 	t.Helper()
-	r := oracle.Open(t, "input/determinism/BuiltInSchedulerTest")
-	trace := inputTransformTrace{}
+	r := oracle.Open(t, "determinism/BuiltInSchedulerTest")
+	trace := transformTrace{}
 
 	for workerCount := 2; workerCount <= 8; workerCount += 2 {
 		worldDef := box2d.DefaultWorldDef()
 		worldDef.WorkerCount = workerCount
 		worldID := box2d.NewWorld(&worldDef)
-		box2d.BTWorldCleanup(t, worldID)
+		box2d.CleanupWorld(t, worldID)
 		data := scenes.CreateFallingHinges(worldID)
 		timeStep := float32(1.0 / 60.0)
 
@@ -211,13 +211,13 @@ func inputCheckBuiltInSchedulerTest(t *testing.T) {
 	}
 }
 
-func inputCheckCrossPlatformTest(t *testing.T) {
+func determinismCheckCrossPlatformTest(t *testing.T) {
 	t.Helper()
-	r := oracle.Open(t, "input/determinism/CrossPlatformTest")
-	trace := inputTransformTrace{}
+	r := oracle.Open(t, "determinism/CrossPlatformTest")
+	trace := transformTrace{}
 	worldDef := box2d.DefaultWorldDef()
 	worldID := box2d.NewWorld(&worldDef)
-	box2d.BTWorldCleanup(t, worldID)
+	box2d.CleanupWorld(t, worldID)
 	data := scenes.CreateFallingHinges(worldID)
 	timeStep := float32(1.0 / 60.0)
 
@@ -245,7 +245,7 @@ func inputCheckCrossPlatformTest(t *testing.T) {
 	worldID.Close()
 }
 
-func inputReadEventCounts(r *oracle.Reader, worldID *box2d.World, key string) {
+func determinismReadEventCounts(r *oracle.Reader, worldID *box2d.World, key string) {
 	contactBegin, contactEnd, contactHit, sensorBegin, sensorEnd, jointEvents := 0, 0, 0, 0, 0, 0
 	for range worldID.ContactBeginEvents() {
 		contactBegin++
@@ -279,7 +279,7 @@ func inputReadEventCounts(r *oracle.Reader, worldID *box2d.World, key string) {
 	r.I32(key+".joint.events", int32(jointEvents))
 }
 
-func inputReadBodyMoves(r *oracle.Reader, worldID *box2d.World, key string, fullState bool, bodies []box2d.Body) {
+func determinismReadBodyMoves(r *oracle.Reader, worldID *box2d.World, key string, fullState bool, bodies []box2d.Body) {
 	moveCount := 0
 	for event := range worldID.BodyMoveEvents() {
 		moveCount++

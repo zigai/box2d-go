@@ -13,7 +13,7 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
-func snapshotTransformTrace(r *oracle.Reader, worldID *World, key string, step int) {
+func traceTransforms(r *oracle.Reader, worldID *World, key string, step int) {
 	w := worldID
 	full := step == 0 || (step+1)%60 == 0
 	count := 0
@@ -66,25 +66,25 @@ func snapshotTransformTrace(r *oracle.Reader, worldID *World, key string, step i
 	r.U64(key, hash.Sum64())
 }
 
-func snapshotBodyRelativeCenter(worldID *World, bodyID Body, base Pos) Vec2 {
+func largeWorldBodyRelativeCenter(worldID *World, bodyID Body, base Pos) Vec2 {
 	w := worldID
 	b := getBodyFullID(w, bodyID)
 
 	return getBodySim(w, b).center.Sub(base)
 }
 
-type snapshotPyramidResult struct {
+type largeWorldPyramidResult struct {
 	sleepStep int
 	rel       [9]Vec2
 }
 
-func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyramidResult {
+func largeWorldRunPyramid(t *testing.T, r *oracle.Reader, base Pos) largeWorldPyramidResult {
 	t.Helper()
 
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	bd := DefaultBodyDef()
 	bd.Position = base
@@ -108,11 +108,11 @@ func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyrami
 		bodies[i].CreatePolygonShape(&sd, &box)
 	}
 
-	result := snapshotPyramidResult{sleepStep: -1}
+	result := largeWorldPyramidResult{sleepStep: -1}
 
 	for step := range 250 {
 		w.Step(float32(1)/60, 4)
-		snapshotTransformTrace(r, w, fmt.Sprintf("L75/step/%d", step), step)
+		traceTransforms(r, w, fmt.Sprintf("L75/step/%d", step), step)
 
 		if result.sleepStep < 0 {
 			moves := 0
@@ -127,7 +127,7 @@ func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyrami
 	}
 
 	for i := range bodies {
-		result.rel[i] = snapshotBodyRelativeCenter(w, bodies[i], base)
+		result.rel[i] = largeWorldBodyRelativeCenter(w, bodies[i], base)
 	}
 
 	w.Close()
@@ -135,13 +135,13 @@ func snapshotRunPyramid(t *testing.T, r *oracle.Reader, base Pos) snapshotPyrami
 	return result
 }
 
-func snapshotRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
+func largeWorldRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
 	t.Helper()
 
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	bd := DefaultBodyDef()
 	bd.Type = StaticBody
@@ -164,22 +164,22 @@ func snapshotRunBullet(t *testing.T, r *oracle.Reader, base Pos) float32 {
 
 	for step := range 30 {
 		w.Step(float32(1)/60, 4)
-		snapshotTransformTrace(r, w, fmt.Sprintf("L150/step/%d", step), step)
+		traceTransforms(r, w, fmt.Sprintf("L150/step/%d", step), step)
 	}
 
-	x := snapshotBodyRelativeCenter(w, bullet, base).X
+	x := largeWorldBodyRelativeCenter(w, bullet, base).X
 	w.Close()
 
 	return x
 }
 
-func snapshotRunRayCast(t *testing.T, base Pos) Vec2 {
+func largeWorldRunRayCast(t *testing.T, base Pos) Vec2 {
 	t.Helper()
 
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	bd := DefaultBodyDef()
 	bd.Position = base
@@ -197,7 +197,7 @@ func snapshotRunRayCast(t *testing.T, base Pos) Vec2 {
 	return rel
 }
 
-type snapshotOriginQueryData struct {
+type largeWorldOriginQueryData struct {
 	overlapCount  int
 	castPoint     Pos
 	castFraction  float32
@@ -208,13 +208,13 @@ type snapshotOriginQueryData struct {
 	shapeRayHit   bool
 }
 
-func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
+func largeWorldRunOriginQueries(t *testing.T, base Pos) largeWorldOriginQueryData {
 	t.Helper()
 
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	bd := DefaultBodyDef()
 	bd.Position = base
@@ -223,7 +223,7 @@ func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
 	sd := DefaultShapeDef()
 	shape := body.CreatePolygonShape(&sd, &box)
 	filter := DefaultQueryFilter()
-	data := snapshotOriginQueryData{castFraction: 1}
+	data := largeWorldOriginQueryData{castFraction: 1}
 	center := []Vec2{{}}
 	overlap := MakeProxy(center, 0.1)
 	w.OverlapShape(base, &overlap, filter, func(Shape) bool { data.overlapCount++; return true })
@@ -251,14 +251,14 @@ func snapshotRunOriginQueries(t *testing.T, base Pos) snapshotOriginQueryData {
 }
 
 func TestLargeWorld(t *testing.T) {
-	t.Run("LargeWorldPyramidTest", func(t *testing.T) { snapshotCheckLargeWorldPyramidTest(t) })
-	t.Run("LargeWorldBulletTest", func(t *testing.T) { snapshotCheckLargeWorldBulletTest(t) })
-	t.Run("LargeWorldRayCastTest", func(t *testing.T) { snapshotCheckLargeWorldRayCastTest(t) })
-	t.Run("LargeWorldOriginQueryTest", func(t *testing.T) { snapshotCheckLargeWorldOriginQueryTest(t) })
-	t.Run("LargeWorldRecordingTest", func(t *testing.T) { snapshotCheckLargeWorldRecordingTest(t) })
+	t.Run("LargeWorldPyramidTest", func(t *testing.T) { checkLargeWorldPyramidTest(t) })
+	t.Run("LargeWorldBulletTest", func(t *testing.T) { checkLargeWorldBulletTest(t) })
+	t.Run("LargeWorldRayCastTest", func(t *testing.T) { checkLargeWorldRayCastTest(t) })
+	t.Run("LargeWorldOriginQueryTest", func(t *testing.T) { checkLargeWorldOriginQueryTest(t) })
+	t.Run("LargeWorldRecordingTest", func(t *testing.T) { checkLargeWorldRecordingTest(t) })
 }
 
-func snapshotCheckRelativeCoordinate(t *testing.T, r *oracle.Reader, key string, delta, tolerance float32) {
+func largeWorldCheckRelativeCoordinate(t *testing.T, r *oracle.Reader, key string, delta, tolerance float32) {
 	t.Helper()
 
 	if delta < -tolerance || tolerance < delta {
@@ -268,11 +268,11 @@ func snapshotCheckRelativeCoordinate(t *testing.T, r *oracle.Reader, key string,
 	r.F32(key, delta)
 }
 
-func snapshotCheckLargeWorldPyramidTest(t *testing.T) {
+func checkLargeWorldPyramidTest(t *testing.T) {
 	t.Helper()
 	r := oracle.Open(t, "large_world/LargeWorldPyramidTest")
 
-	origin := snapshotRunPyramid(t, r, Pos{})
+	origin := largeWorldRunPyramid(t, r, Pos{})
 	if origin.sleepStep <= 0 {
 		t.Fatal("condition false")
 	}
@@ -281,7 +281,7 @@ func snapshotCheckLargeWorldPyramidTest(t *testing.T) {
 	r.I32("L102/value0", int32(origin.sleepStep))
 
 	if IsDoublePrecision() {
-		large := snapshotRunPyramid(t, r, Pos{X: 1e7})
+		large := largeWorldRunPyramid(t, r, Pos{X: 1e7})
 		if large.sleepStep != origin.sleepStep {
 			t.Fatal("condition false")
 		}
@@ -291,18 +291,18 @@ func snapshotCheckLargeWorldPyramidTest(t *testing.T) {
 		r.I32("L107/value1", int32(origin.sleepStep))
 
 		for i := range origin.rel {
-			snapshotCheckRelativeCoordinate(t, r, "L110", large.rel[i].X-origin.rel[i].X, float32(1e-3))
+			largeWorldCheckRelativeCoordinate(t, r, "L110", large.rel[i].X-origin.rel[i].X, float32(1e-3))
 
-			snapshotCheckRelativeCoordinate(t, r, "L111", large.rel[i].Y-origin.rel[i].Y, float32(1e-3))
+			largeWorldCheckRelativeCoordinate(t, r, "L111", large.rel[i].Y-origin.rel[i].Y, float32(1e-3))
 		}
 	}
 }
 
-func snapshotCheckLargeWorldBulletTest(t *testing.T) {
+func checkLargeWorldBulletTest(t *testing.T) {
 	t.Helper()
 	r := oracle.Open(t, "large_world/LargeWorldBulletTest")
 
-	x := snapshotRunBullet(t, r, Pos{})
+	x := largeWorldRunBullet(t, r, Pos{})
 	if !(x > 0 && x < 0.5) {
 		t.Fatal("condition false")
 	}
@@ -311,7 +311,7 @@ func snapshotCheckLargeWorldBulletTest(t *testing.T) {
 	r.F32("L165/value0", x)
 
 	if IsDoublePrecision() {
-		x = snapshotRunBullet(t, r, Pos{X: 1e7})
+		x = largeWorldRunBullet(t, r, Pos{X: 1e7})
 		if !(x > 0 && x < 0.5) {
 			t.Fatal("condition false")
 		}
@@ -321,28 +321,28 @@ func snapshotCheckLargeWorldBulletTest(t *testing.T) {
 	}
 }
 
-func snapshotCheckLargeWorldRayCastTest(t *testing.T) {
+func checkLargeWorldRayCastTest(t *testing.T) {
 	t.Helper()
 	r := oracle.Open(t, "large_world/LargeWorldRayCastTest")
 
-	rel := snapshotRunRayCast(t, Pos{})
-	snapshotCheckRelativeCoordinate(t, r, "L207", rel.X+0.5, float32(1e-4))
+	rel := largeWorldRunRayCast(t, Pos{})
+	largeWorldCheckRelativeCoordinate(t, r, "L207", rel.X+0.5, float32(1e-4))
 
-	snapshotCheckRelativeCoordinate(t, r, "L208", rel.Y, float32(1e-4))
+	largeWorldCheckRelativeCoordinate(t, r, "L208", rel.Y, float32(1e-4))
 
 	if IsDoublePrecision() {
-		rel = snapshotRunRayCast(t, Pos{X: 1e7})
-		snapshotCheckRelativeCoordinate(t, r, "L212", rel.X+0.5, float32(1e-4))
+		rel = largeWorldRunRayCast(t, Pos{X: 1e7})
+		largeWorldCheckRelativeCoordinate(t, r, "L212", rel.X+0.5, float32(1e-4))
 
-		snapshotCheckRelativeCoordinate(t, r, "L213", rel.Y, float32(1e-4))
+		largeWorldCheckRelativeCoordinate(t, r, "L213", rel.Y, float32(1e-4))
 	}
 }
 
-func snapshotCheckLargeWorldOriginQueryTest(t *testing.T) {
+func checkLargeWorldOriginQueryTest(t *testing.T) {
 	t.Helper()
 	r := oracle.Open(t, "large_world/LargeWorldOriginQueryTest")
 
-	origin := snapshotRunOriginQueries(t, Pos{})
+	origin := largeWorldRunOriginQueries(t, Pos{})
 	if origin.overlapCount != 1 {
 		t.Fatal("condition false")
 	}
@@ -384,15 +384,15 @@ func snapshotCheckLargeWorldOriginQueryTest(t *testing.T) {
 	r.Bool("L316", origin.shapeRayHit)
 
 	castRel := origin.castPoint.Sub(Pos{})
-	snapshotCheckRelativeCoordinate(t, r, "L319", castRel.X+0.5, float32(1e-3))
+	largeWorldCheckRelativeCoordinate(t, r, "L319", castRel.X+0.5, float32(1e-3))
 
 	rayRel := origin.shapeRayPoint.Sub(Pos{})
-	snapshotCheckRelativeCoordinate(t, r, "L321", rayRel.X+0.5, float32(1e-3))
+	largeWorldCheckRelativeCoordinate(t, r, "L321", rayRel.X+0.5, float32(1e-3))
 
 	if IsDoublePrecision() {
 		base := Pos{X: 1e7}
 
-		large := snapshotRunOriginQueries(t, base)
+		large := largeWorldRunOriginQueries(t, base)
 		if large.overlapCount != origin.overlapCount {
 			t.Fatal("condition false")
 		}
@@ -421,29 +421,29 @@ func snapshotCheckLargeWorldOriginQueryTest(t *testing.T) {
 
 		r.Bool("L331", large.shapeRayHit == origin.shapeRayHit)
 
-		snapshotCheckRelativeCoordinate(t, r, "L332", large.castFraction-origin.castFraction, float32(1e-4))
+		largeWorldCheckRelativeCoordinate(t, r, "L332", large.castFraction-origin.castFraction, float32(1e-4))
 
-		snapshotCheckRelativeCoordinate(t, r, "L333", large.moverFraction-origin.moverFraction, float32(1e-4))
+		largeWorldCheckRelativeCoordinate(t, r, "L333", large.moverFraction-origin.moverFraction, float32(1e-4))
 
 		largeCast := large.castPoint.Sub(base)
-		snapshotCheckRelativeCoordinate(t, r, "L336", largeCast.X-castRel.X, float32(1e-3))
+		largeWorldCheckRelativeCoordinate(t, r, "L336", largeCast.X-castRel.X, float32(1e-3))
 
-		snapshotCheckRelativeCoordinate(t, r, "L337", largeCast.Y-castRel.Y, float32(1e-3))
+		largeWorldCheckRelativeCoordinate(t, r, "L337", largeCast.Y-castRel.Y, float32(1e-3))
 
 		largeRay := large.shapeRayPoint.Sub(base)
-		snapshotCheckRelativeCoordinate(t, r, "L340", largeRay.X-rayRel.X, float32(1e-3))
+		largeWorldCheckRelativeCoordinate(t, r, "L340", largeRay.X-rayRel.X, float32(1e-3))
 
-		snapshotCheckRelativeCoordinate(t, r, "L341", largeRay.Y-rayRel.Y, float32(1e-3))
+		largeWorldCheckRelativeCoordinate(t, r, "L341", largeRay.Y-rayRel.Y, float32(1e-3))
 	}
 }
 
-func snapshotCheckLargeWorldRecordingTest(t *testing.T) {
+func checkLargeWorldRecordingTest(t *testing.T) {
 	t.Helper()
 	r := oracle.Open(t, "large_world/LargeWorldRecordingTest")
 	wd := DefaultWorldDef()
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	base := Pos{}
 	if IsDoublePrecision() {
@@ -479,7 +479,7 @@ func snapshotCheckLargeWorldRecordingTest(t *testing.T) {
 
 	for step := range 30 {
 		w.Step(float32(1)/60, 4)
-		snapshotTransformTrace(r, w, fmt.Sprintf("L401/step/%d", step), step)
+		traceTransforms(r, w, fmt.Sprintf("L401/step/%d", step), step)
 	}
 
 	xf := slider.Transform()
@@ -487,7 +487,7 @@ func snapshotCheckLargeWorldRecordingTest(t *testing.T) {
 
 	for step := range 30 {
 		w.Step(float32(1)/60, 4)
-		snapshotTransformTrace(r, w, fmt.Sprintf("L409/step/%d", step), step+30)
+		traceTransforms(r, w, fmt.Sprintf("L409/step/%d", step), step+30)
 	}
 
 	w.StopRecording()

@@ -17,14 +17,14 @@ file(GLOB_RECURSE adapter_sources CONFIGURE_DEPENDS
 	"${CMAKE_CURRENT_SOURCE_DIR}/debug/*.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/debug/*.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/bench/*.c"
-	"${CMAKE_CURRENT_SOURCE_DIR}/bench/*.h")
+	"${CMAKE_CURRENT_SOURCE_DIR}/bench/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/patches/*.patch")
 list(APPEND adapter_sources
 	"${CMAKE_CURRENT_SOURCE_DIR}/oracle.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/oracle.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/differential.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
 	"${CMAKE_CURRENT_SOURCE_DIR}/build.sh"
-	"${CMAKE_CURRENT_SOURCE_DIR}/patches/world_overlap_stop.patch"
 	"${CMAKE_CURRENT_SOURCE_DIR}/reference.cmake"
 	"${CMAKE_CURRENT_SOURCE_DIR}/capture.cmake"
 	"${CMAKE_CURRENT_SOURCE_DIR}/check-upstream.cmake"

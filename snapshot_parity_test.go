@@ -71,7 +71,7 @@ func TestSnapshotRejectsDuplicateFreeBodyIDs(t *testing.T) {
 	worldDef := DefaultWorldDef()
 	worldDef.WorkerCount = 0
 	world := NewWorld(&worldDef)
-	BTWorldCleanup(t, world)
+	CleanupWorld(t, world)
 
 	bodyDef := DefaultBodyDef()
 	first := world.CreateBody(&bodyDef)
@@ -96,7 +96,7 @@ func TestSnapshotRejectsDuplicateFreeBodyIDs(t *testing.T) {
 	copy(image[poolOffset+12:poolOffset+16], image[poolOffset+8:poolOffset+12])
 
 	loaded, err := NewWorldFromSnapshot(image, 0)
-	BTWorldCleanup(t, loaded)
+	CleanupWorld(t, loaded)
 
 	if !errors.Is(err, ErrCorrupt) || loaded != nil {
 		t.Fatalf("duplicate free body IDs: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
@@ -107,18 +107,18 @@ func TestSnapshotRejectsFreeIDOfLiveBody(t *testing.T) {
 	def := DefaultWorldDef()
 	def.WorkerCount = 0
 	world := NewWorld(&def)
-	BTWorldCleanup(t, world)
+	CleanupWorld(t, world)
 
 	bodyDef := DefaultBodyDef()
 	world.CreateBody(&bodyDef)
 	world.CreateBody(&bodyDef).Destroy()
-	image := BTSnapshot(world)
+	image := MarshalSnapshot(world)
 	config := recBuffer{countOnly: true}
 	serWorldConfig(&config, world)
 	binary.LittleEndian.PutUint32(image[16+config.size+8:], 0)
 
 	loaded, err := NewWorldFromSnapshot(image, 0)
-	BTWorldCleanup(t, loaded)
+	CleanupWorld(t, loaded)
 
 	if loaded != nil || !errors.Is(err, ErrCorrupt) {
 		t.Fatalf("free ID of live body: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
@@ -129,7 +129,7 @@ func TestSnapshotRejectsLiveProxyOnFreeList(t *testing.T) {
 	def := DefaultWorldDef()
 	def.WorkerCount = 0
 	world := NewWorld(&def)
-	BTWorldCleanup(t, world)
+	CleanupWorld(t, world)
 
 	bodyDef := DefaultBodyDef()
 	body := world.CreateBody(&bodyDef)
@@ -138,8 +138,8 @@ func TestSnapshotRejectsLiveProxyOnFreeList(t *testing.T) {
 
 	world.broadPhase.trees[StaticBody].proxyFreeList = 0
 
-	loaded, err := NewWorldFromSnapshot(BTSnapshot(world), 0)
-	BTWorldCleanup(t, loaded)
+	loaded, err := NewWorldFromSnapshot(MarshalSnapshot(world), 0)
+	CleanupWorld(t, loaded)
 
 	if loaded != nil || !errors.Is(err, ErrCorrupt) {
 		t.Fatalf("live proxy on free list: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
@@ -151,7 +151,7 @@ func TestSnapshotRejectsDuplicatePairKeys(t *testing.T) {
 	def.WorkerCount = 0
 	def.Gravity = Vec2{}
 	world := NewWorld(&def)
-	BTWorldCleanup(t, world)
+	CleanupWorld(t, world)
 
 	bodyDef := DefaultBodyDef()
 	ground := world.CreateBody(&bodyDef)
@@ -182,8 +182,8 @@ func TestSnapshotRejectsDuplicatePairKeys(t *testing.T) {
 		t.Fatal("fixture did not contain pair key 1")
 	}
 
-	loaded, err := NewWorldFromSnapshot(BTSnapshot(world), 0)
-	BTWorldCleanup(t, loaded)
+	loaded, err := NewWorldFromSnapshot(MarshalSnapshot(world), 0)
+	CleanupWorld(t, loaded)
 
 	if loaded != nil || !errors.Is(err, ErrCorrupt) {
 		t.Fatalf("duplicate pair keys: world = %p, error = %v, want nil and ErrCorrupt", loaded, err)
@@ -195,7 +195,7 @@ func TestSnapshotContactHandleStaysInvalidAfterGenerationExhaustion(t *testing.T
 	def.WorkerCount = 0
 	def.Gravity = Vec2{}
 	world := NewWorld(&def)
-	BTWorldCleanup(t, world)
+	CleanupWorld(t, world)
 
 	bodyDef := DefaultBodyDef()
 	ground := world.CreateBody(&bodyDef)
@@ -213,14 +213,14 @@ func TestSnapshotContactHandleStaysInvalidAfterGenerationExhaustion(t *testing.T
 	}
 
 	world.contacts[0].generation = math.MaxUint32
-	image := BTSnapshot(world)
+	image := MarshalSnapshot(world)
 
 	loaded, err := NewWorldFromSnapshot(image, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	BTWorldCleanup(t, loaded)
+	CleanupWorld(t, loaded)
 	stale := Contact{index1: 1, world: loaded, generation: 1}
 	moving.world = loaded
 
@@ -270,7 +270,7 @@ func TestSnapshotFamiliesRollback(t *testing.T) {
 			disabled, sleeping, visitor := scene.disabled, scene.sleeping, scene.visitor
 			circle := scene.circle
 
-			image := BTSnapshot(w)
+			image := MarshalSnapshot(w)
 			initial := w.StateHash()
 
 			var tail [90]uint64
@@ -376,7 +376,7 @@ func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 	r := oracle.Open(t, "snapshot/Handles")
 	wd := DefaultWorldDef()
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	bd := DefaultBodyDef()
 	ground := w.CreateBody(&bd)
@@ -397,7 +397,7 @@ func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 	cd.Ghost2 = Vec2{4, 0}
 	cd.Materials = []SurfaceMaterial{mat}
 	chain := ground.CreateChain(&cd)
-	image := BTSnapshot(w)
+	image := MarshalSnapshot(w)
 
 	joint.Destroy()
 	chain.Destroy()
@@ -464,7 +464,7 @@ func TestSnapshotDestroyedReusedHandlesAndNewWorld(t *testing.T) {
 			t.Fatalf("load workers %d: %v", workers, err)
 		}
 
-		BTWorldCleanup(t, clone)
+		CleanupWorld(t, clone)
 
 		key := fmt.Sprintf("new/%d", workers)
 		r.Bool(key+"/identity", clone != w)
@@ -497,7 +497,7 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 	r := oracle.Open(t, "snapshot/Headers")
 	wd := DefaultWorldDef()
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	bd := DefaultBodyDef()
 	bd.Type = DynamicBody
@@ -522,7 +522,7 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 	cd.Ghost2 = Vec2{4, 0}
 	cd.Materials = []SurfaceMaterial{material}
 	chain := anchor.CreateChain(&cd)
-	image := BTSnapshot(w)
+	image := MarshalSnapshot(w)
 	hash := w.StateHash()
 
 	cases := []struct {
@@ -581,7 +581,7 @@ func TestSnapshotHeaderRejectionAndLateCleanup(t *testing.T) {
 
 	wd = DefaultWorldDef()
 	fresh := NewWorld(&wd)
-	BTWorldCleanup(t, fresh)
+	CleanupWorld(t, fresh)
 	body = fresh.CreateBody(&bd)
 	r.Bool("cleanup/newBody", body.IsValid())
 }
@@ -628,7 +628,7 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	wd.FrictionCallback = func(float32, uint64, float32, uint64) float32 { oldFriction++; return 0.9 }
 	wd.RestitutionCallback = func(float32, uint64, float32, uint64) float32 { oldRestitution++; return 0.9 }
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 	w.SetCustomFilterCallback(func(Shape, Shape) bool { oldFilter++; return false })
 	w.SetPreSolveCallback(func(Shape, Shape, *Manifold) { oldPre++ }, nil)
 
@@ -652,7 +652,7 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 	jd.Base.CollideConnected = true
 	jd.Base.UserData = &oldTag
 	joint := w.CreateFilterJoint(&jd).Joint
-	image := BTSnapshot(w)
+	image := MarshalSnapshot(w)
 	w.SetUserData(&liveTag)
 	body.SetUserData(&liveTag)
 	shape.SetUserData(&liveTag)
@@ -700,7 +700,7 @@ func TestSnapshotRetainsLiveWiringAndClearsApplicationData(t *testing.T) {
 		t.Fatalf("load default wiring: %v", err)
 	}
 
-	BTWorldCleanup(t, clone)
+	CleanupWorld(t, clone)
 
 	cb := body
 	cb.world = clone
@@ -867,7 +867,7 @@ func snapshotBuildFamilyScene(t *testing.T, scene *snapshotFamilyScene) {
 	wd := DefaultWorldDef()
 	wd.Gravity = Vec2{0, -2}
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	bd := DefaultBodyDef()
 	bd.Position = origin

@@ -1,0 +1,29 @@
+--- a/test_bitset.c
++++ b/test_bitset.c
+@@ -2,12 +2,14 @@
+ // SPDX-License-Identifier: MIT
+ 
+ #include "bitset.h"
++#include "oracle.h"
+ #include "test_macros.h"
+ 
+ #define COUNT 169
+ 
+ int BitSetTest( void )
+ {
++	ORACLE_OPEN( "bitset/BitSetTest" );
+ 	b2BitSet bitSet = b2CreateBitSet( COUNT );
+ 
+ 	b2SetBitCountAndClear( &bitSet, COUNT );
+@@ -30,9 +32,11 @@
+ 	{
+ 		bool value = b2GetBit( &bitSet, i );
+ 		ENSURE( value == values[i] );
++		ORACLE_BOOL( ORACLE_KEY( "bit/%d", i ), value );
+ 	}
+ 
+ 	b2DestroyBitSet( &bitSet );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }

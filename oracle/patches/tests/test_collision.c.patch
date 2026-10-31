@@ -1,0 +1,446 @@
+--- a/test_collision.c
++++ b/test_collision.c
+@@ -8,26 +8,57 @@
+ #include "box2d/collision.h"
+ #include "box2d/math_functions.h"
+ 
++static void observeCast( b2CastOutput output )
++{
++	ORACLE_BOOL( "full/cast/hit", output.hit );
++	ORACLE_I32( "full/cast/iterations", output.iterations );
++	if ( output.hit )
++	{
++		ORACLE_F32( "full/cast/fraction", output.fraction );
++		ORACLE_VEC2( "full/cast/normal", output.normal );
++		ORACLE_VEC2( "full/cast/point", output.point );
++	}
++}
++
++static void observeManifold( const char* key, b2LocalManifold m )
++{
++	ORACLE_I32( ORACLE_KEY( "%s/count", key ), m.pointCount );
++	if ( m.pointCount > 0 ) ORACLE_VEC2( ORACLE_KEY( "%s/normal", key ), m.normal );
++	for ( int i = 0; i < m.pointCount; ++i )
++	{
++		ORACLE_VEC2( ORACLE_KEY( "%s/%d/point", key, i ), m.points[i].point );
++		ORACLE_F32( ORACLE_KEY( "%s/%d/separation", key, i ), m.points[i].separation );
++		ORACLE_U32( ORACLE_KEY( "%s/%d/id", key, i ), m.points[i].id );
++	}
++}
++
+ static int AABBTest( void )
+ {
++	ORACLE_OPEN( "collision/AABBTest" );
+ 	b2AABB a;
+ 	a.lowerBound = (b2Vec2){ -1.0f, -1.0f };
+ 	a.upperBound = (b2Vec2){ -2.0f, -2.0f };
+ 
++	ORACLE_BOOL( "collision:17", b2IsValidAABB( a ) == false );
+ 	ENSURE( b2IsValidAABB( a ) == false );
+ 
+ 	a.upperBound = (b2Vec2){ 1.0f, 1.0f };
++	ORACLE_BOOL( "collision:21", b2IsValidAABB( a ) == true );
+ 	ENSURE( b2IsValidAABB( a ) == true );
+ 
+ 	b2AABB b = { { 2.0f, 2.0f }, { 4.0f, 4.0f } };
++	ORACLE_BOOL( "collision:24", b2AABB_Overlaps( a, b ) == false );
+ 	ENSURE( b2AABB_Overlaps( a, b ) == false );
++	ORACLE_BOOL( "collision:25", b2AABB_Contains( a, b ) == false );
+ 	ENSURE( b2AABB_Contains( a, b ) == false );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+ static int AABBRayCastTest( void )
+ {
++	ORACLE_OPEN( "collision/AABBRayCastTest" );
+ 	// Test AABB centered at origin with bounds [-1, -1] to [1, 1]
+ 	b2AABB aabb = { { -1.0f, -1.0f }, { 1.0f, 1.0f } };
+ 
+@@ -36,12 +67,25 @@
+ 		b2Vec2 p1 = { -3.0f, 0.0f };
+ 		b2Vec2 p2 = { 3.0f, 0.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:42/value0", output.hit );
++		ORACLE_BOOL( "collision:42", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:44/value0", output.fraction );
++		ORACLE_F32( "collision:44", output.fraction - 1.0f / 3.0f );
+ 		ENSURE_SMALL( output.fraction - 1.0f / 3.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:45/value0", output.normal.x );
++		ORACLE_F32( "collision:45", output.normal.x + 1.0f );
+ 		ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:46/value0", output.normal.y );
++		ORACLE_F32( "collision:46", output.normal.y );
+ 		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
++		ORACLE_F32( "collision:47/value0", output.point.x );
++		ORACLE_F32( "collision:47", output.point.x + 1.0f );
+ 		ENSURE_SMALL( output.point.x + 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:48/value0", output.point.y );
++		ORACLE_F32( "collision:48", output.point.y );
+ 		ENSURE_SMALL( output.point.y, FLT_EPSILON );
+ 	}
+ 
+@@ -50,12 +94,25 @@
+ 		b2Vec2 p1 = { 3.0f, 0.0f };
+ 		b2Vec2 p2 = { -3.0f, 0.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:56/value0", output.hit );
++		ORACLE_BOOL( "collision:56", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:58/value0", output.fraction );
++		ORACLE_F32( "collision:58", output.fraction - 1.0f / 3.0f );
+ 		ENSURE_SMALL( output.fraction - 1.0f / 3.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:59/value0", output.normal.x );
++		ORACLE_F32( "collision:59", output.normal.x - 1.0f );
+ 		ENSURE_SMALL( output.normal.x - 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:60/value0", output.normal.y );
++		ORACLE_F32( "collision:60", output.normal.y );
+ 		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
++		ORACLE_F32( "collision:61/value0", output.point.x );
++		ORACLE_F32( "collision:61", output.point.x - 1.0f );
+ 		ENSURE_SMALL( output.point.x - 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:62/value0", output.point.y );
++		ORACLE_F32( "collision:62", output.point.y );
+ 		ENSURE_SMALL( output.point.y, FLT_EPSILON );
+ 	}
+ 
+@@ -64,12 +121,25 @@
+ 		b2Vec2 p1 = { 0.0f, -3.0f };
+ 		b2Vec2 p2 = { 0.0f, 3.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:70/value0", output.hit );
++		ORACLE_BOOL( "collision:70", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:72/value0", output.fraction );
++		ORACLE_F32( "collision:72", output.fraction - 1.0f / 3.0f );
+ 		ENSURE_SMALL( output.fraction - 1.0f / 3.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:73/value0", output.normal.x );
++		ORACLE_F32( "collision:73", output.normal.x );
+ 		ENSURE_SMALL( output.normal.x, FLT_EPSILON );
++		ORACLE_F32( "collision:74/value0", output.normal.y );
++		ORACLE_F32( "collision:74", output.normal.y + 1.0f );
+ 		ENSURE_SMALL( output.normal.y + 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:75/value0", output.point.x );
++		ORACLE_F32( "collision:75", output.point.x );
+ 		ENSURE_SMALL( output.point.x, FLT_EPSILON );
++		ORACLE_F32( "collision:76/value0", output.point.y );
++		ORACLE_F32( "collision:76", output.point.y + 1.0f );
+ 		ENSURE_SMALL( output.point.y + 1.0f, FLT_EPSILON );
+ 	}
+ 
+@@ -78,12 +148,25 @@
+ 		b2Vec2 p1 = { 0.0f, 3.0f };
+ 		b2Vec2 p2 = { 0.0f, -3.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:84/value0", output.hit );
++		ORACLE_BOOL( "collision:84", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:86/value0", output.fraction );
++		ORACLE_F32( "collision:86", output.fraction - 1.0f / 3.0f );
+ 		ENSURE_SMALL( output.fraction - 1.0f / 3.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:87/value0", output.normal.x );
++		ORACLE_F32( "collision:87", output.normal.x );
+ 		ENSURE_SMALL( output.normal.x, FLT_EPSILON );
++		ORACLE_F32( "collision:88/value0", output.normal.y );
++		ORACLE_F32( "collision:88", output.normal.y - 1.0f );
+ 		ENSURE_SMALL( output.normal.y - 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:89/value0", output.point.x );
++		ORACLE_F32( "collision:89", output.point.x );
+ 		ENSURE_SMALL( output.point.x, FLT_EPSILON );
++		ORACLE_F32( "collision:90/value0", output.point.y );
++		ORACLE_F32( "collision:90", output.point.y - 1.0f );
+ 		ENSURE_SMALL( output.point.y - 1.0f, FLT_EPSILON );
+ 	}
+ 
+@@ -92,7 +175,10 @@
+ 		b2Vec2 p1 = { -3.0f, 2.0f };
+ 		b2Vec2 p2 = { 3.0f, 2.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:98/value0", output.hit );
++		ORACLE_BOOL( "collision:98", output.hit == false );
+ 		ENSURE( output.hit == false );
+ 	}
+ 
+@@ -101,7 +187,10 @@
+ 		b2Vec2 p1 = { 2.0f, -3.0f };
+ 		b2Vec2 p2 = { 2.0f, 3.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:107/value0", output.hit );
++		ORACLE_BOOL( "collision:107", output.hit == false );
+ 		ENSURE( output.hit == false );
+ 	}
+ 
+@@ -110,7 +199,10 @@
+ 		b2Vec2 p1 = { 0.0f, 0.0f };
+ 		b2Vec2 p2 = { 2.0f, 0.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:116/value0", output.hit );
++		ORACLE_BOOL( "collision:116", output.hit == false );
+ 		ENSURE( output.hit == false );
+ 	}
+ 
+@@ -119,10 +211,18 @@
+ 		b2Vec2 p1 = { -2.0f, -2.0f };
+ 		b2Vec2 p2 = { 2.0f, 2.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:125/value0", output.hit );
++		ORACLE_BOOL( "collision:125", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:127/value0", output.fraction );
++		ORACLE_F32( "collision:127", output.fraction - 0.25f );
+ 		ENSURE_SMALL( output.fraction - 0.25f, FLT_EPSILON );
+ 		// Normal should be either (-1, 0) or (0, -1) depending on which edge is hit first
++		ORACLE_F32( "collision:129/value0", output.normal.x );
++		ORACLE_F32( "collision:129/value1", output.normal.y );
++		ORACLE_BOOL( "collision:129", ( output.normal.x == -1.0f && output.normal.y == 0.0f ) || ( output.normal.x == 0.0f && output.normal.y == -1.0f ) );
+ 		ENSURE( ( output.normal.x == -1.0f && output.normal.y == 0.0f ) ||
+ 				( output.normal.x == 0.0f && output.normal.y == -1.0f ) );
+ 	}
+@@ -132,7 +232,10 @@
+ 		b2Vec2 p1 = { -2.0f, 1.5f };
+ 		b2Vec2 p2 = { 2.0f, 1.5f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:138/value0", output.hit );
++		ORACLE_BOOL( "collision:138", output.hit == false );
+ 		ENSURE( output.hit == false );
+ 	}
+ 
+@@ -141,10 +244,19 @@
+ 		b2Vec2 p1 = { -2.0f, 1.0f };
+ 		b2Vec2 p2 = { 2.0f, 1.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:147/value0", output.hit );
++		ORACLE_BOOL( "collision:147", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:149/value0", output.fraction );
++		ORACLE_F32( "collision:149", output.fraction - 0.25f );
+ 		ENSURE_SMALL( output.fraction - 0.25f, FLT_EPSILON );
++		ORACLE_F32( "collision:150/value0", output.normal.x );
++		ORACLE_F32( "collision:150", output.normal.x + 1.0f );
+ 		ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:151/value0", output.normal.y );
++		ORACLE_F32( "collision:151", output.normal.y );
+ 		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
+ 	}
+ 
+@@ -153,7 +265,10 @@
+ 		b2Vec2 p1 = { -3.0f, 0.0f };
+ 		b2Vec2 p2 = { -2.5f, 0.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:159/value0", output.hit );
++		ORACLE_BOOL( "collision:159", output.hit == false );
+ 		ENSURE( output.hit == false );
+ 	}
+ 
+@@ -162,7 +277,10 @@
+ 		b2Vec2 p1 = { 0.0f, 0.0f };
+ 		b2Vec2 p2 = { 0.0f, 0.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:168/value0", output.hit );
++		ORACLE_BOOL( "collision:168", output.hit == false );
+ 		ENSURE( output.hit == false );
+ 	}
+ 
+@@ -171,10 +289,19 @@
+ 		b2Vec2 p1 = { -2.0f, 0.0f };
+ 		b2Vec2 p2 = { -1.0f, 0.0f };
+ 		b2CastOutput output = b2AABB_RayCast( aabb, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:177/value0", output.hit );
++		ORACLE_BOOL( "collision:177", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:179/value0", output.fraction );
++		ORACLE_F32( "collision:179", output.fraction - 1.0f );
+ 		ENSURE_SMALL( output.fraction - 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:180/value0", output.normal.x );
++		ORACLE_F32( "collision:180", output.normal.x + 1.0f );
+ 		ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:181/value0", output.normal.y );
++		ORACLE_F32( "collision:181", output.normal.y );
+ 		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
+ 	}
+ 
+@@ -184,15 +311,29 @@
+ 		b2Vec2 p1 = { 0.0f, 4.0f };
+ 		b2Vec2 p2 = { 6.0f, 4.0f };
+ 		b2CastOutput output = b2AABB_RayCast( offsetAABB, p1, p2 );
++		observeCast( output );
+ 
++		ORACLE_BOOL( "collision:190/value0", output.hit );
++		ORACLE_BOOL( "collision:190", output.hit == true );
+ 		ENSURE( output.hit == true );
++		ORACLE_F32( "collision:192/value0", output.fraction );
++		ORACLE_F32( "collision:192", output.fraction - 1.0f / 3.0f );
+ 		ENSURE_SMALL( output.fraction - 1.0f / 3.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:193/value0", output.normal.x );
++		ORACLE_F32( "collision:193", output.normal.x + 1.0f );
+ 		ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:194/value0", output.normal.y );
++		ORACLE_F32( "collision:194", output.normal.y );
+ 		ENSURE_SMALL( output.normal.y, FLT_EPSILON );
++		ORACLE_F32( "collision:195/value0", output.point.x );
++		ORACLE_F32( "collision:195", output.point.x - 2.0f );
+ 		ENSURE_SMALL( output.point.x - 2.0f, FLT_EPSILON );
++		ORACLE_F32( "collision:196/value0", output.point.y );
++		ORACLE_F32( "collision:196", output.point.y - 4.0f );
+ 		ENSURE_SMALL( output.point.y - 4.0f, FLT_EPSILON );
+ 	}
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -201,6 +342,7 @@
+ // ~1e7 m where the ULP grows larger than the overlap, which is the whole point of large world mode.
+ static int LargeWorldManifoldTest( void )
+ {
++	ORACLE_OPEN( "collision/LargeWorldManifoldTest" );
+ 	b2Polygon boxA = b2MakeBox( 0.5f, 0.5f );
+ 	b2Polygon boxB = b2MakeBox( 0.5f, 0.5f );
+ 
+@@ -210,9 +352,16 @@
+ 	b2WorldTransform xfAo = b2WorldTransform_identity;
+ 	b2WorldTransform xfBo = { b2OffsetPos( b2Pos_zero, sep ), b2Rot_identity };
+ 	b2LocalManifold mOrigin = b2CollidePolygons( &boxA, &boxB, b2InvMulWorldTransforms( xfAo, xfBo ) );
++	observeManifold( "full/origin", mOrigin );
+ 
++	ORACLE_I32( "collision:218/value0", mOrigin.pointCount );
++	ORACLE_BOOL( "collision:218", mOrigin.pointCount == 2 );
+ 	ENSURE( mOrigin.pointCount == 2 );
++	ORACLE_F32( "collision:220/value0", mOrigin.points[0].separation );
++	ORACLE_F32( "collision:220", mOrigin.points[0].separation + 0.1f );
+ 	ENSURE_SMALL( mOrigin.points[0].separation + 0.1f, 0.01f );
++	ORACLE_F32( "collision:221/value0", mOrigin.points[1].separation );
++	ORACLE_F32( "collision:221", mOrigin.points[1].separation + 0.1f );
+ 	ENSURE_SMALL( mOrigin.points[1].separation + 0.1f, 0.01f );
+ 
+ #if defined( BOX2D_DOUBLE_PRECISION )
+@@ -223,18 +372,38 @@
+ 	b2WorldTransform xfAl = { base, b2Rot_identity };
+ 	b2WorldTransform xfBl = { b2OffsetPos( base, sep ), b2Rot_identity };
+ 	b2LocalManifold mLarge = b2CollidePolygons( &boxA, &boxB, b2InvMulWorldTransforms( xfAl, xfBl ) );
++	observeManifold( "full/large", mLarge );
+ 
++	ORACLE_I32( "collision:231/value0", mLarge.pointCount );
++	ORACLE_I32( "collision:231/value1", mOrigin.pointCount );
++	ORACLE_BOOL( "collision:231", mLarge.pointCount == mOrigin.pointCount );
+ 	ENSURE( mLarge.pointCount == mOrigin.pointCount );
++	ORACLE_F32( "collision:233/value0", mLarge.normal.x );
++	ORACLE_F32( "collision:233/value1", mOrigin.normal.x );
++	ORACLE_F32( "collision:233", mLarge.normal.x - mOrigin.normal.x );
+ 	ENSURE_SMALL( mLarge.normal.x - mOrigin.normal.x, 1e-4f );
++	ORACLE_F32( "collision:234/value0", mLarge.normal.y );
++	ORACLE_F32( "collision:234/value1", mOrigin.normal.y );
++	ORACLE_F32( "collision:234", mLarge.normal.y - mOrigin.normal.y );
+ 	ENSURE_SMALL( mLarge.normal.y - mOrigin.normal.y, 1e-4f );
+ 	for ( int i = 0; i < mLarge.pointCount; ++i )
+ 	{
++		ORACLE_F32( "collision:237/value0", mLarge.points[i].separation );
++		ORACLE_F32( "collision:237/value1", mOrigin.points[i].separation );
++		ORACLE_F32( "collision:237", mLarge.points[i].separation - mOrigin.points[i].separation );
+ 		ENSURE_SMALL( mLarge.points[i].separation - mOrigin.points[i].separation, 1e-4f );
++		ORACLE_F32( "collision:238/value0", mLarge.points[i].point.x );
++		ORACLE_F32( "collision:238/value1", mOrigin.points[i].point.x );
++		ORACLE_F32( "collision:238", mLarge.points[i].point.x - mOrigin.points[i].point.x );
+ 		ENSURE_SMALL( mLarge.points[i].point.x - mOrigin.points[i].point.x, 1e-4f );
++		ORACLE_F32( "collision:239/value0", mLarge.points[i].point.y );
++		ORACLE_F32( "collision:239/value1", mOrigin.points[i].point.y );
++		ORACLE_F32( "collision:239", mLarge.points[i].point.y - mOrigin.points[i].point.y );
+ 		ENSURE_SMALL( mLarge.points[i].point.y - mOrigin.points[i].point.y, 1e-4f );
+ 	}
+ #endif
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -243,13 +412,22 @@
+ // round the extent away into the ULP (~1 m at 1e7) and clip the shape out of its own box.
+ static int LargeWorldAABBTest( void )
+ {
++	ORACLE_OPEN( "collision/LargeWorldAABBTest" );
+ 	// Rounded box: 0.5 half extents plus 0.1 radius, so the tight extent is 0.6 each way
+ 	b2Polygon box = b2MakeRoundedBox( 0.5f, 0.5f, 0.1f );
+ 
+ 	b2AABB aabbOrigin = b2ComputePolygonAABB( &box, b2WorldTransform_identity );
++	ORACLE_F32( "collision:257/value0", aabbOrigin.lowerBound.x );
++	ORACLE_F32( "collision:257", aabbOrigin.lowerBound.x + 0.6f );
+ 	ENSURE_SMALL( aabbOrigin.lowerBound.x + 0.6f, FLT_EPSILON );
++	ORACLE_F32( "collision:258/value0", aabbOrigin.lowerBound.y );
++	ORACLE_F32( "collision:258", aabbOrigin.lowerBound.y + 0.6f );
+ 	ENSURE_SMALL( aabbOrigin.lowerBound.y + 0.6f, FLT_EPSILON );
++	ORACLE_F32( "collision:259/value0", aabbOrigin.upperBound.x );
++	ORACLE_F32( "collision:259", aabbOrigin.upperBound.x - 0.6f );
+ 	ENSURE_SMALL( aabbOrigin.upperBound.x - 0.6f, FLT_EPSILON );
++	ORACLE_F32( "collision:260/value0", aabbOrigin.upperBound.y );
++	ORACLE_F32( "collision:260", aabbOrigin.upperBound.y - 0.6f );
+ 	ENSURE_SMALL( aabbOrigin.upperBound.y - 0.6f, FLT_EPSILON );
+ 
+ #if defined( BOX2D_DOUBLE_PRECISION )
+@@ -258,9 +436,17 @@
+ 
+ 	// Tight world AABB still contains the 0.6 m extent
+ 	b2AABB tight = b2ComputePolygonAABB( &box, xfLarge );
++	ORACLE_F32( "collision:268/value0", tight.lowerBound.x );
++	ORACLE_BOOL( "collision:268", (double)tight.lowerBound.x <= d - 0.6 );
+ 	ENSURE( (double)tight.lowerBound.x <= d - 0.6 );
++	ORACLE_F32( "collision:269/value0", tight.lowerBound.y );
++	ORACLE_BOOL( "collision:269", (double)tight.lowerBound.y <= d - 0.6 );
+ 	ENSURE( (double)tight.lowerBound.y <= d - 0.6 );
++	ORACLE_F32( "collision:270/value0", tight.upperBound.x );
++	ORACLE_BOOL( "collision:270", (double)tight.upperBound.x >= d + 0.6 );
+ 	ENSURE( (double)tight.upperBound.x >= d + 0.6 );
++	ORACLE_F32( "collision:271/value0", tight.upperBound.y );
++	ORACLE_BOOL( "collision:271", (double)tight.upperBound.y >= d + 0.6 );
+ 	ENSURE( (double)tight.upperBound.y >= d + 0.6 );
+ 
+ 	// The fat helper folds the extra into the double step before the single outward rounding, so a
+@@ -270,12 +456,21 @@
+ 	shape.type = b2_polygonShape;
+ 	shape.polygon = box;
+ 	b2AABB fat = b2ComputeFatShapeAABB( &shape, xfLarge, extra );
++	ORACLE_F32( "collision:280/value0", fat.lowerBound.x );
++	ORACLE_BOOL( "collision:280", (double)fat.lowerBound.x <= d - 0.6 - (double)extra );
+ 	ENSURE( (double)fat.lowerBound.x <= d - 0.6 - (double)extra );
++	ORACLE_F32( "collision:281/value0", fat.lowerBound.y );
++	ORACLE_BOOL( "collision:281", (double)fat.lowerBound.y <= d - 0.6 - (double)extra );
+ 	ENSURE( (double)fat.lowerBound.y <= d - 0.6 - (double)extra );
++	ORACLE_F32( "collision:282/value0", fat.upperBound.x );
++	ORACLE_BOOL( "collision:282", (double)fat.upperBound.x >= d + 0.6 + (double)extra );
+ 	ENSURE( (double)fat.upperBound.x >= d + 0.6 + (double)extra );
++	ORACLE_F32( "collision:283/value0", fat.upperBound.y );
++	ORACLE_BOOL( "collision:283", (double)fat.upperBound.y >= d + 0.6 + (double)extra );
+ 	ENSURE( (double)fat.upperBound.y >= d + 0.6 + (double)extra );
+ #endif
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 

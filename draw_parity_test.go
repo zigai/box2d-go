@@ -159,7 +159,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 			wd := DefaultWorldDef()
 			wd.WorkerCount = 1
 			w := NewWorld(&wd)
-			BTWorldCleanup(t, w)
+			CleanupWorld(t, w)
 
 			inspect := func() { spatialInspect(r, w); r.I32("awakeBodies", int32(w.AwakeBodyCount())) }
 			inspect()
@@ -193,7 +193,7 @@ func TestWorldDrawTypedParity(t *testing.T) {
 
 			for option := range 17 {
 				d := DefaultDebugDraw()
-				dFuncs := &BTFuncDrawer{}
+				dFuncs := &FuncDrawer{}
 				d.Drawer = dFuncs
 				commands := 0
 				command := func(kind int, color HexColor) {

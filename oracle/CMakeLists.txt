@@ -39,6 +39,25 @@ target_include_directories(oracle PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(oracle PUBLIC box2d)
 set_target_properties(oracle PROPERTIES C_STANDARD 17 C_STANDARD_REQUIRED YES)
 
+# Upstream tests with oracle dump calls are patches against the pinned files, so an
+# upstream bump reports every hunk that no longer applies.
+find_package(Git REQUIRED)
+set(ORACLE_PATCHED_DIR "${CMAKE_BINARY_DIR}/patched")
+file(REMOVE_RECURSE "${ORACLE_PATCHED_DIR}")
+file(GLOB ORACLE_TEST_PATCHES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/patches/tests/*.patch")
+list(SORT ORACLE_TEST_PATCHES)
+foreach(patch IN LISTS ORACLE_TEST_PATCHES)
+	get_filename_component(test_file "${patch}" NAME)
+	string(REGEX REPLACE "\\.patch$" "" test_file "${test_file}")
+	file(COPY "${BOX2D_UPSTREAM_DIR}/test/${test_file}" DESTINATION "${ORACLE_PATCHED_DIR}/upstream")
+	execute_process(COMMAND "${GIT_EXECUTABLE}" apply -p1 --unsafe-paths "${patch}"
+		WORKING_DIRECTORY "${ORACLE_PATCHED_DIR}/upstream"
+		RESULT_VARIABLE patch_result ERROR_VARIABLE patch_error)
+	if(NOT patch_result EQUAL 0)
+		message(FATAL_ERROR "Cannot apply ${patch} to upstream test/${test_file}:\n${patch_error}")
+	endif()
+endforeach()
+
 file(GLOB ORACLE_SAMPLES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/sample/*.c")
 file(GLOB ORACLE_TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.c")
 list(SORT ORACLE_SAMPLES)
@@ -56,7 +75,8 @@ function(oracle_program dir path)
 		"${BOX2D_UPSTREAM_DIR}/include"
 		"${BOX2D_UPSTREAM_DIR}/src"
 		"${BOX2D_UPSTREAM_DIR}/shared"
-		"${BOX2D_UPSTREAM_DIR}/test")
+		"${BOX2D_UPSTREAM_DIR}/test"
+		"${ORACLE_PATCHED_DIR}")
 	target_compile_definitions(${target} PRIVATE ${ORACLE_SIMD_DEFINITIONS})
 	target_link_libraries(${target} PRIVATE oracle shared box2d)
 	set_target_properties(${target} PROPERTIES
@@ -72,7 +92,7 @@ endforeach()
 foreach(path IN LISTS ORACLE_TESTS)
 	oracle_program(tests "${path}")
 	get_filename_component(program "${path}" NAME_WE)
-	if(program STREQUAL "collision_distance_public")
+	if(program STREQUAL "distance_public")
 		set_target_properties(tests_${program} PROPERTIES
 			EXCLUDE_FROM_ALL TRUE
 			RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
@@ -86,8 +106,8 @@ set_target_properties(tools_differential PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
 
 # Requested simplex histories are an explicit Debug-engine reference profile.
-oracle_program(tests "${CMAKE_CURRENT_SOURCE_DIR}/debug/distance.c" tests_collision_distance_debug_public)
-set_target_properties(tests_collision_distance_debug_public PROPERTIES
+oracle_program(tests "${CMAKE_CURRENT_SOURCE_DIR}/debug/distance.c" tests_distance_debug_public)
+set_target_properties(tests_distance_debug_public PROPERTIES
 	EXCLUDE_FROM_ALL TRUE
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
 

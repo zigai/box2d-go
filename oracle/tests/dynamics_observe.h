@@ -212,27 +212,20 @@ static inline dynamics_row dynamics_observe(b2WorldId id,const char* prefix,bool
  return row;
 }
 static const char dynamics_schema[] = "bodyCount,index,generation,world,position,rotation,velocity,angularVelocity,awake,enabled,type,normal,rollingImpulse,pointCount,anchorA,anchorB,separation,normalImpulse,tangentImpulse,totalNormalImpulse,normalVelocity,baseSeparation,id,persisted,contactCount,fellAsleep,moveCount,beginCount,endCount,point,approachSpeed,hitCount,sensorBeginCount,sensorEndCount,valid,canonicalState";
-static uint8_t dynamics_trace[32 * 1024 * 1024];
+static uint8_t* dynamics_trace;
 static size_t dynamics_trace_size;
-static dynamics_row dynamics_previous;
-static uint32_t dynamics_run;
-static inline void dynamics_trace_flush(void) {
- if(!dynamics_run) return;
- B2_ASSERT(dynamics_trace_size+292<=sizeof(dynamics_trace));
- for(int i=0;i<4;++i) dynamics_trace[dynamics_trace_size++]=(uint8_t)(dynamics_run>>(8*i));
- for(int f=0;f<36;++f) for(int i=0;i<8;++i) dynamics_trace[dynamics_trace_size++]=(uint8_t)(dynamics_previous.fields[f]>>(8*i));
- dynamics_run=0;
-}
+static size_t dynamics_trace_capacity;
 static inline void dynamics_trace_add(dynamics_row row) {
- bool same=true;
- for(int i=0;i<36;++i) if(row.fields[i]!=dynamics_previous.fields[i]) same=false;
- if(dynamics_run && !same) dynamics_trace_flush();
- dynamics_previous=row; ++dynamics_run;
+ if(dynamics_trace_size+36*8>dynamics_trace_capacity) {
+  dynamics_trace_capacity=dynamics_trace_capacity ? 2*dynamics_trace_capacity : 1024*1024;
+  dynamics_trace=realloc(dynamics_trace,dynamics_trace_capacity);
+  B2_ASSERT(dynamics_trace!=NULL);
+ }
+ for(int f=0;f<36;++f) for(int i=0;i<8;++i) dynamics_trace[dynamics_trace_size++]=(uint8_t)(row.fields[f]>>(8*i));
 }
 static inline void dynamics_trace_end(void) {
- dynamics_trace_flush();
  ORACLE_BYTES("dynamics/schema",dynamics_schema,sizeof(dynamics_schema)-1);
- ORACLE_BYTES("dynamics/rle-u32-36u64-le",dynamics_trace,dynamics_trace_size);
+ ORACLE_BYTES("dynamics/rows-36u64-le",dynamics_trace,dynamics_trace_size);
  dynamics_trace_size=0;
 }
 static inline void dynamics_short(b2WorldId w,const char* prefix,bool direct) {

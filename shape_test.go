@@ -12,16 +12,16 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
-const collisionShapeN = 4
+const shapeN = 4
 
 func TestShape(t *testing.T) {
-	t.Run("ShapeMassTest", collisionTestShapeMass)
-	t.Run("ShapeAABBTest", collisionTestShapeAABB)
-	t.Run("PointInShapeTest", collisionTestPointInShape)
-	t.Run("RayCastShapeTest", collisionTestRayCastShape)
+	t.Run("ShapeMassTest", testShapeMass)
+	t.Run("ShapeAABBTest", testShapeAABB)
+	t.Run("PointInShapeTest", testPointInShape)
+	t.Run("RayCastShapeTest", testRayCastShape)
 }
 
-func collisionAssertNearZero(t *testing.T, value float32) {
+func shapeAssertNearZero(t *testing.T, value float32) {
 	t.Helper()
 
 	const tolerance = float32(0x1p-23)
@@ -31,7 +31,7 @@ func collisionAssertNearZero(t *testing.T, value float32) {
 	}
 }
 
-func collisionTestShapeMass(t *testing.T) {
+func testShapeMass(t *testing.T) {
 	o := oracle.Open(t, "shape/ShapeMassTest")
 	box := box2d.MakeBox(1, 1)
 	capsule := box2d.Capsule{box2d.Vec2{-1, 0}, box2d.Vec2{1, 0}, 1}
@@ -43,7 +43,7 @@ func collisionTestShapeMass(t *testing.T) {
 		o.F32("shape:23/value0", md.Mass)
 		o.F32("shape:23", md.Mass-box2d.Pi)
 
-		collisionAssertNearZero(t, md.Mass-box2d.Pi)
+		shapeAssertNearZero(t, md.Mass-box2d.Pi)
 
 		o.F32("shape:24/value0", md.Center.X)
 		o.F32("shape:24/value1", md.Center.Y)
@@ -56,10 +56,10 @@ func collisionTestShapeMass(t *testing.T) {
 		o.F32("shape:25/value0", md.RotationalInertia)
 		o.F32("shape:25", md.RotationalInertia-0.5*box2d.Pi)
 
-		collisionAssertNearZero(t, md.RotationalInertia-0.5*box2d.Pi)
+		shapeAssertNearZero(t, md.RotationalInertia-0.5*box2d.Pi)
 	}
 
-	collisionCheckCapsuleMassBounds(t, o, &capsule)
+	shapeCheckCapsuleMassBounds(t, o, &capsule)
 
 	{
 		md := box2d.ComputePolygonMass(&box, 1.0)
@@ -67,17 +67,17 @@ func collisionTestShapeMass(t *testing.T) {
 		o.F32("shape:67/value0", md.Mass)
 		o.F32("shape:67", md.Mass-4.0)
 
-		collisionAssertNearZero(t, md.Mass-4.0)
+		shapeAssertNearZero(t, md.Mass-4.0)
 
 		o.F32("shape:68/value0", md.Center.X)
 		o.F32("shape:68", md.Center.X)
 
-		collisionAssertNearZero(t, md.Center.X)
+		shapeAssertNearZero(t, md.Center.X)
 
 		o.F32("shape:69/value0", md.Center.Y)
 		o.F32("shape:69", md.Center.Y)
 
-		collisionAssertNearZero(t, md.Center.Y)
+		shapeAssertNearZero(t, md.Center.Y)
 
 		o.F32("shape:70/value0", md.RotationalInertia)
 		o.F32("shape:70", md.RotationalInertia-8.0/3.0)
@@ -102,29 +102,29 @@ func collisionTestShapeMass(t *testing.T) {
 		o.F32("shape:80/value1", m2.Mass)
 		o.F32("shape:80", m1.Mass-m2.Mass)
 
-		collisionAssertNearZero(t, m1.Mass-m2.Mass)
+		shapeAssertNearZero(t, m1.Mass-m2.Mass)
 
 		o.F32("shape:82/value0", m1.RotationalInertia)
 		o.F32("shape:82/value1", m2.RotationalInertia)
 		o.F32("shape:82", m1.RotationalInertia-m2.RotationalInertia)
 
-		collisionAssertNearZero(t, m1.RotationalInertia-m2.RotationalInertia)
+		shapeAssertNearZero(t, m1.RotationalInertia-m2.RotationalInertia)
 
 		o.F32("shape:83/value0", m2.Center.X)
 		o.F32("shape:83/value1", offset.X)
 		o.F32("shape:83", m2.Center.X-offset.X)
 
-		collisionAssertNearZero(t, m2.Center.X-offset.X)
+		shapeAssertNearZero(t, m2.Center.X-offset.X)
 
 		o.F32("shape:84/value0", m2.Center.Y)
 		o.F32("shape:84/value1", offset.Y)
 		o.F32("shape:84", m2.Center.Y-offset.Y)
 
-		collisionAssertNearZero(t, m2.Center.Y-offset.Y)
+		shapeAssertNearZero(t, m2.Center.Y-offset.Y)
 	}
 }
 
-func collisionCheckCapsuleMassBounds(t *testing.T, o *oracle.Reader, capsule *box2d.Capsule) {
+func shapeCheckCapsuleMassBounds(t *testing.T, o *oracle.Reader, capsule *box2d.Capsule) {
 	t.Helper()
 
 	radius := capsule.Radius
@@ -139,19 +139,19 @@ func collisionCheckCapsuleMassBounds(t *testing.T, o *oracle.Reader, capsule *bo
 	geometryOriginalMass(o, mdUpper)
 
 	// Approximate capsule using convex hull
-	var points [2 * collisionShapeN]box2d.Vec2
+	var points [2 * shapeN]box2d.Vec2
 
-	d := box2d.Pi / (collisionShapeN - 1.0)
+	d := box2d.Pi / (shapeN - 1.0)
 
 	angle := -0.5 * box2d.Pi
-	for i := range collisionShapeN {
+	for i := range shapeN {
 		points[i].X = 1.0 + float32(radius*float32(math.Cos(float64(angle))))
 		points[i].Y = radius * float32(math.Sin(float64(angle)))
 		angle += d
 	}
 
 	angle = 0.5 * box2d.Pi
-	for i := collisionShapeN; i < 2*collisionShapeN; i++ {
+	for i := shapeN; i < 2*shapeN; i++ {
 		points[i].X = -1.0 + float32(radius*float32(math.Cos(float64(angle))))
 		points[i].Y = radius * float32(math.Sin(float64(angle)))
 		angle += d
@@ -187,7 +187,7 @@ func collisionCheckCapsuleMassBounds(t *testing.T, o *oracle.Reader, capsule *bo
 	}
 }
 
-func collisionTestShapeAABB(t *testing.T) {
+func testShapeAABB(t *testing.T) {
 	o := oracle.Open(t, "shape/ShapeAABBTest")
 	box := box2d.MakeBox(1, 1)
 	circle := box2d.Circle{box2d.Vec2{1, 0}, 1}
@@ -198,22 +198,22 @@ func collisionTestShapeAABB(t *testing.T) {
 		o.F32("shape:96/value0", b.LowerBound.X)
 		o.F32("shape:96", b.LowerBound.X)
 
-		collisionAssertNearZero(t, b.LowerBound.X)
+		shapeAssertNearZero(t, b.LowerBound.X)
 
 		o.F32("shape:97/value0", b.LowerBound.Y)
 		o.F32("shape:97", b.LowerBound.Y+1.0)
 
-		collisionAssertNearZero(t, b.LowerBound.Y+1.0)
+		shapeAssertNearZero(t, b.LowerBound.Y+1.0)
 
 		o.F32("shape:98/value0", b.UpperBound.X)
 		o.F32("shape:98", b.UpperBound.X-2.0)
 
-		collisionAssertNearZero(t, b.UpperBound.X-2.0)
+		shapeAssertNearZero(t, b.UpperBound.X-2.0)
 
 		o.F32("shape:99/value0", b.UpperBound.Y)
 		o.F32("shape:99", b.UpperBound.Y-1.0)
 
-		collisionAssertNearZero(t, b.UpperBound.Y-1.0)
+		shapeAssertNearZero(t, b.UpperBound.Y-1.0)
 	}
 
 	{
@@ -221,22 +221,22 @@ func collisionTestShapeAABB(t *testing.T) {
 		o.F32("shape:104/value0", b.LowerBound.X)
 		o.F32("shape:104", b.LowerBound.X+1.0)
 
-		collisionAssertNearZero(t, b.LowerBound.X+1.0)
+		shapeAssertNearZero(t, b.LowerBound.X+1.0)
 
 		o.F32("shape:105/value0", b.LowerBound.Y)
 		o.F32("shape:105", b.LowerBound.Y+1.0)
 
-		collisionAssertNearZero(t, b.LowerBound.Y+1.0)
+		shapeAssertNearZero(t, b.LowerBound.Y+1.0)
 
 		o.F32("shape:106/value0", b.UpperBound.X)
 		o.F32("shape:106", b.UpperBound.X-1.0)
 
-		collisionAssertNearZero(t, b.UpperBound.X-1.0)
+		shapeAssertNearZero(t, b.UpperBound.X-1.0)
 
 		o.F32("shape:107/value0", b.UpperBound.Y)
 		o.F32("shape:107", b.UpperBound.Y-1.0)
 
-		collisionAssertNearZero(t, b.UpperBound.Y-1.0)
+		shapeAssertNearZero(t, b.UpperBound.Y-1.0)
 	}
 
 	{
@@ -244,26 +244,26 @@ func collisionTestShapeAABB(t *testing.T) {
 		o.F32("shape:112/value0", b.LowerBound.X)
 		o.F32("shape:112", b.LowerBound.X)
 
-		collisionAssertNearZero(t, b.LowerBound.X)
+		shapeAssertNearZero(t, b.LowerBound.X)
 
 		o.F32("shape:113/value0", b.LowerBound.Y)
 		o.F32("shape:113", b.LowerBound.Y+1.0)
 
-		collisionAssertNearZero(t, b.LowerBound.Y+1.0)
+		shapeAssertNearZero(t, b.LowerBound.Y+1.0)
 
 		o.F32("shape:114/value0", b.UpperBound.X)
 		o.F32("shape:114", b.UpperBound.X)
 
-		collisionAssertNearZero(t, b.UpperBound.X)
+		shapeAssertNearZero(t, b.UpperBound.X)
 
 		o.F32("shape:115/value0", b.UpperBound.Y)
 		o.F32("shape:115", b.UpperBound.Y-1.0)
 
-		collisionAssertNearZero(t, b.UpperBound.Y-1.0)
+		shapeAssertNearZero(t, b.UpperBound.Y-1.0)
 	}
 }
 
-func collisionTestPointInShape(t *testing.T) {
+func testPointInShape(t *testing.T) {
 	o := oracle.Open(t, "shape/PointInShapeTest")
 	box := box2d.MakeBox(1, 1)
 	circle := box2d.Circle{box2d.Vec2{1, 0}, 1}
@@ -308,7 +308,7 @@ func collisionTestPointInShape(t *testing.T) {
 	}
 }
 
-func collisionTestRayCastShape(t *testing.T) {
+func testRayCastShape(t *testing.T) {
 	o := oracle.Open(t, "shape/RayCastShapeTest")
 	box := box2d.MakeBox(1, 1)
 	circle := box2d.Circle{box2d.Vec2{1, 0}, 1}
@@ -329,17 +329,17 @@ func collisionTestRayCastShape(t *testing.T) {
 		o.F32("shape:156/value0", output.Normal.X)
 		o.F32("shape:156", output.Normal.X+1.0)
 
-		collisionAssertNearZero(t, output.Normal.X+1.0)
+		shapeAssertNearZero(t, output.Normal.X+1.0)
 
 		o.F32("shape:157/value0", output.Normal.Y)
 		o.F32("shape:157", output.Normal.Y)
 
-		collisionAssertNearZero(t, output.Normal.Y)
+		shapeAssertNearZero(t, output.Normal.Y)
 
 		o.F32("shape:158/value0", output.Fraction)
 		o.F32("shape:158", output.Fraction-0.5)
 
-		collisionAssertNearZero(t, output.Fraction-0.5)
+		shapeAssertNearZero(t, output.Fraction-0.5)
 	}
 
 	{
@@ -355,17 +355,17 @@ func collisionTestRayCastShape(t *testing.T) {
 		o.F32("shape:164/value0", output.Normal.X)
 		o.F32("shape:164", output.Normal.X+1.0)
 
-		collisionAssertNearZero(t, output.Normal.X+1.0)
+		shapeAssertNearZero(t, output.Normal.X+1.0)
 
 		o.F32("shape:165/value0", output.Normal.Y)
 		o.F32("shape:165", output.Normal.Y)
 
-		collisionAssertNearZero(t, output.Normal.Y)
+		shapeAssertNearZero(t, output.Normal.Y)
 
 		o.F32("shape:166/value0", output.Fraction)
 		o.F32("shape:166", output.Fraction-3.0/8.0)
 
-		collisionAssertNearZero(t, output.Fraction-3.0/8.0)
+		shapeAssertNearZero(t, output.Fraction-3.0/8.0)
 	}
 
 	{
@@ -381,17 +381,17 @@ func collisionTestRayCastShape(t *testing.T) {
 		o.F32("shape:172/value0", output.Normal.X)
 		o.F32("shape:172", output.Normal.X+1.0)
 
-		collisionAssertNearZero(t, output.Normal.X+1.0)
+		shapeAssertNearZero(t, output.Normal.X+1.0)
 
 		o.F32("shape:173/value0", output.Normal.Y)
 		o.F32("shape:173", output.Normal.Y)
 
-		collisionAssertNearZero(t, output.Normal.Y)
+		shapeAssertNearZero(t, output.Normal.Y)
 
 		o.F32("shape:174/value0", output.Fraction)
 		o.F32("shape:174", output.Fraction-0.5)
 
-		collisionAssertNearZero(t, output.Fraction-0.5)
+		shapeAssertNearZero(t, output.Fraction-0.5)
 	}
 }
 
@@ -418,5 +418,16 @@ func geometryOriginalPolygon(r *oracle.Reader, polygon box2d.Polygon) {
 	for i := range polygon.Count {
 		r.Vec2(fmt.Sprintf("full/polygon/%d/vertex", i), polygon.Vertices[i].X, polygon.Vertices[i].Y)
 		r.Vec2(fmt.Sprintf("full/polygon/%d/normal", i), polygon.Normals[i].X, polygon.Normals[i].Y)
+	}
+}
+
+func geometryOriginalCast(r *oracle.Reader, output box2d.CastOutput) {
+	r.Bool("full/cast/hit", output.Hit)
+	r.I32("full/cast/iterations", int32(output.Iterations))
+
+	if output.Hit {
+		r.F32("full/cast/fraction", output.Fraction)
+		r.Vec2("full/cast/normal", output.Normal.X, output.Normal.Y)
+		r.Vec2("full/cast/point", output.Point.X, output.Point.Y)
 	}
 }

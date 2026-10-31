@@ -2,6 +2,7 @@ package oracle
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -32,33 +33,9 @@ type record struct {
 func Open(tb testing.TB, name string) *Reader {
 	tb.Helper()
 
-	if name == "" || path.Clean(name) != name || strings.HasPrefix(name, "/") || strings.HasPrefix(name, "../") {
-		tb.Fatalf("oracle: invalid fixture name %q", name)
-	}
+	data, records := load(tb, name)
 
-	root, err := repoRoot()
-	if err != nil {
-		tb.Fatalf("oracle: %v", err)
-	}
-
-	file := filepath.Join(root, "testdata", "oracle", config, filepath.FromSlash(name)+".jsonl")
-
-	data, err := os.ReadFile(file)
-	if err != nil {
-		tb.Fatalf("oracle: cannot read fixture %q: %v\nrun `just oracle` to generate fixtures", name, err)
-	}
-
-	reference, err := fixtureReference(root)
-	if err != nil {
-		tb.Fatalf("oracle: %v\nrun `just oracle` to explicitly regenerate and review C expectations", err)
-	}
-
-	records, err := verifyCapture(reference, name, data)
-	if err != nil {
-		tb.Fatalf("oracle: %v", err)
-	}
-
-	r := Read(tb, "testdata/oracle/"+config+"/"+name+".jsonl", data)
+	r := Read(tb, "testdata/oracle/"+config+"/"+name+".jsonl.gz", data)
 	if r.Len() != records {
 		tb.Fatalf("oracle: fixture %q has %d records; completed C capture requires %d", name, r.Len(), records)
 	}
@@ -66,6 +43,17 @@ func Open(tb testing.TB, name string) *Reader {
 	tb.Logf("C reference fixture: %s (%d observations)", name, records)
 
 	return r
+}
+
+// ReadFile returns the decompressed records of fixture name in config
+// ("float" or "double") without checking its provenance; Open checks it.
+func ReadFile(config, name string) ([]byte, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return nil, err
+	}
+
+	return readGzip(fixturePath(root, config, name))
 }
 
 // Read compares a complete typed capture supplied by a fresh C execution.
@@ -101,6 +89,63 @@ func Read(tb testing.TB, displayPath string, data []byte) *Reader {
 	})
 
 	return r
+}
+
+func load(tb testing.TB, name string) ([]byte, int) {
+	tb.Helper()
+
+	if name == "" || path.Clean(name) != name || strings.HasPrefix(name, "/") || strings.HasPrefix(name, "../") {
+		tb.Fatalf("oracle: invalid fixture name %q", name)
+	}
+
+	root, err := repoRoot()
+	if err != nil {
+		tb.Fatalf("oracle: %v", err)
+	}
+
+	data, err := readGzip(fixturePath(root, config, name))
+	if err != nil {
+		tb.Fatalf("oracle: cannot read fixture %q: %v\nrun `just oracle` to generate fixtures", name, err)
+	}
+
+	reference, err := fixtureReference(root)
+	if err != nil {
+		tb.Fatalf("oracle: %v\nrun `just oracle` to explicitly regenerate and review C expectations", err)
+	}
+
+	records, err := verifyCapture(reference, name, data)
+	if err != nil {
+		tb.Fatalf("oracle: %v", err)
+	}
+
+	return data, records
+}
+
+func fixturePath(root, config, name string) string {
+	return filepath.Join(root, "testdata", "oracle", config, filepath.FromSlash(name)+".jsonl.gz")
+}
+
+func readGzip(file string) ([]byte, error) {
+	compressed, err := os.ReadFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("read fixture: %w", err)
+	}
+
+	zr, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		return nil, fmt.Errorf("open gzip stream %s: %w", file, err)
+	}
+
+	data, err := io.ReadAll(zr)
+	if err != nil {
+		return nil, fmt.Errorf("decompress %s: %w", file, err)
+	}
+
+	if err := zr.Close(); err != nil {
+		return nil, fmt.Errorf("close gzip stream %s: %w", file, err)
+	}
+
+	return data, nil
 }
 
 func repoRoot() (string, error) {

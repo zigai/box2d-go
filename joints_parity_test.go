@@ -29,7 +29,7 @@ func jointScalarGetter(r *oracle.Reader, key string, get func() float32) {
 
 	var value float32
 
-	inputRejected(&assertions, func() { value = get() })
+	rejectedInput(&assertions, func() { value = get() })
 	r.I32(key+"Assertions", int32(assertions))
 
 	if assertions == 0 {
@@ -316,7 +316,7 @@ func jointBoundary(j box2d.Joint, a, b box2d.Body, value float32) {
 	}
 }
 
-// All expectations are exact typed observations emitted by api_joints.c calling
+// All expectations are exact typed observations emitted by joints.c calling
 // the pinned C engine. Existing upstream world and scene cases remain unchanged.
 func TestJointParity(t *testing.T) {
 	for family := range 9 {

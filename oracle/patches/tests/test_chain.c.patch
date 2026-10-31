@@ -1,0 +1,190 @@
+--- a/test_chain.c
++++ b/test_chain.c
+@@ -1,6 +1,7 @@
+ // SPDX-FileCopyrightText: 2023 Erin Catto
+ // SPDX-License-Identifier: MIT
+ 
++#include "oracle.h"
+ #include "test_macros.h"
+ 
+ #include "box2d/box2d.h"
+@@ -104,6 +105,7 @@
+ // A loop closes, so every point leads a segment. An open chain leaves the last point trailing.
+ static int SegmentCountTest( void )
+ {
++	ORACLE_OPEN( "chain/SegmentCountTest" );
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 
+@@ -117,11 +119,16 @@
+ 
+ 	b2DestroyWorld( worldId );
+ 
++	ORACLE_BOOL( "check.120", triangle == 3 );
+ 	ENSURE( triangle == 3 );
++	ORACLE_BOOL( "check.121", square == 4 );
+ 	ENSURE( square == 4 );
++	ORACLE_BOOL( "check.122", pair == 1 );
+ 	ENSURE( pair == 1 );
++	ORACLE_BOOL( "check.123", line == 5 );
+ 	ENSURE( line == 5 );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -129,6 +136,7 @@
+ // both ends. An open chain takes the def ghosts at the two ends and neighbors everywhere else.
+ static int SegmentGeometryTest( void )
+ {
++	ORACLE_OPEN( "chain/SegmentGeometryTest" );
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 
+@@ -156,7 +164,9 @@
+ 
+ 	b2DestroyWorld( worldId );
+ 
++	ORACLE_BOOL( "check.159", loopCount == 4 );
+ 	ENSURE( loopCount == 4 );
++	ORACLE_BOOL( "check.160", openCount == 5 );
+ 	ENSURE( openCount == 5 );
+ 
+ 	// ENSURE stringizes into a format string, so keep a percent out of the condition
+@@ -165,36 +175,48 @@
+ 		int next = ( i + 1 ) % 4;
+ 		int after = ( i + 2 ) % 4;
+ 		int prev = ( i + 3 ) % 4;
++		ORACLE_BOOL( "check.168", SamePoint( loop[i].segment.point1, loopSquare[i] ) );
+ 		ENSURE( SamePoint( loop[i].segment.point1, loopSquare[i] ) );
++		ORACLE_BOOL( "check.169", SamePoint( loop[i].segment.point2, loopSquare[next] ) );
+ 		ENSURE( SamePoint( loop[i].segment.point2, loopSquare[next] ) );
++		ORACLE_BOOL( "check.170", SamePoint( loop[i].ghost1, loopSquare[prev] ) );
+ 		ENSURE( SamePoint( loop[i].ghost1, loopSquare[prev] ) );
++		ORACLE_BOOL( "check.171", SamePoint( loop[i].ghost2, loopSquare[after] ) );
+ 		ENSURE( SamePoint( loop[i].ghost2, loopSquare[after] ) );
+ 	}
+ 
+ 	for ( int i = 0; i < 5; ++i )
+ 	{
++		ORACLE_BOOL( "check.176", SamePoint( open[i].segment.point1, openLine[i] ) );
+ 		ENSURE( SamePoint( open[i].segment.point1, openLine[i] ) );
++		ORACLE_BOOL( "check.177", SamePoint( open[i].segment.point2, openLine[i + 1] ) );
+ 		ENSURE( SamePoint( open[i].segment.point2, openLine[i + 1] ) );
+ 	}
+ 
+ 	// The def ghosts extend the chain past its ends without consuming a point or a segment
++	ORACLE_BOOL( "check.181", SamePoint( open[0].ghost1, ghostBegin ) );
+ 	ENSURE( SamePoint( open[0].ghost1, ghostBegin ) );
++	ORACLE_BOOL( "check.182", SamePoint( open[4].ghost2, ghostEnd ) );
+ 	ENSURE( SamePoint( open[4].ghost2, ghostEnd ) );
+ 
+ 	for ( int i = 1; i < 5; ++i )
+ 	{
++		ORACLE_BOOL( "check.186", SamePoint( open[i].ghost1, openLine[i - 1] ) );
+ 		ENSURE( SamePoint( open[i].ghost1, openLine[i - 1] ) );
+ 	}
+ 	for ( int i = 0; i < 4; ++i )
+ 	{
++		ORACLE_BOOL( "check.190", SamePoint( open[i].ghost2, openLine[i + 2] ) );
+ 		ENSURE( SamePoint( open[i].ghost2, openLine[i + 2] ) );
+ 	}
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+ static int LoopMaterialTest( void )
+ {
++	ORACLE_OPEN( "chain/LoopMaterialTest" );
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 
+@@ -222,18 +244,23 @@
+ 
+ 	b2DestroyWorld( worldId );
+ 
++	ORACLE_BOOL( "check.225", assertsTripped == 0 );
+ 	ENSURE( assertsTripped == 0 );
+ 
+ 	for ( int i = 0; i < 4; ++i )
+ 	{
+ 		uint64_t expected = i == 1 ? 99 : (uint64_t)( i + 1 );
++		ORACLE_BOOL( "check.230", created[i] == (uint64_t)( i + 1 ) );
+ 		ENSURE( created[i] == (uint64_t)( i + 1 ) );
++		ORACLE_BOOL( "check.231", updated[i] == expected );
+ 		ENSURE( updated[i] == expected );
+ 
+ 		// The getter and the segment shape cannot disagree, there is one copy
++		ORACLE_BOOL( "check.234", reported[i] == expected );
+ 		ENSURE( reported[i] == expected );
+ 	}
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -241,6 +268,7 @@
+ // that used to be inert on an open chain.
+ static int OpenMaterialTest( void )
+ {
++	ORACLE_OPEN( "chain/OpenMaterialTest" );
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 
+@@ -270,6 +298,7 @@
+ 
+ 	b2DestroyWorld( worldId );
+ 
++	ORACLE_BOOL( "check.273", assertsTripped == 0 );
+ 	ENSURE( assertsTripped == 0 );
+ 
+ 	for ( int i = 0; i < 5; ++i )
+@@ -284,11 +313,15 @@
+ 			expected = 98;
+ 		}
+ 
++		ORACLE_BOOL( "check.287", created[i] == (uint64_t)( i + 1 ) );
+ 		ENSURE( created[i] == (uint64_t)( i + 1 ) );
++		ORACLE_BOOL( "check.288", updated[i] == expected );
+ 		ENSURE( updated[i] == expected );
++		ORACLE_BOOL( "check.289", reported[i] == expected );
+ 		ENSURE( reported[i] == expected );
+ 	}
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -296,6 +329,7 @@
+ // per segment set both work afterwards.
+ static int SingleMaterialTest( void )
+ {
++	ORACLE_OPEN( "chain/SingleMaterialTest" );
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 
+@@ -333,17 +367,23 @@
+ 
+ 	b2DestroyWorld( worldId );
+ 
++	ORACLE_BOOL( "check.336", assertsTripped == 0 );
+ 	ENSURE( assertsTripped == 0 );
+ 
+ 	for ( int i = 0; i < 5; ++i )
+ 	{
+ 		uint64_t expected = i == 2 ? 98 : 99;
++		ORACLE_BOOL( "check.341", created[i] == 1 );
+ 		ENSURE( created[i] == 1 );
++		ORACLE_BOOL( "check.342", broadcast[i] == 99 );
+ 		ENSURE( broadcast[i] == 99 );
++		ORACLE_BOOL( "check.343", single[i] == expected );
+ 		ENSURE( single[i] == expected );
++		ORACLE_BOOL( "check.344", reported[i] == expected );
+ 		ENSURE( reported[i] == expected );
+ 	}
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 

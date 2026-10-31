@@ -118,7 +118,7 @@ func TestLifecycleBodyHandleStaysInvalidAfterGenerationExhaustion(t *testing.T) 
 	worldDef := box2d.DefaultWorldDef()
 	worldDef.WorkerCount = 0
 	world := box2d.NewWorld(&worldDef)
-	box2d.BTWorldCleanup(t, world)
+	box2d.CleanupWorld(t, world)
 
 	bodyDef := box2d.DefaultBodyDef()
 	stale := world.CreateBody(&bodyDef)
@@ -182,7 +182,7 @@ func TestLifecycleHandlesStayInvalidAfterGenerationExhaustion(t *testing.T) {
 			worldDef := box2d.DefaultWorldDef()
 			worldDef.WorkerCount = 0
 			world := box2d.NewWorld(&worldDef)
-			box2d.BTWorldCleanup(t, world)
+			box2d.CleanupWorld(t, world)
 
 			bodyDef := box2d.DefaultBodyDef()
 			ground := world.CreateBody(&bodyDef)
@@ -224,7 +224,7 @@ func TestLifecycleReuseAndDestruction(t *testing.T) {
 		wd := box2d.DefaultWorldDef()
 		wd.Gravity = box2d.Vec2{}
 		w := box2d.NewWorld(&wd)
-		box2d.BTWorldCleanup(t, w)
+		box2d.CleanupWorld(t, w)
 		lifecycleValidity(r, oldw, oldb, olds, oldc, oldj, oldcontact)
 
 		bd := box2d.DefaultBodyDef()
@@ -450,7 +450,7 @@ func TestLifecycleCollectionTransitions(t *testing.T) {
 	wd := box2d.DefaultWorldDef()
 	wd.Gravity = box2d.Vec2{}
 	w := box2d.NewWorld(&wd)
-	box2d.BTWorldCleanup(t, w)
+	box2d.CleanupWorld(t, w)
 
 	bd := box2d.DefaultBodyDef()
 	ground := w.CreateBody(&bd)

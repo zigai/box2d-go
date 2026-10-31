@@ -3,7 +3,7 @@
 
 package box2d
 
-func InputBodyTransforms(worldID *World) []WorldTransform {
+func BodyTransformsInSlotOrder(worldID *World) []WorldTransform {
 	w := worldID
 
 	transforms := make([]WorldTransform, 0, len(w.bodies))
@@ -18,8 +18,8 @@ func InputBodyTransforms(worldID *World) []WorldTransform {
 	return transforms
 }
 
-// InputBodies preserves creation-slot order for the original upstream scene traces.
-func InputBodies(worldID *World) []Body {
+// BodiesInSlotOrder preserves creation-slot order for the original upstream scene traces.
+func BodiesInSlotOrder(worldID *World) []Body {
 	w := worldID
 
 	bodies := make([]Body, 0, len(w.bodies))
@@ -33,11 +33,11 @@ func InputBodies(worldID *World) []Body {
 }
 
 // The public API has no contact-tuning getter; observe the rejected stored settings.
-func InputWorldTuning(worldID *World) (float32, float32, float32) {
+func WorldTuning(worldID *World) (float32, float32, float32) {
 	w := worldID
 	return w.contactHertz, w.contactDampingRatio, w.contactSpeed
 }
 
-func InputChainCount(worldID *World) int {
+func ChainCount(worldID *World) int {
 	return worldID.chainIDPool.Count()
 }

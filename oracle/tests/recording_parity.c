@@ -11,7 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "recording/replay_observe.h"
+#include "replay_observe.h"
 
 #define REQUIRE( x )                                                                                                             \
 	do                                                                                                                           \

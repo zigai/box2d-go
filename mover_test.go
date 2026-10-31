@@ -11,7 +11,7 @@ import (
 	"github.com/zigai/box2d/internal/oracle"
 )
 
-func collisionMakePlane(normal box2d.Vec2, pushLimit float32) box2d.CollisionPlane {
+func moverMakePlane(normal box2d.Vec2, pushLimit float32) box2d.CollisionPlane {
 	return box2d.CollisionPlane{Plane: box2d.Plane{normal, 0}, PushLimit: pushLimit, Push: 0, ClipVelocity: true}
 }
 
@@ -56,7 +56,7 @@ func testMoverNoPlanes(t *testing.T) {
 
 func testMoverSolvePlane(t *testing.T) {
 	r := oracle.Open(t, "mover/SolvePlaneTest")
-	planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32))}
+	planes := []box2d.CollisionPlane{moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32))}
 	result := box2d.SolvePlanes(box2d.Vec2{0.0, -1.0}, planes)
 	geometryMoverObserve(r, result, planes)
 
@@ -93,7 +93,7 @@ func testMoverSolvePlane(t *testing.T) {
 
 func testMoverPushLimit(t *testing.T) {
 	r := oracle.Open(t, "mover/PushLimitTest")
-	planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, 0.1)}
+	planes := []box2d.CollisionPlane{moverMakePlane(box2d.Vec2{0.0, 1.0}, 0.1)}
 	result := box2d.SolvePlanes(box2d.Vec2{0.0, -1.0}, planes)
 	geometryMoverObserve(r, result, planes)
 
@@ -115,7 +115,7 @@ func testMoverPushLimit(t *testing.T) {
 
 func testMoverCorner(t *testing.T) {
 	r := oracle.Open(t, "mover/CornerTest")
-	planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), collisionMakePlane(box2d.Vec2{1.0, 0.0}, float32(math.MaxFloat32))}
+	planes := []box2d.CollisionPlane{moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), moverMakePlane(box2d.Vec2{1.0, 0.0}, float32(math.MaxFloat32))}
 
 	result := box2d.SolvePlanes(box2d.Vec2{-1.0, -1.0}, planes)
 	geometryMoverObserve(r, result, planes)
@@ -140,7 +140,7 @@ func testMoverCorner(t *testing.T) {
 func testMoverWedge(t *testing.T) {
 	r := oracle.Open(t, "mover/WedgeTest")
 	// An acute wedge takes several passes to settle, unlike a square corner
-	planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), collisionMakePlane(box2d.Vec2{0.8, 0.6}, float32(math.MaxFloat32))}
+	planes := []box2d.CollisionPlane{moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32)), moverMakePlane(box2d.Vec2{0.8, 0.6}, float32(math.MaxFloat32))}
 
 	result := box2d.SolvePlanes(box2d.Vec2{-1.0, -1.0}, planes)
 	geometryMoverObserve(r, result, planes)
@@ -159,7 +159,7 @@ func testMoverWedge(t *testing.T) {
 
 func testMoverClipVector(t *testing.T) {
 	r := oracle.Open(t, "mover/ClipVectorTest")
-	planes := []box2d.CollisionPlane{collisionMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32))}
+	planes := []box2d.CollisionPlane{moverMakePlane(box2d.Vec2{0.0, 1.0}, float32(math.MaxFloat32))}
 	planes[0].Push = 0.5
 
 	v := box2d.ClipVector(box2d.Vec2{1.0, -1.0}, planes)

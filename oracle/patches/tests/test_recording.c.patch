@@ -1,0 +1,548 @@
+--- a/test_recording.c
++++ b/test_recording.c
+@@ -5,6 +5,7 @@
+ #define _CRT_SECURE_NO_WARNINGS
+ #endif
+ 
++#include "oracle.h"
+ #include "benchmarks.h"
+ #include "physics_world.h"
+ #include "snapshot.h"
+@@ -163,6 +164,7 @@
+ 
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 	ENSURE( b2World_IsValid( worldId ) );
++	ORACLE_BOOL( "check 165", b2World_IsValid( worldId ) );
+ 
+ 	// Record from before the first step so the whole session is captured
+ 	b2Recording* rec = b2CreateRecording( 0 );
+@@ -173,11 +175,13 @@
+ 	groundDef.position = (b2Pos){ 0.0f, -10.0f };
+ 	b2BodyId groundId = b2CreateBody( worldId, &groundDef );
+ 	ENSURE( b2Body_IsValid( groundId ) );
++	ORACLE_BOOL( "check 175", b2Body_IsValid( groundId ) );
+ 
+ 	b2ShapeDef groundShapeDef = b2DefaultShapeDef();
+ 	b2Circle groundCircle = { { 0.0f, 0.0f }, 10.0f };
+ 	b2ShapeId groundShapeId = b2CreateCircleShape( groundId, &groundShapeDef, &groundCircle );
+ 	ENSURE( b2Shape_IsValid( groundShapeId ) );
++	ORACLE_BOOL( "check 180", b2Shape_IsValid( groundShapeId ) );
+ 
+ 	// Dynamic body with a circle shape. The name is intentionally longer than B2_NAME_LENGTH so
+ 	// replay exercises the over-length name path in the body def reader.
+@@ -187,12 +191,14 @@
+ 	bodyDef.name = "testBodyWithLongName";
+ 	b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
+ 	ENSURE( b2Body_IsValid( bodyId ) );
++	ORACLE_BOOL( "check 189", b2Body_IsValid( bodyId ) );
+ 
+ 	b2ShapeDef shapeDef = b2DefaultShapeDef();
+ 	shapeDef.density = 1.0f;
+ 	b2Circle circle = { { 0.0f, 0.0f }, 0.5f };
+ 	b2ShapeId shapeId = b2CreateCircleShape( bodyId, &shapeDef, &circle );
+ 	ENSURE( b2Shape_IsValid( shapeId ) );
++	ORACLE_BOOL( "check 195", b2Shape_IsValid( shapeId ) );
+ 
+ 	// Polygon shape on the dynamic body
+ 	b2Polygon box = b2MakeBox( 0.25f, 0.25f );
+@@ -200,6 +206,7 @@
+ 	boxDef.density = 2.0f;
+ 	b2ShapeId boxShapeId = b2CreatePolygonShape( bodyId, &boxDef, &box );
+ 	ENSURE( b2Shape_IsValid( boxShapeId ) );
++	ORACLE_BOOL( "check 202", b2Shape_IsValid( boxShapeId ) );
+ 
+ 	// Capsule on a second dynamic body
+ 	b2BodyDef capsuleBodyDef = b2DefaultBodyDef();
+@@ -211,17 +218,20 @@
+ 	capsuleDef.density = 1.0f;
+ 	b2ShapeId capsuleShapeId = b2CreateCapsuleShape( capsuleBodyId, &capsuleDef, &capsule );
+ 	ENSURE( b2Shape_IsValid( capsuleShapeId ) );
++	ORACLE_BOOL( "check 213", b2Shape_IsValid( capsuleShapeId ) );
+ 
+ 	// Static segment extending the ground
+ 	b2Segment segment = { { -20.0f, 0.0f }, { 20.0f, 0.0f } };
+ 	b2ShapeDef segmentDef = b2DefaultShapeDef();
+ 	b2ShapeId segmentShapeId = b2CreateSegmentShape( groundId, &segmentDef, &segment );
+ 	ENSURE( b2Shape_IsValid( segmentShapeId ) );
++	ORACLE_BOOL( "check 219", b2Shape_IsValid( segmentShapeId ) );
+ 
+ 	// Chain segment shape on the ground
+ 	b2ChainSegment chainSeg = { { -2.0f, 1.0f }, { { -1.0f, 1.0f }, { 1.0f, 1.0f } }, { 2.0f, 1.0f }, -1 };
+ 	b2ShapeId chainSegShapeId = b2CreateChainSegmentShape( groundId, &segmentDef, &chainSeg );
+ 	ENSURE( b2Shape_IsValid( chainSegShapeId ) );
++	ORACLE_BOOL( "check 224", b2Shape_IsValid( chainSegShapeId ) );
+ 
+ 	// Exercise the recorded shape mutators
+ 	b2Shape_SetFriction( boxShapeId, 0.3f );
+@@ -279,6 +289,8 @@
+ 	fastDef.name = "fastBody";
+ 	b2BodyId fastId = b2CreateBody( worldId, &fastDef );
+ 	ENSURE( b2Body_GetSafetyFactor( fastId ) == 0.1f );
++	ORACLE_BOOL( "check 281", b2Body_GetSafetyFactor( fastId ) == 0.1f );
++	ORACLE_F32( "value 281", b2Body_GetSafetyFactor( fastId ) );
+ 	b2Polygon fastBox = b2MakeSquare( 0.5f );
+ 	b2CreatePolygonShape( fastId, &shapeDef, &fastBox );
+ 
+@@ -333,6 +345,7 @@
+ 	chainDef.isLoop = false;
+ 	b2ChainId chainId = b2CreateChain( chainBodyId, &chainDef );
+ 	ENSURE( b2Chain_IsValid( chainId ) );
++	ORACLE_BOOL( "check 335", b2Chain_IsValid( chainId ) );
+ 
+ 	b2SurfaceMaterial chainSurface = b2DefaultSurfaceMaterial();
+ 	chainSurface.friction = 0.4f;
+@@ -365,6 +378,7 @@
+ 	revDef.base.localFrameB.p = (b2Vec2){ -0.5f, 0.0f };
+ 	b2JointId revId = b2CreateRevoluteJoint( worldId, &revDef );
+ 	ENSURE( b2Joint_IsValid( revId ) );
++	ORACLE_BOOL( "check 367", b2Joint_IsValid( revId ) );
+ 	b2RevoluteJoint_EnableLimit( revId, true );
+ 	b2RevoluteJoint_SetLimits( revId, -1.0f, 1.0f );
+ 	b2RevoluteJoint_EnableMotor( revId, true );
+@@ -460,6 +474,7 @@
+ 	filterDef.base.bodyIdB = jb[7];
+ 	b2JointId filterId = b2CreateFilterJoint( worldId, &filterDef );
+ 	ENSURE( b2Joint_IsValid( filterId ) );
++	ORACLE_BOOL( "check 462", b2Joint_IsValid( filterId ) );
+ 
+ 	b2DistanceJointDef tmpJointDef = b2DefaultDistanceJointDef();
+ 	tmpJointDef.base.bodyIdA = jb[0];
+@@ -511,6 +526,7 @@
+ 		}
+ 
+ 		b2World_Step( worldId, timeStep, subStepCount );
++		ORACLE_RECORDING_TRACE( worldId, "step 513", i + 1 );
+ 	}
+ 
+ 	b2World_StopRecording( worldId );
+@@ -520,12 +536,15 @@
+ 	const uint8_t* recData = b2Recording_GetData( rec );
+ 	int recSize = b2Recording_GetSize( rec );
+ 	ENSURE( recSize > 0 );
++	ORACLE_BOOL( "check 522", recSize > 0 );
+ 
+ 	// Replay from the buffer with the recorded worker count
+ 	ENSURE( b2ValidateReplay( recData, recSize, 0 ) );
++	ORACLE_BOOL( "check 525", true );
+ 
+ 	// Replay with a different worker count to prove cross-thread determinism
+ 	ENSURE( b2ValidateReplay( recData, recSize, 4 ) );
++	ORACLE_BOOL( "check 528", true );
+ 
+ 	// The reserved header bytes (offsets 8 and 16, formerly buildHash and simdWidth) must stay
+ 	// ignored on read. Guards a future change that starts validating them or shrinks the header.
+@@ -538,16 +557,22 @@
+ 		patched[11] = 0x12;
+ 		patched[16] = 0x34;
+ 		ENSURE( b2ValidateReplay( patched, recSize, 0 ) );
++		ORACLE_BOOL( "check 540", true );
+ 		b2Free( patched, recSize );
+ 	}
+ 
+ 	// File round-trip: save the buffer, load it back, and replay the loaded copy
+ 	ENSURE( b2SaveRecordingToFile( rec, s_recPath ) );
++	ORACLE_BOOL( "check 545", true );
+ 	b2Recording* loaded = b2LoadRecordingFromFile( s_recPath );
+ 	ENSURE( loaded != NULL );
++	ORACLE_BOOL( "check 547", loaded != NULL );
+ 	ENSURE( b2Recording_GetSize( loaded ) == recSize );
++	ORACLE_BOOL( "check 548", b2Recording_GetSize( loaded ) == recSize );
+ 	ENSURE( b2ValidateReplay( b2Recording_GetData( loaded ), b2Recording_GetSize( loaded ), 0 ) );
++	ORACLE_BOOL( "check 549", true );
+ 	ENSURE( b2ValidateReplay( b2Recording_GetData( loaded ), b2Recording_GetSize( loaded ), 4 ) );
++	ORACLE_BOOL( "check 550", true );
+ 	b2DestroyRecording( loaded );
+ 
+ 	// Drive the incremental player directly. It underpins the viewer and exercises
+@@ -555,14 +580,21 @@
+ 	{
+ 		b2Replay* player = b2CreateReplay( recData, recSize, 0 );
+ 		ENSURE( player != NULL );
++		ORACLE_BOOL( "check 557", player != NULL );
+ 
+ 		// Recorded bounds frame the whole session, so they must enclose the static ground circle
+ 		// and segment that bracket the scene from x in [-20, 20] down to the bottom of the circle
+ 		b2AABB recBounds = b2Replay_GetInfo( player ).bounds;
+ 		b2Vec2 recExtents = b2AABB_Extents( recBounds );
++		ORACLE_VEC2( "bounds lower", recBounds.lowerBound );
++		ORACLE_VEC2( "bounds upper", recBounds.upperBound );
++		ORACLE_VEC2( "bounds extents", recExtents );
+ 		ENSURE( recExtents.x > 0.0f && recExtents.y > 0.0f );
++		ORACLE_BOOL( "check 563", recExtents.x > 0.0f && recExtents.y > 0.0f );
+ 		ENSURE( recBounds.lowerBound.x <= -20.0f && recBounds.upperBound.x >= 20.0f );
++		ORACLE_BOOL( "check 564", recBounds.lowerBound.x <= -20.0f && recBounds.upperBound.x >= 20.0f );
+ 		ENSURE( recBounds.lowerBound.y <= -20.0f );
++		ORACLE_BOOL( "check 565", recBounds.lowerBound.y <= -20.0f );
+ 
+ 		// Build a no-op b2DebugDraw to exercise the draw path headlessly
+ 		b2DebugDraw dd = b2DefaultDebugDraw();
+@@ -574,6 +606,11 @@
+ 		int frames = 0;
+ 		while ( b2Replay_StepFrame( player ) )
+ 		{
++			ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 576", b2Replay_GetFrame( player ) );
++			if ( b2Replay_GetFrame( player ) == 1 || b2Replay_GetFrame( player ) == 16 || b2Replay_GetFrame( player ) == 60 )
++			{
++				replay_observe_queries( player, ORACLE_KEY( "inspect/%d", b2Replay_GetFrame( player ) ) );
++			}
+ 			// Exercise the draw path on every other frame
+ 			if ( frames % 2 == 0 )
+ 			{
+@@ -582,26 +619,40 @@
+ 			frames += 1;
+ 		}
+ 		ENSURE( frames == 60 );
++		ORACLE_BOOL( "check 584", frames == 60 );
++		ORACLE_I32( "value 584", frames );
+ 		ENSURE( b2Replay_GetFrame( player ) == 60 );
++		ORACLE_BOOL( "check 585", b2Replay_GetFrame( player ) == 60 );
++		ORACLE_I32( "value 585", b2Replay_GetFrame( player ) );
+ 		ENSURE( b2Replay_IsAtEnd( player ) );
++		ORACLE_BOOL( "check 586", b2Replay_IsAtEnd( player ) );
+ 		ENSURE( b2Replay_HasDiverged( player ) == false );
++		ORACLE_BOOL( "check 587", b2Replay_HasDiverged( player ) == false );
+ 
+ 		// The trailing DestroyWorld is an end marker; the world stays valid so a viewer can keep
+ 		// drawing the final step rather than blanking at the end
+ 		ENSURE( b2World_IsValid( b2Replay_GetWorldId( player ) ) );
++		ORACLE_BOOL( "check 591", b2World_IsValid( b2Replay_GetWorldId( player ) ) );
+ 
+ 		// Restart reproduces the same run without reloading the file
+ 		b2Replay_Restart( player );
+ 		ENSURE( b2Replay_GetFrame( player ) == 0 );
++		ORACLE_BOOL( "check 595", b2Replay_GetFrame( player ) == 0 );
++		ORACLE_I32( "value 595", b2Replay_GetFrame( player ) );
+ 		ENSURE( b2Replay_IsAtEnd( player ) == false );
++		ORACLE_BOOL( "check 596", b2Replay_IsAtEnd( player ) == false );
+ 
+ 		int frames2 = 0;
+ 		while ( b2Replay_StepFrame( player ) )
+ 		{
++			ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 600", b2Replay_GetFrame( player ) );
+ 			frames2 += 1;
+ 		}
+ 		ENSURE( frames2 == 60 );
++		ORACLE_BOOL( "check 603", frames2 == 60 );
++		ORACLE_I32( "value 603", frames2 );
+ 		ENSURE( b2Replay_HasDiverged( player ) == false );
++		ORACLE_BOOL( "check 604", b2Replay_HasDiverged( player ) == false );
+ 
+ 		b2DestroyReplay( player );
+ 	}
+@@ -611,17 +662,27 @@
+ 	{
+ 		b2Replay* player = b2CreateReplay( recData, recSize, 0 );
+ 		ENSURE( player != NULL );
++		ORACLE_BOOL( "check 613", player != NULL );
+ 
+ 		// Frame 0 replays the pre-step creates, so the def value is in place
+ 		ENSURE( b2Replay_StepFrame( player ) );
++		ORACLE_BOOL( "check 616", true );
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 616", b2Replay_GetFrame( player ) );
+ 		ENSURE( ReplaySafetyFactor( player, "fastBody" ) == 0.1f );
++		ORACLE_BOOL( "check 617", ReplaySafetyFactor( player, "fastBody" ) == 0.1f );
++		ORACLE_F32( "value 617", ReplaySafetyFactor( player, "fastBody" ) );
+ 		ENSURE( ReplaySafetyFactor( player, "dropBody" ) == 0.25f );
++		ORACLE_BOOL( "check 618", ReplaySafetyFactor( player, "dropBody" ) == 0.25f );
++		ORACLE_F32( "value 618", ReplaySafetyFactor( player, "dropBody" ) );
+ 
+ 		// The setter is injected at frame 30
+ 		while ( b2Replay_StepFrame( player ) )
+ 		{
++			ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 622", b2Replay_GetFrame( player ) );
+ 		}
+ 		ENSURE( ReplaySafetyFactor( player, "fastBody" ) == 0.4f );
++		ORACLE_BOOL( "check 624", ReplaySafetyFactor( player, "fastBody" ) == 0.4f );
++		ORACLE_F32( "value 624", ReplaySafetyFactor( player, "fastBody" ) );
+ 
+ 		b2DestroyReplay( player );
+ 	}
+@@ -663,12 +724,14 @@
+ 
+ 	// Settle a step, then start recording with the scene already present (non-empty seed)
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_RECORDING_TRACE( worldId, "step 665", 1 );
+ 
+ 	b2Recording* rec = b2CreateRecording( 0 );
+ 	b2World_StartRecording( worldId, rec );
+ 	for ( int i = 0; i < 10; ++i )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_RECORDING_TRACE( worldId, "step 671", i + 2 );
+ 	}
+ 	b2World_StopRecording( worldId );
+ 	b2DestroyWorld( worldId );
+@@ -676,30 +739,40 @@
+ 	const uint8_t* recData = b2Recording_GetData( rec );
+ 	int recSize = b2Recording_GetSize( rec );
+ 	ENSURE( recSize > 0 );
++	ORACLE_BOOL( "check 678", recSize > 0 );
+ 
+ 	b2Replay* player = b2CreateReplay( recData, recSize, 0 );
+ 	ENSURE( player != NULL );
++	ORACLE_BOOL( "check 681", player != NULL );
+ 
+ 	// The outliner list must be populated from the seed snapshot before any frame is stepped, and
+ 	// match the live body count of the restored world (no destroys yet, so no nulled holes)
+ 	b2WorldId replayWorldId = b2Replay_GetWorldId( player );
+ 	int seedCount = b2Replay_GetBodyCount( player );
+ 	ENSURE( seedCount == expectedBodies );
++	ORACLE_BOOL( "check 687", seedCount == expectedBodies );
++	ORACLE_I32( "value 687", seedCount );
+ 	ENSURE( seedCount == b2World_GetCounters( replayWorldId ).bodyCount );
++	ORACLE_BOOL( "check 688", seedCount == b2World_GetCounters( replayWorldId ).bodyCount );
++	ORACLE_I32( "value 688", seedCount );
+ 
+ 	// Each seeded id is a valid handle into the replay world
+ 	for ( int ord = 0; ord < seedCount; ++ord )
+ 	{
+ 		ENSURE( b2Body_IsValid( b2Replay_GetBodyId( player, ord ) ) );
++		ORACLE_BOOL( "check 693", b2Body_IsValid( b2Replay_GetBodyId( player, ord ) ) );
+ 	}
+ 
+ 	while ( b2Replay_StepFrame( player ) )
+ 	{
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 697", b2Replay_GetFrame( player ) );
+ 	}
+ 
+ 	// Restart rolls the outliner list back to its frame-0 seed contents
+ 	b2Replay_Restart( player );
+ 	ENSURE( b2Replay_GetBodyCount( player ) == seedCount );
++	ORACLE_BOOL( "check 702", b2Replay_GetBodyCount( player ) == seedCount );
++	ORACLE_I32( "value 702", b2Replay_GetBodyCount( player ) );
+ 
+ 	b2DestroyReplay( player );
+ 	b2DestroyRecording( rec );
+@@ -723,32 +796,44 @@
+ 	// and gives the linear ground truth deep hash at every frame
+ 	b2Replay* ref = b2CreateReplay( recData, recSize, workerCount );
+ 	ENSURE( ref != NULL );
++	ORACLE_BOOL( "check 725", ref != NULL );
+ 	int frameCount = b2Replay_GetInfo( ref ).frameCount;
+ 	ENSURE( frameCount > 0 );
++	ORACLE_BOOL( "check 727", frameCount > 0 );
+ 
+ 	uint64_t* refHash = malloc( (size_t)( frameCount + 1 ) * sizeof( uint64_t ) );
+ 	ENSURE( refHash != NULL );
++	ORACLE_BOOL( "check 730", refHash != NULL );
+ 	refHash[0] = ReplayDeepHash( ref );
++	ORACLE_U64( "reference seed/hash", refHash[0] );
++	ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( ref ), "reference seed", 0 );
+ 	for ( int f = 1; f <= frameCount; ++f )
+ 	{
+ 		ENSURE( b2Replay_StepFrame( ref ) );
++		ORACLE_BOOL( "check 734", true );
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( ref ), "step 734", b2Replay_GetFrame( ref ) );
+ 		refHash[f] = ReplayDeepHash( ref );
+ 	}
+ 	ENSURE( b2Replay_HasDiverged( ref ) == false );
++	ORACLE_BOOL( "check 737", b2Replay_HasDiverged( ref ) == false );
+ 	b2DestroyReplay( ref );
+ 
+ 	// Player under test: play to the end so the keyframe ring is fully populated (and an eviction
+ 	// has fired under a tight budget), then seek around it
+ 	b2Replay* player = b2CreateReplay( recData, recSize, workerCount );
+ 	ENSURE( player != NULL );
++	ORACLE_BOOL( "check 743", player != NULL );
+ 	if ( budgetBytes > 0 )
+ 	{
+ 		b2Replay_SetKeyframePolicy( player, budgetBytes, minInterval );
+ 	}
+ 	while ( b2Replay_StepFrame( player ) )
+ 	{
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 749", b2Replay_GetFrame( player ) );
+ 	}
+ 	ENSURE( b2Replay_GetFrame( player ) == frameCount );
++	ORACLE_BOOL( "check 751", b2Replay_GetFrame( player ) == frameCount );
++	ORACLE_I32( "value 751", b2Replay_GetFrame( player ) );
+ 
+ 	// Targets jump backward and forward: below the first keyframe (1, 5), onto exact interval
+ 	// multiples (128, 256), and around the eviction boundary near frame 272
+@@ -762,8 +847,13 @@
+ 		}
+ 		b2Replay_SeekFrame( player, t );
+ 		ENSURE( b2Replay_GetFrame( player ) == t );
++		ORACLE_BOOL( "check 764", b2Replay_GetFrame( player ) == t );
++		ORACLE_I32( "value 764", b2Replay_GetFrame( player ) );
+ 		ENSURE( b2Replay_HasDiverged( player ) == false );
++		ORACLE_BOOL( "check 765", b2Replay_HasDiverged( player ) == false );
+ 		uint64_t got = ReplayDeepHash( player );
++		ORACLE_U64( ORACLE_KEY( "seek 766/%d/hash", t ), got );
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "seek 766", t );
+ 		if ( got != refHash[t] )
+ 		{
+ 			printf( "keyframe seek mismatch at frame %d (wc %d): got %llu want %llu\n", t, workerCount, (unsigned long long)got,
+@@ -817,6 +907,7 @@
+ 	for ( int i = 0; i < 320; ++i )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_RECORDING_TRACE( worldId, "step 819", i + 1 );
+ 	}
+ 
+ 	b2World_StopRecording( worldId );
+@@ -825,22 +916,29 @@
+ 	const uint8_t* recData = b2Recording_GetData( rec );
+ 	int recSize = b2Recording_GetSize( rec );
+ 	ENSURE( recSize > 0 );
++	ORACLE_BOOL( "check 827", recSize > 0 );
+ 
+ 	// Measure one snapshot so the tight budget holds only a handful of keyframes, forcing the
+ 	// interval-doubling eviction during the 320-frame replay
+ 	b2Replay* probe = b2CreateReplay( recData, recSize, 0 );
+ 	ENSURE( probe != NULL );
++	ORACLE_BOOL( "check 832", probe != NULL );
+ 	int snapSize = b2World_GetSnapshot( b2Replay_GetWorldId( probe ), NULL, 0 );
+ 	b2DestroyReplay( probe );
+ 	ENSURE( snapSize > 0 );
++	ORACLE_BOOL( "check 835", snapSize > 0 );
+ 	int tightBudget = 6 * snapSize;
+ 
+ 	// Default policy (capture + restore, no eviction) and a tight budget (forces eviction and the
+ 	// SetKeyframePolicy path), each at the recorded worker count and a different one
+ 	ENSURE( CheckKeyframeSeek( recData, recSize, 0, 0, 0 ) == 0 );
++	ORACLE_BOOL( "check 840", true );
+ 	ENSURE( CheckKeyframeSeek( recData, recSize, 4, 0, 0 ) == 0 );
++	ORACLE_BOOL( "check 841", true );
+ 	ENSURE( CheckKeyframeSeek( recData, recSize, 0, tightBudget, 8 ) == 0 );
++	ORACLE_BOOL( "check 842", true );
+ 	ENSURE( CheckKeyframeSeek( recData, recSize, 4, tightBudget, 8 ) == 0 );
++	ORACLE_BOOL( "check 843", true );
+ 
+ 	b2DestroyRecording( rec );
+ 	return 0;
+@@ -923,6 +1021,7 @@
+ 	for ( int i = 0; i < stepCount; ++i )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_RECORDING_TRACE( worldId, "step 925", i + 1 );
+ 		if ( withQueries )
+ 		{
+ 			IssuePileQueries( worldId );
+@@ -946,36 +1045,51 @@
+ {
+ 	b2Replay* ref = b2CreateReplay( recData, recSize, workerCount );
+ 	ENSURE( ref != NULL );
++	ORACLE_BOOL( "check 948", ref != NULL );
+ 	int frameCount = b2Replay_GetInfo( ref ).frameCount;
+ 	ENSURE( frameCount > 0 );
++	ORACLE_BOOL( "check 950", frameCount > 0 );
+ 
+ 	uint64_t* refHash = malloc( (size_t)( frameCount + 1 ) * sizeof( uint64_t ) );
+ 	ENSURE( refHash != NULL );
++	ORACLE_BOOL( "check 953", refHash != NULL );
+ 	refHash[0] = ReplayDeepHash( ref );
++	ORACLE_U64( "reference seed/hash", refHash[0] );
++	ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( ref ), "reference seed", 0 );
+ 	for ( int f = 1; f <= frameCount; ++f )
+ 	{
+ 		ENSURE( b2Replay_StepFrame( ref ) );
++		ORACLE_BOOL( "check 957", true );
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( ref ), "step 957", b2Replay_GetFrame( ref ) );
+ 		refHash[f] = ReplayDeepHash( ref );
+ 	}
+ 	ENSURE( b2Replay_HasDiverged( ref ) == false );
++	ORACLE_BOOL( "check 960", b2Replay_HasDiverged( ref ) == false );
+ 	b2DestroyReplay( ref );
+ 
+ 	b2Replay* player = b2CreateReplay( recData, recSize, workerCount );
+ 	ENSURE( player != NULL );
++	ORACLE_BOOL( "check 964", player != NULL );
+ 	if ( budgetBytes > 0 )
+ 	{
+ 		b2Replay_SetKeyframePolicy( player, budgetBytes, minInterval );
+ 	}
+ 	while ( b2Replay_StepFrame( player ) )
+ 	{
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "step 970", b2Replay_GetFrame( player ) );
+ 	}
+ 
+ 	for ( int t = frameCount; t >= 0; --t )
+ 	{
+ 		b2Replay_SeekFrame( player, t );
+ 		ENSURE( b2Replay_GetFrame( player ) == t );
++		ORACLE_BOOL( "check 976", b2Replay_GetFrame( player ) == t );
++		ORACLE_I32( "value 976", b2Replay_GetFrame( player ) );
+ 		uint64_t got = ReplayDeepHash( player );
++		ORACLE_U64( ORACLE_KEY( "seek 977/%d/hash", t ), got );
++		ORACLE_RECORDING_TRACE( b2Replay_GetWorldId( player ), "seek 977", t );
+ 		bool diverged = b2Replay_HasDiverged( player );
++		ORACLE_BOOL( ORACLE_KEY( "scrub %d/diverged", t ), diverged );
+ 		if ( got != refHash[t] || diverged )
+ 		{
+ 			// Deep hash matches but the player diverged => an order sensitive query re-verification
+@@ -1001,15 +1115,19 @@
+ 	const uint8_t* recData = b2Recording_GetData( rec );
+ 	int recSize = b2Recording_GetSize( rec );
+ 	ENSURE( recSize > 0 );
++	ORACLE_BOOL( "check 1003", recSize > 0 );
+ 
+ 	b2Replay* probe = b2CreateReplay( recData, recSize, 0 );
+ 	ENSURE( probe != NULL );
++	ORACLE_BOOL( "check 1006", probe != NULL );
+ 	int snapSize = b2World_GetSnapshot( b2Replay_GetWorldId( probe ), NULL, 0 );
+ 	b2DestroyReplay( probe );
+ 	int tightBudget = 4 * snapSize;
+ 
+ 	ENSURE( CheckScrubAllFrames( recData, recSize, workerCount, tightBudget, 8 ) == 0 );
++	ORACLE_BOOL( "check 1011", true );
+ 	ENSURE( CheckScrubAllFrames( recData, recSize, workerCount, 0, 0 ) == 0 );
++	ORACLE_BOOL( "check 1012", true );
+ 	return 0;
+ }
+ 
+@@ -1021,6 +1139,7 @@
+ {
+ 	b2Recording* rec = RecordScene( BuildPyramidScene, 1, 80 );
+ 	ENSURE( ScrubRecording( rec, 1 ) == 0 );
++	ORACLE_BOOL( "check 1023", true );
+ 	b2DestroyRecording( rec );
+ 	return 0;
+ }
+@@ -1032,6 +1151,7 @@
+ {
+ 	b2Recording* rec = RecordSceneEx( BuildPyramidScene, 1, 80, true );
+ 	ENSURE( ScrubRecording( rec, 1 ) == 0 );
++	ORACLE_BOOL( "check 1034", true );
+ 	b2DestroyRecording( rec );
+ 	return 0;
+ }
+@@ -1041,7 +1161,8 @@
+ // sample) and run `test.exe ReplayFileScrubDiag` to pinpoint it. No-op when the file is absent.
+ int ReplayFileScrubDiag( void )
+ {
+-	const char* path = "diverge.b2rec";
++	// The oracle substitutes an isolated path; the original diagnostic default is unchanged.
++	const char* path = recording_diagPath;
+ 	b2Recording* rec = b2LoadRecordingFromFile( path );
+ 	if ( rec == NULL )
+ 	{
+@@ -1072,6 +1193,7 @@
+ 	for ( int i = 0; i < churnFrame; ++i )
+ 	{
+ 		b2World_Step( liveId, dt, subSteps );
++		ORACLE_RECORDING_TRACE( liveId, "step 1074", i + 1 );
+ 	}
+ 
+ 	int size = b2World_GetSnapshot( liveId, NULL, 0 );
+@@ -1089,11 +1211,14 @@
+ 	for ( int rep = 0; rep < reps && result == 0; ++rep )
+ 	{
+ 		ENSURE( b2World_Restore( cloneId, image, size ) );
++		ORACLE_BOOL( "check 1091", true );
+ 		for ( int s = 0; s < restepCount; ++s )
+ 		{
+ 			b2World_Step( cloneId, dt, subSteps );
++			ORACLE_RECORDING_TRACE( cloneId, ORACLE_KEY( "step 1094/rep %d", rep ), churnFrame + s + 1 );
+ 		}
+ 		uint64_t h = b2HashWorldStateDeep( clone );
++		ORACLE_U64( ORACLE_KEY( "restep 1096/%d/hash", rep ), h );
+ 		if ( rep == 0 )
+ 		{
+ 			ref = h;
+@@ -1121,5 +1246,6 @@
+ int ReStepRaceTest( void )
+ {
+ 	ENSURE( RestepRaceStress( CreateJunkyard, "junkyard", 2, 150, 50, 16 ) == 0 );
++	ORACLE_BOOL( "check 1123", true );
+ 	return 0;
+ }

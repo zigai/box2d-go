@@ -37,7 +37,7 @@ func malformedInputSource(tb testing.TB) (*box2d.World, []byte, []byte) {
 	box := box2d.MakeBox(0.5, 0.5)
 	body.CreatePolygonShape(&shapeDef, &box)
 	world.Step(1.0/60.0, 4)
-	image := box2d.BTSnapshot(world)
+	image := box2d.MarshalSnapshot(world)
 	recording := box2d.NewRecording(0)
 	world.StartRecording(recording)
 	world.StopRecording()
@@ -222,7 +222,7 @@ func TestInputGuardAssertionErrorNative(t *testing.T) {
 	world, _, _ := malformedInputSource(t)
 	before, gravity := world.StateHash(), world.Gravity()
 
-	for _, bad := range inputBadValues {
+	for _, bad := range badInputValues {
 		var caught any
 
 		func() {

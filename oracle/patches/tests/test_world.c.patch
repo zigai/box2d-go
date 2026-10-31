@@ -1,0 +1,1311 @@
+--- a/test_world.c
++++ b/test_world.c
+@@ -1,5 +1,6 @@
+ // SPDX-FileCopyrightText: 2023 Erin Catto
+ // SPDX-License-Identifier: MIT
++#include "oracle.h"
+ 
+ #include "test_macros.h"
+ #include "benchmarks.h"
+@@ -28,6 +29,7 @@
+ 
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 	ENSURE( b2World_IsValid( worldId ) );
++	ORACLE_BOOL( "L30", b2World_IsValid( worldId ) );
+ 
+ 	// Define the ground body.
+ 	b2BodyDef groundBodyDef = b2DefaultBodyDef();
+@@ -38,6 +40,7 @@
+ 	// The body is also added to the world.
+ 	b2BodyId groundId = b2CreateBody( worldId, &groundBodyDef );
+ 	ENSURE( b2Body_IsValid( groundId ) );
++	ORACLE_BOOL( "L40", b2Body_IsValid( groundId ) );
+ 
+ 	// Define the ground box shape. The extents are the half-widths of the box.
+ 	b2Polygon groundBox = b2MakeBox( 50.0f, 10.0f );
+@@ -76,6 +79,8 @@
+ 
+ 	b2Pos position = b2Body_GetPosition( bodyId );
+ 	b2Rot rotation = b2Body_GetRotation( bodyId );
++		ORACLE_POS( "hello.position", position );
++		ORACLE_ROT( "hello.rotation", rotation );
+ 
+ 	// This is our little game loop.
+ 	for ( int i = 0; i < 90; ++i )
+@@ -83,10 +88,13 @@
+ 		// Instruct the world to perform a single step of simulation.
+ 		// It is generally best to keep the time step and iterations fixed.
+ 		b2World_Step( worldId, timeStep, subStepCount );
++		ORACLE_WORLD_STEP( worldId, "L85" );
+ 
+ 		// Now print the position and angle of the body.
+ 		position = b2Body_GetPosition( bodyId );
+ 		rotation = b2Body_GetRotation( bodyId );
++		ORACLE_POS( "hello.position", position );
++		ORACLE_ROT( "hello.rotation", rotation );
+ 
+ 		// printf("%4.2f %4.2f %4.2f\n", position.x, position.y, b2Rot_GetAngle(rotation));
+ 	}
+@@ -96,8 +104,14 @@
+ 	b2DestroyWorld( worldId );
+ 
+ 	ENSURE( b2AbsFloat( position.x ) < 0.01f );
++	ORACLE_BOOL( "L98", b2AbsFloat( position.x ) < 0.01f );
++	ORACLE_F32( "L98:value", b2AbsFloat( position.x ) );
+ 	ENSURE( b2AbsFloat( position.y - 1.00f ) < 0.01f );
++	ORACLE_BOOL( "L99", b2AbsFloat( position.y - 1.00f ) < 0.01f );
++	ORACLE_F32( "L99:value", b2AbsFloat( position.y - 1.00f ) );
+ 	ENSURE( b2AbsFloat( b2Rot_GetAngle( rotation ) ) < 0.01f );
++	ORACLE_BOOL( "L100", b2AbsFloat( b2Rot_GetAngle( rotation ) ) < 0.01f );
++	ORACLE_F32( "L100:value", b2AbsFloat( b2Rot_GetAngle( rotation ) ) );
+ 
+ 	return 0;
+ }
+@@ -107,6 +121,7 @@
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 	ENSURE( b2World_IsValid( worldId ) == true );
++	ORACLE_BOOL( "L109", b2World_IsValid( worldId ) == true );
+ 
+ 	float timeStep = 1.0f / 60.0f;
+ 	int32_t subStepCount = 1;
+@@ -114,11 +129,13 @@
+ 	for ( int32_t i = 0; i < 60; ++i )
+ 	{
+ 		b2World_Step( worldId, timeStep, subStepCount );
++		ORACLE_WORLD_STEP( worldId, "L116" );
+ 	}
+ 
+ 	b2DestroyWorld( worldId );
+ 
+ 	ENSURE( b2World_IsValid( worldId ) == false );
++	ORACLE_BOOL( "L121", b2World_IsValid( worldId ) == false );
+ 
+ 	return 0;
+ }
+@@ -129,6 +146,7 @@
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 	ENSURE( b2World_IsValid( worldId ) == true );
++	ORACLE_BOOL( "L131", b2World_IsValid( worldId ) == true );
+ 
+ 	int count = 0;
+ 	bool creating = true;
+@@ -163,14 +181,18 @@
+ 		}
+ 
+ 		b2World_Step( worldId, 1.0f / 60.0f, 3 );
++		ORACLE_WORLD_STEP( worldId, "L165" );
+ 	}
+ 
+ 	b2Counters counters = b2World_GetCounters( worldId );
+ 	ENSURE( counters.bodyCount == 0 );
++	ORACLE_BOOL( "L169", counters.bodyCount == 0 );
++	ORACLE_I32( "L169:value", counters.bodyCount );
+ 
+ 	b2DestroyWorld( worldId );
+ 
+ 	ENSURE( b2World_IsValid( worldId ) == false );
++	ORACLE_BOOL( "L173", b2World_IsValid( worldId ) == false );
+ 
+ 	return 0;
+ }
+@@ -180,26 +202,34 @@
+ 	b2WorldDef worldDef = b2DefaultWorldDef();
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 	ENSURE( b2World_IsValid( worldId ) );
++	ORACLE_BOOL( "L182", b2World_IsValid( worldId ) );
+ 
+ 	b2BodyDef bodyDef = b2DefaultBodyDef();
+ 
+ 	b2BodyId bodyId1 = b2CreateBody( worldId, &bodyDef );
+ 	ENSURE( b2Body_IsValid( bodyId1 ) == true );
++	ORACLE_BOOL( "L187", b2Body_IsValid( bodyId1 ) == true );
+ 
+ 	b2BodyId bodyId2 = b2CreateBody( worldId, &bodyDef );
+ 	ENSURE( b2Body_IsValid( bodyId2 ) == true );
++	ORACLE_BOOL( "L190", b2Body_IsValid( bodyId2 ) == true );
+ 
+ 	b2DestroyBody( bodyId1 );
+ 	ENSURE( b2Body_IsValid( bodyId1 ) == false );
++	ORACLE_BOOL( "L193", b2Body_IsValid( bodyId1 ) == false );
+ 
+ 	b2DestroyBody( bodyId2 );
+ 	ENSURE( b2Body_IsValid( bodyId2 ) == false );
++	ORACLE_BOOL( "L196", b2Body_IsValid( bodyId2 ) == false );
+ 
+ 	b2DestroyWorld( worldId );
+ 
+ 	ENSURE( b2World_IsValid( worldId ) == false );
++	ORACLE_BOOL( "L200", b2World_IsValid( worldId ) == false );
+ 	ENSURE( b2Body_IsValid( bodyId2 ) == false );
++	ORACLE_BOOL( "L201", b2Body_IsValid( bodyId2 ) == false );
+ 	ENSURE( b2Body_IsValid( bodyId1 ) == false );
++	ORACLE_BOOL( "L202", b2Body_IsValid( bodyId1 ) == false );
+ 
+ 	return 0;
+ }
+@@ -221,6 +251,7 @@
+ 		{
+ 			worldIds[j] = b2CreateWorld( &worldDef );
+ 			ENSURE( b2World_IsValid( worldIds[j] ) == true );
++			ORACLE_BOOL( "L223", b2World_IsValid( worldIds[j] ) == true );
+ 
+ 			b2BodyDef bodyDef = b2DefaultBodyDef();
+ 			b2CreateBody( worldIds[j], &bodyDef );
+@@ -234,6 +265,7 @@
+ 			for ( int k = 0; k < 10; ++k )
+ 			{
+ 				b2World_Step( worldIds[j], timeStep, subStepCount );
++				ORACLE_WORLD_STEP( worldIds[j], "L236" );
+ 			}
+ 		}
+ 
+@@ -241,6 +273,7 @@
+ 		{
+ 			b2DestroyWorld( worldIds[j] );
+ 			ENSURE( b2World_IsValid( worldIds[j] ) == false );
++			ORACLE_BOOL( "L243", b2World_IsValid( worldIds[j] ) == false );
+ 			worldIds[j] = b2_nullWorldId;
+ 		}
+ 	}
+@@ -253,6 +286,7 @@
+ 	(void)shapeIdA;
+ 	(void)shapeIdB;
+ 	ENSURE( context == NULL );
++	ORACLE_BOOL( "L255", context == NULL );
+ 	return true;
+ }
+ 
+@@ -271,26 +305,33 @@
+ 
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 	ENSURE( b2World_IsValid( worldId ) );
++	ORACLE_BOOL( "L273", b2World_IsValid( worldId ) );
+ 
+ 	b2World_EnableSleeping( worldId, true );
+ 	b2World_EnableSleeping( worldId, false );
+ 	bool flag = b2World_IsSleepingEnabled( worldId );
+ 	ENSURE( flag == false );
++	ORACLE_BOOL( "L278", flag == false );
+ 
+ 	b2World_EnableContinuous( worldId, false );
+ 	b2World_EnableContinuous( worldId, true );
+ 	flag = b2World_IsContinuousEnabled( worldId );
+ 	ENSURE( flag == true );
++	ORACLE_BOOL( "L283", flag == true );
+ 
+ 	b2World_SetRestitutionThreshold( worldId, 0.0f );
+ 	b2World_SetRestitutionThreshold( worldId, 2.0f );
+ 	float value = b2World_GetRestitutionThreshold( worldId );
+ 	ENSURE( value == 2.0f );
++	ORACLE_BOOL( "L288", value == 2.0f );
++	ORACLE_F32( "L288:value", value );
+ 
+ 	b2World_SetHitEventThreshold( worldId, 0.0f );
+ 	b2World_SetHitEventThreshold( worldId, 100.0f );
+ 	value = b2World_GetHitEventThreshold( worldId );
+ 	ENSURE( value == 100.0f );
++	ORACLE_BOOL( "L293", value == 100.0f );
++	ORACLE_F32( "L293:value", value );
+ 
+ 	b2World_SetCustomFilterCallback( worldId, CustomFilter, NULL );
+ 	b2World_SetPreSolveCallback( worldId, PreSolveStatic, NULL, NULL );
+@@ -299,7 +340,11 @@
+ 	b2World_SetGravity( worldId, g );
+ 	b2Vec2 v = b2World_GetGravity( worldId );
+ 	ENSURE( v.x == g.x );
++	ORACLE_BOOL( "L301", v.x == g.x );
++	ORACLE_F32( "L301:value", v.x );
+ 	ENSURE( v.y == g.y );
++	ORACLE_BOOL( "L302", v.y == g.y );
++	ORACLE_F32( "L302:value", v.y );
+ 
+ 	b2ExplosionDef explosionDef = b2DefaultExplosionDef();
+ 	b2World_Explode( worldId, &explosionDef );
+@@ -309,19 +354,26 @@
+ 	b2World_SetMaximumLinearSpeed( worldId, 10.0f );
+ 	value = b2World_GetMaximumLinearSpeed( worldId );
+ 	ENSURE( value == 10.0f );
++	ORACLE_BOOL( "L311", value == 10.0f );
++	ORACLE_F32( "L311:value", value );
+ 
+ 	b2World_EnableWarmStarting( worldId, true );
+ 	flag = b2World_IsWarmStartingEnabled( worldId );
+ 	ENSURE( flag == true );
++	ORACLE_BOOL( "L315", flag == true );
+ 
+ 	int count = b2World_GetAwakeBodyCount( worldId );
+ 	ENSURE( count == 0 );
++	ORACLE_BOOL( "L318", count == 0 );
++	ORACLE_I32( "L318:value", count );
+ 
+ 	b2World_SetUserData( worldId, &value );
+ 	void* userData = b2World_GetUserData( worldId );
+ 	ENSURE( userData == &value );
++	ORACLE_BOOL( "L322", userData == &value );
+ 
+ 	b2World_Step( worldId, 1.0f, 1 );
++	ORACLE_WORLD_STEP( worldId, "L324" );
+ 
+ 	b2DestroyWorld( worldId );
+ 
+@@ -366,11 +418,14 @@
+ 		float timeStep = 1.0f / 60.0f;
+ 		int subStepCount = 4;
+ 		b2World_Step( worldId, timeStep, subStepCount );
++		ORACLE_WORLD_STEP( worldId, "L368" );
+ 
+ 		b2Pos bulletPos = b2Body_GetPosition( bulletId );
+ 		// printf( "Bullet pos: %g %g\n", bulletPos.x, bulletPos.y );
+ 
+ 		b2SensorEvents events = b2World_GetSensorEvents( worldId );
++		ORACLE_WORLD_SENSOR( events );
++		ORACLE_POS( "sensor.position", bulletPos );
+ 
+ 		if ( events.beginCount > 0 )
+ 		{
+@@ -391,7 +446,11 @@
+ 	b2DestroyWorld( worldId );
+ 
+ 	ENSURE( beginCount == 1 );
++	ORACLE_BOOL( "L393", beginCount == 1 );
++	ORACLE_I32( "L393:value", beginCount );
+ 	ENSURE( endCount == 1 );
++	ORACLE_BOOL( "L394", endCount == 1 );
++	ORACLE_I32( "L394:value", endCount );
+ 
+ 	return 0;
+ }
+@@ -402,35 +461,54 @@
+ 	worldDef.workerCount = 1;
+ 	b2WorldId worldId = b2CreateWorld( &worldDef );
+ 	ENSURE( b2World_IsValid( worldId ) );
++	ORACLE_BOOL( "L404", b2World_IsValid( worldId ) );
+ 	ENSURE( b2World_GetWorkerCount( worldId ) == 1 );
++	ORACLE_BOOL( "L405", b2World_GetWorkerCount( worldId ) == 1 );
++	ORACLE_I32( "L405:value", b2World_GetWorkerCount( worldId ) );
+ 
+ 	CreateJunkyard( worldId );
+ 	StepJunkyard( worldId, 1 );
++	ORACLE_WORLD_STEP( worldId, "target/L408" );
+ 
+ 	b2World_SetWorkerCount( worldId, 4 );
+ 	ENSURE( b2World_GetWorkerCount( worldId ) == 4 );
++	ORACLE_BOOL( "L411", b2World_GetWorkerCount( worldId ) == 4 );
++	ORACLE_I32( "L411:value", b2World_GetWorkerCount( worldId ) );
+ 
+ 	StepJunkyard( worldId, 2 );
++	ORACLE_WORLD_STEP( worldId, "target/L413" );
+ 
+ 	b2World_SetWorkerCount( worldId, 4 );
+ 	ENSURE( b2World_GetWorkerCount( worldId ) == 4 );
++	ORACLE_BOOL( "L416", b2World_GetWorkerCount( worldId ) == 4 );
++	ORACLE_I32( "L416:value", b2World_GetWorkerCount( worldId ) );
+ 
+ 	StepJunkyard( worldId, 3 );
++	ORACLE_WORLD_STEP( worldId, "target/L418" );
+ 
+ 	b2World_SetWorkerCount( worldId, 0 );
+ 	ENSURE( b2World_GetWorkerCount( worldId ) == 1 );
++	ORACLE_BOOL( "L421", b2World_GetWorkerCount( worldId ) == 1 );
++	ORACLE_I32( "L421:value", b2World_GetWorkerCount( worldId ) );
+ 
+ 	StepJunkyard( worldId, 4 );
++	ORACLE_WORLD_STEP( worldId, "target/L423" );
+ 
+ 	b2World_SetWorkerCount( worldId, -5 );
+ 	ENSURE( b2World_GetWorkerCount( worldId ) == 1 );
++	ORACLE_BOOL( "L426", b2World_GetWorkerCount( worldId ) == 1 );
++	ORACLE_I32( "L426:value", b2World_GetWorkerCount( worldId ) );
+ 
+ 	StepJunkyard( worldId, 5 );
++	ORACLE_WORLD_STEP( worldId, "target/L428" );
+ 
+ 	b2World_SetWorkerCount( worldId, B2_MAX_WORKERS + 10 );
+ 	ENSURE( b2World_GetWorkerCount( worldId ) == B2_MAX_WORKERS );
++	ORACLE_BOOL( "L431", b2World_GetWorkerCount( worldId ) == B2_MAX_WORKERS );
++	ORACLE_I32( "L431:value", b2World_GetWorkerCount( worldId ) );
+ 
+ 	StepJunkyard( worldId, 2 );
++	ORACLE_WORLD_STEP( worldId, "target/L433" );
+ 
+ 	b2DestroyWorld( worldId );
+ 
+@@ -456,22 +534,36 @@
+ 	b2ShapeDef shapeDef = b2DefaultShapeDef();
+ 	b2ShapeId orphanShape = b2CreateChainSegmentShape( groundId, &shapeDef, &cs );
+ 	ENSURE( B2_IS_NON_NULL( orphanShape ) );
++	ORACLE_BOOL( "L458", B2_IS_NON_NULL( orphanShape ) );
+ 
+ 	ENSURE( b2Shape_GetType( orphanShape ) == b2_chainSegmentShape );
++	ORACLE_BOOL( "L460", b2Shape_GetType( orphanShape ) == b2_chainSegmentShape );
++	ORACLE_I32( "L460:value", b2Shape_GetType( orphanShape ) );
+ 
+ 	b2ChainId parentChain = b2Shape_GetParentChain( orphanShape );
+ 	ENSURE( B2_IS_NULL( parentChain ) );
++	ORACLE_BOOL( "L463", B2_IS_NULL( parentChain ) );
+ 
+ 	b2ChainSegment got = b2Shape_GetChainSegment( orphanShape );
+ 	ENSURE_SMALL( got.ghost1.x - cs.ghost1.x, 1e-5f );
++	ORACLE_F32( "L466", got.ghost1.x - cs.ghost1.x );
+ 	ENSURE_SMALL( got.ghost1.y - cs.ghost1.y, 1e-5f );
++	ORACLE_F32( "L467", got.ghost1.y - cs.ghost1.y );
+ 	ENSURE_SMALL( got.segment.point1.x - cs.segment.point1.x, 1e-5f );
++	ORACLE_F32( "L468", got.segment.point1.x - cs.segment.point1.x );
+ 	ENSURE_SMALL( got.segment.point1.y - cs.segment.point1.y, 1e-5f );
++	ORACLE_F32( "L469", got.segment.point1.y - cs.segment.point1.y );
+ 	ENSURE_SMALL( got.segment.point2.x - cs.segment.point2.x, 1e-5f );
++	ORACLE_F32( "L470", got.segment.point2.x - cs.segment.point2.x );
+ 	ENSURE_SMALL( got.segment.point2.y - cs.segment.point2.y, 1e-5f );
++	ORACLE_F32( "L471", got.segment.point2.y - cs.segment.point2.y );
+ 	ENSURE_SMALL( got.ghost2.x - cs.ghost2.x, 1e-5f );
++	ORACLE_F32( "L472", got.ghost2.x - cs.ghost2.x );
+ 	ENSURE_SMALL( got.ghost2.y - cs.ghost2.y, 1e-5f );
++	ORACLE_F32( "L473", got.ghost2.y - cs.ghost2.y );
+ 	ENSURE( got.chainId == B2_NULL_INDEX );
++	ORACLE_BOOL( "L474", got.chainId == B2_NULL_INDEX );
++	ORACLE_I32( "L474:value", got.chainId );
+ 
+ 	b2BodyDef dynamicDef = b2DefaultBodyDef();
+ 	dynamicDef.type = b2_dynamicBody;
+@@ -484,10 +576,13 @@
+ 	for ( int i = 0; i < 120; ++i )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_WORLD_STEP( worldId, "L486" );
+ 	}
+ 
+ 	b2Pos circlePos = b2Body_GetPosition( circleBodyId );
+ 	ENSURE( circlePos.y > 0.0f );
++	ORACLE_BOOL( "L490", circlePos.y > 0.0f );
++	ORACLE_POS( "L490:value", circlePos );
+ 
+ 	b2ChainSegment cs2 = { 0 };
+ 	cs2.ghost1 = (b2Vec2){ 3.0f, 0.0f };
+@@ -500,35 +595,57 @@
+ 
+ 	b2ChainSegment got2 = b2Shape_GetChainSegment( orphanShape );
+ 	ENSURE_SMALL( got2.segment.point1.x - cs2.segment.point1.x, 1e-5f );
++	ORACLE_F32( "L502", got2.segment.point1.x - cs2.segment.point1.x );
+ 	ENSURE_SMALL( got2.segment.point1.y - cs2.segment.point1.y, 1e-5f );
++	ORACLE_F32( "L503", got2.segment.point1.y - cs2.segment.point1.y );
+ 	ENSURE_SMALL( got2.segment.point2.x - cs2.segment.point2.x, 1e-5f );
++	ORACLE_F32( "L504", got2.segment.point2.x - cs2.segment.point2.x );
+ 	ENSURE_SMALL( got2.segment.point2.y - cs2.segment.point2.y, 1e-5f );
++	ORACLE_F32( "L505", got2.segment.point2.y - cs2.segment.point2.y );
+ 	ENSURE_SMALL( got2.ghost1.x - cs2.ghost1.x, 1e-5f );
++	ORACLE_F32( "L506", got2.ghost1.x - cs2.ghost1.x );
+ 	ENSURE_SMALL( got2.ghost1.y - cs2.ghost1.y, 1e-5f );
++	ORACLE_F32( "L507", got2.ghost1.y - cs2.ghost1.y );
+ 	ENSURE_SMALL( got2.ghost2.x - cs2.ghost2.x, 1e-5f );
++	ORACLE_F32( "L508", got2.ghost2.x - cs2.ghost2.x );
+ 	ENSURE_SMALL( got2.ghost2.y - cs2.ghost2.y, 1e-5f );
++	ORACLE_F32( "L509", got2.ghost2.y - cs2.ghost2.y );
+ 	ENSURE( got2.chainId == B2_NULL_INDEX );
++	ORACLE_BOOL( "L510", got2.chainId == B2_NULL_INDEX );
++	ORACLE_I32( "L510:value", got2.chainId );
+ 
+ 	b2ChainId parentChain2 = b2Shape_GetParentChain( orphanShape );
+ 	ENSURE( B2_IS_NULL( parentChain2 ) );
++	ORACLE_BOOL( "L513", B2_IS_NULL( parentChain2 ) );
+ 
+ 	b2BodyId convBody = b2CreateBody( worldId, &bodyDef );
+ 	b2Circle convCircle = { { 0.0f, 0.0f }, 0.25f };
+ 	b2ShapeId convShape = b2CreateCircleShape( convBody, &shapeDef, &convCircle );
+ 	ENSURE( b2Shape_GetType( convShape ) == b2_circleShape );
++	ORACLE_BOOL( "L518", b2Shape_GetType( convShape ) == b2_circleShape );
++	ORACLE_I32( "L518:value", b2Shape_GetType( convShape ) );
+ 
+ 	b2Shape_SetChainSegment( convShape, &cs2 );
+ 
+ 	ENSURE( b2Shape_GetType( convShape ) == b2_chainSegmentShape );
++	ORACLE_BOOL( "L522", b2Shape_GetType( convShape ) == b2_chainSegmentShape );
++	ORACLE_I32( "L522:value", b2Shape_GetType( convShape ) );
+ 	b2ChainSegment got3 = b2Shape_GetChainSegment( convShape );
+ 	ENSURE_SMALL( got3.ghost1.x - cs2.ghost1.x, 1e-5f );
++	ORACLE_F32( "L524", got3.ghost1.x - cs2.ghost1.x );
+ 	ENSURE_SMALL( got3.ghost1.y - cs2.ghost1.y, 1e-5f );
++	ORACLE_F32( "L525", got3.ghost1.y - cs2.ghost1.y );
+ 	ENSURE_SMALL( got3.ghost2.x - cs2.ghost2.x, 1e-5f );
++	ORACLE_F32( "L526", got3.ghost2.x - cs2.ghost2.x );
+ 	ENSURE_SMALL( got3.ghost2.y - cs2.ghost2.y, 1e-5f );
++	ORACLE_F32( "L527", got3.ghost2.y - cs2.ghost2.y );
+ 	ENSURE( got3.chainId == B2_NULL_INDEX );
++	ORACLE_BOOL( "L528", got3.chainId == B2_NULL_INDEX );
++	ORACLE_I32( "L528:value", got3.chainId );
+ 
+ 	b2ChainId parentChain3 = b2Shape_GetParentChain( convShape );
+ 	ENSURE( B2_IS_NULL( parentChain3 ) );
++	ORACLE_BOOL( "L531", B2_IS_NULL( parentChain3 ) );
+ 
+ 	b2DestroyShape( orphanShape, true );
+ 	b2DestroyWorld( worldId );
+@@ -554,6 +671,7 @@
+ 	b2Body_UpdateMassFromShapes( bodyId );
+ 
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L556" );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -570,11 +688,14 @@
+ 	b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
+ 
+ 	ENSURE( b2Body_IsSleepEnabled( bodyId ) == false );
++	ORACLE_BOOL( "L572", b2Body_IsSleepEnabled( bodyId ) == false );
+ 
+ 	b2Body_EnableSleep( bodyId, true );
+ 	ENSURE( b2Body_IsSleepEnabled( bodyId ) == true );
++	ORACLE_BOOL( "L575", b2Body_IsSleepEnabled( bodyId ) == true );
+ 
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L577" );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -591,20 +712,25 @@
+ 	// Default is enabled
+ 	b2BodyId bodyA = b2CreateBody( worldId, &bodyDef );
+ 	ENSURE( b2Body_IsContactRecyclingEnabled( bodyA ) == true );
++	ORACLE_BOOL( "L593", b2Body_IsContactRecyclingEnabled( bodyA ) == true );
+ 
+ 	b2Body_EnableContactRecycling( bodyA, false );
+ 	ENSURE( b2Body_IsContactRecyclingEnabled( bodyA ) == false );
++	ORACLE_BOOL( "L596", b2Body_IsContactRecyclingEnabled( bodyA ) == false );
+ 
+ 	b2Body_EnableContactRecycling( bodyA, true );
+ 	ENSURE( b2Body_IsContactRecyclingEnabled( bodyA ) == true );
++	ORACLE_BOOL( "L599", b2Body_IsContactRecyclingEnabled( bodyA ) == true );
+ 
+ 	// Per-def opt-out at creation
+ 	bodyDef.enableContactRecycling = false;
+ 	b2BodyId bodyB = b2CreateBody( worldId, &bodyDef );
+ 	ENSURE( b2Body_IsContactRecyclingEnabled( bodyB ) == false );
++	ORACLE_BOOL( "L604", b2Body_IsContactRecyclingEnabled( bodyB ) == false );
+ 
+ 	// Stepping after toggling must not trip the flag-sync validator
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L607" );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -622,15 +748,18 @@
+ 		b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
+ 
+ 		ENSURE( b2Body_IsBullet( bodyId ) == false );
++		ORACLE_BOOL( "L624", b2Body_IsBullet( bodyId ) == false );
+ 
+ 		b2Body_SetBullet( bodyId, true );
+ 		ENSURE( b2Body_IsBullet( bodyId ) == true );
++		ORACLE_BOOL( "L627", b2Body_IsBullet( bodyId ) == true );
+ 
+ 		b2MotionLocks locks = { 0 };
+ 		locks.linearX = true;
+ 		b2Body_SetMotionLocks( bodyId, locks );
+ 
+ 		ENSURE( b2Body_IsBullet( bodyId ) == true );
++		ORACLE_BOOL( "L633", b2Body_IsBullet( bodyId ) == true );
+ 	}
+ 
+ 	{
+@@ -640,15 +769,18 @@
+ 		b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
+ 
+ 		ENSURE( b2Body_IsBullet( bodyId ) == true );
++		ORACLE_BOOL( "L642", b2Body_IsBullet( bodyId ) == true );
+ 
+ 		b2Body_SetBullet( bodyId, false );
+ 		ENSURE( b2Body_IsBullet( bodyId ) == false );
++		ORACLE_BOOL( "L645", b2Body_IsBullet( bodyId ) == false );
+ 
+ 		b2MotionLocks locks = { 0 };
+ 		locks.linearX = true;
+ 		b2Body_SetMotionLocks( bodyId, locks );
+ 
+ 		ENSURE( b2Body_IsBullet( bodyId ) == false );
++		ORACLE_BOOL( "L651", b2Body_IsBullet( bodyId ) == false );
+ 	}
+ 
+ 	b2DestroyWorld( worldId );
+@@ -702,16 +834,24 @@
+ 
+ 	float timeStep = 1.0f / 60.0f;
+ 	b2World_Step( worldId, timeStep, 4 );
++	ORACLE_WORLD_STEP( worldId, "L704" );
+ 
+ 	ENSURE( CountEnlargedNodes( tree ) > 0 );
++	ORACLE_BOOL( "L706", CountEnlargedNodes( tree ) > 0 );
++	ORACLE_I32( "L706:value", CountEnlargedNodes( tree ) );
+ 
+ 	b2DestroyBody( moverId );
+ 
+ 	ENSURE( CountEnlargedNodes( tree ) == 0 );
++	ORACLE_BOOL( "L710", CountEnlargedNodes( tree ) == 0 );
++	ORACLE_I32( "L710:value", CountEnlargedNodes( tree ) );
+ 
+ 	b2World_Step( worldId, timeStep, 4 );
++	ORACLE_WORLD_STEP( worldId, "L712" );
+ 
+ 	ENSURE( CountEnlargedNodes( tree ) == 0 );
++	ORACLE_BOOL( "L714", CountEnlargedNodes( tree ) == 0 );
++	ORACLE_I32( "L714:value", CountEnlargedNodes( tree ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -720,7 +860,9 @@
+ static int EnlargedProxyDestroyedTest( void )
+ {
+ 	ENSURE( EnlargedProxyDestroyed( 1 ) == 0 );
++	ORACLE_BOOL( "L722", true );
+ 	ENSURE( EnlargedProxyDestroyed( 4 ) == 0 );
++	ORACLE_BOOL( "L723", true );
+ 
+ 	return 0;
+ }
+@@ -769,6 +911,7 @@
+ static void StepPairWorld( b2WorldId worldId )
+ {
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L771" );
+ }
+ 
+ // Every kind of proxy created over a resting body
+@@ -782,14 +925,20 @@
+ 	CreatePairBox( worldId, b2_dynamicBody, 0.5f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L784", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L784:value", PairContactCount( worldId ) );
+ 
+ 	// Dynamic created on a resting dynamic
+ 	CreatePairBox( worldId, b2_dynamicBody, 10.0f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L789", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L789:value", PairContactCount( worldId ) );
+ 	CreatePairBox( worldId, b2_dynamicBody, 10.5f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L792", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L792:value", PairContactCount( worldId ) );
+ 
+ 	// Kinematic created on a resting dynamic, the mark is on the kinematic side
+ 	CreatePairBox( worldId, b2_dynamicBody, 20.0f, 0.0f, &shapeDef );
+@@ -797,6 +946,8 @@
+ 	CreatePairBox( worldId, b2_kinematicBody, 20.5f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 3 );
++	ORACLE_BOOL( "L799", PairContactCount( worldId ) == 3 );
++	ORACLE_I32( "L799:value", PairContactCount( worldId ) );
+ 
+ 	// A static shape created on a resting dynamic pairs by default and not when told to stay quiet
+ 	b2ShapeDef quietDef = b2DefaultShapeDef();
+@@ -806,10 +957,14 @@
+ 	CreatePairBox( worldId, b2_staticBody, 30.5f, 0.0f, &quietDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 3 );
++	ORACLE_BOOL( "L808", PairContactCount( worldId ) == 3 );
++	ORACLE_I32( "L808:value", PairContactCount( worldId ) );
+ 
+ 	CreatePairBox( worldId, b2_staticBody, 29.5f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 4 );
++	ORACLE_BOOL( "L812", PairContactCount( worldId ) == 4 );
++	ORACLE_I32( "L812:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -827,24 +982,34 @@
+ 	PairBox wall = CreatePairBox( worldId, b2_staticBody, 30.0f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L829", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L829:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_SetTransform( mover.bodyId, (b2Pos){ 0.5f, 0.0f }, b2Rot_identity );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L833", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L833:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_SetTransform( wall.bodyId, (b2Pos){ 20.5f, 0.0f }, b2Rot_identity );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L837", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L837:value", PairContactCount( worldId ) );
+ 
+ 	// Kinematic onto a resting dynamic, the mark is on the kinematic side
+ 	CreatePairBox( worldId, b2_dynamicBody, 40.0f, 0.0f, &shapeDef );
+ 	PairBox pusher = CreatePairBox( worldId, b2_kinematicBody, 50.0f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L843", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L843:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_SetTransform( pusher.bodyId, (b2Pos){ 40.5f, 0.0f }, b2Rot_identity );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 3 );
++	ORACLE_BOOL( "L847", PairContactCount( worldId ) == 3 );
++	ORACLE_I32( "L847:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -869,24 +1034,34 @@
+ 	CreatePairBox( worldId, b2_dynamicBody, 0.5f, 0.0f, &pickyDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L871", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L871:value", PairContactCount( worldId ) );
+ 
+ 	b2Shape_SetFilter( ground.shapeId, openFilter );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L875", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L875:value", PairContactCount( worldId ) );
+ 
+ 	b2Shape_SetFilter( ground.shapeId, closedDef.filter );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L879", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L879:value", PairContactCount( worldId ) );
+ 
+ 	// Same on a dynamic shape
+ 	PairBox other = CreatePairBox( worldId, b2_dynamicBody, 10.0f, 0.0f, &closedDef );
+ 	CreatePairBox( worldId, b2_dynamicBody, 10.5f, 0.0f, &pickyDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L885", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L885:value", PairContactCount( worldId ) );
+ 
+ 	b2Shape_SetFilter( other.shapeId, openFilter );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L889", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L889:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -909,14 +1084,20 @@
+ 	b2JointId jointId = b2CreateWeldJoint( worldId, &jointDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L911", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L911:value", PairContactCount( worldId ) );
+ 
+ 	b2Joint_SetCollideConnected( jointId, true );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L915", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L915:value", PairContactCount( worldId ) );
+ 
+ 	b2Joint_SetCollideConnected( jointId, false );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L919", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L919:value", PairContactCount( worldId ) );
+ 
+ 	// Static partner, the mark goes on the dynamic body
+ 	PairBox wall = CreatePairBox( worldId, b2_staticBody, 10.0f, 0.0f, &shapeDef );
+@@ -926,10 +1107,14 @@
+ 	b2JointId wallJointId = b2CreateWeldJoint( worldId, &jointDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L928", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L928:value", PairContactCount( worldId ) );
+ 
+ 	b2Joint_SetCollideConnected( wallJointId, true );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L932", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L932:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -962,6 +1147,8 @@
+ 	CreatePairBox( worldId, b2_dynamicBody, -0.5f, 0.0f, &defC );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L964", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L964:value", PairContactCount( worldId ) );
+ 
+ 	// Group index overrides the bits, negative rejects and positive accepts
+ 	b2ShapeDef negativeDef = b2DefaultShapeDef();
+@@ -974,6 +1161,8 @@
+ 	CreatePairBox( worldId, b2_dynamicBody, 20.5f, 0.0f, &positiveDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L976", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L976:value", PairContactCount( worldId ) );
+ 
+ 	// Custom filter rejects a tagged shape
+ 	b2ShapeDef customDef = b2DefaultShapeDef();
+@@ -986,6 +1175,8 @@
+ 	CreatePairBox( worldId, b2_dynamicBody, 40.5f, 0.0f, &customDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 3 );
++	ORACLE_BOOL( "L988", PairContactCount( worldId ) == 3 );
++	ORACLE_I32( "L988:value", PairContactCount( worldId ) );
+ 
+ 	// Sensors never make contacts
+ 	b2ShapeDef sensorDef = b2DefaultShapeDef();
+@@ -995,6 +1186,8 @@
+ 	CreatePairBox( worldId, b2_dynamicBody, 50.5f, 0.0f, &plainDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 3 );
++	ORACLE_BOOL( "L997", PairContactCount( worldId ) == 3 );
++	ORACLE_I32( "L997:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -1024,15 +1217,20 @@
+ 	// few centimeters to spare, but not into the wall itself
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L1026", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L1026:value", PairContactCount( worldId ) );
+ 
+ 	if ( sleepBeforePairs )
+ 	{
+ 		b2Body_SetAwake( moverId, false );
+ 		ENSURE( b2Body_IsAwake( moverId ) == false );
++		ORACLE_BOOL( "L1031", b2Body_IsAwake( moverId ) == false );
+ 	}
+ 
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1035", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1035:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -1049,23 +1247,33 @@
+ 	PairBox box = CreatePairBox( worldId, b2_dynamicBody, 1.1f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1051", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1051:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_Disable( box.bodyId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L1055", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L1055:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_Enable( box.bodyId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1059", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1059:value", PairContactCount( worldId ) );
+ 
+ 	// The static side, the resting box has no mark of its own
+ 	b2Body_Disable( ground.bodyId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L1064", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L1064:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_Enable( ground.bodyId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1068", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1068:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -1082,24 +1290,34 @@
+ 	CreatePairBox( worldId, b2_dynamicBody, 2.2f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L1084", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L1084:value", PairContactCount( worldId ) );
+ 
+ 	// Kinematic drops the static pair and keeps the dynamic one
+ 	b2Body_SetType( middle.bodyId, b2_kinematicBody );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1089", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1089:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_SetType( middle.bodyId, b2_dynamicBody );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L1093", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L1093:value", PairContactCount( worldId ) );
+ 
+ 	// Static drops the static pair too and the dynamic pair becomes static versus dynamic
+ 	b2Body_SetType( middle.bodyId, b2_staticBody );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1098", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1098:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_SetType( middle.bodyId, b2_dynamicBody );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L1102", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L1102:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -1115,14 +1333,20 @@
+ 	PairBox box = CreatePairBox( worldId, b2_dynamicBody, 1.1f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1117", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1117:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_SetBullet( box.bodyId, true );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1121", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1121:value", PairContactCount( worldId ) );
+ 
+ 	b2Body_SetBullet( box.bodyId, false );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1125", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1125:value", PairContactCount( worldId ) );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -1139,16 +1363,22 @@
+ 	CreatePairBox( worldId, b2_staticBody, 10.0f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L1141", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L1141:value", PairContactCount( worldId ) );
+ 
+ 	// No marks to keep
+ 	b2World_RebuildStaticTree( worldId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 0 );
++	ORACLE_BOOL( "L1146", PairContactCount( worldId ) == 0 );
++	ORACLE_I32( "L1146:value", PairContactCount( worldId ) );
+ 
+ 	CreatePairBox( worldId, b2_staticBody, 1.1f, 0.0f, &shapeDef );
+ 	b2World_RebuildStaticTree( worldId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1151", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1151:value", PairContactCount( worldId ) );
+ 
+ 	// A quiet static shape has no mark to keep
+ 	b2ShapeDef quietDef = b2DefaultShapeDef();
+@@ -1157,17 +1387,25 @@
+ 	b2World_RebuildStaticTree( worldId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1159", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1159:value", PairContactCount( worldId ) );
+ 
+ 	// Overlapping the resting box, the contact must touch on the first step after the rebuild
+ 	CreatePairBox( worldId, b2_staticBody, 0.0f, 0.5f, &shapeDef );
+ 	b2World_RebuildStaticTree( worldId );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 2 );
++	ORACLE_BOOL( "L1165", PairContactCount( worldId ) == 2 );
++	ORACLE_I32( "L1165:value", PairContactCount( worldId ) );
+ 
+ 	b2ContactData contactData[4];
+ 	int touchingCount = b2Body_GetContactData( box.bodyId, contactData, 4 );
+ 	ENSURE( touchingCount == 1 );
++	ORACLE_BOOL( "L1169", touchingCount == 1 );
++	ORACLE_I32( "L1169:value", touchingCount );
+ 	ENSURE( contactData[0].manifold.pointCount > 0 );
++	ORACLE_BOOL( "L1170", contactData[0].manifold.pointCount > 0 );
++	ORACLE_I32( "L1170:value", contactData[0].manifold.pointCount );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -1187,11 +1425,15 @@
+ 	StepPairWorld( worldId );
+ 	b2Body_SetAwake( sleeper.bodyId, false );
+ 	ENSURE( b2Body_IsAwake( sleeper.bodyId ) == false );
++	ORACLE_BOOL( "L1189", b2Body_IsAwake( sleeper.bodyId ) == false );
+ 
+ 	CreatePairBox( worldId, b2_staticBody, 0.5f, 0.0f, &shapeDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( b2Body_GetContactCapacity( sleeper.bodyId ) == 1 );
++	ORACLE_BOOL( "L1193", b2Body_GetContactCapacity( sleeper.bodyId ) == 1 );
++	ORACLE_I32( "L1193:value", b2Body_GetContactCapacity( sleeper.bodyId ) );
+ 	ENSURE( b2Body_IsAwake( sleeper.bodyId ) == false );
++	ORACLE_BOOL( "L1194", b2Body_IsAwake( sleeper.bodyId ) == false );
+ 
+ 	// The quiet kind never pairs with a sleeper
+ 	b2ShapeDef quietDef = b2DefaultShapeDef();
+@@ -1199,16 +1441,24 @@
+ 	CreatePairBox( worldId, b2_staticBody, -0.5f, 0.0f, &quietDef );
+ 	StepPairWorld( worldId );
+ 	ENSURE( b2Body_GetContactCapacity( sleeper.bodyId ) == 1 );
++	ORACLE_BOOL( "L1201", b2Body_GetContactCapacity( sleeper.bodyId ) == 1 );
++	ORACLE_I32( "L1201:value", b2Body_GetContactCapacity( sleeper.bodyId ) );
+ 
+ 	// Waking brings the parked contact into the step and it touches at once
+ 	b2Body_SetAwake( sleeper.bodyId, true );
+ 	StepPairWorld( worldId );
+ 	ENSURE( PairContactCount( worldId ) == 1 );
++	ORACLE_BOOL( "L1206", PairContactCount( worldId ) == 1 );
++	ORACLE_I32( "L1206:value", PairContactCount( worldId ) );
+ 
+ 	b2ContactData contactData[4];
+ 	int touchingCount = b2Body_GetContactData( sleeper.bodyId, contactData, 4 );
+ 	ENSURE( touchingCount == 1 );
++	ORACLE_BOOL( "L1210", touchingCount == 1 );
++	ORACLE_I32( "L1210:value", touchingCount );
+ 	ENSURE( contactData[0].manifold.pointCount > 0 );
++	ORACLE_BOOL( "L1211", contactData[0].manifold.pointCount > 0 );
++	ORACLE_I32( "L1211:value", contactData[0].manifold.pointCount );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+@@ -1224,6 +1474,7 @@
+ 	for ( int i = 0; i < stepCount; ++i )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_WORLD_STEP( worldId, "L1226" );
+ 	}
+ }
+ 
+@@ -1232,6 +1483,7 @@
+ 	for ( int i = 0; i < maxSteps; ++i )
+ 	{
+ 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
++		ORACLE_WORLD_STEP( worldId, "L1234" );
+ 		if ( b2Body_IsAwake( bodyId ) == false )
+ 		{
+ 			return true;
+@@ -1289,19 +1541,27 @@
+ 	}
+ 
+ 	ENSURE( StepUntilAsleep( worldId, pile[0], 600 ) );
++	ORACLE_BOOL( "L1291", true );
+ 	ENSURE( b2Body_IsAwake( pile[2] ) == false );
++	ORACLE_BOOL( "L1292", b2Body_IsAwake( pile[2] ) == false );
+ 
+ 	b2BodyId dropper = CreateLocatorBox( worldId, b2_dynamicBody, 0.0f, 6.0f );
+ 	ENSURE( b2Body_IsAwake( pile[0] ) == false );
++	ORACLE_BOOL( "L1295", b2Body_IsAwake( pile[0] ) == false );
+ 
+ 	StepLocatorWorld( worldId, 60 );
+ 	ENSURE( b2Body_IsAwake( pile[0] ) );
++	ORACLE_BOOL( "L1298", b2Body_IsAwake( pile[0] ) );
+ 	ENSURE( b2Body_IsAwake( dropper ) );
++	ORACLE_BOOL( "L1299", b2Body_IsAwake( dropper ) );
+ 
+ 	ENSURE( StepUntilAsleep( worldId, dropper, 900 ) );
++	ORACLE_BOOL( "L1301", true );
+ 	ENSURE( b2Body_IsAwake( pile[0] ) == false );
++	ORACLE_BOOL( "L1302", b2Body_IsAwake( pile[0] ) == false );
+ 
+ 	*hash = b2World_GetStateHash( worldId );
++	ORACLE_U64( "LocatorSleepWake:hash", *hash );
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+ }
+@@ -1333,8 +1593,10 @@
+ 	StepLocatorWorld( worldId, 30 );
+ 
+ 	ENSURE_SMALL( (float)b2Body_GetPosition( neighbors[2] ).y - restY, 0.01f );
++	ORACLE_F32( "L1335", (float)b2Body_GetPosition( neighbors[2] ).y - restY );
+ 
+ 	*hash = b2World_GetStateHash( worldId );
++	ORACLE_U64( "LocatorDestroyAwakeBody:hash", *hash );
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+ }
+@@ -1361,9 +1623,13 @@
+ 	StepLocatorWorld( worldId, 40 );
+ 
+ 	ENSURE_SMALL( (float)b2Body_GetPosition( boxes[2] ).y - restY, 0.01f );
++	ORACLE_F32( "L1363", (float)b2Body_GetPosition( boxes[2] ).y - restY );
+ 	ENSURE( (float)b2Body_GetPosition( boxes[0] ).y < -1.0f );
++	ORACLE_BOOL( "L1364", (float)b2Body_GetPosition( boxes[0] ).y < -1.0f );
++	ORACLE_F32( "L1364:value", (float)b2Body_GetPosition( boxes[0] ).y );
+ 
+ 	*hash = b2World_GetStateHash( worldId );
++	ORACLE_U64( "LocatorDestroyStaticBody:hash", *hash );
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+ }
+@@ -1383,20 +1649,28 @@
+ 	b2Body_EnableSleep( mover, false );
+ 
+ 	ENSURE( StepUntilAsleep( worldId, sleeper, 600 ) );
++	ORACLE_BOOL( "L1385", true );
+ 	ENSURE( b2Body_IsAwake( mover ) );
++	ORACLE_BOOL( "L1386", b2Body_IsAwake( mover ) );
+ 
+ 	b2ContactData contactData[4];
+ 	ENSURE( b2Body_GetContactCapacity( mover ) == 1 );
++	ORACLE_BOOL( "L1389", b2Body_GetContactCapacity( mover ) == 1 );
++	ORACLE_I32( "L1389:value", b2Body_GetContactCapacity( mover ) );
+ 	ENSURE( b2Body_GetContactData( mover, contactData, 4 ) == 0 );
++	ORACLE_BOOL( "L1390", b2Body_GetContactData( mover, contactData, 4 ) == 0 );
+ 
+ 	StepLocatorWorld( worldId, 30 );
+ 	ENSURE( b2Body_IsAwake( sleeper ) == false );
++	ORACLE_BOOL( "L1393", b2Body_IsAwake( sleeper ) == false );
+ 
+ 	b2Body_SetLinearVelocity( mover, (b2Vec2){ -2.0f, 0.0f } );
+ 	StepLocatorWorld( worldId, 10 );
+ 	ENSURE( b2Body_IsAwake( sleeper ) );
++	ORACLE_BOOL( "L1397", b2Body_IsAwake( sleeper ) );
+ 
+ 	*hash = b2World_GetStateHash( worldId );
++	ORACLE_U64( "LocatorSleepingNeighbor:hash", *hash );
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+ }
+@@ -1423,22 +1697,30 @@
+ 	b2Body_SetType( subject, b2_staticBody );
+ 	StepLocatorWorld( worldId, 30 );
+ 	ENSURE( b2Body_GetType( subject ) == b2_staticBody );
++	ORACLE_BOOL( "L1425", b2Body_GetType( subject ) == b2_staticBody );
++	ORACLE_I32( "L1425:value", b2Body_GetType( subject ) );
+ 
+ 	b2Body_SetType( subject, b2_dynamicBody );
+ 	StepLocatorWorld( worldId, 30 );
+ 	ENSURE( b2Body_GetType( subject ) == b2_dynamicBody );
++	ORACLE_BOOL( "L1429", b2Body_GetType( subject ) == b2_dynamicBody );
++	ORACLE_I32( "L1429:value", b2Body_GetType( subject ) );
+ 
+ 	b2Body_Disable( subject );
+ 	StepLocatorWorld( worldId, 10 );
+ 	ENSURE( b2Body_IsEnabled( subject ) == false );
++	ORACLE_BOOL( "L1433", b2Body_IsEnabled( subject ) == false );
+ 
+ 	b2Body_Enable( subject );
+ 	StepLocatorWorld( worldId, 30 );
+ 	ENSURE( b2Body_IsEnabled( subject ) );
++	ORACLE_BOOL( "L1437", b2Body_IsEnabled( subject ) );
+ 
+ 	ENSURE_SMALL( (float)b2Body_GetPosition( neighbors[2] ).y - restY, 0.01f );
++	ORACLE_F32( "L1439", (float)b2Body_GetPosition( neighbors[2] ).y - restY );
+ 
+ 	*hash = b2World_GetStateHash( worldId );
++	ORACLE_U64( "LocatorTypeChange:hash", *hash );
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+ }
+@@ -1457,9 +1739,14 @@
+ 	b2Body_EnableSleep( watcher, false );
+ 
+ 	ENSURE( StepUntilAsleep( worldId, left, 600 ) );
++	ORACLE_BOOL( "L1459", true );
+ 	ENSURE( b2Body_IsAwake( right ) == false );
++	ORACLE_BOOL( "L1460", b2Body_IsAwake( right ) == false );
+ 	ENSURE( b2Body_IsAwake( watcher ) );
++	ORACLE_BOOL( "L1461", b2Body_IsAwake( watcher ) );
+ 	ENSURE( b2Body_GetContactCapacity( watcher ) == 1 );
++	ORACLE_BOOL( "L1462", b2Body_GetContactCapacity( watcher ) == 1 );
++	ORACLE_I32( "L1462:value", b2Body_GetContactCapacity( watcher ) );
+ 
+ 	b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
+ 	jointDef.base.bodyIdA = left;
+@@ -1468,19 +1755,24 @@
+ 	b2JointId jointId = b2CreateDistanceJoint( worldId, &jointDef );
+ 
+ 	ENSURE( b2Body_IsAwake( left ) == false );
++	ORACLE_BOOL( "L1470", b2Body_IsAwake( left ) == false );
+ 	ENSURE( b2Body_IsAwake( right ) == false );
++	ORACLE_BOOL( "L1471", b2Body_IsAwake( right ) == false );
+ 
+ 	StepLocatorWorld( worldId, 30 );
+ 	ENSURE( b2Body_IsAwake( left ) == false );
++	ORACLE_BOOL( "L1474", b2Body_IsAwake( left ) == false );
+ 
+ 	b2Body_SetAwake( left, true );
+ 	StepLocatorWorld( worldId, 10 );
+ 	ENSURE( b2Body_IsAwake( right ) );
++	ORACLE_BOOL( "L1478", b2Body_IsAwake( right ) );
+ 
+ 	b2DestroyJoint( jointId );
+ 	StepLocatorWorld( worldId, 10 );
+ 
+ 	*hash = b2World_GetStateHash( worldId );
++	ORACLE_U64( "LocatorSetMerge:hash", *hash );
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+ }
+@@ -1501,6 +1793,8 @@
+ 	// A step carries it two thirds of a meter, well past half its minimum extent
+ 	StepLocatorWorld( worldId, 4 );
+ 	ENSURE( (float)b2Body_GetPosition( bullet ).x > 2.0f );
++	ORACLE_BOOL( "L1503", (float)b2Body_GetPosition( bullet ).x > 2.0f );
++	ORACLE_F32( "L1503:value", (float)b2Body_GetPosition( bullet ).x );
+ 
+ 	b2Body_EnableSleep( bullet, false );
+ 	StepLocatorWorld( worldId, 4 );
+@@ -1510,9 +1804,14 @@
+ 
+ 	// It stopped at the wall instead of tunneling through
+ 	ENSURE( (float)b2Body_GetPosition( bullet ).x < 9.1f );
++	ORACLE_BOOL( "L1512", (float)b2Body_GetPosition( bullet ).x < 9.1f );
++	ORACLE_F32( "L1512:value", (float)b2Body_GetPosition( bullet ).x );
+ 	ENSURE( (float)b2Body_GetPosition( bullet ).x > 8.5f );
++	ORACLE_BOOL( "L1513", (float)b2Body_GetPosition( bullet ).x > 8.5f );
++	ORACLE_F32( "L1513:value", (float)b2Body_GetPosition( bullet ).x );
+ 
+ 	*hash = b2World_GetStateHash( worldId );
++	ORACLE_U64( "LocatorFastBody:hash", *hash );
+ 	b2DestroyWorld( worldId );
+ 	return 0;
+ }
+@@ -1540,12 +1839,14 @@
+ 
+ 		StepLocatorWorld( worldId, 60 );
+ 		ENSURE( b2Body_IsAwake( boxes[0] ) == ( pass == 1 ) );
++		ORACLE_BOOL( "L1542", b2Body_IsAwake( boxes[0] ) == ( pass == 1 ) );
+ 
+ 		b2BodyId impactor = CreateLocatorBox( worldId, b2_dynamicBody, -5.0f, 0.0f );
+ 		b2Body_SetLinearVelocity( impactor, (b2Vec2){ 5.0f, 0.0f } );
+ 
+ 		StepLocatorWorld( worldId, 120 );
+ 		ENSURE( b2Body_IsAwake( boxes[2] ) );
++		ORACLE_BOOL( "L1548", b2Body_IsAwake( boxes[2] ) );
+ 
+ 		for ( int i = 0; i < 3; ++i )
+ 		{
+@@ -1558,6 +1859,7 @@
+ 	for ( int i = 0; i < 3; ++i )
+ 	{
+ 		ENSURE_SMALL( finalX[0][i] - finalX[1][i], 0.01f );
++		ORACLE_F32( "L1560", finalX[0][i] - finalX[1][i] );
+ 	}
+ 
+ 	return 0;
+@@ -1571,48 +1873,63 @@
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorSleepWake( workerCounts[i], hashes + i ) == 0 );
++		ORACLE_BOOL( "L1573", true );
+ 	}
+ 	ENSURE( hashes[0] == hashes[1] );
++	ORACLE_BOOL( "L1575", hashes[0] == hashes[1] );
+ 
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorDestroyAwakeBody( workerCounts[i], hashes + i ) == 0 );
++		ORACLE_BOOL( "L1579", true );
+ 	}
+ 	ENSURE( hashes[0] == hashes[1] );
++	ORACLE_BOOL( "L1581", hashes[0] == hashes[1] );
+ 
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorDestroyStaticBody( workerCounts[i], hashes + i ) == 0 );
++		ORACLE_BOOL( "L1585", true );
+ 	}
+ 	ENSURE( hashes[0] == hashes[1] );
++	ORACLE_BOOL( "L1587", hashes[0] == hashes[1] );
+ 
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorSleepingNeighbor( workerCounts[i], hashes + i ) == 0 );
++		ORACLE_BOOL( "L1591", true );
+ 	}
+ 	ENSURE( hashes[0] == hashes[1] );
++	ORACLE_BOOL( "L1593", hashes[0] == hashes[1] );
+ 
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorTypeChange( workerCounts[i], hashes + i ) == 0 );
++		ORACLE_BOOL( "L1597", true );
+ 	}
+ 	ENSURE( hashes[0] == hashes[1] );
++	ORACLE_BOOL( "L1599", hashes[0] == hashes[1] );
+ 
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorSetMerge( workerCounts[i], hashes + i ) == 0 );
++		ORACLE_BOOL( "L1603", true );
+ 	}
+ 	ENSURE( hashes[0] == hashes[1] );
++	ORACLE_BOOL( "L1605", hashes[0] == hashes[1] );
+ 
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorFastBody( workerCounts[i], hashes + i ) == 0 );
++		ORACLE_BOOL( "L1609", true );
+ 	}
+ 	ENSURE( hashes[0] == hashes[1] );
++	ORACLE_BOOL( "L1611", hashes[0] == hashes[1] );
+ 
+ 	for ( int i = 0; i < 2; ++i )
+ 	{
+ 		ENSURE( LocatorSleepParity( workerCounts[i] ) == 0 );
++		ORACLE_BOOL( "L1615", true );
+ 	}
+ 
+ 	return 0;
+@@ -1625,17 +1942,29 @@
+ 	{
+ 		int workerCount = workerCounts[i];
+ 		ENSURE( PairCreation( workerCount ) == 0 );
++		ORACLE_BOOL( "L1627", true );
+ 		ENSURE( PairTeleport( workerCount ) == 0 );
++		ORACLE_BOOL( "L1628", true );
+ 		ENSURE( PairRefilter( workerCount ) == 0 );
++		ORACLE_BOOL( "L1629", true );
+ 		ENSURE( PairCollideConnected( workerCount ) == 0 );
++		ORACLE_BOOL( "L1630", true );
+ 		ENSURE( PairFilters( workerCount ) == 0 );
++		ORACLE_BOOL( "L1631", true );
+ 		ENSURE( PairEnable( workerCount ) == 0 );
++		ORACLE_BOOL( "L1632", true );
+ 		ENSURE( PairSetType( workerCount ) == 0 );
++		ORACLE_BOOL( "L1633", true );
+ 		ENSURE( PairSetBullet( workerCount ) == 0 );
++		ORACLE_BOOL( "L1634", true );
+ 		ENSURE( PairRebuildStatic( workerCount ) == 0 );
++		ORACLE_BOOL( "L1635", true );
+ 		ENSURE( PairSleepEscape( workerCount, false ) == 0 );
++		ORACLE_BOOL( "L1636", true );
+ 		ENSURE( PairSleepEscape( workerCount, true ) == 0 );
++		ORACLE_BOOL( "L1637", true );
+ 		ENSURE( PairSleepingStatic( workerCount ) == 0 );
++		ORACLE_BOOL( "L1638", true );
+ 	}
+ 
+ 	return 0;
+@@ -1669,19 +1998,28 @@
+ 	b2Body_SetType( bodyIdA, b2_staticBody );
+ 	b2Body_SetType( bodyIdB, b2_kinematicBody );
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L1671" );
+ 
+ 	b2Body_Disable( bodyIdB );
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L1674" );
+ 	b2Body_Enable( bodyIdB );
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L1676" );
+ 	ENSURE( b2Joint_IsValid( weldId ) );
++	ORACLE_BOOL( "L1677", b2Joint_IsValid( weldId ) );
+ 
+ 	b2World* world = b2GetWorldFromId( worldId );
+ 	ENSURE( b2GetJointFullId( world, weldId )->setIndex == b2_staticSet );
++	ORACLE_BOOL( "L1680", b2GetJointFullId( world, weldId )->setIndex == b2_staticSet );
++	ORACLE_I32( "L1680:value", b2GetJointFullId( world, weldId )->setIndex );
+ 
+ 	b2Body_SetType( bodyIdB, b2_dynamicBody );
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L1683" );
+ 	ENSURE( b2GetJointFullId( world, weldId )->setIndex == b2_awakeSet );
++	ORACLE_BOOL( "L1684", b2GetJointFullId( world, weldId )->setIndex == b2_awakeSet );
++	ORACLE_I32( "L1684:value", b2GetJointFullId( world, weldId )->setIndex );
+ 
+ 	// Created directly between a static and a kinematic body
+ 	bodyDef.type = b2_kinematicBody;
+@@ -1697,7 +2035,10 @@
+ 	b2Body_Disable( bodyIdC );
+ 	b2Body_Enable( bodyIdC );
+ 	b2World_Step( worldId, 1.0f / 60.0f, 4 );
++	ORACLE_WORLD_STEP( worldId, "L1699" );
+ 	ENSURE( b2GetJointFullId( world, revoluteId )->setIndex == b2_staticSet );
++	ORACLE_BOOL( "L1700", b2GetJointFullId( world, revoluteId )->setIndex == b2_staticSet );
++	ORACLE_I32( "L1700:value", b2GetJointFullId( world, revoluteId )->setIndex );
+ 
+ 	b2DestroyWorld( worldId );
+ 	return 0;

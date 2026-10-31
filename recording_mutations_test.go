@@ -15,7 +15,7 @@ func TestRecordingRejectsPreinstalledCustomFilter(t *testing.T) {
 	worldDef.WorkerCount = 0
 	worldDef.Gravity = box2d.Vec2{}
 	world := box2d.NewWorld(&worldDef)
-	box2d.BTWorldCleanup(t, world)
+	box2d.CleanupWorld(t, world)
 
 	filterCalled := false
 
@@ -83,7 +83,7 @@ func TestRecordingRejectsMaterialCallbacks(t *testing.T) {
 			def.WorkerCount = 0
 			def.Gravity = box2d.Vec2{}
 			world := box2d.NewWorld(&def)
-			box2d.BTWorldCleanup(t, world)
+			box2d.CleanupWorld(t, world)
 
 			bodyDef := box2d.DefaultBodyDef()
 			ground := world.CreateBody(&bodyDef)
@@ -142,7 +142,7 @@ func TestRecordingMutationParity(t *testing.T) {
 	wd := box2d.DefaultWorldDef()
 	wd.Gravity = box2d.Vec2{}
 	w := box2d.NewWorld(&wd)
-	box2d.BTWorldCleanup(t, w)
+	box2d.CleanupWorld(t, w)
 
 	rec := box2d.NewRecording(0)
 	ignored := box2d.NewRecording(0)
@@ -354,7 +354,7 @@ func TestRecordingMutationParity(t *testing.T) {
 	// Reusing a stopped buffer replaces the old session rather than appending it.
 	wd.Gravity = box2d.Vec2{Y: -2}
 	w = box2d.NewWorld(&wd)
-	box2d.BTWorldCleanup(t, w)
+	box2d.CleanupWorld(t, w)
 	w.StartRecording(rec)
 
 	bd.Name = "new session"

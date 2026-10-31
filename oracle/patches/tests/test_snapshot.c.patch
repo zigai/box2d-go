@@ -1,0 +1,480 @@
+--- a/test_snapshot.c
++++ b/test_snapshot.c
+@@ -1,5 +1,6 @@
+ // SPDX-FileCopyrightText: 2026 Erin Catto
+ // SPDX-License-Identifier: MIT
++#include "oracle.h"
+ 
+ #include "core.h"
+ #include "determinism.h"
+@@ -225,6 +226,7 @@
+ 	for ( int step = 0; step < maxSteps; ++step )
+ 	{
+ 		b2World_Step( worldId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( worldId, ORACLE_KEY( "L227/step/%d", step ), step );
+ 
+ 		int awake = b2World_GetAwakeBodyCount( worldId );
+ 		if ( awake == 0 )
+@@ -237,6 +239,7 @@
+ 
+ int SnapshotTest( void )
+ {
++	ORACLE_OPEN( "snapshot/SnapshotTest" );
+ 	// Phase 1: build and settle worldA
+ 	b2WorldId worldAId = BuildScene( 1, NULL );
+ 	StepUntilSleep( worldAId );
+@@ -245,29 +248,42 @@
+ 
+ 	// The sleeping-set path (sets beyond the initial 3) must be exercised
+ 	ENSURE( worldA->solverSets.count > 3 );
++	ORACLE_BOOL( "L247", worldA->solverSets.count > 3 );
++	ORACLE_I32( "L247/value0", worldA->solverSets.count );
+ 
+ 	// The free pair image only round trips if a tree actually has a hole
+ 	ENSURE( worldA->broadPhase.trees[b2_staticBody].pairFreeList != B2_NULL_INDEX );
++	ORACLE_BOOL( "L250", worldA->broadPhase.trees[b2_staticBody].pairFreeList != B2_NULL_INDEX );
++	ORACLE_I32( "L250/value0", worldA->broadPhase.trees[b2_staticBody].pairFreeList );
++	ORACLE_I32( "L250/value1", B2_NULL_INDEX );
+ 
+ 	// Serialize worldA
+ 	b2RecBuffer buf = { 0 };
+ 	b2SerializeWorld( worldA, &buf );
+ 	ENSURE( buf.size > 0 );
++	ORACLE_BOOL( "L255", buf.size > 0 );
+ 
+ 	// Phase 2: deserialize into worldB (same worker count)
+ 	b2WorldId worldBId = b2CreateWorldFromSnapshot( buf.data, buf.size, 1 );
+ 	ENSURE( b2World_IsValid( worldBId ) );
++	ORACLE_BOOL( "L259", b2World_IsValid( worldBId ) );
+ 
+ 	b2World* worldB = b2GetWorldFromId( worldBId );
+ 
+ 	// Immediate hash check — A and B must be identical
+ 	uint64_t hashA0 = b2HashWorldState( worldA );
++	ORACLE_U64( "L264/value", hashA0 );
+ 	uint64_t hashB0 = b2HashWorldState( worldB );
++	ORACLE_U64( "L265/value", hashB0 );
+ 	ENSURE( hashA0 == hashB0 );
++	ORACLE_BOOL( "L266", hashA0 == hashB0 );
+ 
+ 	uint64_t deepA0 = b2HashWorldStateDeep( worldA );
++	ORACLE_U64( "L268/value", deepA0 );
+ 	uint64_t deepB0 = b2HashWorldStateDeep( worldB );
++	ORACLE_U64( "L269/value", deepB0 );
+ 	ENSURE( deepA0 == deepB0 );
++	ORACLE_BOOL( "L270", deepA0 == deepB0 );
+ 
+ 	// Free pairs are chained through the parent index of their first node, so a broken
+ 	// restore shows up here and not in the hashes, which never read tree nodes
+@@ -276,12 +292,24 @@
+ 		const b2DynamicTree* treeA = worldA->broadPhase.trees + treeType;
+ 		const b2DynamicTree* treeB = worldB->broadPhase.trees + treeType;
+ 		ENSURE( treeA->nodeEnd == treeB->nodeEnd );
++		ORACLE_BOOL( "L278", treeA->nodeEnd == treeB->nodeEnd );
++		ORACLE_I32( "L278/value0", treeA->nodeEnd );
++		ORACLE_I32( "L278/value1", treeB->nodeEnd );
+ 		ENSURE( treeA->pairFreeList == treeB->pairFreeList );
++		ORACLE_BOOL( "L279", treeA->pairFreeList == treeB->pairFreeList );
++		ORACLE_I32( "L279/value0", treeA->pairFreeList );
++		ORACLE_I32( "L279/value1", treeB->pairFreeList );
+ 
+ 		for ( int pair = treeA->pairFreeList; pair != B2_NULL_INDEX; pair = treeA->parents[pair] )
+ 		{
+ 			ENSURE( treeA->parents[pair] == treeB->parents[pair] );
++			ORACLE_BOOL( "L283", treeA->parents[pair] == treeB->parents[pair] );
++			ORACLE_I32( "L283/value0", treeA->parents[pair] );
++			ORACLE_I32( "L283/value1", treeB->parents[pair] );
+ 			ENSURE( treeA->parents[pair + 1] == treeB->parents[pair + 1] );
++			ORACLE_BOOL( "L284", treeA->parents[pair + 1] == treeB->parents[pair + 1] );
++			ORACLE_I32( "L284/value0", treeA->parents[pair + 1] );
++			ORACLE_I32( "L284/value1", treeB->parents[pair + 1] );
+ 		}
+ 	}
+ 
+@@ -291,23 +319,31 @@
+ 	for ( int step = 0; step < 120; ++step )
+ 	{
+ 		b2World_Step( worldAId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( worldAId, ORACLE_KEY( "L293/step/%d", step ), step );
+ 		b2World_Step( worldBId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( worldBId, ORACLE_KEY( "L294/step/%d", step ), step );
+ 
+ 		uint64_t sA = b2HashWorldState( worldA );
++		ORACLE_U64( "L296/value", sA );
+ 		uint64_t sB = b2HashWorldState( worldB );
++		ORACLE_U64( "L297/value", sB );
+ 		if ( sA != sB )
+ 		{
+ 			printf( "shallow hash mismatch at lockstep step %d (A=%llu B=%llu)\n", step, (unsigned long long)sA,
+ 					(unsigned long long)sB );
++					ORACLE_BOOL( "L302", false );
+ 			ENSURE( false );
+ 		}
+ 
+ 		uint64_t dA = b2HashWorldStateDeep( worldA );
++		ORACLE_U64( "L305/value", dA );
+ 		uint64_t dB = b2HashWorldStateDeep( worldB );
++		ORACLE_U64( "L306/value", dB );
+ 		if ( dA != dB )
+ 		{
+ 			printf( "deep hash mismatch at lockstep step %d (A=%llu B=%llu)\n", step, (unsigned long long)dA,
+ 					(unsigned long long)dB );
++					ORACLE_BOOL( "L311", false );
+ 			ENSURE( false );
+ 		}
+ 	}
+@@ -320,25 +356,33 @@
+ 
+ 	b2WorldId worldA1Id = b2CreateWorldFromSnapshot( buf.data, buf.size, 1 );
+ 	ENSURE( b2World_IsValid( worldA1Id ) );
++	ORACLE_BOOL( "L322", b2World_IsValid( worldA1Id ) );
+ 	b2World* worldA1 = b2GetWorldFromId( worldA1Id );
+ 
+ 	b2WorldId worldCId = b2CreateWorldFromSnapshot( buf.data, buf.size, 4 );
+ 	ENSURE( b2World_IsValid( worldCId ) );
++	ORACLE_BOOL( "L326", b2World_IsValid( worldCId ) );
+ 	b2World* worldC = b2GetWorldFromId( worldCId );
+ 
+ 	ENSURE( b2HashWorldState( worldA1 ) == b2HashWorldState( worldC ) );
++	ORACLE_BOOL( "L329", b2HashWorldState( worldA1 ) == b2HashWorldState( worldC ) );
+ 
+ 	for ( int step = 0; step < 120; ++step )
+ 	{
+ 		b2World_Step( worldA1Id, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( worldA1Id, ORACLE_KEY( "L333/step/%d", step ), step );
+ 		b2World_Step( worldCId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( worldCId, ORACLE_KEY( "L334/step/%d", step ), step );
+ 
+ 		uint64_t sA1 = b2HashWorldState( worldA1 );
++		ORACLE_U64( "L336/value", sA1 );
+ 		uint64_t sC = b2HashWorldState( worldC );
++		ORACLE_U64( "L337/value", sC );
+ 		if ( sA1 != sC )
+ 		{
+ 			printf( "one vs four worker hash mismatch at step %d (1w=%llu 4w=%llu)\n", step, (unsigned long long)sA1,
+ 					(unsigned long long)sC );
++					ORACLE_BOOL( "L342", false );
+ 			ENSURE( false );
+ 		}
+ 	}
+@@ -352,11 +396,14 @@
+ 	// Producer: size query, then fill a caller-owned buffer
+ 	int imageSize = b2World_GetSnapshot( rId, NULL, 0 );
+ 	ENSURE( imageSize > 0 );
++	ORACLE_BOOL( "L354", imageSize > 0 );
+ 	uint8_t* image = b2Alloc( imageSize );
+ 	int written = b2World_GetSnapshot( rId, image, imageSize );
+ 	ENSURE( written == imageSize );
++	ORACLE_BOOL( "L357", written == imageSize );
+ 
+ 	uint64_t snapHash = b2HashWorldStateDeep( rWorld );
++	ORACLE_U64( "L359/value", snapHash );
+ 
+ 	// Diverge from the snapshot: push a held body and add a body that did not exist at the snapshot
+ 	b2Body_SetLinearVelocity( ids.body, (b2Vec2){ 3.0f, 6.0f } );
+@@ -368,32 +415,46 @@
+ 	for ( int step = 0; step < 30; ++step )
+ 	{
+ 		b2World_Step( rId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( rId, ORACLE_KEY( "L370/step/%d", step ), step );
+ 	}
+ 	ENSURE( b2HashWorldStateDeep( rWorld ) != snapHash );
++	ORACLE_BOOL( "L372", b2HashWorldStateDeep( rWorld ) != snapHash );
+ 
+ 	ENSURE( b2World_Restore( rId, image, imageSize ) );
++	ORACLE_BOOL( "L374", true );
+ 
+ 	// Whole-world state rolled back to the snapshot instant
+ 	ENSURE( b2HashWorldStateDeep( rWorld ) == snapHash );
++	ORACLE_BOOL( "L377", b2HashWorldStateDeep( rWorld ) == snapHash );
+ 
+ 	// The world id and every id held at the snapshot instant resolve again
+ 	ENSURE( b2World_IsValid( rId ) );
++	ORACLE_BOOL( "L380", b2World_IsValid( rId ) );
+ 	ENSURE( b2Body_IsValid( ids.body ) );
++	ORACLE_BOOL( "L381", b2Body_IsValid( ids.body ) );
+ 	ENSURE( b2Shape_IsValid( ids.shape ) );
++	ORACLE_BOOL( "L382", b2Shape_IsValid( ids.shape ) );
+ 	ENSURE( b2Joint_IsValid( ids.joint ) );
++	ORACLE_BOOL( "L383", b2Joint_IsValid( ids.joint ) );
+ 	ENSURE( b2Chain_IsValid( ids.chain ) );
++	ORACLE_BOOL( "L384", b2Chain_IsValid( ids.chain ) );
+ 
+ 	// An id minted after the snapshot is rejected, not aliased onto a different object
+ 	ENSURE( b2Body_IsValid( postBody ) == false );
++	ORACLE_BOOL( "L387", b2Body_IsValid( postBody ) == false );
+ 
+ 	// Phase 6: a rejected image leaves the world untouched
+ 	uint64_t preBadHash = b2HashWorldStateDeep( rWorld );
++	ORACLE_U64( "L390/value", preBadHash );
+ 	ENSURE( b2World_Restore( rId, NULL, 0 ) == false );
++	ORACLE_BOOL( "L391", true );
+ 	uint8_t* corrupt = b2Alloc( imageSize );
+ 	memcpy( corrupt, image, imageSize );
+ 	corrupt[0] ^= 0xFF; // break the magic
+ 	ENSURE( b2World_Restore( rId, corrupt, imageSize ) == false );
++	ORACLE_BOOL( "L395", true );
+ 	ENSURE( b2HashWorldStateDeep( rWorld ) == preBadHash );
++	ORACLE_BOOL( "L396", b2HashWorldStateDeep( rWorld ) == preBadHash );
+ 	b2Free( corrupt, imageSize );
+ 
+ 	// The node capacity in the image is only an allocation hint. A huge one must not drive the
+@@ -414,22 +475,30 @@
+ 		}
+ 	}
+ 	ENSURE( treeOffset >= 0 );
++	ORACLE_BOOL( "L416", treeOffset >= 0 );
+ 
+ 	uint8_t* greedy = b2Alloc( imageSize );
+ 	memcpy( greedy, image, imageSize );
+ 	int32_t hugeCapacity = INT32_MAX / 64;
+ 	memcpy( greedy + treeOffset + 4, &hugeCapacity, 4 );
+ 	ENSURE( b2World_Restore( rId, greedy, imageSize ) );
++	ORACLE_BOOL( "L422", true );
+ 	ENSURE( b2HashWorldStateDeep( rWorld ) == snapHash );
++	ORACLE_BOOL( "L423", b2HashWorldStateDeep( rWorld ) == snapHash );
+ 	ENSURE( staticTree->nodeCapacity <= 2 * staticTree->nodeEnd );
++	ORACLE_BOOL( "L424", staticTree->nodeCapacity <= 2 * staticTree->nodeEnd );
++	ORACLE_I32( "L424/value0", staticTree->nodeCapacity );
++	ORACLE_I32( "L424/value1", 2 * staticTree->nodeEnd );
+ 	b2Free( greedy, imageSize );
+ 
+ 	// Repeated in-place restore over the chain/sensor/island heap must not leak
+ 	for ( int i = 0; i < 3; ++i )
+ 	{
+ 		ENSURE( b2World_Restore( rId, image, imageSize ) );
++		ORACLE_BOOL( "L430", true );
+ 	}
+ 	ENSURE( b2HashWorldStateDeep( rWorld ) == snapHash );
++	ORACLE_BOOL( "L432", b2HashWorldStateDeep( rWorld ) == snapHash );
+ 
+ 	// Phase 7: restore is worker-count independent. Restore the one-worker image into a
+ 	// four-worker world and lockstep it against the same image loaded fresh at one worker.
+@@ -437,20 +506,29 @@
+ 	def4.workerCount = 4;
+ 	b2WorldId sId = b2CreateWorld( &def4 );
+ 	ENSURE( b2World_Restore( sId, image, imageSize ) );
++	ORACLE_BOOL( "L439", true );
+ 	b2World* sWorld = b2GetWorldFromId( sId );
+ 
+ 	b2WorldId freshId = b2CreateWorldFromSnapshot( image, imageSize, 1 );
+ 	ENSURE( b2World_IsValid( freshId ) );
++	ORACLE_BOOL( "L443", b2World_IsValid( freshId ) );
+ 	b2World* freshWorld = b2GetWorldFromId( freshId );
+ 
+ 	ENSURE( b2HashWorldState( sWorld ) == b2HashWorldState( freshWorld ) );
++	ORACLE_BOOL( "L446", b2HashWorldState( sWorld ) == b2HashWorldState( freshWorld ) );
+ 	for ( int step = 0; step < 120; ++step )
+ 	{
+ 		b2World_Step( sId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( sId, ORACLE_KEY( "L449/step/%d", step ), step );
+ 		b2World_Step( freshId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( freshId, ORACLE_KEY( "L450/step/%d", step ), step );
++		ORACLE_U64( ORACLE_KEY( "continuation/in-place/%d/state", step ), b2World_GetStateHash( sId ) );
++		ORACLE_U64( ORACLE_KEY( "continuation/fresh/%d/state", step ), b2World_GetStateHash( freshId ) );
++		ENSURE( b2World_GetStateHash( sId ) == b2World_GetStateHash( freshId ) );
+ 		if ( b2HashWorldState( sWorld ) != b2HashWorldState( freshWorld ) )
+ 		{
+ 			printf( "in-place vs fresh hash mismatch at step %d\n", step );
++			ORACLE_BOOL( "L454", false );
+ 			ENSURE( false );
+ 		}
+ 	}
+@@ -467,6 +545,7 @@
+ 		for ( int step = 0; step < 20; ++step )
+ 		{
+ 			b2World_Step( wId, dt, subSteps );
++			ORACLE_TRANSFORM_TRACE( wId, ORACLE_KEY( "L469/step/%d", step ), step );
+ 		}
+ 
+ 		b2Recording* rec = b2CreateRecording( 0 );
+@@ -474,6 +553,7 @@
+ 		for ( int step = 0; step < 60; ++step )
+ 		{
+ 			b2World_Step( wId, dt, subSteps );
++			ORACLE_TRANSFORM_TRACE( wId, ORACLE_KEY( "L476/step/%d", step ), step );
+ 		}
+ 		b2World_StopRecording( wId );
+ 		b2DestroyWorld( wId );
+@@ -481,40 +561,60 @@
+ 		const uint8_t* recData = b2Recording_GetData( rec );
+ 		int recSize = b2Recording_GetSize( rec );
+ 		ENSURE( b2ValidateReplay( recData, recSize, 0 ) );
++		ORACLE_BOOL( "L483", true );
+ 		ENSURE( b2ValidateReplay( recData, recSize, 4 ) );
++		ORACLE_BOOL( "L484", true );
+ 
+ 		// File round-trip: save the buffer, load it back, and replay the loaded copy
+ 		ENSURE( b2SaveRecordingToFile( rec, s_snapPath ) );
++		ORACLE_BOOL( "L487", true );
+ 		b2Recording* loaded = b2LoadRecordingFromFile( s_snapPath );
+ 		ENSURE( loaded != NULL );
++		ORACLE_BOOL( "L489", loaded != NULL );
+ 		ENSURE( b2ValidateReplay( b2Recording_GetData( loaded ), b2Recording_GetSize( loaded ), 0 ) );
++		ORACLE_BOOL( "L490", true );
+ 		b2DestroyRecording( loaded );
+ 
+ 		// The player opens the recording and the replay world id is stable across a restart
+ 		b2Replay* player = b2CreateReplay( recData, recSize, 0 );
+ 		ENSURE( player != NULL );
++		ORACLE_BOOL( "L495", player != NULL );
+ 		b2WorldId pid0 = b2Replay_GetWorldId( player );
+ 
+ 		int frames = 0;
+ 		while ( b2Replay_StepFrame( player ) )
+ 		{
+ 			frames += 1;
++			ORACLE_TRANSFORM_TRACE( b2Replay_GetWorldId( player ), ORACLE_KEY( "L501/step/%d", frames ), frames - 1 );
+ 		}
+ 		ENSURE( frames == 60 );
++		ORACLE_BOOL( "L503", frames == 60 );
++		ORACLE_I32( "L503/value0", frames );
++		ORACLE_I32( "L503/value0", frames );
+ 		ENSURE( b2Replay_HasDiverged( player ) == false );
++		ORACLE_BOOL( "L504", b2Replay_HasDiverged( player ) == false );
+ 
+ 		b2Replay_Restart( player );
+ 		b2WorldId pid1 = b2Replay_GetWorldId( player );
+ 		ENSURE( pid0.index1 == pid1.index1 && pid0.generation == pid1.generation );
++		ORACLE_BOOL( "L508", pid0.index1 == pid1.index1 && pid0.generation == pid1.generation );
+ 		ENSURE( b2Replay_GetFrame( player ) == 0 );
++		ORACLE_BOOL( "L509", b2Replay_GetFrame( player ) == 0 );
++		ORACLE_I32( "L509/value0", b2Replay_GetFrame( player ) );
++		ORACLE_I32( "L509/value0", b2Replay_GetFrame( player ) );
+ 
+ 		int frames2 = 0;
+ 		while ( b2Replay_StepFrame( player ) )
+ 		{
+ 			frames2 += 1;
++			ORACLE_TRANSFORM_TRACE( b2Replay_GetWorldId( player ), ORACLE_KEY( "L514/step/%d", frames2 ), frames2 - 1 );
+ 		}
+ 		ENSURE( frames2 == 60 );
++		ORACLE_BOOL( "L516", frames2 == 60 );
++		ORACLE_I32( "L516/value0", frames2 );
++		ORACLE_I32( "L516/value0", frames2 );
+ 		ENSURE( b2Replay_HasDiverged( player ) == false );
++		ORACLE_BOOL( "L517", b2Replay_HasDiverged( player ) == false );
+ 
+ 		b2DestroyReplay( player );
+ 		b2DestroyRecording( rec );
+@@ -529,6 +629,7 @@
+ 		for ( int step = 0; step < 20; ++step )
+ 		{
+ 			b2World_Step( wId, dt, subSteps );
++			ORACLE_TRANSFORM_TRACE( wId, ORACLE_KEY( "L531/step/%d", step ), step );
+ 		}
+ 
+ 		int snapSize = b2World_GetSnapshot( wId, NULL, 0 );
+@@ -542,21 +643,34 @@
+ 			tailSteps = 90
+ 		};
+ 		uint64_t realTail[tailSteps];
++		uint64_t realDeepTail[tailSteps];
+ 		for ( int step = 0; step < tailSteps; ++step )
+ 		{
+ 			b2World_Step( wId, dt, subSteps );
++			ORACLE_TRANSFORM_TRACE( wId, ORACLE_KEY( "L547/step/%d", step ), step );
++			ORACLE_U64( ORACLE_KEY( "moving/origin/%d/state", step ), b2World_GetStateHash( wId ) );
+ 			realTail[step] = b2HashWorldState( origin );
++			realDeepTail[step] = b2World_GetStateHash( wId );
+ 		}
+ 
+ 		b2WorldId cId = b2CreateWorldFromSnapshot( snap, snapSize, 1 );
+ 		ENSURE( b2World_IsValid( cId ) );
++		ORACLE_BOOL( "L552", b2World_IsValid( cId ) );
+ 		b2World* clone = b2GetWorldFromId( cId );
+ 		for ( int step = 0; step < tailSteps; ++step )
+ 		{
+ 			b2World_Step( cId, dt, subSteps );
++			ORACLE_TRANSFORM_TRACE( cId, ORACLE_KEY( "L556/step/%d", step ), step );
++			ORACLE_U64( ORACLE_KEY( "moving/clone/%d/state", step ), b2World_GetStateHash( cId ) );
++			if ( realDeepTail[step] != b2World_GetStateHash( cId ) )
++			{
++				printf( "moving continuation canonical state mismatch at step %d\n", step );
++				ENSURE( false );
++			}
+ 			if ( realTail[step] != b2HashWorldState( clone ) )
+ 			{
+ 				printf( "snapshot-equals-real mismatch at tail step %d\n", step );
++				ORACLE_BOOL( "L560", false );
+ 				ENSURE( false );
+ 			}
+ 		}
+@@ -587,21 +701,28 @@
+ 		for ( int step = 0; step < 30; ++step )
+ 		{
+ 			b2World_Step( wId, dt, subSteps );
++			ORACLE_TRANSFORM_TRACE( wId, ORACLE_KEY( "L589/step/%d", step ), step );
+ 		}
+ 		b2World_StopRecording( wId );
+ 		b2DestroyWorld( wId );
+ 
+ 		b2Replay* player = b2CreateReplay( b2Recording_GetData( rec ), b2Recording_GetSize( rec ), 0 );
+ 		ENSURE( player != NULL );
++		ORACLE_BOOL( "L595", player != NULL );
+ 		b2WorldId pid0 = b2Replay_GetWorldId( player );
+ 		for ( int i = 0; i < 5; ++i )
+ 		{
+ 			b2Replay_StepFrame( player );
++			ORACLE_TRANSFORM_TRACE( b2Replay_GetWorldId( player ), ORACLE_KEY( "L599/step/%d", i ), i );
+ 		}
+ 		b2Replay_Restart( player );
+ 		b2WorldId pid1 = b2Replay_GetWorldId( player );
+ 		ENSURE( pid0.index1 == pid1.index1 && pid0.generation == pid1.generation );
++		ORACLE_BOOL( "L603", pid0.index1 == pid1.index1 && pid0.generation == pid1.generation );
+ 		ENSURE( b2Replay_GetFrame( player ) == 0 );
++		ORACLE_BOOL( "L604", b2Replay_GetFrame( player ) == 0 );
++		ORACLE_I32( "L604/value0", b2Replay_GetFrame( player ) );
++		ORACLE_I32( "L604/value0", b2Replay_GetFrame( player ) );
+ 		b2DestroyReplay( player );
+ 		b2DestroyRecording( rec );
+ 	}
+@@ -635,10 +756,12 @@
+ 		for ( int step = 0; step < 60; ++step )
+ 		{
+ 			b2World_Step( wId, dt, subSteps );
++			ORACLE_TRANSFORM_TRACE( wId, ORACLE_KEY( "L637/step/%d", step ), step );
+ 		}
+ 
+ 		// The public state hash accessor must match the internal deep hash
+ 		ENSURE( b2World_GetStateHash( wId ) == b2HashWorldStateDeep( w ) );
++		ORACLE_BOOL( "L641", b2World_GetStateHash( wId ) == b2HashWorldStateDeep( w ) );
+ 
+ 		int snapSize = b2World_GetSnapshot( wId, NULL, 0 );
+ 		uint8_t* snap = b2Alloc( snapSize );
+@@ -648,17 +771,28 @@
+ 		// exactly the between-step mutation a rollback would discard
+ 		b2Body_Disable( box );
+ 		ENSURE( w->contactEndEvents[w->endEventArrayIndex].count >= 1 );
++		ORACLE_BOOL( "L650", w->contactEndEvents[w->endEventArrayIndex].count >= 1 );
++		ORACLE_I32( "L650/value0", w->contactEndEvents[w->endEventArrayIndex].count );
+ 
+ 		ENSURE( b2World_Restore( wId, snap, snapSize ) );
++		ORACLE_BOOL( "L652", true );
+ 
+ 		// Restore must leave no queued end events in either half of the double buffer
+ 		ENSURE( w->contactEndEvents[0].count == 0 );
++		ORACLE_BOOL( "L655", w->contactEndEvents[0].count == 0 );
++		ORACLE_I32( "L655/value0", w->contactEndEvents[0].count );
+ 		ENSURE( w->contactEndEvents[1].count == 0 );
++		ORACLE_BOOL( "L656", w->contactEndEvents[1].count == 0 );
++		ORACLE_I32( "L656/value0", w->contactEndEvents[1].count );
+ 
+ 		// The resimmed step keeps the box resting, so no end event should reach the user
+ 		b2World_Step( wId, dt, subSteps );
++		ORACLE_TRANSFORM_TRACE( wId, "L659/step/0", 0 );
+ 		b2ContactEvents events = b2World_GetContactEvents( wId );
+ 		ENSURE( events.endCount == 0 );
++		ORACLE_BOOL( "L661", events.endCount == 0 );
++		ORACLE_I32( "L661/value0", events.endCount );
++		ORACLE_I32( "L661/value0", events.endCount );
+ 
+ 		b2Free( snap, snapSize );
+ 		b2DestroyWorld( wId );
+@@ -677,5 +811,6 @@
+ 
+ 	b2RecBufFree( &buf );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }

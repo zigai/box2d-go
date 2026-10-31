@@ -392,35 +392,35 @@ linters:
         linters: [cyclop, gocognit, maintidx]
         source: "^[\\t ]*func solverTask\\(taskContext \\*workerContext\\) \\{$"
         text: "^(?:calculated cyclomatic complexity for function solverTask is 18, max is 12|cognitive complexity 44 of func `solverTask` is high \\(> 20\\)|Function name: solverTask, Cyclomatic Complexity: 18, Halstead Volume: 4769\\.51, Maintainability Index: 19)$"
-      - path: "^solver_arena_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverArenaGrowthShrink\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^solver_arena_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [cyclop, thelper]
         source: "^[\\t ]*func testSolverArenaRestoreDestroy\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:calculated cyclomatic complexity for function testSolverArenaRestoreDestroy is 13, max is 12|test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^solver_arena_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverArenaReuse\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^solver_arena_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverArenaSleep\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^solver_arena_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverArenaZero\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^solver_scratch_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverScratchInactiveContacts\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^solver_scratch_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverScratchRepeatedContacts\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"
-      - path: "^solver_scratch_test\\.go$"
+      - path: "^solver_test\\.go$"
         linters: [thelper]
         source: "^[\\t ]*func testSolverScratchSleepingContacts\\(t \\*testing\\.T, workers int\\) \\{$"
         text: "^(?:test helper function should start from t\\.Helper\\(\\))$"

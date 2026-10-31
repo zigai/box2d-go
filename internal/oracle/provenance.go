@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -167,10 +168,14 @@ func adapterSources(root string) ([]string, error) {
 	files := []string{
 		"oracle/oracle.c", "oracle/oracle.h", "oracle/differential.c", "oracle/CMakeLists.txt",
 		"oracle/build.sh", "oracle/reference.cmake", "oracle/capture.cmake",
-		"oracle/check-upstream.cmake", "oracle/cases.json", "oracle/patches/world_overlap_stop.patch",
+		"oracle/check-upstream.cmake", "oracle/cases.json",
 	}
 
-	for _, dir := range []string{"sample", "tests", "debug", "bench"} {
+	extensions := map[string][]string{
+		"sample": {".c", ".h"}, "tests": {".c", ".h"}, "debug": {".c", ".h"}, "bench": {".c", ".h"}, "patches": {".patch"},
+	}
+
+	for _, dir := range []string{"sample", "tests", "debug", "bench", "patches"} {
 		err := filepath.WalkDir(filepath.Join(root, "oracle", dir), func(file string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				if os.IsNotExist(err) && file == filepath.Join(root, "oracle", dir) {
@@ -180,7 +185,7 @@ func adapterSources(root string) ([]string, error) {
 				return err
 			}
 
-			if entry.IsDir() || (filepath.Ext(file) != ".c" && filepath.Ext(file) != ".h") {
+			if entry.IsDir() || !slices.Contains(extensions[dir], filepath.Ext(file)) {
 				return nil
 			}
 

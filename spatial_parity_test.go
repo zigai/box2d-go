@@ -463,7 +463,7 @@ func observeSpatialPlaneLimits(r *oracle.Reader, hits []spatialHit, translation,
 func TestWorldOverlapStopsAcrossBodyTypes(t *testing.T) {
 	wd := DefaultWorldDef()
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	circle := Circle{Radius: 1}
 	sd := DefaultShapeDef()
@@ -533,7 +533,7 @@ func TestWorldSpatialParity(t *testing.T) {
 			wd.Gravity = Vec2{}
 			wd.WorkerCount = 1
 			w := NewWorld(&wd)
-			BTWorldCleanup(t, w)
+			CleanupWorld(t, w)
 			spatialInspect(r, w)
 
 			all := QueryFilter{math.MaxUint64, math.MaxUint64}
@@ -586,7 +586,7 @@ func observeMoverPlaneScenario(t *testing.T, r *oracle.Reader, base Pos, scenari
 	wd.Gravity = Vec2{}
 	wd.WorkerCount = 1
 	w := NewWorld(&wd)
-	BTWorldCleanup(t, w)
+	CleanupWorld(t, w)
 
 	filter := QueryFilter{2, 1 << 63}
 

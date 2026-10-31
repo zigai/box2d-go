@@ -1,6 +1,0 @@
-{"k":"world.valid","t":"bool","v":"0"}
-{"k":"body.valid","t":"bool","v":"0"}
-{"k":"shape.valid","t":"bool","v":"0"}
-{"k":"chain.valid","t":"bool","v":"0"}
-{"k":"joint.valid","t":"bool","v":"0"}
-{"k":"contact.valid","t":"bool","v":"0"}

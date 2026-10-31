@@ -8,8 +8,9 @@ package box2d_test
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"testing"
+
+	"github.com/zigai/box2d/internal/oracle"
 )
 
 func TestScenes(t *testing.T) { testScenes(t, 1) }
@@ -61,7 +62,7 @@ func checkSceneFixtureInventory(t *testing.T, config string, names []string) {
 func TestSceneHelperFixtureInventory(t *testing.T) {
 	for _, config := range []string{"float", "double"} {
 		t.Run(config, func(t *testing.T) {
-			data, err := os.ReadFile("testdata/oracle/" + config + "/scenes/Helpers.jsonl")
+			data, err := oracle.ReadFile(config, "scenes/Helpers")
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -1,0 +1,192 @@
+--- a/test_distance.c
++++ b/test_distance.c
+@@ -9,8 +9,37 @@
+ 
+ #include <float.h>
+ 
++static void observeDistance( b2DistanceOutput output, const b2SimplexCache* cache )
++{
++	ORACLE_F32( "full/distance", output.distance );
++	ORACLE_VEC2( "full/point-a", output.pointA );
++	ORACLE_VEC2( "full/point-b", output.pointB );
++	if ( output.distance > 0 ) ORACLE_VEC2( "full/normal", output.normal );
++	ORACLE_I32( "full/iterations", output.iterations );
++	ORACLE_I32( "full/simplex-count", output.simplexCount );
++	ORACLE_U32( "full/cache/count", cache->count );
++	for ( int i = 0; i < cache->count; ++i )
++	{
++		ORACLE_U32( ORACLE_KEY( "full/cache/%d/a", i ), cache->indexA[i] );
++		ORACLE_U32( ORACLE_KEY( "full/cache/%d/b", i ), cache->indexB[i] );
++	}
++}
++
++static void observeCast( b2CastOutput output )
++{
++	ORACLE_BOOL( "full/cast/hit", output.hit );
++	ORACLE_I32( "full/cast/iterations", output.iterations );
++	if ( output.hit )
++	{
++		ORACLE_F32( "full/cast/fraction", output.fraction );
++		ORACLE_VEC2( "full/cast/normal", output.normal );
++		ORACLE_VEC2( "full/cast/point", output.point );
++	}
++}
++
+ static int SegmentDistanceTest( void )
+ {
++	ORACLE_OPEN( "distance/SegmentDistanceTest" );
+ 	b2Vec2 p1 = { -1.0f, -1.0f };
+ 	b2Vec2 q1 = { -1.0f, 1.0f };
+ 	b2Vec2 p2 = { 2.0f, 0.0f };
+@@ -18,19 +47,35 @@
+ 
+ 	b2SegmentDistanceResult result = b2SegmentDistance( p1, q1, p2, q2 );
+ 
++	ORACLE_F32( "distance:21/value0", result.fraction1 );
++	ORACLE_F32( "distance:21", result.fraction1 - 0.5f );
+ 	ENSURE_SMALL( result.fraction1 - 0.5f, FLT_EPSILON );
++	ORACLE_F32( "distance:23/value0", result.fraction2 );
++	ORACLE_F32( "distance:23", result.fraction2 - 1.0f );
+ 	ENSURE_SMALL( result.fraction2 - 1.0f, FLT_EPSILON );
++	ORACLE_F32( "distance:24/value0", result.closest1.x );
++	ORACLE_F32( "distance:24", result.closest1.x + 1.0f );
+ 	ENSURE_SMALL( result.closest1.x + 1.0f, FLT_EPSILON );
++	ORACLE_F32( "distance:25/value0", result.closest1.y );
++	ORACLE_F32( "distance:25", result.closest1.y );
+ 	ENSURE_SMALL( result.closest1.y, FLT_EPSILON );
++	ORACLE_F32( "distance:26/value0", result.closest2.x );
++	ORACLE_F32( "distance:26", result.closest2.x - 1.0f );
+ 	ENSURE_SMALL( result.closest2.x - 1.0f, FLT_EPSILON );
++	ORACLE_F32( "distance:27/value0", result.closest2.y );
++	ORACLE_F32( "distance:27", result.closest2.y );
+ 	ENSURE_SMALL( result.closest2.y, FLT_EPSILON );
++	ORACLE_F32( "distance:28/value0", result.distanceSquared );
++	ORACLE_F32( "distance:28", result.distanceSquared - 4.0f );
+ 	ENSURE_SMALL( result.distanceSquared - 4.0f, FLT_EPSILON );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+ static int ShapeDistanceTest( void )
+ {
++	ORACLE_OPEN( "distance/ShapeDistanceTest" );
+ 	b2Vec2 vas[] = { ( b2Vec2 ){ -1.0f, -1.0f }, ( b2Vec2 ){ 1.0f, -1.0f }, ( b2Vec2 ){ 1.0f, 1.0f }, ( b2Vec2 ){ -1.0f, 1.0f } };
+ 
+ 	b2Vec2 vbs[] = {
+@@ -46,14 +91,19 @@
+ 
+ 	b2SimplexCache cache = { 0 };
+ 	b2DistanceOutput output = b2ShapeDistance(&input,  &cache, NULL, 0 );
++	observeDistance( output, &cache );
+ 
++	ORACLE_F32( "distance:52/value0", output.distance );
++	ORACLE_F32( "distance:52", output.distance - 1.0f );
+ 	ENSURE_SMALL( output.distance - 1.0f, FLT_EPSILON );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+ static int ShapeCastTest( void )
+ {
++	ORACLE_OPEN( "distance/ShapeCastTest" );
+ 	b2Vec2 vas[] = { ( b2Vec2 ){ -1.0f, -1.0f }, ( b2Vec2 ){ 1.0f, -1.0f }, ( b2Vec2 ){ 1.0f, 1.0f }, ( b2Vec2 ){ -1.0f, 1.0f } };
+ 
+ 	b2Vec2 vbs[] = {
+@@ -70,10 +120,16 @@
+ 	input.canEncroach = false;
+ 
+ 	b2CastOutput output = b2ShapeCast( &input );
++	observeCast( output );
+ 
++	ORACLE_BOOL( "distance:78/value0", output.hit );
++	ORACLE_BOOL( "distance:78", output.hit );
+ 	ENSURE( output.hit );
++	ORACLE_F32( "distance:80/value0", output.fraction );
++	ORACLE_F32( "distance:80", output.fraction - 0.5f );
+ 	ENSURE_SMALL( output.fraction - 0.5f, 0.005f );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -89,6 +145,7 @@
+ // contact edge alone. Widening the plank from 1 m to 100 m changes nothing.
+ static int ShapeDistanceShortEdgeTest( void )
+ {
++	ORACLE_OPEN( "distance/ShapeDistanceShortEdgeTest" );
+ 	float halfThickness = 0.0016f;
+ 
+ 	b2Vec2 corners[] = {
+@@ -108,11 +165,19 @@
+ 
+ 	b2SimplexCache cache = { 0 };
+ 	b2DistanceOutput output = b2ShapeDistance( &input, &cache, NULL, 0 );
++	observeDistance( output, &cache );
+ 
++	ORACLE_F32( "distance:118/value0", output.distance );
++	ORACLE_BOOL( "distance:118", output.distance > 0.0f );
+ 	ENSURE( output.distance > 0.0f );
++	ORACLE_VEC2( "distance:120/value0", output.normal );
++	ORACLE_BOOL( "distance:120", b2IsNormalized( output.normal ) );
+ 	ENSURE( b2IsNormalized( output.normal ) );
++	ORACLE_F32( "distance:121/value0", output.distance );
++	ORACLE_F32( "distance:121", output.distance - B2_LINEAR_SLOP );
+ 	ENSURE_SMALL( output.distance - B2_LINEAR_SLOP, 1e-6f );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 
+@@ -129,6 +194,7 @@
+ #if B2_SHORT_EDGE_CAST_REPRO
+ static int ShapeCastShortEdgeTest( void )
+ {
++	ORACLE_OPEN( "distance/ShapeCastShortEdgeTest" );
+ 	float halfThickness = 0.0002f;
+ 
+ 	b2Vec2 corners[] = {
+@@ -151,14 +217,19 @@
+ 
+ 	b2CastOutput output = b2ShapeCast( &input );
+ 
++	ORACLE_BOOL( "distance:162/value0", output.hit );
++	ORACLE_VEC2( "distance:162/value1", output.normal );
++	ORACLE_BOOL( "distance:162", output.hit == false || b2IsNormalized( output.normal ) );
+ 	ENSURE( output.hit == false || b2IsNormalized( output.normal ) );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ #endif
+ 
+ static int TimeOfImpactTest( void )
+ {
++	ORACLE_OPEN( "distance/TimeOfImpactTest" );
+ 	b2Vec2 vas[] = { { -1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } };
+ 
+ 	b2Vec2 vbs[] = {
+@@ -174,10 +245,22 @@
+ 	input.maxFraction = 1.0f;
+ 
+ 	b2TOIOutput output = b2TimeOfImpact( &input );
++	ORACLE_I32( "full/toi/state", output.state );
++	ORACLE_F32( "full/toi/fraction", output.fraction );
++	if ( output.state == b2_toiStateHit )
++	{
++		ORACLE_VEC2( "full/toi/point", output.point );
++		ORACLE_VEC2( "full/toi/normal", output.normal );
++	}
+ 
++	ORACLE_I32( "distance:188/value0", output.state );
++	ORACLE_BOOL( "distance:188", output.state == b2_toiStateHit );
+ 	ENSURE( output.state == b2_toiStateHit );
++	ORACLE_F32( "distance:190/value0", output.fraction );
++	ORACLE_F32( "distance:190", output.fraction - 0.5f );
+ 	ENSURE_SMALL( output.fraction - 0.5f, 0.005f );
+ 
++	ORACLE_CLOSE();
+ 	return 0;
+ }
+ 

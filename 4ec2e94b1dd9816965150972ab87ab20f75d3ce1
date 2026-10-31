@@ -1,3 +1,0 @@
-- Runs just bench 1 10 end to end: builds nothing extra, prints progress for Go and C in both precisions, and prints the float and double comparison tables.
-- Stops with a clear 'run just oracle-bench' message when the C benchmark binaries are missing.
-- Shows the expected commands for just samples, just samples-double and a recording argument under just --dry-run; the app itself was not launched.

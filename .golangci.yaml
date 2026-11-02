@@ -14,6 +14,7 @@ formatters:
         balance-calls: true
     golines:
       max-len: 100
+      reformat-tags: false
     goimports:
       local-prefixes:
         - github.com/zigai/box2d-go
@@ -271,6 +272,9 @@ linters:
     warn-unused: false
     presets: []
     rules:
+      - path: "main\\.go"
+        linters: [mnd]
+
       - path: ".*_test\\.go"
         linters: [decorder, funcorder, cyclop, gocognit, dupl, maintidx, exhaustruct_v5, goconst]
 

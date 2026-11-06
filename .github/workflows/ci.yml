@@ -27,7 +27,13 @@ jobs:
           - { arch: amd64, runner: ubuntu-latest, precision: float, tags: "" }
           - { arch: amd64, runner: ubuntu-latest, precision: double, tags: box2d_double }
           - { arch: amd64, goamd64: v3, runner: ubuntu-latest, precision: float, tags: "" }
-          - { arch: amd64, goamd64: v3, runner: ubuntu-latest, precision: double, tags: box2d_double }
+          - {
+              arch: amd64,
+              goamd64: v3,
+              runner: ubuntu-latest,
+              precision: double,
+              tags: box2d_double,
+            }
           - { arch: arm64, runner: ubuntu-24.04-arm, precision: float, tags: "" }
           - { arch: arm64, runner: ubuntu-24.04-arm, precision: double, tags: box2d_double }
     steps:
@@ -108,7 +114,7 @@ jobs:
       - uses: extractions/setup-just@v4
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.14.0
+          version: v2.15.0
           install-only: true
       - name: Install C and shell linters
         run: |

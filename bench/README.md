@@ -17,8 +17,8 @@ just bench-go               # Go side only
 just oracle-bench           # rebuild the C side after changing it
 ```
 
-| Argument | Default | Effect |
-| --- | --- | --- |
-| `samples` | `6` | Samples per scene and worker count |
-| `steps` | `300` | Steps per scene |
-| `cpus` | `2` | Concurrency for both engines |
+| Argument  | Default | Effect                             |
+| --------- | ------- | ---------------------------------- |
+| `samples` | `6`     | Samples per scene and worker count |
+| `steps`   | `300`   | Steps per scene                    |
+| `cpus`    | `2`     | Concurrency for both engines       |

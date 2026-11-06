@@ -21,13 +21,13 @@ just oracle-bench   # build only the C side of the benchmarks
 
 `build.sh` reads these environment variables:
 
-| Variable | Default | Effect |
-| --- | --- | --- |
-| `ORACLE_CC` | `gcc` | Compiler for the reference build |
-| `ORACLE_CLANG` | `clang` | Compiler for the clang cross-check, skipped when missing |
-| `ORACLE_CHECKS` | `1` | Set to `0` to skip the SIMD and clang cross-checks |
-| `ORACLE_STRICT` | `0` | Set to `1` to fail when a cross-check differs, instead of warning |
-| `ORACLE_GENERATOR` | Ninja when installed | Build system generator for `cmake` |
+| Variable           | Default              | Effect                                                            |
+| ------------------ | -------------------- | ----------------------------------------------------------------- |
+| `ORACLE_CC`        | `gcc`                | Compiler for the reference build                                  |
+| `ORACLE_CLANG`     | `clang`              | Compiler for the clang cross-check, skipped when missing          |
+| `ORACLE_CHECKS`    | `1`                  | Set to `0` to skip the SIMD and clang cross-checks                |
+| `ORACLE_STRICT`    | `0`                  | Set to `1` to fail when a cross-check differs, instead of warning |
+| `ORACLE_GENERATOR` | Ninja when installed | Build system generator for `cmake`                                |
 
 ## Code style
 

@@ -31,17 +31,17 @@ just samples float path/to/recording.b2rec
 
 ## Controls
 
-| Input | Action |
-| --- | --- |
-| Left drag | Pull a body |
-| Right drag, arrow keys | Pan |
-| Scroll, Z, X | Zoom |
-| P | Pause or resume |
-| . | Step once; Shift+. steps five times |
-| R | Restart the scene |
-| [ and ] | Previous or next scene |
-| Ctrl+O | Pick a scene |
-| Home | Reset the view |
-| Tab | Show or hide the panels |
-| M, I | Show metrics, show step timings |
-| Ctrl+Q | Quit |
+| Input                  | Action                              |
+| ---------------------- | ----------------------------------- |
+| Left drag              | Pull a body                         |
+| Right drag, arrow keys | Pan                                 |
+| Scroll, Z, X           | Zoom                                |
+| P                      | Pause or resume                     |
+| .                      | Step once; Shift+. steps five times |
+| R                      | Restart the scene                   |
+| [ and ]                | Previous or next scene              |
+| Ctrl+O                 | Pick a scene                        |
+| Home                   | Reset the view                      |
+| Tab                    | Show or hide the panels             |
+| M, I                   | Show metrics, show step timings     |
+| Ctrl+Q                 | Quit                                |

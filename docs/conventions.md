@@ -30,22 +30,22 @@ in packages under `internal/`, described in
 are upstream's names without the `b2` or `B2_` prefix, in Go capitalization.
 The following table shows common cases:
 
-| Upstream | Go |
-|---|---|
-| `b2Vec2`, `b2Transform`, `b2Polygon` | `Vec2`, `Transform`, `Polygon` |
-| `b2BodyId`, `b2ShapeId`, `b2WorldId` | `Body`, `Shape`, `*World` |
-| `b2BodyDef`, `b2DefaultBodyDef` | `BodyDef`, `DefaultBodyDef` |
-| `b2CreateWorld`, `b2DestroyWorld` | `NewWorld`, `(*World).Close` |
-| `b2CreateBody( worldId, def )` | `world.CreateBody(def)` |
-| `b2CreateCircleShape( bodyId, def, circle )` | `body.CreateCircleShape(def, circle)` |
-| `b2DestroyBody( bodyId )` | `body.Destroy()` |
+| Upstream                                               | Go                                              |
+| ------------------------------------------------------ | ----------------------------------------------- |
+| `b2Vec2`, `b2Transform`, `b2Polygon`                   | `Vec2`, `Transform`, `Polygon`                  |
+| `b2BodyId`, `b2ShapeId`, `b2WorldId`                   | `Body`, `Shape`, `*World`                       |
+| `b2BodyDef`, `b2DefaultBodyDef`                        | `BodyDef`, `DefaultBodyDef`                     |
+| `b2CreateWorld`, `b2DestroyWorld`                      | `NewWorld`, `(*World).Close`                    |
+| `b2CreateBody( worldId, def )`                         | `world.CreateBody(def)`                         |
+| `b2CreateCircleShape( bodyId, def, circle )`           | `body.CreateCircleShape(def, circle)`           |
+| `b2DestroyBody( bodyId )`                              | `body.Destroy()`                                |
 | `b2Body_SetLinearVelocity`, `b2Body_GetLinearVelocity` | `Body.SetLinearVelocity`, `Body.LinearVelocity` |
-| `b2Body_GetShapes` | `Body.Shapes`, an `iter.Seq` |
-| `b2Add`, `b2MulSV( s, v )`, `b2RotateVector( q, v )` | `a.Add(b)`, `v.Scale(s)`, `q.Rotate(v)` |
-| `b2TransformPoint( t, p )`, `b2IntegrateRotation` | `t.Apply(p)`, `Rot.Integrate` |
-| `b2GetVersion`, `b2GetSweepTransform` | `CurrentVersion`, `(*Sweep).Transform` |
-| `b2_staticBody`, `b2_distanceJoint` | `StaticBody`, `DistanceJointType` |
-| `B2_HUGE`, `B2_LINEAR_SLOP` | `Huge()`, `LinearSlop()` |
+| `b2Body_GetShapes`                                     | `Body.Shapes`, an `iter.Seq`                    |
+| `b2Add`, `b2MulSV( s, v )`, `b2RotateVector( q, v )`   | `a.Add(b)`, `v.Scale(s)`, `q.Rotate(v)`         |
+| `b2TransformPoint( t, p )`, `b2IntegrateRotation`      | `t.Apply(p)`, `Rot.Integrate`                   |
+| `b2GetVersion`, `b2GetSweepTransform`                  | `CurrentVersion`, `(*Sweep).Transform`          |
+| `b2_staticBody`, `b2_distanceJoint`                    | `StaticBody`, `DistanceJointType`               |
+| `B2_HUGE`, `B2_LINEAR_SLOP`                            | `Huge()`, `LinearSlop()`                        |
 
 The table follows these rules:
 
@@ -196,11 +196,11 @@ Upstream has several check macros. Each keeps its place in the code, and its
 message is upstream's condition text, so you can search for the message and
 find the C line.
 
-| Upstream | Go | Behavior |
-|---|---|---|
-| `B2_ASSERT( c )` | `assert(c, "c")` | Panics with `*AssertError` when false. Removed by the `box2d_noassert` tag. |
-| `B2_CHECK_INPUT( c )`, `B2_CHECK_DEF( d )` | `checkInput(c, "c")` | Panics with `*AssertError` when false, in every build. |
-| `B2_VALIDATE( c )` | `validate(c, "c")` | Like `assert`, but only with the `box2d_validate` tag. |
+| Upstream                                   | Go                   | Behavior                                                                    |
+| ------------------------------------------ | -------------------- | --------------------------------------------------------------------------- |
+| `B2_ASSERT( c )`                           | `assert(c, "c")`     | Panics with `*AssertError` when false. Removed by the `box2d_noassert` tag. |
+| `B2_CHECK_INPUT( c )`, `B2_CHECK_DEF( d )` | `checkInput(c, "c")` | Panics with `*AssertError` when false, in every build.                      |
+| `B2_VALIDATE( c )`                         | `validate(c, "c")`   | Like `assert`, but only with the `box2d_validate` tag.                      |
 
 Bad input is a programmer error, so it panics instead of returning a Go
 `error`. Adding `error` returns to hundreds of methods would change every call
@@ -375,7 +375,7 @@ deterministic. Alignment macros, `B2_RESTRICT` and `B2_INLINE` are dropped.
 
 The repository has the following layout:
 
-```
+```text
 github.com/zigai/box2d-go
   box2d/                the library, flat; one Go file per upstream file (body.c, body.h -> body.go)
   internal/scenes/      benchmark, human and determinism scenes; uses only the public API
@@ -475,13 +475,13 @@ or `UPSTREAM` makes the tests fail as stale until you regenerate.
 `go1.27.1` for amd64, arm64, riscv64 and wasm. This table shows the
 instructions each target emits, from `-gcflags=-S`:
 
-| Target | `a*b + c` | `float32(a*b) + c` | `t := a*b; t + c` | `c - a*b`, `c -= a*b` | `c += a*b` | `a*b + c*d` |
-|---|---|---|---|---|---|---|
-| arm64 | `FMADDS` (fused) | `FMULS`, `FADDS` | `FMADDS` (fused) | `FMSUBS` (fused) | `FMADDS` (fused) | `FMULS`, `FMADDS` |
-| riscv64 | `FMADDS` (fused) | `FMULS`, `FADDS` | `FMADDS` (fused) | `FNMSUBS` (fused) | `FMADDS` (fused) | `FMULS`, `FMADDS` |
-| amd64, `GOAMD64=v3` | `VFMADD231SS` (fused) | `MULSS`, `ADDSS` | `VFMADD231SS` (fused) | `MULSS`, `SUBSS` | `VFMADD231SS` (fused) | `MULSS`, `VFMADD231SS` |
-| amd64, default (`v1`) | `MULSS`, `ADDSS` | same | same | same | same | `MULSS`, `MULSS`, `ADDSS` |
-| wasm | `F32Mul`, `F32Add` | same | same | `F32Mul`, `F32Sub` | not run | not run |
+| Target                | `a*b + c`             | `float32(a*b) + c` | `t := a*b; t + c`     | `c - a*b`, `c -= a*b` | `c += a*b`            | `a*b + c*d`               |
+| --------------------- | --------------------- | ------------------ | --------------------- | --------------------- | --------------------- | ------------------------- |
+| arm64                 | `FMADDS` (fused)      | `FMULS`, `FADDS`   | `FMADDS` (fused)      | `FMSUBS` (fused)      | `FMADDS` (fused)      | `FMULS`, `FMADDS`         |
+| riscv64               | `FMADDS` (fused)      | `FMULS`, `FADDS`   | `FMADDS` (fused)      | `FNMSUBS` (fused)     | `FMADDS` (fused)      | `FMULS`, `FMADDS`         |
+| amd64, `GOAMD64=v3`   | `VFMADD231SS` (fused) | `MULSS`, `ADDSS`   | `VFMADD231SS` (fused) | `MULSS`, `SUBSS`      | `VFMADD231SS` (fused) | `MULSS`, `VFMADD231SS`    |
+| amd64, default (`v1`) | `MULSS`, `ADDSS`      | same               | same                  | same                  | same                  | `MULSS`, `MULSS`, `ADDSS` |
+| wasm                  | `F32Mul`, `F32Add`    | same               | same                  | `F32Mul`, `F32Sub`    | not run               | not run                   |
 
 - Only an explicit `float32(...)` conversion prevents fusion. A local
   variable does not. In a sum of two products, the compiler fuses one of them

@@ -13,5 +13,5 @@ The first line of each release note names the ported Box2D version and commit, f
 
 1. Set `UPSTREAM` to the tag's commit and run `just oracle`.
 2. Port `git diff <old>..<new> -- src include` and update the version in `box2d/base.go`.
-3. Run the checks in `AGENTS.md`, plus `just oracle-check` and `just stress`.
+3. Run the checks in `AGENTS.md`, plus `just oracle-check` and `just integration`.
 4. Tag `vX.Y.0` and publish the release note.

@@ -737,10 +737,7 @@
     },
     {
       "subject": "10",
-      "go": [
-        "TestJointParity",
-        "TestJointCollisionPolicy"
-      ]
+      "go": ["TestJointParity", "TestJointCollisionPolicy"]
     },
     {
       "subject": "11",
@@ -778,16 +775,11 @@
     },
     {
       "subject": "14",
-      "go": [
-        "TestScenes",
-        "TestParallelScenes"
-      ]
+      "go": ["TestScenes", "TestParallelScenes"]
     },
     {
       "subject": "01",
-      "go": [
-        "TestDifferentialCorpus"
-      ]
+      "go": ["TestDifferentialCorpus"]
     }
   ],
   "unresolved": [

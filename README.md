@@ -4,11 +4,11 @@
 
 Go port of the [Box2D](https://github.com/erincatto/box2d) physics engine.
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/zigai/box2d-go/ci.yml?branch=master&label=Tests)](https://github.com/zigai/box2d-go/actions/workflows/ci.yml)
-[![C Parity](https://img.shields.io/github/actions/workflow/status/zigai/box2d-go/oracle.yml?branch=master&label=C%20Parity)](https://github.com/zigai/box2d-go/actions/workflows/oracle.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/zigai/box2d-go/box2d.svg)](https://pkg.go.dev/github.com/zigai/box2d-go/box2d)
-[![Go version](https://img.shields.io/github/go-mod/go-version/zigai/box2d-go)](https://github.com/zigai/box2d-go/blob/master/go.mod)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/zigai/box2d-go/blob/master/LICENSE)
+[![tests](https://img.shields.io/github/actions/workflow/status/zigai/box2d-go/ci.yml?branch=master&label=tests&labelColor=30363d)](https://github.com/zigai/box2d-go/actions/workflows/ci.yml)
+[![C parity](https://img.shields.io/github/actions/workflow/status/zigai/box2d-go/oracle.yml?branch=master&label=C%20parity&labelColor=30363d)](https://github.com/zigai/box2d-go/actions/workflows/oracle.yml)
+[![go](https://img.shields.io/github/go-mod/go-version/zigai/box2d-go?label=&logo=go&logoColor=white&labelColor=30363d)](go.mod)
+[![reference](https://img.shields.io/badge/reference-007d9c?logo=go&logoColor=white&labelColor=30363d)](https://pkg.go.dev/github.com/zigai/box2d-go/box2d)
+[![license](https://img.shields.io/badge/license-MIT-green?labelColor=30363d)](LICENSE)
 
 ## Installation
 

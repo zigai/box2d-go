@@ -34,13 +34,152 @@ type BounceHouse struct {
 	enableHitEvents bool
 }
 
+type BounceHumans struct {
+	Sample
+
+	humans     [5]scenes.Human
+	humanCount int
+	countDown  float32
+	time       float32
+}
+
+type ChainDrop struct {
+	Sample
+
+	bodyID  box2d.Body
+	shapeID box2d.Shape
+	yOffset float32
+	speed   float32
+}
+
+type ChainSlide struct {
+	Sample
+}
+
+type SegmentSlide struct {
+	Sample
+}
+
+type SkinnyBox struct {
+	Sample
+
+	bodyID          box2d.Body
+	bulletID        box2d.Body
+	angularVelocity float32
+	x               float32
+	capsule         bool
+	autoTest        bool
+	bullet          bool
+}
+
+// This sample shows ghost bumps.
+type GhostBumps struct {
+	Sample
+
+	groundID  box2d.Body
+	bodyID    box2d.Body
+	shapeID   box2d.Shape
+	shapeType int32
+	round     float32
+	friction  float32
+	bevel     float32
+	useChain  bool
+}
+
+// Speculative collision failure case suggested by Dirk Gregorius. This uses
+// a simple fallback scheme to prevent tunneling.
+type SpeculativeFallback struct {
+	Sample
+}
+
+type SpeculativeSliver struct {
+	Sample
+}
+
+// Speculative collision does not cause speculative ghost collisions at small distances.
+type SpeculativeGhost struct {
+	Sample
+}
+
+// This shows that Box2D does not have pixel perfect collision.
+type PixelImperfect struct {
+	Sample
+
+	ballID box2d.Body
+}
+
+type RestitutionThreshold struct {
+	Sample
+
+	ballID box2d.Body
+}
+
+type Drop struct {
+	Sample
+
+	groundIDs   []box2d.Body
+	bodyIDs     []box2d.Body
+	human       scenes.Human
+	frameSkip   int
+	frameCount  int
+	continuous  bool
+	speculative bool
+}
+
+// This shows a fast moving body that uses continuous collision versus static and dynamic bodies.
+// This is achieved by setting the ball body as a *bullet*.
+type Pinball struct {
+	Sample
+
+	leftJointID  box2d.RevoluteJoint
+	rightJointID box2d.RevoluteJoint
+	ballID       box2d.Body
+}
+
+// This shows the importance of secondary collisions in continuous physics.
+// This also shows a difficult setup for the solver with an acute angle.
+type Wedge struct {
+	Sample
+}
+
+// This shows how adjusting the CCD safety factor can engage continuous collision at
+// lower speeds to avoid the slight overlap that happens with discrete collision detection.
+// The best way to run this sample is:
+// 1. press pause (P)
+// 2. restart (R) or press the Drop button
+// 3. then single step (.)
+// Then look at the metrics and overlap. The color of the shape gets darker when it is using
+// continuous collision detection.
+type SafetyFactor struct {
+	Sample
+
+	bodyID       box2d.Body
+	extent       float32
+	height       float32
+	safetyFactor float32
+	overlap      float32
+}
+
 func CreateBounceHouse(context *SampleContext) Sampler {
-	s := &BounceHouse{}
+	const (
+		baseCameraZoom      = 25.0
+		cameraZoomScale     = 0.45
+		enclosureHalfExtent = 10.0
+	)
+
+	s := &BounceHouse{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		hitEvents:       [4]bounceHitEvent{},
+		bodyID:          box2d.Body{},
+		shapeType:       continuousCircleShape,
+		enableHitEvents: true,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
 		s.context.camera.center = box2d.Pos{X: 0.0, Y: 0.0}
-		s.context.camera.zoom = 25.0 * 0.45
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -49,57 +188,64 @@ func CreateBounceHouse(context *SampleContext) Sampler {
 	shapeDef := box2d.DefaultShapeDef()
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: -10.0},
-			Point2: box2d.Vec2{X: 10.0, Y: -10.0},
+			Point1: box2d.Vec2{X: -enclosureHalfExtent, Y: -enclosureHalfExtent},
+			Point2: box2d.Vec2{X: enclosureHalfExtent, Y: -enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: 10.0, Y: -10.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 10.0},
+			Point1: box2d.Vec2{X: enclosureHalfExtent, Y: -enclosureHalfExtent},
+			Point2: box2d.Vec2{X: enclosureHalfExtent, Y: enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: 10.0, Y: 10.0},
-			Point2: box2d.Vec2{X: -10.0, Y: 10.0},
+			Point1: box2d.Vec2{X: enclosureHalfExtent, Y: enclosureHalfExtent},
+			Point2: box2d.Vec2{X: -enclosureHalfExtent, Y: enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: 10.0},
-			Point2: box2d.Vec2{X: -10.0, Y: -10.0},
+			Point1: box2d.Vec2{X: -enclosureHalfExtent, Y: enclosureHalfExtent},
+			Point2: box2d.Vec2{X: -enclosureHalfExtent, Y: -enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
-
-	s.shapeType = continuousCircleShape
-	s.bodyID = box2d.Body{}
-	s.enableHitEvents = true
 
 	s.Launch()
+
 	return s
 }
 
 func (s *BounceHouse) Launch() {
+	const (
+		launchVelocityX   = 10.0
+		launchVelocityY   = 20.0
+		circleRadius      = 0.5
+		capsuleHalfLength = 0.5
+		capsuleRadius     = 0.25
+		boxHalfHeight     = 0.1
+		boxAspectRatio    = 20.0
+	)
+
 	if s.bodyID != (box2d.Body{}) {
 		s.bodyID.Destroy()
 	}
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.LinearVelocity = box2d.Vec2{X: 10.0, Y: 20.0}
+	bodyDef.LinearVelocity = box2d.Vec2{X: launchVelocityX, Y: launchVelocityY}
 	bodyDef.Position = box2d.Pos{X: 0.0, Y: 0.0}
 	bodyDef.GravityScale = 0.0
 	bodyDef.IsBullet = true
 
-	// Circle shapes centered on the body can spin fast without risk of tunnelling.
+	// Circle shapes centered on the body can spin fast without risk of tunneling.
 	bodyDef.AllowFastRotation = s.shapeType == continuousCircleShape
 
 	s.bodyID = s.worldID.CreateBody(&bodyDef)
@@ -110,29 +256,34 @@ func (s *BounceHouse) Launch() {
 	shapeDef.Material.Friction = 0.0
 	shapeDef.EnableHitEvents = s.enableHitEvents
 
-	if s.shapeType == continuousCircleShape {
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+	switch s.shapeType {
+	case continuousCircleShape:
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: circleRadius}
 		s.bodyID.CreateCircleShape(&shapeDef, &circle)
-	} else if s.shapeType == continuousCapsuleShape {
+	case continuousCapsuleShape:
 		capsule := box2d.Capsule{
-			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
-			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
-			Radius:  0.25,
+			Center1: box2d.Vec2{X: -capsuleHalfLength, Y: 0.0},
+			Center2: box2d.Vec2{X: capsuleHalfLength, Y: 0.0},
+			Radius:  capsuleRadius,
 		}
 		s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
-	} else {
-		h := float32(0.1)
-		box := box2d.MakeBox(20.0*h, h)
+	default:
+		h := float32(boxHalfHeight)
+		box := box2d.MakeBox(boxAspectRatio*h, h)
 		s.bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 }
 
 func (s *BounceHouse) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const controlWidthEm = 6.0
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
 	shapeTypes := []string{"Circle", "Capsule", "Box"}
 	if imgui.ComboStrarr("Shape", &s.shapeType, shapeTypes, int32(len(shapeTypes))) {
 		s.Launch()
 	}
+
 	imgui.PopItemWidth()
 
 	if imgui.Checkbox("hit events", &s.enableHitEvents) {
@@ -143,6 +294,8 @@ func (s *BounceHouse) DrawControls() bool {
 }
 
 func (s *BounceHouse) Step() {
+	const hitMarkerRadius = 0.1
+
 	s.Sample.Step()
 
 	for event := range s.worldID.ContactHitEvents() {
@@ -161,23 +314,26 @@ func (s *BounceHouse) Step() {
 	for i := range 4 {
 		e := &s.hitEvents[i]
 		if e.stepIndex > 0 && s.stepCount <= e.stepIndex+30 {
-			s.draw.DrawCircle(e.point, 0.1, box2d.ColorOrangeRed)
-			s.draw.DrawString(s.camera, e.point, box2d.ColorWhite, "%.1f", e.speed)
+			s.draw.DrawCircle(e.point, hitMarkerRadius, box2d.ColorOrangeRed)
+			s.draw.DrawStringf(s.camera, e.point, box2d.ColorWhite, "%.1f", e.speed)
 		}
 	}
 }
 
-type BounceHumans struct {
-	Sample
-
-	humans     [5]scenes.Human
-	humanCount int
-	countDown  float32
-	time       float32
-}
-
 func CreateBounceHumans(context *SampleContext) Sampler {
-	s := &BounceHumans{}
+	const (
+		enclosureHalfExtent = 10.0
+		centerBumperRadius  = 2.0
+	)
+
+	s := &BounceHumans{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		humans:     [5]scenes.Human{},
+		humanCount: 0,
+		countDown:  0,
+		time:       0,
+	}
 	s.init(context, s, true)
 
 	s.context.camera.center = box2d.Pos{X: 0.0, Y: 0.0}
@@ -192,52 +348,62 @@ func CreateBounceHumans(context *SampleContext) Sampler {
 
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: -10.0},
-			Point2: box2d.Vec2{X: 10.0, Y: -10.0},
+			Point1: box2d.Vec2{X: -enclosureHalfExtent, Y: -enclosureHalfExtent},
+			Point2: box2d.Vec2{X: enclosureHalfExtent, Y: -enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: 10.0, Y: -10.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 10.0},
+			Point1: box2d.Vec2{X: enclosureHalfExtent, Y: -enclosureHalfExtent},
+			Point2: box2d.Vec2{X: enclosureHalfExtent, Y: enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: 10.0, Y: 10.0},
-			Point2: box2d.Vec2{X: -10.0, Y: 10.0},
+			Point1: box2d.Vec2{X: enclosureHalfExtent, Y: enclosureHalfExtent},
+			Point2: box2d.Vec2{X: -enclosureHalfExtent, Y: enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: 10.0},
-			Point2: box2d.Vec2{X: -10.0, Y: -10.0},
+			Point1: box2d.Vec2{X: -enclosureHalfExtent, Y: enclosureHalfExtent},
+			Point2: box2d.Vec2{X: -enclosureHalfExtent, Y: -enclosureHalfExtent},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 2.0}
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: centerBumperRadius}
 	shapeDef.Material.Restitution = 2.0
 	groundID.CreateCircleShape(&shapeDef, &circle)
+
 	return s
 }
 
 func (s *BounceHumans) Step() {
+	const (
+		jointDampingRatioValue = 0.1
+		spawnHeight            = 5.0
+		stepsPerSecond         = 60.0
+		gravityPhaseRate       = 0.5
+		gravityMagnitude       = 10.0
+		gravityIndicatorLength = 3.0
+	)
+
 	if s.humanCount < 5 && s.countDown <= 0.0 {
 		jointFrictionTorque := float32(0.0)
 		jointHertz := float32(1.0)
-		jointDampingRatio := float32(0.1)
+		jointDampingRatio := float32(jointDampingRatioValue)
 
 		scenes.CreateHuman(
 			&s.humans[s.humanCount],
 			s.worldID,
-			box2d.Pos{X: 0.0, Y: 5.0},
+			box2d.Pos{X: 0.0, Y: spawnHeight},
 			1.0,
 			jointFrictionTorque,
 			jointHertz,
@@ -251,14 +417,17 @@ func (s *BounceHumans) Step() {
 		s.humanCount += 1
 	}
 
-	timeStep := float32(1.0 / 60.0)
-	cs1 := box2d.ComputeCosSin(0.5 * s.time)
+	timeStep := float32(1.0 / stepsPerSecond)
+	cs1 := box2d.ComputeCosSin(gravityPhaseRate * s.time)
 	cs2 := box2d.ComputeCosSin(s.time)
-	gravity := float32(10.0)
+	gravity := float32(gravityMagnitude)
 	gravityVec := box2d.Vec2{X: gravity * cs1.Sine, Y: gravity * cs2.Cosine}
 	s.draw.DrawLine(
-		box2d.Pos{},
-		box2d.Vec2{X: 3.0 * cs1.Sine, Y: 3.0 * cs2.Cosine}.Pos(),
+		box2d.Pos{X: 0, Y: 0},
+		box2d.Vec2{
+			X: gravityIndicatorLength * cs1.Sine,
+			Y: gravityIndicatorLength * cs2.Cosine,
+		}.Pos(),
 		box2d.ColorWhite,
 	)
 	s.time += timeStep
@@ -268,22 +437,30 @@ func (s *BounceHumans) Step() {
 	s.Sample.Step()
 }
 
-type ChainDrop struct {
-	Sample
-
-	bodyID  box2d.Body
-	shapeID box2d.Shape
-	yOffset float32
-	speed   float32
-}
-
 func CreateChainDrop(context *SampleContext) Sampler {
-	s := &ChainDrop{}
+	const (
+		baseCameraZoom   = 25.0
+		cameraZoomScale  = 0.35
+		chainHalfWidth   = 10.0
+		chainBottom      = -2.0
+		chainTop         = 1.0
+		initialYOffset   = -0.1
+		initialDropSpeed = -42.0
+	)
+
+	s := &ChainDrop{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		bodyID:  box2d.Body{},
+		shapeID: box2d.Shape{},
+		yOffset: initialYOffset,
+		speed:   initialDropSpeed,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
 		s.context.camera.center = box2d.Pos{X: 0.0, Y: 0.0}
-		s.context.camera.zoom = 25.0 * 0.35
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -291,10 +468,10 @@ func CreateChainDrop(context *SampleContext) Sampler {
 	groundID := s.worldID.CreateBody(&bodyDef)
 
 	points := []box2d.Vec2{
-		{X: -10.0, Y: -2.0},
-		{X: 10.0, Y: -2.0},
-		{X: 10.0, Y: 1.0},
-		{X: -10.0, Y: 1.0},
+		{X: -chainHalfWidth, Y: chainBottom},
+		{X: chainHalfWidth, Y: chainBottom},
+		{X: chainHalfWidth, Y: chainTop},
+		{X: -chainHalfWidth, Y: chainTop},
 	}
 
 	chainDef := box2d.DefaultChainDef()
@@ -303,15 +480,18 @@ func CreateChainDrop(context *SampleContext) Sampler {
 
 	groundID.CreateChain(&chainDef)
 
-	s.bodyID = box2d.Body{}
-	s.yOffset = -0.1
-	s.speed = -42.0
-
 	s.Launch()
+
 	return s
 }
 
 func (s *ChainDrop) Launch() {
+	const (
+		dropHeight            = 10.0
+		quarterTurnPiFraction = 0.5
+		circleRadius          = 0.5
+	)
+
 	if s.bodyID != (box2d.Body{}) {
 		s.bodyID.Destroy()
 	}
@@ -319,19 +499,21 @@ func (s *ChainDrop) Launch() {
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
 	bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: s.speed}
-	bodyDef.Position = box2d.Pos{X: 0.0, Y: posScalar(10.0 + s.yOffset)}
-	bodyDef.Rotation = box2d.MakeRot(0.5 * box2d.Pi)
+	bodyDef.Position = box2d.Pos{X: 0.0, Y: posScalar(dropHeight + s.yOffset)}
+	bodyDef.Rotation = box2d.MakeRot(quarterTurnPiFraction * box2d.Pi)
 	bodyDef.MotionLocks.AngularZ = true
 	s.bodyID = s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
 
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: circleRadius}
 	s.shapeID = s.bodyID.CreateCircleShape(&shapeDef, &circle)
 }
 
 func (s *ChainDrop) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const controlWidthEm = 6.0
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 	imgui.SliderFloatV("Speed", &s.speed, -100.0, 0.0, "%.0f", 0)
 	imgui.SliderFloatV("Y Offset", &s.yOffset, -1.0, 1.0, "%.1f", 0)
 	imgui.PopItemWidth()
@@ -343,16 +525,24 @@ func (s *ChainDrop) DrawControls() bool {
 	return true
 }
 
-type ChainSlide struct {
-	Sample
-}
-
 func CreateChainSlide(context *SampleContext) Sampler {
-	s := &ChainSlide{}
+	const (
+		cameraHeight        = 10.0
+		chainHorizontalStep = 2.0
+		chainVerticalStep   = 1.0
+		chainStartX         = 20.0
+		slideSpeed          = 100.0
+		ballRadius          = 0.5
+	)
+
+	s := &ChainSlide{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 10.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 15.0
 	}
 
@@ -361,12 +551,14 @@ func CreateChainSlide(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		const count = 80
+
 		var points [count]box2d.Vec2
 
-		w := float32(2.0)
-		h := float32(1.0)
-		x, y := float32(20.0), float32(0.0)
-		for i := 0; i < 20; i++ {
+		w := float32(chainHorizontalStep)
+		h := float32(chainVerticalStep)
+
+		x, y := float32(chainStartX), float32(0.0)
+		for i := range 20 {
 			points[i] = box2d.Vec2{X: x, Y: y}
 			x -= w
 		}
@@ -396,28 +588,37 @@ func CreateChainSlide(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.LinearVelocity = box2d.Vec2{X: 100.0, Y: 0.0}
-		bodyDef.Position = box2d.Pos{X: -19.5, Y: 0.0 + 0.5}
+		bodyDef.LinearVelocity = box2d.Vec2{X: slideSpeed, Y: 0.0}
+		bodyDef.Position = box2d.Pos{X: -19.5, Y: 0.0 + ballRadius}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.0
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
+
 	return s
 }
 
-type SegmentSlide struct {
-	Sample
-}
-
 func CreateSegmentSlide(context *SampleContext) Sampler {
-	s := &SegmentSlide{}
+	const (
+		cameraHeight     = 10.0
+		groundHalfLength = 40.0
+		wallHeight       = 10.0
+		slideSpeed       = 100.0
+		startHeight      = 0.7
+		ballRadius       = 0.5
+	)
+
+	s := &SegmentSlide{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 10.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 15.0
 	}
 
@@ -427,14 +628,14 @@ func CreateSegmentSlide(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		segment = box2d.Segment{
-			Point1: box2d.Vec2{X: 40.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 40.0, Y: 10.0},
+			Point1: box2d.Vec2{X: groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: wallHeight},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -442,36 +643,45 @@ func CreateSegmentSlide(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.LinearVelocity = box2d.Vec2{X: 100.0, Y: 0.0}
-		bodyDef.Position = box2d.Pos{X: -20.0, Y: 0.7}
+		bodyDef.LinearVelocity = box2d.Vec2{X: slideSpeed, Y: 0.0}
+		bodyDef.Position = box2d.Pos{X: -20.0, Y: startHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
+
 	return s
 }
 
-type SkinnyBox struct {
-	Sample
-
-	bodyID          box2d.Body
-	bulletID        box2d.Body
-	angularVelocity float32
-	x               float32
-	capsule         bool
-	autoTest        bool
-	bullet          bool
-}
-
 func CreateSkinnyBox(context *SampleContext) Sampler {
-	s := &SkinnyBox{}
+	const (
+		cameraHeight       = 5.0
+		baseCameraZoom     = 25.0
+		cameraZoomScale    = 0.25
+		groundHalfLength   = 10.0
+		obstacleHalfWidth  = 0.1
+		obstacleHalfHeight = 1.0
+		obstacleCenterY    = 1.0
+	)
+
+	s := &SkinnyBox{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		bodyID:          box2d.Body{},
+		bulletID:        box2d.Body{},
+		angularVelocity: 0,
+		x:               0,
+		capsule:         false,
+		autoTest:        false,
+		bullet:          false,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 1.0, Y: 5.0}
-		s.context.camera.zoom = 25.0 * 0.25
+		s.context.camera.center = box2d.Pos{X: 1.0, Y: cameraHeight}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	{
@@ -479,29 +689,38 @@ func CreateSkinnyBox(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.9
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		box := box2d.MakeOffsetBox(0.1, 1.0, box2d.Vec2{X: 0.0, Y: 1.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			obstacleHalfWidth,
+			obstacleHalfHeight,
+			box2d.Vec2{X: 0.0, Y: obstacleCenterY},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	s.autoTest = false
-	s.bullet = false
-	s.capsule = false
-
-	s.bodyID = box2d.Body{}
-	s.bulletID = box2d.Body{}
-
 	s.Launch()
+
 	return s
 }
 
 func (s *SkinnyBox) Launch() {
+	const (
+		maxAngularSpeed  = 50.0
+		launchHeight     = 8.0
+		capsuleRadius    = 0.1
+		boxHalfWidth     = 2.0
+		boxHalfHeight    = 0.05
+		bulletHalfExtent = 0.25
+		bulletHeight     = 10.0
+	)
+
 	if s.bodyID != (box2d.Body{}) {
 		s.bodyID.Destroy()
 	}
@@ -510,11 +729,11 @@ func (s *SkinnyBox) Launch() {
 		s.bulletID.Destroy()
 	}
 
-	s.angularVelocity = scenes.RandomFloatRange(-50.0, 50.0)
+	s.angularVelocity = scenes.RandomFloatRange(-maxAngularSpeed, maxAngularSpeed)
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: 0.0, Y: 8.0}
+	bodyDef.Position = box2d.Pos{X: 0.0, Y: launchHeight}
 	bodyDef.AngularVelocity = s.angularVelocity
 	bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: -100.0}
 
@@ -528,18 +747,18 @@ func (s *SkinnyBox) Launch() {
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: -1.0},
 			Center2: box2d.Vec2{X: 0.0, Y: 1.0},
-			Radius:  0.1,
+			Radius:  capsuleRadius,
 		}
 		s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	} else {
-		polygon := box2d.MakeBox(2.0, 0.05)
+		polygon := box2d.MakeBox(boxHalfWidth, boxHalfHeight)
 		s.bodyID.CreatePolygonShape(&shapeDef, &polygon)
 	}
 
 	if s.bullet {
-		polygon := box2d.MakeBox(0.25, 0.25)
+		polygon := box2d.MakeBox(bulletHalfExtent, bulletHalfExtent)
 		s.x = scenes.RandomFloatRange(-1.0, 1.0)
-		bodyDef.Position = box2d.Pos{X: posScalar(s.x), Y: 10.0}
+		bodyDef.Position = box2d.Pos{X: posScalar(s.x), Y: bulletHeight}
 		bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: -50.0}
 		s.bulletID = s.worldID.CreateBody(&bodyDef)
 		s.bulletID.CreatePolygonShape(&shapeDef, &polygon)
@@ -566,44 +785,50 @@ func (s *SkinnyBox) Step() {
 	}
 }
 
-// This sample shows ghost bumps
-type GhostBumps struct {
-	Sample
-
-	groundID  box2d.Body
-	bodyID    box2d.Body
-	shapeID   box2d.Shape
-	shapeType int32
-	round     float32
-	friction  float32
-	bevel     float32
-	useChain  bool
-}
-
 func CreateGhostBumps(context *SampleContext) Sampler {
-	s := &GhostBumps{}
+	const (
+		initialGroundFriction = 0.2
+		cameraCenterX         = 1.5
+		cameraCenterY         = 16.0
+		baseCameraZoom        = 25.0
+		cameraZoomScale       = 0.8
+	)
+
+	s := &GhostBumps{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		groundID:  box2d.Body{},
+		bodyID:    box2d.Body{},
+		shapeID:   box2d.Shape{},
+		shapeType: continuousCircleShape,
+		round:     0,
+		friction:  initialGroundFriction,
+		bevel:     0,
+		useChain:  true,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 1.5, Y: 16.0}
-		s.context.camera.zoom = 25.0 * 0.8
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
-
-	s.groundID = box2d.Body{}
-	s.bodyID = box2d.Body{}
-	s.shapeID = box2d.Shape{}
-	s.shapeType = continuousCircleShape
-	s.round = 0.0
-	s.friction = 0.2
-	s.bevel = 0.0
-	s.useChain = true
 
 	s.CreateScene()
 	s.Launch()
+
 	return s
 }
 
 func (s *GhostBumps) CreateScene() {
+	const (
+		diagonalDimensions = 2.0
+		segmentHalfLength  = 4.0
+		segmentHalfHeight  = 0.25
+		bevelInset         = 0.05
+		segmentSpanFactor  = 2.0
+		slopeAnglePiRatio  = 0.25
+	)
+
 	if s.groundID != (box2d.Body{}) {
 		s.groundID.Destroy()
 	}
@@ -613,12 +838,13 @@ func (s *GhostBumps) CreateScene() {
 	bodyDef := box2d.DefaultBodyDef()
 	s.groundID = s.worldID.CreateBody(&bodyDef)
 
-	m := float32(1.0 / math.Sqrt(2.0))
-	mm := float32(2.0 * (math.Sqrt(2.0) - 1.0))
-	hx, hy := float32(4.0), float32(0.25)
+	m := float32(1.0 / math.Sqrt(diagonalDimensions))
+	mm := float32(segmentSpanFactor * (math.Sqrt(diagonalDimensions) - 1.0))
+	hx, hy := float32(segmentHalfLength), float32(segmentHalfHeight)
 
 	if s.useChain {
 		var points [20]box2d.Vec2
+
 		points[0] = box2d.Vec2{X: -3.0 * hx, Y: hy}
 		points[1] = points[0].Add(box2d.Vec2{X: -2.0 * hx * m, Y: 2.0 * hx * m})
 		points[2] = points[1].Add(box2d.Vec2{X: -2.0 * hx * m, Y: 2.0 * hx * m})
@@ -630,7 +856,7 @@ func (s *GhostBumps) CreateScene() {
 			box2d.Vec2{X: 2.0*hx*m + 2.0*hy*(1.0-m), Y: -2.0*hx*m - 2.0*hy*(1.0-m)},
 		)
 		points[8] = points[7].Add(box2d.Vec2{X: 2.0*hx + hy*mm, Y: 0.0})
-		points[9] = points[8].Add(box2d.Vec2{X: 2.0 * hx, Y: 0.0})
+		points[9] = points[8].Add(box2d.Vec2{X: segmentSpanFactor * hx, Y: 0.0})
 		points[10] = points[9].Add(box2d.Vec2{X: 2.0*hx + hy*mm, Y: 0.0})
 		points[11] = points[10].Add(
 			box2d.Vec2{X: 2.0*hx*m + 2.0*hy*(1.0-m), Y: 2.0*hx*m + 2.0*hy*(1.0-m)},
@@ -645,6 +871,7 @@ func (s *GhostBumps) CreateScene() {
 		points[19] = points[18].Add(box2d.Vec2{X: -2.0 * hx, Y: 0.0})
 
 		var material box2d.SurfaceMaterial
+
 		material.Friction = s.friction
 
 		chainDef := box2d.DefaultChainDef()
@@ -662,14 +889,14 @@ func (s *GhostBumps) CreateScene() {
 		if s.bevel > 0.0 {
 			hb := s.bevel
 			vs := []box2d.Vec2{
-				{X: hx + hb, Y: hy - 0.05},
+				{X: hx + hb, Y: hy - bevelInset},
 				{X: hx, Y: hy},
 				{X: -hx, Y: hy},
-				{X: -hx - hb, Y: hy - 0.05},
-				{X: -hx - hb, Y: -hy + 0.05},
+				{X: -hx - hb, Y: hy - bevelInset},
+				{X: -hx - hb, Y: -hy + bevelInset},
 				{X: -hx, Y: -hy},
 				{X: hx, Y: -hy},
-				{X: hx + hb, Y: -hy + 0.05},
+				{X: hx + hb, Y: -hy + bevelInset},
 			}
 			hull = box2d.ComputeHull(vs)
 		} else {
@@ -677,8 +904,10 @@ func (s *GhostBumps) CreateScene() {
 			hull = box2d.ComputeHull(vs)
 		}
 
-		var transform box2d.Transform
-		var x, y float32
+		var (
+			transform box2d.Transform
+			x, y      float32
+		)
 
 		createSegment := func() {
 			transform.P = box2d.Vec2{X: x, Y: y}
@@ -689,12 +918,13 @@ func (s *GhostBumps) CreateScene() {
 		// Left slope
 		x = -3.0*hx - m*hx - m*hy
 		y = hy + m*hx - m*hy
-		transform.Q = box2d.MakeRot(-0.25 * box2d.Pi)
+		transform.Q = box2d.MakeRot(-slopeAnglePiRatio * box2d.Pi)
 
 		for range 3 {
 			createSegment()
-			x -= 2.0 * m * hx
-			y += 2.0 * m * hx
+
+			x -= segmentSpanFactor * m * hx
+			y += segmentSpanFactor * m * hx
 		}
 
 		x = -2.0 * hx
@@ -703,22 +933,33 @@ func (s *GhostBumps) CreateScene() {
 
 		for range 3 {
 			createSegment()
-			x += 2.0 * hx
+
+			x += segmentSpanFactor * hx
 		}
 
 		x = 3.0*hx + m*hx + m*hy
 		y = hy + m*hx - m*hy
-		transform.Q = box2d.MakeRot(0.25 * box2d.Pi)
+		transform.Q = box2d.MakeRot(slopeAnglePiRatio * box2d.Pi)
 
 		for range 3 {
 			createSegment()
-			x += 2.0 * m * hx
-			y += 2.0 * m * hx
+
+			x += segmentSpanFactor * m * hx
+			y += segmentSpanFactor * m * hx
 		}
 	}
 }
 
 func (s *GhostBumps) Launch() {
+	const (
+		launchHeight      = 18.0
+		circleRadius      = 0.5
+		capsuleHalfLength = 0.5
+		capsuleRadius     = 0.25
+		boxHalfWidth      = 0.5
+		boxAspectRatio    = 2.0
+	)
+
 	if s.bodyID != (box2d.Body{}) {
 		s.bodyID.Destroy()
 		s.shapeID = box2d.Shape{}
@@ -726,7 +967,7 @@ func (s *GhostBumps) Launch() {
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: -28.0, Y: 18.0}
+	bodyDef.Position = box2d.Pos{X: -28.0, Y: launchHeight}
 	bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: 0.0}
 	s.bodyID = s.worldID.CreateBody(&bodyDef)
 
@@ -734,25 +975,31 @@ func (s *GhostBumps) Launch() {
 	shapeDef.Density = 1.0
 	shapeDef.Material.Friction = s.friction
 
-	if s.shapeType == continuousCircleShape {
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+	switch s.shapeType {
+	case continuousCircleShape:
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: circleRadius}
 		s.shapeID = s.bodyID.CreateCircleShape(&shapeDef, &circle)
-	} else if s.shapeType == continuousCapsuleShape {
+	case continuousCapsuleShape:
 		capsule := box2d.Capsule{
-			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
-			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
-			Radius:  0.25,
+			Center1: box2d.Vec2{X: -capsuleHalfLength, Y: 0.0},
+			Center2: box2d.Vec2{X: capsuleHalfLength, Y: 0.0},
+			Radius:  capsuleRadius,
 		}
 		s.shapeID = s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
-	} else {
-		h := 0.5 - s.round
-		box := box2d.MakeRoundedBox(h, 2.0*h, s.round)
+	default:
+		h := boxHalfWidth - s.round
+		box := box2d.MakeRoundedBox(h, boxAspectRatio*h, s.round)
 		s.shapeID = s.bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 }
 
 func (s *GhostBumps) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const (
+		controlWidthEm = 6.0
+		maxRoundRadius = 0.4
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 
 	if imgui.Checkbox("Chain", &s.useChain) {
 		s.CreateScene()
@@ -770,7 +1017,7 @@ func (s *GhostBumps) DrawControls() bool {
 	}
 
 	if s.shapeType == continuousBoxShape {
-		imgui.SliderFloatV("Round", &s.round, 0.0, 0.4, "%.1f", 0)
+		imgui.SliderFloatV("Round", &s.round, 0.0, maxRoundRadius, "%.1f", 0)
 	}
 
 	if imgui.SliderFloatV("Friction", &s.friction, 0.0, 1.0, "%.1f", 0) {
@@ -790,19 +1037,32 @@ func (s *GhostBumps) DrawControls() bool {
 	return true
 }
 
-// Speculative collision failure case suggested by Dirk Gregorius. This uses
-// a simple fallback scheme to prevent tunneling.
-type SpeculativeFallback struct {
-	Sample
-}
-
 func CreateSpeculativeFallback(context *SampleContext) Sampler {
-	s := &SpeculativeFallback{}
+	const (
+		cameraHeight      = 5.0
+		baseCameraZoom    = 25.0
+		cameraZoomScale   = 0.25
+		groundHalfLength  = 10.0
+		platformHalfWidth = 2.0
+		platformBottom    = 4.0
+		platformStep      = 4.1
+		platformTop       = 4.2
+		platformCornerX   = -0.5
+		shapeOffset       = 8.0
+		dropHeight        = 12.0
+		boxHalfWidth      = 2.0
+		boxHalfHeight     = 0.05
+	)
+
+	s := &SpeculativeFallback{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 1.0, Y: 5.0}
-		s.context.camera.zoom = 25.0 * 0.25
+		s.context.camera.center = box2d.Pos{X: 1.0, Y: cameraHeight}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	{
@@ -811,17 +1071,17 @@ func CreateSpeculativeFallback(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		points := []box2d.Vec2{
-			{X: -2.0, Y: 4.0},
-			{X: 2.0, Y: 4.0},
-			{X: 2.0, Y: 4.1},
-			{X: -0.5, Y: 4.2},
-			{X: -2.0, Y: 4.2},
+			{X: -platformHalfWidth, Y: platformBottom},
+			{X: platformHalfWidth, Y: platformBottom},
+			{X: platformHalfWidth, Y: platformStep},
+			{X: platformCornerX, Y: platformTop},
+			{X: -platformHalfWidth, Y: platformTop},
 		}
 		hull := box2d.ComputeHull(points)
 		poly := box2d.MakePolygon(&hull, 0.0)
@@ -830,35 +1090,43 @@ func CreateSpeculativeFallback(context *SampleContext) Sampler {
 
 	// Fast moving skinny box. Also testing a large shape offset.
 	{
-		offset := float32(8.0)
+		offset := float32(shapeOffset)
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(offset), Y: 12.0}
+		bodyDef.Position = box2d.Pos{X: posScalar(offset), Y: dropHeight}
 		bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: -100.0}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
 		box := box2d.MakeOffsetBox(
-			2.0,
-			0.05,
+			boxHalfWidth,
+			boxHalfHeight,
 			box2d.Vec2{X: -offset, Y: 0.0},
 			box2d.MakeRot(box2d.Pi),
 		)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
+
 	return s
 }
 
-type SpeculativeSliver struct {
-	Sample
-}
-
 func CreateSpeculativeSliver(context *SampleContext) Sampler {
-	s := &SpeculativeSliver{}
+	const (
+		cameraHeight     = 1.75
+		groundHalfLength = 10.0
+		dropHeight       = 12.0
+		sliverHalfWidth  = 2.0
+		sliverTipHeight  = 0.5
+	)
+
+	s := &SpeculativeSliver{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 1.75}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 2.5
 	}
 
@@ -868,8 +1136,8 @@ func CreateSpeculativeSliver(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -877,30 +1145,46 @@ func CreateSpeculativeSliver(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 12.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: dropHeight}
 		bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: -100.0}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		points := []box2d.Vec2{{X: -2.0, Y: 0.0}, {X: -1.0, Y: 0.0}, {X: 2.0, Y: 0.5}}
+		points := []box2d.Vec2{
+			{
+				X: -sliverHalfWidth,
+				Y: 0.0,
+			},
+			{X: -1.0, Y: 0.0},
+			{X: sliverHalfWidth, Y: sliverTipHeight},
+		}
 		hull := box2d.ComputeHull(points)
 		poly := box2d.MakePolygon(&hull, 0.0)
 		bodyID.CreatePolygonShape(&shapeDef, &poly)
 	}
+
 	return s
 }
 
-// This shows that while Box2D uses speculative collision, it does not lead to speculative ghost collisions at small distances
-type SpeculativeGhost struct {
-	Sample
-}
-
 func CreateSpeculativeGhost(context *SampleContext) Sampler {
-	s := &SpeculativeGhost{}
+	const (
+		cameraHeight     = 1.75
+		groundHalfLength = 10.0
+		ledgeHalfHeight  = 0.1
+		ledgeCenterY     = 0.9
+		bodyStartX       = 0.015
+		bodyStartY       = 2.515
+		boxHalfExtent    = 0.25
+	)
+
+	s := &SpeculativeGhost{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 1.75}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 2.0
 	}
 
@@ -910,12 +1194,14 @@ func CreateSpeculativeGhost(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		box := box2d.MakeOffsetBox(1.0, 0.1, box2d.Vec2{X: 0.0, Y: 0.9}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			1.0, ledgeHalfHeight, box2d.Vec2{X: 0.0, Y: ledgeCenterY}, box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
@@ -924,7 +1210,7 @@ func CreateSpeculativeGhost(context *SampleContext) Sampler {
 		bodyDef.Type = box2d.DynamicBody
 
 		// The speculative distance is 0.02 meters, so this avoid it
-		bodyDef.Position = box2d.Pos{X: 0.015, Y: 2.515}
+		bodyDef.Position = box2d.Pos{X: bodyStartX, Y: bodyStartY}
 		bodyDef.LinearVelocity = box2d.Vec2{
 			X: 0.1 * 1.25 * s.context.hertz,
 			Y: -0.1 * 1.25 * s.context.hertz,
@@ -933,39 +1219,57 @@ func CreateSpeculativeGhost(context *SampleContext) Sampler {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeSquare(0.25)
+		box := box2d.MakeSquare(boxHalfExtent)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
+
 	return s
 }
 
-// This shows that Box2D does not have pixel perfect collision.
-type PixelImperfect struct {
-	Sample
-
-	ballID box2d.Body
-}
-
 func CreatePixelImperfect(context *SampleContext) Sampler {
-	s := &PixelImperfect{}
+	const (
+		cameraX              = 7.0
+		cameraY              = 5.0
+		pixelScale           = 30.0
+		blockXPixel          = 175.0
+		blockYPixel          = 150.0
+		blockHalfWidthPixel  = 20.0
+		blockHalfHeightPixel = 10.0
+		ballXPixel           = 200.0
+		ballYPixel           = 275.0
+		ballHalfExtentPixel  = 4.0
+		ballRoundingPixel    = 0.9
+	)
+
+	s := &PixelImperfect{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		ballID:          box2d.Body{},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 7.0, Y: 5.0}
+		s.context.camera.center = box2d.Pos{X: cameraX, Y: cameraY}
 		s.context.camera.zoom = 6.0
 	}
 
-	pixelsPerMeter := float32(30.0)
+	pixelsPerMeter := float32(pixelScale)
 
 	{
 		block4BodyDef := box2d.DefaultBodyDef()
 		block4BodyDef.Type = box2d.StaticBody
 		block4BodyDef.Position = box2d.Pos{
-			X: posScalar(175.0 / pixelsPerMeter),
-			Y: posScalar(150.0 / pixelsPerMeter),
+			X: posScalar(blockXPixel / pixelsPerMeter),
+			Y: posScalar(blockYPixel / pixelsPerMeter),
 		}
 		block4BodyID := s.worldID.CreateBody(&block4BodyDef)
-		block4Shape := box2d.MakeBox(20.0/pixelsPerMeter, 10.0/pixelsPerMeter)
+		block4Shape := box2d.MakeBox(
+			blockHalfWidthPixel/pixelsPerMeter,
+			blockHalfHeightPixel/pixelsPerMeter,
+		)
 		block4ShapeDef := box2d.DefaultShapeDef()
 		block4ShapeDef.Material.Friction = 0.0
 		block4BodyID.CreatePolygonShape(&block4ShapeDef, &block4Shape)
@@ -975,16 +1279,16 @@ func CreatePixelImperfect(context *SampleContext) Sampler {
 		ballBodyDef := box2d.DefaultBodyDef()
 		ballBodyDef.Type = box2d.DynamicBody
 		ballBodyDef.Position = box2d.Pos{
-			X: posScalar(200.0 / pixelsPerMeter),
-			Y: posScalar(275.0 / pixelsPerMeter),
+			X: posScalar(ballXPixel / pixelsPerMeter),
+			Y: posScalar(ballYPixel / pixelsPerMeter),
 		}
 		ballBodyDef.GravityScale = 0.0
 
 		s.ballID = s.worldID.CreateBody(&ballBodyDef)
 		ballShape := box2d.MakeRoundedBox(
-			4.0/pixelsPerMeter,
-			4.0/pixelsPerMeter,
-			0.9/pixelsPerMeter,
+			ballHalfExtentPixel/pixelsPerMeter,
+			ballHalfExtentPixel/pixelsPerMeter,
+			ballRoundingPixel/pixelsPerMeter,
 		)
 		ballShapeDef := box2d.DefaultShapeDef()
 		ballShapeDef.Material.Friction = 0.0
@@ -992,47 +1296,67 @@ func CreatePixelImperfect(context *SampleContext) Sampler {
 		s.ballID.SetLinearVelocity(box2d.Vec2{X: 0.0, Y: -5.0})
 		s.ballID.SetMotionLocks(box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: true})
 	}
+
 	return s
 }
 
 func (s *PixelImperfect) Step() {
 	p := s.ballID.Position()
 	v := s.ballID.LinearVelocity()
-	s.DrawScreenTextLine("p.x = %.9f, v.y = %.9f", p.X, v.Y)
+	s.DrawScreenTextLinef("p.x = %.9f, v.y = %.9f", p.X, v.Y)
 
 	s.Sample.Step()
 }
 
-type RestitutionThreshold struct {
-	Sample
-
-	ballID box2d.Body
-}
-
 func CreateRestitutionThreshold(context *SampleContext) Sampler {
-	s := &RestitutionThreshold{}
+	const (
+		cameraX              = 7.0
+		cameraY              = 5.0
+		pixelScale           = 30.0
+		restitutionThreshold = 0.1
+		blockXPixel          = 205.0
+		blockYPixel          = 120.0
+		degreesPerHalfTurn   = 180.0
+		blockHalfWidthPixel  = 50.0
+		blockHalfHeightPixel = 5.0
+		ballXPixel           = 200.0
+		ballYPixel           = 250.0
+		ballRadiusPixel      = 5.0
+	)
+
+	s := &RestitutionThreshold{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		ballID:          box2d.Body{},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 7.0, Y: 5.0}
+		s.context.camera.center = box2d.Pos{X: cameraX, Y: cameraY}
 		s.context.camera.zoom = 6.0
 	}
 
-	pixelsPerMeter := float32(30.0)
+	pixelsPerMeter := float32(pixelScale)
 
 	// With the default threshold the ball will not bounce.
-	s.worldID.SetRestitutionThreshold(0.1)
+	s.worldID.SetRestitutionThreshold(restitutionThreshold)
 
 	{
 		block0BodyDef := box2d.DefaultBodyDef()
 		block0BodyDef.Type = box2d.StaticBody
 		block0BodyDef.Position = box2d.Pos{
-			X: posScalar(205.0 / pixelsPerMeter),
-			Y: posScalar(120.0 / pixelsPerMeter),
+			X: posScalar(blockXPixel / pixelsPerMeter),
+			Y: posScalar(blockYPixel / pixelsPerMeter),
 		}
-		block0BodyDef.Rotation = box2d.MakeRot(70.0 * 3.14 / 180.0)
+		block0BodyDef.Rotation = box2d.MakeRot(70.0 * 3.14 / degreesPerHalfTurn)
 		block0BodyID := s.worldID.CreateBody(&block0BodyDef)
-		block0Shape := box2d.MakeBox(50.0/pixelsPerMeter, 5.0/pixelsPerMeter)
+		block0Shape := box2d.MakeBox(
+			blockHalfWidthPixel/pixelsPerMeter,
+			blockHalfHeightPixel/pixelsPerMeter,
+		)
 		block0ShapeDef := box2d.DefaultShapeDef()
 		block0ShapeDef.Material.Friction = 0.0
 		block0BodyID.CreatePolygonShape(&block0ShapeDef, &block0Shape)
@@ -1043,13 +1367,14 @@ func CreateRestitutionThreshold(context *SampleContext) Sampler {
 		ballBodyDef := box2d.DefaultBodyDef()
 		ballBodyDef.Type = box2d.DynamicBody
 		ballBodyDef.Position = box2d.Pos{
-			X: posScalar(200.0 / pixelsPerMeter),
-			Y: posScalar(250.0 / pixelsPerMeter),
+			X: posScalar(ballXPixel / pixelsPerMeter),
+			Y: posScalar(ballYPixel / pixelsPerMeter),
 		}
 		s.ballID = s.worldID.CreateBody(&ballBodyDef)
 
 		var ballShape box2d.Circle
-		ballShape.Radius = 5.0 / pixelsPerMeter
+
+		ballShape.Radius = ballRadiusPixel / pixelsPerMeter
 		ballShapeDef := box2d.DefaultShapeDef()
 		ballShapeDef.Material.Friction = 0.0
 		ballShapeDef.Material.Restitution = 1.0
@@ -1058,47 +1383,45 @@ func CreateRestitutionThreshold(context *SampleContext) Sampler {
 		s.ballID.SetLinearVelocity(box2d.Vec2{X: 0.0, Y: -2.9})
 		s.ballID.SetMotionLocks(box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: true})
 	}
+
 	return s
 }
 
 func (s *RestitutionThreshold) Step() {
 	p := s.ballID.Position()
 	v := s.ballID.LinearVelocity()
-	s.DrawScreenTextLine("p.x = %.9f, v.y = %.9f", p.X, v.Y)
+	s.DrawScreenTextLinef("p.x = %.9f, v.y = %.9f", p.X, v.Y)
 
 	s.Sample.Step()
 }
 
-type Drop struct {
-	Sample
-
-	groundIDs   []box2d.Body
-	bodyIDs     []box2d.Body
-	human       scenes.Human
-	frameSkip   int
-	frameCount  int
-	continuous  bool
-	speculative bool
-}
-
 func CreateDrop(context *SampleContext) Sampler {
-	s := &Drop{}
+	const cameraHeight = 1.5
+
+	var human scenes.Human
+
+	s := &Drop{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		groundIDs:   nil,
+		bodyIDs:     nil,
+		human:       human,
+		frameSkip:   0,
+		frameCount:  0,
+		continuous:  true,
+		speculative: true,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 1.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 3.0
 		s.context.enableSleep = false
 		s.context.debugDraw.DrawJoints = false
 	}
 
-	s.human = scenes.Human{}
-	s.frameSkip = 0
-	s.frameCount = 0
-	s.continuous = true
-	s.speculative = true
-
 	s.Scene1()
+
 	return s
 }
 
@@ -1114,14 +1437,9 @@ func (s *Drop) Clear() {
 	}
 }
 
-func (s *Drop) destroyGround() {
-	for _, groundID := range s.groundIDs {
-		groundID.Destroy()
-	}
-	s.groundIDs = s.groundIDs[:0]
-}
-
 func (s *Drop) CreateGround1() {
+	const groundSegmentWidth = 0.25
+
 	s.destroyGround()
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -1129,7 +1447,7 @@ func (s *Drop) CreateGround1() {
 
 	shapeDef := box2d.DefaultShapeDef()
 
-	w := float32(0.25)
+	w := float32(groundSegmentWidth)
 	count := 40
 	segment := box2d.Segment{
 		Point1: box2d.Vec2{X: -0.5 * float32(count) * w, Y: 0.0},
@@ -1141,6 +1459,12 @@ func (s *Drop) CreateGround1() {
 }
 
 func (s *Drop) CreateGround2() {
+	const (
+		groundBoxWidth      = 0.25
+		groundBoxHalfHeight = 0.05
+		halfWidthFactor     = 0.5
+	)
+
 	s.destroyGround()
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -1148,14 +1472,21 @@ func (s *Drop) CreateGround2() {
 
 	shapeDef := box2d.DefaultShapeDef()
 
-	w := float32(0.25)
+	w := float32(groundBoxWidth)
 	count := 40
 
 	x := -0.5 * float32(count) * w
-	h := float32(0.05)
+
+	h := float32(groundBoxHalfHeight)
 	for j := 0; j <= count; j++ {
-		box := box2d.MakeOffsetBox(0.5*w, h, box2d.Vec2{X: x, Y: 0.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			halfWidthFactor*w,
+			h,
+			box2d.Vec2{X: x, Y: 0.0},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
+
 		x += w
 	}
 
@@ -1163,6 +1494,12 @@ func (s *Drop) CreateGround2() {
 }
 
 func (s *Drop) CreateGround3() {
+	const (
+		groundSegmentWidth = 0.25
+		wallX              = 3.0
+		wallHeight         = 8.0
+	)
+
 	s.destroyGround()
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -1170,74 +1507,96 @@ func (s *Drop) CreateGround3() {
 
 	shapeDef := box2d.DefaultShapeDef()
 
-	w := float32(0.25)
+	w := float32(groundSegmentWidth)
 	count := 40
 	segment := box2d.Segment{
 		Point1: box2d.Vec2{X: -0.5 * float32(count) * w, Y: 0.0},
 		Point2: box2d.Vec2{X: 0.5 * float32(count) * w, Y: 0.0},
 	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
-	segment = box2d.Segment{Point1: box2d.Vec2{X: 3.0, Y: 0.0}, Point2: box2d.Vec2{X: 3.0, Y: 8.0}}
+	segment = box2d.Segment{
+		Point1: box2d.Vec2{X: wallX, Y: 0.0},
+		Point2: box2d.Vec2{X: wallX, Y: wallHeight},
+	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	s.groundIDs = append(s.groundIDs, groundID)
 }
 
-// ball
+// ball.
 func (s *Drop) Scene1() {
+	const (
+		dropHeight = 4.0
+		ballRadius = 0.125
+	)
+
 	s.Clear()
 	s.CreateGround2()
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: 0.0, Y: 4.0}
+	bodyDef.Position = box2d.Pos{X: 0.0, Y: dropHeight}
 	bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: -100.0}
 
 	bodyID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.125}
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 	bodyID.CreateCircleShape(&shapeDef, &circle)
 
 	s.bodyIDs = append(s.bodyIDs, bodyID)
 	s.frameCount = 1
 }
 
-// ruler
+// ruler.
 func (s *Drop) Scene2() {
+	const (
+		dropHeight          = 4.0
+		initialAnglePiRatio = 0.5
+		initialAngularSpeed = -0.5
+		rulerHalfWidth      = 0.75
+		rulerHalfHeight     = 0.01
+	)
+
 	s.Clear()
 	s.CreateGround1()
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: 0.0, Y: 4.0}
-	bodyDef.Rotation = box2d.MakeRot(0.5 * box2d.Pi)
+	bodyDef.Position = box2d.Pos{X: 0.0, Y: dropHeight}
+	bodyDef.Rotation = box2d.MakeRot(initialAnglePiRatio * box2d.Pi)
 	bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: 0.0}
-	bodyDef.AngularVelocity = -0.5
+	bodyDef.AngularVelocity = initialAngularSpeed
 
 	bodyID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	box := box2d.MakeBox(0.75, 0.01)
+	box := box2d.MakeBox(rulerHalfWidth, rulerHalfHeight)
 	bodyID.CreatePolygonShape(&shapeDef, &box)
 
 	s.bodyIDs = append(s.bodyIDs, bodyID)
 	s.frameCount = 1
 }
 
-// ragdoll
+// ragdoll.
 func (s *Drop) Scene3() {
+	const (
+		frictionTorque = 0.03
+		dampingRatio   = 0.5
+		dropHeight     = 40.0
+	)
+
 	s.Clear()
 	s.CreateGround2()
 
-	jointFrictionTorque := float32(0.03)
+	jointFrictionTorque := float32(frictionTorque)
 	jointHertz := float32(1.0)
-	jointDampingRatio := float32(0.5)
+	jointDampingRatio := float32(dampingRatio)
 
 	scenes.CreateHuman(
 		&s.human,
 		s.worldID,
-		box2d.Pos{X: 0.0, Y: 40.0},
+		box2d.Pos{X: 0.0, Y: dropHeight},
 		1.0,
 		jointFrictionTorque,
 		jointHertz,
@@ -1251,15 +1610,24 @@ func (s *Drop) Scene3() {
 }
 
 func (s *Drop) Scene4() {
+	const (
+		boxHalfExtent    = 0.25
+		boxStagger       = 0.01
+		stackX           = 2.5
+		projectileRadius = 0.125
+		projectileHeight = 1.9
+		projectileSpeed  = 200.0
+	)
+
 	s.Clear()
 	s.CreateGround3()
 
-	a := float32(0.25)
+	a := float32(boxHalfExtent)
 	box := box2d.MakeSquare(a)
 
 	shapeDef := box2d.DefaultShapeDef()
 
-	offset := float32(0.01)
+	offset := float32(boxStagger)
 
 	for i := range 5 {
 		bodyDef := box2d.DefaultBodyDef()
@@ -1269,21 +1637,25 @@ func (s *Drop) Scene4() {
 		if i%2 == 0 {
 			shift = -offset
 		}
-		bodyDef.Position = box2d.Pos{X: posScalar(2.5 + shift), Y: posScalar(a + 2.0*a*float32(i))}
+
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(stackX + shift),
+			Y: posScalar(a + 2.0*a*float32(i)),
+		}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		s.bodyIDs = append(s.bodyIDs, bodyID)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.125}
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: projectileRadius}
 	shapeDef.Density = 4.0
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -7.7, Y: 1.9}
-		bodyDef.LinearVelocity = box2d.Vec2{X: 200.0, Y: 0.0}
+		bodyDef.Position = box2d.Pos{X: -7.7, Y: projectileHeight}
+		bodyDef.LinearVelocity = box2d.Vec2{X: projectileSpeed, Y: 0.0}
 		bodyDef.IsBullet = true
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
@@ -1295,33 +1667,46 @@ func (s *Drop) Scene4() {
 }
 
 func (s *Drop) Keyboard(key glfw.Key, action glfw.Action, mods glfw.ModifierKey) {
-	switch key {
-	case glfw.Key1:
+	const skippedFrames = 60
+
+	if key == glfw.Key1 {
 		s.Scene1()
+		return
+	}
 
-	case glfw.Key2:
+	if key == glfw.Key2 {
 		s.Scene2()
+		return
+	}
 
-	case glfw.Key3:
+	if key == glfw.Key3 {
 		s.Scene3()
+		return
+	}
 
-	case glfw.Key4:
+	if key == glfw.Key4 {
 		s.Scene4()
+		return
+	}
 
-	case glfw.KeyC:
+	if key == glfw.KeyC {
 		s.Clear()
 		s.continuous = !s.continuous
 
-	case glfw.KeyS:
+		return
+	}
+
+	if key == glfw.KeyS {
 		if s.frameSkip > 0 {
 			s.frameSkip = 0
 		} else {
-			s.frameSkip = 60
+			s.frameSkip = skippedFrames
 		}
 
-	default:
-		s.Sample.Keyboard(key, action, mods)
+		return
 	}
+
+	s.Sample.Keyboard(key, action, mods)
 }
 
 func (s *Drop) Step() {
@@ -1339,23 +1724,52 @@ func (s *Drop) Step() {
 	s.frameCount += 1
 }
 
-// This shows a fast moving body that uses continuous collision versus static and dynamic bodies.
-// This is achieved by setting the ball body as a *bullet*.
-type Pinball struct {
-	Sample
+func (s *Drop) destroyGround() {
+	for _, groundID := range s.groundIDs {
+		groundID.Destroy()
+	}
 
-	leftJointID  box2d.RevoluteJoint
-	rightJointID box2d.RevoluteJoint
-	ballID       box2d.Body
+	s.groundIDs = s.groundIDs[:0]
 }
 
 func CreatePinball(context *SampleContext) Sampler {
-	s := &Pinball{}
+	const (
+		cameraHeight          = 9.0
+		baseCameraZoom        = 25.0
+		cameraZoomScale       = 0.5
+		tableHalfWidth        = 8.0
+		tableSideBottom       = 6.0
+		tableTop              = 20.0
+		flipperPivotX         = 2.0
+		flipperHalfLength     = 1.75
+		flipperHalfThickness  = 0.2
+		flipperWideLimitDeg   = 30.0
+		flipperNarrowLimitDeg = 5.0
+		degreesPerHalfTurn    = 180.0
+		leftSpinnerHeight     = 17.0
+		rightSpinnerX         = 4.0
+		rightSpinnerHeight    = 8.0
+		spinnerArmHalfLength  = 1.5
+		spinnerArmHalfWidth   = 0.125
+		leftBumperHeight      = 8.0
+		rightBumperX          = 4.0
+		rightBumperHeight     = 17.0
+		ballHeight            = 15.0
+		ballRadius            = 0.2
+	)
+
+	s := &Pinball{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		leftJointID:  box2d.RevoluteJoint{Joint: box2d.Joint{}},
+		rightJointID: box2d.RevoluteJoint{Joint: box2d.Joint{}},
+		ballID:       box2d.Body{},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 9.0}
-		s.context.camera.zoom = 25.0 * 0.5
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	s.context.debugDraw.DrawJoints = false
@@ -1367,10 +1781,10 @@ func CreatePinball(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 
 		vs := []box2d.Vec2{
-			{X: -8.0, Y: 6.0},
-			{X: -8.0, Y: 20.0},
-			{X: 8.0, Y: 20.0},
-			{X: 8.0, Y: 6.0},
+			{X: -tableHalfWidth, Y: tableSideBottom},
+			{X: -tableHalfWidth, Y: tableTop},
+			{X: tableHalfWidth, Y: tableTop},
+			{X: tableHalfWidth, Y: tableSideBottom},
 			{X: 0.0, Y: -2.0},
 		}
 
@@ -1382,7 +1796,7 @@ func CreatePinball(context *SampleContext) Sampler {
 
 	// Flippers
 	{
-		p1, p2 := box2d.Pos{X: -2.0, Y: 0.0}, box2d.Pos{X: 2.0, Y: 0.0}
+		p1, p2 := box2d.Pos{X: -flipperPivotX, Y: 0.0}, box2d.Pos{X: flipperPivotX, Y: 0.0}
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -1394,7 +1808,7 @@ func CreatePinball(context *SampleContext) Sampler {
 		bodyDef.Position = p2
 		rightFlipperID := s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(1.75, 0.2)
+		box := box2d.MakeBox(flipperHalfLength, flipperHalfThickness)
 
 		shapeDef := box2d.DefaultShapeDef()
 
@@ -1411,15 +1825,15 @@ func CreatePinball(context *SampleContext) Sampler {
 		jointDef.MotorSpeed = 0.0
 		jointDef.Base.LocalFrameA.P = p1.Vec2()
 		jointDef.Base.BodyB = leftFlipperID
-		jointDef.LowerAngle = -30.0 * box2d.Pi / 180.0
-		jointDef.UpperAngle = 5.0 * box2d.Pi / 180.0
+		jointDef.LowerAngle = -flipperWideLimitDeg * box2d.Pi / degreesPerHalfTurn
+		jointDef.UpperAngle = flipperNarrowLimitDeg * box2d.Pi / degreesPerHalfTurn
 		s.leftJointID = s.worldID.CreateRevoluteJoint(&jointDef)
 
 		jointDef.MotorSpeed = 0.0
 		jointDef.Base.LocalFrameA.P = p2.Vec2()
 		jointDef.Base.BodyB = rightFlipperID
-		jointDef.LowerAngle = -5.0 * box2d.Pi / 180.0
-		jointDef.UpperAngle = 30.0 * box2d.Pi / 180.0
+		jointDef.LowerAngle = -flipperNarrowLimitDeg * box2d.Pi / degreesPerHalfTurn
+		jointDef.UpperAngle = flipperWideLimitDeg * box2d.Pi / degreesPerHalfTurn
 		s.rightJointID = s.worldID.CreateRevoluteJoint(&jointDef)
 	}
 
@@ -1427,13 +1841,13 @@ func CreatePinball(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -4.0, Y: 17.0}
+		bodyDef.Position = box2d.Pos{X: -4.0, Y: leftSpinnerHeight}
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box1 := box2d.MakeBox(1.5, 0.125)
-		box2 := box2d.MakeBox(0.125, 1.5)
+		box1 := box2d.MakeBox(spinnerArmHalfLength, spinnerArmHalfWidth)
+		box2 := box2d.MakeBox(spinnerArmHalfWidth, spinnerArmHalfLength)
 
 		bodyID.CreatePolygonShape(&shapeDef, &box1)
 		bodyID.CreatePolygonShape(&shapeDef, &box2)
@@ -1447,10 +1861,11 @@ func CreatePinball(context *SampleContext) Sampler {
 		jointDef.MaxMotorTorque = 0.1
 		s.worldID.CreateRevoluteJoint(&jointDef)
 
-		bodyDef.Position = box2d.Pos{X: 4.0, Y: 8.0}
+		bodyDef.Position = box2d.Pos{X: rightSpinnerX, Y: rightSpinnerHeight}
 		bodyID = s.worldID.CreateBody(&bodyDef)
 		bodyID.CreatePolygonShape(&shapeDef, &box1)
 		bodyID.CreatePolygonShape(&shapeDef, &box2)
+
 		jointDef.Base.LocalFrameA.P = bodyDef.Position.Vec2()
 		jointDef.Base.BodyB = bodyID
 		s.worldID.CreateRevoluteJoint(&jointDef)
@@ -1459,7 +1874,7 @@ func CreatePinball(context *SampleContext) Sampler {
 	// Bumpers
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: -4.0, Y: 8.0}
+		bodyDef.Position = box2d.Pos{X: -4.0, Y: leftBumperHeight}
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
@@ -1469,7 +1884,7 @@ func CreatePinball(context *SampleContext) Sampler {
 		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 1.0}
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 
-		bodyDef.Position = box2d.Pos{X: 4.0, Y: 17.0}
+		bodyDef.Position = box2d.Pos{X: rightBumperX, Y: rightBumperHeight}
 		bodyID = s.worldID.CreateBody(&bodyDef)
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
@@ -1477,48 +1892,57 @@ func CreatePinball(context *SampleContext) Sampler {
 	// Ball
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: 1.0, Y: 15.0}
+		bodyDef.Position = box2d.Pos{X: 1.0, Y: ballHeight}
 		bodyDef.Type = box2d.DynamicBody
 		bodyDef.IsBullet = true
 
 		s.ballID = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.2}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 		s.ballID.CreateCircleShape(&shapeDef, &circle)
 	}
+
 	return s
 }
 
 func (s *Pinball) DrawControls() bool {
-	imText("Flipper: press A")
+	imTextf("Flipper: press A")
 	return true
 }
 
 func (s *Pinball) Step() {
+	const (
+		activeMotorSpeed = 20.0
+		restMotorSpeed   = 10.0
+	)
+
 	s.Sample.Step()
 
 	if s.context.window.GetKey(glfw.KeyA) == glfw.Press {
-		s.leftJointID.SetMotorSpeed(20.0)
-		s.rightJointID.SetMotorSpeed(-20.0)
+		s.leftJointID.SetMotorSpeed(activeMotorSpeed)
+		s.rightJointID.SetMotorSpeed(-activeMotorSpeed)
 	} else {
-		s.leftJointID.SetMotorSpeed(-10.0)
-		s.rightJointID.SetMotorSpeed(10.0)
+		s.leftJointID.SetMotorSpeed(-restMotorSpeed)
+		s.rightJointID.SetMotorSpeed(restMotorSpeed)
 	}
 }
 
-// This shows the importance of secondary collisions in continuous physics.
-// This also shows a difficult setup for the solver with an acute angle.
-type Wedge struct {
-	Sample
-}
-
 func CreateWedge(context *SampleContext) Sampler {
-	s := &Wedge{}
+	const (
+		cameraHeight = 5.5
+		wedgeTop     = 8.0
+		dropHeight   = 10.75
+	)
+
+	s := &Wedge{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 5.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 6.0
 	}
 
@@ -1527,13 +1951,13 @@ func CreateWedge(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -4.0, Y: 8.0},
+			Point1: box2d.Vec2{X: -4.0, Y: wedgeTop},
 			Point2: box2d.Vec2{X: 0.0, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 		segment = box2d.Segment{
 			Point1: box2d.Vec2{X: 0.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 0.0, Y: 8.0},
+			Point2: box2d.Vec2{X: 0.0, Y: wedgeTop},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -1541,44 +1965,44 @@ func CreateWedge(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -0.45, Y: 10.75}
+		bodyDef.Position = box2d.Pos{X: -0.45, Y: dropHeight}
 		bodyDef.LinearVelocity = box2d.Vec2{X: 0.0, Y: -200.0}
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		var circle box2d.Circle
+
 		circle.Radius = 0.3
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.2
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
+
 	return s
 }
 
-// This shows how adjusting the CCD safety factor can engage continuous collision at
-// lower speeds to avoid the slight overlap that happens with discrete collision detection.
-// The best way to run this sample is:
-// 1. press pause (P)
-// 2. restart (R) or press the Drop button
-// 3. then single step (.)
-// Then look at the metrics and overlap. The color of the shape gets darker when it is using
-// continuous collision detection.
-type SafetyFactor struct {
-	Sample
-
-	bodyID       box2d.Body
-	extent       float32
-	height       float32
-	safetyFactor float32
-	overlap      float32
-}
-
 func CreateSafetyFactor(context *SampleContext) Sampler {
-	s := &SafetyFactor{}
+	const (
+		initialExtent       = 0.5
+		initialHeight       = 0.3
+		initialSafetyFactor = 0.1
+		cameraHeight        = 3.0
+		groundHalfWidth     = 20.0
+	)
+
+	s := &SafetyFactor{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		bodyID:       box2d.Body{},
+		extent:       initialExtent,
+		height:       initialHeight,
+		safetyFactor: initialSafetyFactor,
+		overlap:      0,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 3.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 6.0
 	}
 
@@ -1588,17 +2012,12 @@ func CreateSafetyFactor(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeBox(20.0, 1.0)
+		box := box2d.MakeBox(groundHalfWidth, 1.0)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	s.bodyID = box2d.Body{}
-	s.extent = 0.5
-	s.height = 0.3
-	s.safetyFactor = 0.1
-	s.overlap = 0.0
-
 	s.Launch()
+
 	return s
 }
 
@@ -1621,6 +2040,8 @@ func (s *SafetyFactor) Launch() {
 }
 
 func (s *SafetyFactor) Step() {
+	const overlapLineHalfWidth = 3.0
+
 	s.Sample.Step()
 
 	if s.didStep {
@@ -1629,13 +2050,14 @@ func (s *SafetyFactor) Step() {
 			for j := range data.Manifold.PointCount {
 				s.overlap = max(s.overlap, -data.Manifold.Points[j].Separation)
 			}
+
 			break
 		}
 	}
 
 	s.draw.DrawLine(
-		box2d.Vec2{X: -3.0, Y: -s.overlap}.Pos(),
-		box2d.Vec2{X: 3.0, Y: -s.overlap}.Pos(),
+		box2d.Vec2{X: -overlapLineHalfWidth, Y: -s.overlap}.Pos(),
+		box2d.Vec2{X: overlapLineHalfWidth, Y: -s.overlap}.Pos(),
 		box2d.ColorRed,
 	)
 
@@ -1643,19 +2065,27 @@ func (s *SafetyFactor) Step() {
 	if s.context.hertz > 0.0 {
 		timeStep = 1.0 / s.context.hertz
 	}
+
 	motion := timeStep * s.bodyID.LinearVelocity().Length()
 
-	s.DrawScreenTextLine("actual movement = %.3f m", motion)
-	s.DrawScreenTextLine("fast movement = %.3f m", s.safetyFactor*s.extent)
-	s.DrawScreenTextLine("overlap = %.4f m", s.overlap)
+	s.DrawScreenTextLinef("actual movement = %.3f m", motion)
+	s.DrawScreenTextLinef("fast movement = %.3f m", s.safetyFactor*s.extent)
+	s.DrawScreenTextLinef("overlap = %.4f m", s.overlap)
 }
 
 func (s *SafetyFactor) DrawControls() bool {
+	const (
+		controlWidthEm = 10.0
+		maxDropHeight  = 2.0
+	)
+
 	changed := false
 
-	imgui.PushItemWidth(10.0 * imgui.FontSize())
-	changed = imgui.SliderFloatV("Height", &s.height, 0.0, 2.0, "%.2f", 0) || changed
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	changed = imgui.SliderFloatV("Height", &s.height, 0.0, maxDropHeight, "%.2f", 0) || changed
 	changed = imgui.SliderFloatV("Safety", &s.safetyFactor, 0.0, 1.0, "%.2f", 0) || changed
+
 	imgui.PopItemWidth()
 
 	if imgui.Button("Drop") || changed {
@@ -1665,7 +2095,7 @@ func (s *SafetyFactor) DrawControls() bool {
 	return true
 }
 
-func init() {
+func registerContinuousSamples() {
 	RegisterSample("Continuous", "Bounce House", CreateBounceHouse)
 	RegisterSample("Continuous", "Bounce Humans", CreateBounceHumans)
 	RegisterSample("Continuous", "Chain Drop", CreateChainDrop)

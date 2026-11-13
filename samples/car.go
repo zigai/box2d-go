@@ -14,17 +14,31 @@ type Car struct {
 	isSpawned    bool
 }
 
+type Truck struct {
+	chassisID    box2d.Body
+	rearWheelID  box2d.Body
+	frontWheelID box2d.Body
+	rearAxleID   box2d.WheelJoint
+	frontAxleID  box2d.WheelJoint
+	isSpawned    bool
+}
+
 func createWheelAxle(
 	worldID *box2d.World,
-	chassisID, wheelID box2d.Body,
-	scale, hertz, dampingRatio, torque float32,
+	chassisID box2d.Body, wheelID box2d.Body,
+	scale float32, hertz float32, dampingRatio float32, torque float32,
 ) box2d.WheelJoint {
+	const (
+		axleAngle        = 0.5 * box2d.Pi
+		suspensionTravel = 0.25
+	)
+
 	pivot := wheelID.Position()
 
 	jointDef := box2d.DefaultWheelJointDef()
 	jointDef.Base.BodyA = chassisID
 	jointDef.Base.BodyB = wheelID
-	jointDef.Base.LocalFrameA.Q = box2d.MakeRot(0.5 * box2d.Pi)
+	jointDef.Base.LocalFrameA.Q = box2d.MakeRot(axleAngle)
 	jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
 	jointDef.Base.LocalFrameB.P = jointDef.Base.BodyB.LocalPoint(pivot)
 	jointDef.MotorSpeed = 0.0
@@ -32,43 +46,63 @@ func createWheelAxle(
 	jointDef.EnableMotor = true
 	jointDef.Hertz = hertz
 	jointDef.DampingRatio = dampingRatio
-	jointDef.LowerTranslation = -0.25 * scale
-	jointDef.UpperTranslation = 0.25 * scale
+	jointDef.LowerTranslation = -suspensionTravel * scale
+	jointDef.UpperTranslation = suspensionTravel * scale
 	jointDef.EnableLimit = true
+
 	return worldID.CreateWheelJoint(&jointDef)
 }
 
 func (c *Car) Spawn(
 	worldID *box2d.World,
 	position box2d.Pos,
-	scale, hertz, dampingRatio, torque float32,
-	userData any,
+	scale float32, hertz float32, dampingRatio float32, torque float32,
 ) {
+	const (
+		rearX             = -1.5
+		frontX            = 1.5
+		bottomY           = -0.5
+		roofY             = 0.9
+		roofRearX         = -1.15
+		trunkY            = 0.2
+		hullScale         = 0.85
+		cornerRadius      = 0.15
+		chassisFriction   = 0.2
+		wheelRadius       = 0.4
+		wheelDensity      = 2.0
+		wheelFriction     = 1.5
+		rollingResistance = 0.1
+		rearWheelX        = -1.0
+		rearWheelY        = 0.35
+		frontWheelX       = 1.0
+		frontWheelY       = 0.4
+	)
+
 	vertices := []box2d.Vec2{
 		{
-			X: -1.5,
-			Y: -0.5,
+			X: rearX,
+			Y: bottomY,
 		},
-		{X: 1.5, Y: -0.5},
-		{X: 1.5, Y: 0.0},
-		{X: 0.0, Y: 0.9},
-		{X: -1.15, Y: 0.9},
-		{X: -1.5, Y: 0.2},
+		{X: frontX, Y: bottomY},
+		{X: frontX, Y: 0.0},
+		{X: 0.0, Y: roofY},
+		{X: roofRearX, Y: roofY},
+		{X: rearX, Y: trunkY},
 	}
 
 	for i := range vertices {
-		vertices[i].X *= 0.85 * scale
-		vertices[i].Y *= 0.85 * scale
+		vertices[i].X *= hullScale * scale
+		vertices[i].Y *= hullScale * scale
 	}
 
 	hull := box2d.ComputeHull(vertices)
-	chassis := box2d.MakePolygon(&hull, 0.15*scale)
+	chassis := box2d.MakePolygon(&hull, cornerRadius*scale)
 
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Density = 1.0 / scale
-	shapeDef.Material.Friction = 0.2
+	shapeDef.Material.Friction = chassisFriction
 
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.4 * scale}
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: wheelRadius * scale}
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
@@ -76,16 +110,16 @@ func (c *Car) Spawn(
 	c.chassisID = worldID.CreateBody(&bodyDef)
 	c.chassisID.CreatePolygonShape(&shapeDef, &chassis)
 
-	shapeDef.Density = 2.0 / scale
-	shapeDef.Material.Friction = 1.5
-	shapeDef.Material.RollingResistance = 0.1
+	shapeDef.Density = wheelDensity / scale
+	shapeDef.Material.Friction = wheelFriction
+	shapeDef.Material.RollingResistance = rollingResistance
 
-	bodyDef.Position = position.Add(box2d.Vec2{X: -1.0 * scale, Y: 0.35 * scale})
+	bodyDef.Position = position.Add(box2d.Vec2{X: rearWheelX * scale, Y: rearWheelY * scale})
 	bodyDef.AllowFastRotation = true
 	c.rearWheelID = worldID.CreateBody(&bodyDef)
 	c.rearWheelID.CreateCircleShape(&shapeDef, &circle)
 
-	bodyDef.Position = position.Add(box2d.Vec2{X: 1.0 * scale, Y: 0.4 * scale})
+	bodyDef.Position = position.Add(box2d.Vec2{X: frontWheelX * scale, Y: frontWheelY * scale})
 	bodyDef.AllowFastRotation = true
 	c.frontWheelID = worldID.CreateBody(&bodyDef)
 	c.frontWheelID.CreateCircleShape(&shapeDef, &circle)
@@ -140,43 +174,58 @@ func (c *Car) SetDampingRadio(dampingRatio float32) {
 	c.frontAxleID.SetSpringDampingRatio(dampingRatio)
 }
 
-type Truck struct {
-	chassisID    box2d.Body
-	rearWheelID  box2d.Body
-	frontWheelID box2d.Body
-	rearAxleID   box2d.WheelJoint
-	frontAxleID  box2d.WheelJoint
-	isSpawned    bool
-}
-
 func (t *Truck) Spawn(
 	worldID *box2d.World,
 	position box2d.Pos,
-	scale, hertz, dampingRatio, torque, density float32,
-	userData any,
+	scale float32, hertz float32, dampingRatio float32, torque float32, density float32,
 ) {
+	const (
+		cabRearX           = -0.65
+		cabFrontX          = 1.5
+		cabBottomY         = -0.4
+		cabRoofY           = 0.9
+		hullScale          = 0.85
+		cabCornerRadius    = 0.15
+		chassisFriction    = 0.2
+		bedHalfWidth       = 1.25
+		bedHalfHeight      = 0.1
+		bedX               = -2.05
+		bedY               = -0.275
+		cornerRadius       = 0.1
+		tailgateHalfWidth  = 0.05
+		tailgateHalfHeight = 0.35
+		tailgateX          = -3.25
+		tailgateY          = 0.375
+		wheelDensityScale  = 2.0
+		wheelFriction      = 2.5
+		wheelRadius        = 0.4
+		rearWheelX         = -2.75
+		frontWheelX        = 0.8
+		wheelY             = 0.3
+	)
+
 	vertices := []box2d.Vec2{
 		{
-			X: -0.65,
-			Y: -0.4,
+			X: cabRearX,
+			Y: cabBottomY,
 		},
-		{X: 1.5, Y: -0.4},
-		{X: 1.5, Y: 0.0},
-		{X: 0.0, Y: 0.9},
-		{X: -0.65, Y: 0.9},
+		{X: cabFrontX, Y: cabBottomY},
+		{X: cabFrontX, Y: 0.0},
+		{X: 0.0, Y: cabRoofY},
+		{X: cabRearX, Y: cabRoofY},
 	}
 
 	for i := range vertices {
-		vertices[i].X *= 0.85 * scale
-		vertices[i].Y *= 0.85 * scale
+		vertices[i].X *= hullScale * scale
+		vertices[i].Y *= hullScale * scale
 	}
 
 	hull := box2d.ComputeHull(vertices)
-	chassis := box2d.MakePolygon(&hull, 0.15*scale)
+	chassis := box2d.MakePolygon(&hull, cabCornerRadius*scale)
 
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Density = density
-	shapeDef.Material.Friction = 0.2
+	shapeDef.Material.Friction = chassisFriction
 	shapeDef.Material.CustomColor = uint32(box2d.ColorHotPink)
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -186,33 +235,33 @@ func (t *Truck) Spawn(
 	t.chassisID.CreatePolygonShape(&shapeDef, &chassis)
 
 	box := box2d.MakeOffsetBox(
-		1.25*scale,
-		0.1*scale,
-		box2d.Vec2{X: -2.05 * scale, Y: -0.275 * scale},
+		bedHalfWidth*scale,
+		bedHalfHeight*scale,
+		box2d.Vec2{X: bedX * scale, Y: bedY * scale},
 		box2d.RotIdentity,
 	)
-	box.Radius = 0.1 * scale
+	box.Radius = cornerRadius * scale
 	t.chassisID.CreatePolygonShape(&shapeDef, &box)
 
 	box = box2d.MakeOffsetBox(
-		0.05*scale,
-		0.35*scale,
-		box2d.Vec2{X: -3.25 * scale, Y: 0.375 * scale},
+		tailgateHalfWidth*scale,
+		tailgateHalfHeight*scale,
+		box2d.Vec2{X: tailgateX * scale, Y: tailgateY * scale},
 		box2d.RotIdentity,
 	)
-	box.Radius = 0.1 * scale
+	box.Radius = cornerRadius * scale
 	t.chassisID.CreatePolygonShape(&shapeDef, &box)
 
-	shapeDef.Density = 2.0 * density
-	shapeDef.Material.Friction = 2.5
+	shapeDef.Density = wheelDensityScale * density
+	shapeDef.Material.Friction = wheelFriction
 	shapeDef.Material.CustomColor = uint32(box2d.ColorSilver)
 
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.4 * scale}
-	bodyDef.Position = position.Add(box2d.Vec2{X: -2.75 * scale, Y: 0.3 * scale})
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: wheelRadius * scale}
+	bodyDef.Position = position.Add(box2d.Vec2{X: rearWheelX * scale, Y: wheelY * scale})
 	t.rearWheelID = worldID.CreateBody(&bodyDef)
 	t.rearWheelID.CreateCircleShape(&shapeDef, &circle)
 
-	bodyDef.Position = position.Add(box2d.Vec2{X: 0.8 * scale, Y: 0.3 * scale})
+	bodyDef.Position = position.Add(box2d.Vec2{X: frontWheelX * scale, Y: wheelY * scale})
 	t.frontWheelID = worldID.CreateBody(&bodyDef)
 	t.frontWheelID.CreateCircleShape(&shapeDef, &circle)
 

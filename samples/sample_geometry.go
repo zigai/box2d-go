@@ -14,7 +14,8 @@ const convexHullCount = box2d.MaxPolygonVertices
 
 type ConvexHull struct {
 	Sample
-	points     [box2d.MaxPolygonVertices]box2d.Vec2
+
+	points     [box2d.MaxPolygonVertices]box2d.Vec2 //exhaustruct:optional
 	count      int
 	generation int
 	auto       bool
@@ -22,31 +23,50 @@ type ConvexHull struct {
 }
 
 func CreateConvexHull(context *SampleContext) Sampler {
-	s := &ConvexHull{}
+	const (
+		cameraCenterX   = 0.5
+		cameraZoom      = 25.0
+		cameraZoomScale = 0.3
+	)
+
+	s := &ConvexHull{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		count:           0,
+		generation:      0,
+		auto:            false,
+		bulk:            false,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.5, Y: 0.0}
-		s.context.camera.zoom = 25.0 * 0.3
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: 0.0}
+		s.context.camera.zoom = cameraZoom * cameraZoomScale
 	}
 
-	s.generation = 0
-	s.auto = false
-	s.bulk = false
 	s.Generate()
+
 	return s
 }
 
 func (s *ConvexHull) Generate() {
+	const (
+		clampExtent = 4.0
+		pointSpread = 10.0
+	)
+
 	angle := box2d.Pi * scenes.RandomFloat()
 	r := box2d.MakeRot(angle)
 
-	lowerBound := box2d.Vec2{X: -4.0, Y: -4.0}
-	upperBound := box2d.Vec2{X: 4.0, Y: 4.0}
+	lowerBound := box2d.Vec2{X: -clampExtent, Y: -clampExtent}
+	upperBound := box2d.Vec2{X: clampExtent, Y: clampExtent}
 
 	for i := range convexHullCount {
-		x := 10.0 * scenes.RandomFloat()
-		y := 10.0 * scenes.RandomFloat()
+		x := pointSpread * scenes.RandomFloat()
+		y := pointSpread * scenes.RandomFloat()
 
 		v := box2d.Vec2{X: x, Y: y}.Clamp(lowerBound, upperBound)
 		s.points[i] = r.Rotate(v)
@@ -58,63 +78,44 @@ func (s *ConvexHull) Generate() {
 }
 
 func (s *ConvexHull) Keyboard(key glfw.Key, action glfw.Action, mods glfw.ModifierKey) {
-	switch key {
-	case glfw.KeyA:
+	if key == glfw.KeyA {
 		s.auto = !s.auto
+	}
 
-	case glfw.KeyB:
+	if key == glfw.KeyB {
 		s.bulk = !s.bulk
+	}
 
-	case glfw.KeyG:
+	if key == glfw.KeyG {
 		s.Generate()
 	}
 }
 
 func (s *ConvexHull) Step() {
+	const (
+		inputPointSize = 5.0
+		hullPointSize  = 6.0
+		labelOffset    = 0.1
+	)
+
 	s.Sample.Step()
 
-	s.DrawScreenTextLine("Options: generate(g), auto(a), bulk(b)")
+	s.DrawScreenTextLinef("Options: generate(g), auto(a), bulk(b)")
 
 	var hull box2d.Hull
-	valid := false
+
+	valid := s.computeHull(&hull)
+
 	var milliseconds float32
 
-	if s.bulk {
-		for range 10000 {
-			s.Generate()
-			hull = box2d.ComputeHull(s.points[:s.count])
-			if hull.Count == 0 {
-				continue
-			}
-
-			valid = box2d.ValidateHull(&hull)
-			if !valid || !s.bulk {
-				s.bulk = false
-				break
-			}
-		}
-	} else {
-		if s.auto {
-			s.Generate()
-		}
-
-		hull = box2d.ComputeHull(s.points[:s.count])
-		if hull.Count > 0 {
-			valid = box2d.ValidateHull(&hull)
-			if !valid {
-				s.auto = false
-			}
-		}
-	}
-
 	if !valid {
-		s.DrawScreenTextLine("generation = %d, FAILED", s.generation)
+		s.DrawScreenTextLinef("generation = %d, FAILED", s.generation)
 	} else {
-		s.DrawScreenTextLine("generation = %d, count = %d", s.generation, hull.Count)
+		s.DrawScreenTextLinef("generation = %d, count = %d", s.generation, hull.Count)
 	}
 
 	if milliseconds > 0.0 {
-		s.DrawScreenTextLine("milliseconds = %.6g", milliseconds)
+		s.DrawScreenTextLinef("milliseconds = %.6g", milliseconds)
 	}
 
 	if hull.Count > 0 {
@@ -122,10 +123,10 @@ func (s *ConvexHull) Step() {
 	}
 
 	for i := range s.count {
-		s.draw.DrawPoint(s.points[i].Pos(), 5.0, box2d.ColorBlue)
-		s.draw.DrawString(
+		s.draw.DrawPoint(s.points[i].Pos(), inputPointSize, box2d.ColorBlue)
+		s.draw.DrawStringf(
 			s.camera,
-			s.points[i].Add(box2d.Vec2{X: 0.1, Y: 0.1}).Pos(),
+			s.points[i].Add(box2d.Vec2{X: labelOffset, Y: labelOffset}).Pos(),
 			box2d.ColorWhite,
 			"%d",
 			i,
@@ -133,10 +134,49 @@ func (s *ConvexHull) Step() {
 	}
 
 	for i := range hull.Count {
-		s.draw.DrawPoint(hull.Points[i].Pos(), 6.0, box2d.ColorGreen)
+		s.draw.DrawPoint(hull.Points[i].Pos(), hullPointSize, box2d.ColorGreen)
 	}
 }
 
-func init() {
+func (s *ConvexHull) computeHull(hull *box2d.Hull) bool {
+	const bulkGenerationCount = 10000
+
+	valid := false
+
+	if !s.bulk {
+		if s.auto {
+			s.Generate()
+		}
+
+		*hull = box2d.ComputeHull(s.points[:s.count])
+		if hull.Count > 0 {
+			valid = box2d.ValidateHull(hull)
+			if !valid {
+				s.auto = false
+			}
+		}
+
+		return valid
+	}
+
+	for range bulkGenerationCount {
+		s.Generate()
+
+		*hull = box2d.ComputeHull(s.points[:s.count])
+		if hull.Count == 0 {
+			continue
+		}
+
+		valid = box2d.ValidateHull(hull)
+		if !valid || !s.bulk {
+			s.bulk = false
+			break
+		}
+	}
+
+	return valid
+}
+
+func registerGeometrySamples() {
 	RegisterSample("Geometry", "Convex Hull", CreateConvexHull)
 }

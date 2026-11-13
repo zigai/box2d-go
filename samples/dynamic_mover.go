@@ -5,6 +5,8 @@ package main
 
 import "github.com/zigai/box2d-go/box2d"
 
+const dynamicMoverMinGroundNormalY = 0.7
+
 type DynamicMoverDef struct {
 	position             box2d.Pos
 	capsule              box2d.Capsule
@@ -26,28 +28,6 @@ type DynamicMoverDef struct {
 	pogoCompressionScale float32
 	pogoTensionScale     float32
 	enablePreSolveEvents bool
-}
-
-func DefaultDynamicMoverDef() DynamicMoverDef {
-	return DynamicMoverDef{
-		density:              1.0,
-		filter:               box2d.DefaultFilter(),
-		jumpSpeed:            7.0,
-		maxSpeed:             6.0,
-		minSpeed:             0.1,
-		stopSpeed:            3.0,
-		accelerate:           20.0,
-		airSteer:             0.5,
-		friction:             8.0,
-		gravityScale:         1.5,
-		maxGroundForce:       70.0,
-		maxAirForce:          20.0,
-		pogoRestLength:       0.9,
-		pogoHertz:            5.0,
-		pogoDampingRatio:     0.8,
-		pogoCompressionScale: 100.0,
-		pogoTensionScale:     100.0,
-	}
 }
 
 type DynamicMoverCastResult struct {
@@ -103,60 +83,113 @@ type DynamicMover struct {
 	capsule box2d.Capsule
 	filter  box2d.Filter
 
-	worldID      *box2d.World
-	groundID     box2d.Body
-	moverID      box2d.Body
-	moverJointID box2d.MoverJoint
-	pogoJointID  box2d.PogoJoint
+	worldID      *box2d.World     //exhaustruct:optional
+	groundID     box2d.Body       //exhaustruct:optional
+	moverID      box2d.Body       //exhaustruct:optional
+	moverJointID box2d.MoverJoint //exhaustruct:optional
+	pogoJointID  box2d.PogoJoint  //exhaustruct:optional
 
-	castResult DynamicMoverCastResult
+	castResult DynamicMoverCastResult //exhaustruct:optional
 
-	velocity  box2d.Vec2
-	onGround  bool
-	walkable  bool
-	jumping   bool
-	jumpTicks int
+	velocity  box2d.Vec2 //exhaustruct:optional
+	onGround  bool       //exhaustruct:optional
+	walkable  bool       //exhaustruct:optional
+	jumping   bool       //exhaustruct:optional
+	jumpTicks int        //exhaustruct:optional
 
 	// Pogo joint state, carried across the joint being recreated each solve.
-	pogoImpulse  float32
-	pogoVelocity float32
-	pogoLength   float32
+	pogoImpulse  float32 //exhaustruct:optional
+	pogoVelocity float32 //exhaustruct:optional
+	pogoLength   float32 //exhaustruct:optional
 
 	// Ground probe from the last solve, kept for debug drawing. The probe ends at
 	// the origin plus the fraction of the translation.
-	pogoOrigin      box2d.Pos
-	pogoTranslation box2d.Vec2
+	pogoOrigin      box2d.Pos  //exhaustruct:optional
+	pogoTranslation box2d.Vec2 //exhaustruct:optional
 	pogoFraction    float32
-	pogoHit         bool
+	pogoHit         bool //exhaustruct:optional
+}
+
+func DefaultDynamicMoverDef() DynamicMoverDef {
+	const (
+		jumpSpeed            = 7.0
+		maxSpeed             = 6.0
+		minSpeed             = 0.1
+		stopSpeed            = 3.0
+		acceleration         = 20.0
+		airSteer             = 0.5
+		friction             = 8.0
+		gravityScale         = 1.5
+		maxGroundForce       = 70.0
+		maxAirForce          = 20.0
+		pogoRestLength       = 0.9
+		pogoHertz            = 5.0
+		pogoDampingRatio     = 0.8
+		pogoCompressionScale = 100.0
+		pogoTensionScale     = 100.0
+	)
+
+	return DynamicMoverDef{
+		position: box2d.Pos{X: 0.0, Y: 0.0},
+		capsule: box2d.Capsule{
+			Center1: box2d.Vec2Zero,
+			Center2: box2d.Vec2Zero,
+			Radius:  0.0,
+		},
+		density:              1.0,
+		filter:               box2d.DefaultFilter(),
+		jumpSpeed:            jumpSpeed,
+		maxSpeed:             maxSpeed,
+		minSpeed:             minSpeed,
+		stopSpeed:            stopSpeed,
+		accelerate:           acceleration,
+		airSteer:             airSteer,
+		friction:             friction,
+		gravityScale:         gravityScale,
+		maxGroundForce:       maxGroundForce,
+		maxAirForce:          maxAirForce,
+		pogoRestLength:       pogoRestLength,
+		pogoHertz:            pogoHertz,
+		pogoDampingRatio:     pogoDampingRatio,
+		pogoCompressionScale: pogoCompressionScale,
+		pogoTensionScale:     pogoTensionScale,
+		enablePreSolveEvents: false,
+	}
 }
 
 func NewDynamicMover() DynamicMover {
+	const (
+		jumpSpeed         = 5.0
+		airSteer          = 0.2
+		capsuleHalfHeight = 0.5
+		capsuleRadius     = 0.3
+	)
+
+	def := DefaultDynamicMoverDef()
+
 	return DynamicMover{
-		jumpSpeed:            5.0,
-		maxSpeed:             6.0,
-		minSpeed:             0.1,
-		stopSpeed:            3.0,
-		accelerate:           20.0,
-		airSteer:             0.2,
-		friction:             8.0,
-		gravityScale:         1.5,
-		maxGroundForce:       70.0,
-		maxAirForce:          20.0,
-		pogoRestLength:       0.9,
-		pogoHertz:            5.0,
-		pogoDampingRatio:     0.8,
-		pogoCompressionScale: 100.0,
-		pogoTensionScale:     100.0,
-		minGroundNormalY:     0.7,
-
+		jumpSpeed:            jumpSpeed,
+		maxSpeed:             def.maxSpeed,
+		minSpeed:             def.minSpeed,
+		stopSpeed:            def.stopSpeed,
+		accelerate:           def.accelerate,
+		airSteer:             airSteer,
+		friction:             def.friction,
+		gravityScale:         def.gravityScale,
+		maxGroundForce:       def.maxGroundForce,
+		maxAirForce:          def.maxAirForce,
+		pogoRestLength:       def.pogoRestLength,
+		pogoHertz:            def.pogoHertz,
+		pogoDampingRatio:     def.pogoDampingRatio,
+		pogoCompressionScale: def.pogoCompressionScale,
+		pogoTensionScale:     def.pogoTensionScale,
+		minGroundNormalY:     dynamicMoverMinGroundNormalY,
 		capsule: box2d.Capsule{
-			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
-			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
-			Radius:  0.3,
+			Center1: box2d.Vec2{X: 0.0, Y: -capsuleHalfHeight},
+			Center2: box2d.Vec2{X: 0.0, Y: capsuleHalfHeight},
+			Radius:  capsuleRadius,
 		},
-
-		filter: box2d.DefaultFilter(),
-
+		filter:       def.filter,
 		pogoFraction: 1.0,
 	}
 }
@@ -179,7 +212,7 @@ func (m *DynamicMover) Create(worldID *box2d.World, def *DynamicMoverDef) {
 	m.pogoDampingRatio = def.pogoDampingRatio
 	m.pogoCompressionScale = def.pogoCompressionScale
 	m.pogoTensionScale = def.pogoTensionScale
-	m.minGroundNormalY = 0.7
+	m.minGroundNormalY = dynamicMoverMinGroundNormalY
 
 	m.worldID = worldID
 	m.velocity = box2d.Vec2Zero
@@ -189,7 +222,7 @@ func (m *DynamicMover) Create(worldID *box2d.World, def *DynamicMoverDef) {
 	m.pogoImpulse = 0.0
 	m.pogoVelocity = 0.0
 	m.pogoLength = 0.0
-	m.pogoJointID = box2d.PogoJoint{}
+	m.pogoJointID = box2d.PogoJoint{Joint: box2d.Joint{}}
 
 	bodyDef := box2d.DefaultBodyDef()
 	m.groundID = worldID.CreateBody(&bodyDef)
@@ -237,8 +270,8 @@ func (m *DynamicMover) Destroy() {
 	m.moverID = box2d.Body{}
 
 	// Joints are implicitly destroyed.
-	m.moverJointID = box2d.MoverJoint{}
-	m.pogoJointID = box2d.PogoJoint{}
+	m.moverJointID = box2d.MoverJoint{Joint: box2d.Joint{}}
+	m.pogoJointID = box2d.PogoJoint{Joint: box2d.Joint{}}
 }
 
 // Gravity scale is used to size the pogo forces, so change it here.
@@ -257,6 +290,7 @@ func (m *DynamicMover) Jump() bool {
 	}
 
 	surfaceVelocity := float32(0.0)
+
 	if m.castResult.bodyID.IsValid() {
 		v := m.castResult.bodyID.WorldPointVelocity(m.castResult.point)
 		surfaceVelocity = v.Y
@@ -274,6 +308,7 @@ func (m *DynamicMover) Jump() bool {
 	m.walkable = false
 	m.jumping = true
 	m.jumpTicks = 0
+
 	return true
 }
 
@@ -282,25 +317,42 @@ func (m *DynamicMover) Jump() bool {
 
 // onGround - controls friction, mover max force, and pogo step-down extension
 // walkable - controls air steer
-// jumping - blocks the pogo from pulling down
-func (m *DynamicMover) Update(timeStep, throttle float32) {
+// jumping - blocks the pogo from pulling down.
+func (m *DynamicMover) Update(timeStep float32, throttle float32) {
+	m.castGround()
+	m.updateGroundState()
+	m.velocity = m.moverID.LinearVelocity()
+	m.applyGroundFriction(timeStep)
+	m.setMoveForce()
+	m.accelerateHorizontal(timeStep, throttle)
+	m.rebuildPogo()
+	m.moverJointID.SetLinearVelocity(m.velocity)
+}
+
+func (m *DynamicMover) castGround() {
 	// Reach further while grounded so the spring can find the ground over a step
 	stepDownLength := m.pogoRestLength
 	rayLength := m.pogoRestLength
+
 	if m.onGround {
 		rayLength = m.pogoRestLength + stepDownLength
 	}
-	translation := box2d.Vec2{X: 0.0, Y: -rayLength}
 
+	translation := box2d.Vec2{X: 0.0, Y: -rayLength}
 	position := m.moverID.Position()
 	origin := position.Add(m.capsule.Center1)
-
 	queryFilter := box2d.QueryFilter{
 		CategoryBits: m.filter.CategoryBits,
 		MaskBits:     m.filter.MaskBits,
 	}
 
-	m.castResult = DynamicMoverCastResult{}
+	m.castResult = DynamicMoverCastResult{
+		point:    box2d.Pos{X: 0.0, Y: 0.0},
+		normal:   box2d.Vec2Zero,
+		bodyID:   box2d.Body{},
+		fraction: 0.0,
+		hit:      false,
+	}
 	m.worldID.CastRay(
 		origin,
 		translation,
@@ -311,6 +363,7 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 			m.castResult.bodyID = shapeID.Body()
 			m.castResult.fraction = fraction
 			m.castResult.hit = true
+
 			return fraction
 		},
 	)
@@ -318,10 +371,16 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 	m.pogoOrigin = origin
 	m.pogoTranslation = translation
 	m.pogoFraction = 1.0
+
 	if m.castResult.hit {
 		m.pogoFraction = m.castResult.fraction
 	}
+
 	m.pogoHit = m.castResult.hit
+}
+
+func (m *DynamicMover) updateGroundState() {
+	const jumpGraceTicks = 2
 
 	// Should jumping end?
 	if m.jumping {
@@ -329,7 +388,8 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 
 		// Jump ticks allow time for the jump to leave the ground. Otherwise jumping ends
 		// when the character approaches the current ground.
-		if m.jumpTicks > 2 && m.castResult.hit && m.velocity.Dot(m.castResult.normal) <= 0.0 {
+		if m.jumpTicks > jumpGraceTicks && m.castResult.hit &&
+			m.velocity.Dot(m.castResult.normal) <= 0.0 {
 			m.jumping = false
 		}
 	}
@@ -344,39 +404,46 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 		m.onGround = false
 		m.walkable = false
 	}
+}
 
-	m.velocity = m.moverID.LinearVelocity()
-
-	// Friction
-	if m.onGround {
-		speed := m.velocity.Length()
-		if speed < m.minSpeed {
-			m.velocity.X = 0.0
-		} else {
-			// Linear damping above stopSpeed and fixed reduction below stopSpeed
-			control := speed
-			if speed < m.stopSpeed {
-				control = m.stopSpeed
-			}
-
-			// friction has units of 1/time
-			drop := control * m.friction * timeStep
-			newSpeed := max(0.0, speed-drop)
-			m.velocity.X *= newSpeed / speed
-		}
+func (m *DynamicMover) applyGroundFriction(timeStep float32) {
+	if !m.onGround {
+		return
 	}
 
-	// Mover force
+	speed := m.velocity.Length()
+	if speed < m.minSpeed {
+		m.velocity.X = 0.0
+
+		return
+	}
+
+	// Linear damping above stopSpeed and fixed reduction below stopSpeed
+	control := speed
+	if speed < m.stopSpeed {
+		control = m.stopSpeed
+	}
+
+	// friction has units of 1/time
+	drop := control * m.friction * timeStep
+	newSpeed := max(0.0, speed-drop)
+	m.velocity.X *= newSpeed / speed
+}
+
+func (m *DynamicMover) setMoveForce() {
 	if m.onGround {
 		maxForce := float32(0.0)
 		if m.walkable {
 			maxForce = m.maxGroundForce
 		}
+
 		m.moverJointID.SetMaxVelocityForce(box2d.Vec2{X: maxForce, Y: 0.0})
 	} else {
 		m.moverJointID.SetMaxVelocityForce(box2d.Vec2{X: m.maxAirForce, Y: 0.0})
 	}
+}
 
+func (m *DynamicMover) accelerateHorizontal(timeStep float32, throttle float32) {
 	desiredVelocity := box2d.Vec2{X: m.maxSpeed * throttle, Y: 0.0}
 	desiredSpeed, desiredDirection := desiredVelocity.LengthAndNormalize()
 
@@ -384,14 +451,15 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 		desiredSpeed = m.maxSpeed
 	}
 
-	// Accelerate
 	currentSpeed := m.velocity.Dot(desiredDirection)
 	addSpeed := desiredSpeed - currentSpeed
+
 	if addSpeed > 0.0 {
 		steer := m.airSteer
 		if m.walkable {
 			steer = 1.0
 		}
+
 		accelSpeed := steer * m.accelerate * m.maxSpeed * timeStep
 		if accelSpeed > addSpeed {
 			accelSpeed = addSpeed
@@ -399,7 +467,9 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 
 		m.velocity.X += accelSpeed * desiredDirection.X
 	}
+}
 
+func (m *DynamicMover) rebuildPogo() {
 	// The pogo joint is rebuilt every solve because it may land on a different body
 	if m.pogoJointID.IsValid() {
 		m.pogoLength = m.pogoJointID.Length()
@@ -407,42 +477,41 @@ func (m *DynamicMover) Update(timeStep, throttle float32) {
 		m.pogoVelocity = m.pogoJointID.Velocity()
 
 		m.pogoJointID.Destroy()
-		m.pogoJointID = box2d.PogoJoint{}
+		m.pogoJointID = box2d.PogoJoint{Joint: box2d.Joint{}}
 	}
 
-	if m.castResult.hit {
-		moverMass := m.moverID.Mass()
-		moverWeight := m.gravityScale * m.worldID.Gravity().Length() * moverMass
-
-		pogoDef := box2d.DefaultPogoJointDef()
-		pogoDef.Base.LocalFrameA.P = m.castResult.bodyID.LocalPoint(m.castResult.point)
-		pogoDef.Base.LocalFrameB.P = m.capsule.Center1
-		pogoDef.Normal = m.castResult.normal
-		pogoDef.Base.BodyA = m.castResult.bodyID
-		pogoDef.Base.BodyB = m.moverID
-		pogoDef.Base.CollideConnected = true
-		pogoDef.RestLength = m.pogoRestLength
-		pogoDef.Hertz = m.pogoHertz
-		pogoDef.DampingRatio = m.pogoDampingRatio
-		pogoDef.MaxCompressionForce = m.pogoCompressionScale * moverWeight
-
-		// Warm start from the joint that was just destroyed
-		pogoDef.Impulse = m.pogoImpulse
-		pogoDef.Velocity = m.pogoVelocity
-
-		if m.jumping {
-			// Don't allow the pogo to pull down
-			pogoDef.MaxTensionForce = 0.0
-		} else {
-			// The pogo can pull down at a multiple of the gravity force.
-			pogoDef.MaxTensionForce = m.pogoTensionScale * moverWeight
-		}
-
-		m.pogoJointID = m.worldID.CreatePogoJoint(&pogoDef)
-	} else {
+	if !m.castResult.hit {
 		m.pogoImpulse = 0.0
 		m.pogoVelocity = 0.0
+
+		return
 	}
 
-	m.moverJointID.SetLinearVelocity(m.velocity)
+	moverMass := m.moverID.Mass()
+	moverWeight := m.gravityScale * m.worldID.Gravity().Length() * moverMass
+	pogoDef := box2d.DefaultPogoJointDef()
+	pogoDef.Base.LocalFrameA.P = m.castResult.bodyID.LocalPoint(m.castResult.point)
+	pogoDef.Base.LocalFrameB.P = m.capsule.Center1
+	pogoDef.Normal = m.castResult.normal
+	pogoDef.Base.BodyA = m.castResult.bodyID
+	pogoDef.Base.BodyB = m.moverID
+	pogoDef.Base.CollideConnected = true
+	pogoDef.RestLength = m.pogoRestLength
+	pogoDef.Hertz = m.pogoHertz
+	pogoDef.DampingRatio = m.pogoDampingRatio
+	pogoDef.MaxCompressionForce = m.pogoCompressionScale * moverWeight
+
+	// Warm start from the joint that was just destroyed
+	pogoDef.Impulse = m.pogoImpulse
+	pogoDef.Velocity = m.pogoVelocity
+
+	if m.jumping {
+		// Don't allow the pogo to pull down
+		pogoDef.MaxTensionForce = 0.0
+	} else {
+		// The pogo can pull down at a multiple of the gravity force.
+		pogoDef.MaxTensionForce = m.pogoTensionScale * moverWeight
+	}
+
+	m.pogoJointID = m.worldID.CreatePogoJoint(&pogoDef)
 }

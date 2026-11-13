@@ -13,22 +13,43 @@ import (
 	"github.com/zigai/box2d-go/internal/scenes"
 )
 
-func sinf(x float32) float32 {
-	return float32(math.Sin(float64(x)))
-}
-
-func cosf(x float32) float32 {
-	return float32(math.Cos(float64(x)))
-}
-
 const distanceJointMaxCount = 10
 
-// Test the distance joint and all options
+const bridgeCount = 160
+
+const ballAndChainCount = 30
+
+const cantileverCount = 8
+
+const motionLocksCount = 6
+
+const breakableJointCount = 6
+
+const jointSeparationCount = 5
+
+const gearLiftPath = "m 63.500002,201.08333 103.187498,0 1e-5,-37.04166 h -2.64584 " +
+	"l 0,34.39583 h -42.33333 v -2.64583 l " +
+	"-2.64584,-1e-5 v -2.64583 h -2.64583 v -2.64584 h -2.64584 v -2.64583 H 111.125 v -2.64583 h -2.64583 v " +
+	"-2.64583 h -2.64583 v -2.64584 l -2.64584,1e-5 v -2.64583 l -2.64583,-1e-5 V 174.625 h -2.645834 v -2.64584 l " +
+	"-2.645833,1e-5 v -2.64584 H 92.60417 v -2.64583 h -2.645834 v -2.64583 l -26.458334,0 0,37.04166"
+
+const deskLampSpringCount = 2
+
+var (
+	userConstraintHertz    float32 = 3.0
+	userConstraintZeta     float32 = 0.7
+	userConstraintMaxForce float32 = 1000.0
+)
+
+// Test the distance joint and all options.
 type DistanceJoint struct {
 	Sample
 
-	groundID         box2d.Body
-	bodyIDs          [distanceJointMaxCount]box2d.Body
+	//exhaustruct:optional
+	groundID box2d.Body
+	//exhaustruct:optional
+	bodyIDs [distanceJointMaxCount]box2d.Body
+	//exhaustruct:optional
 	jointIDs         [distanceJointMaxCount]box2d.DistanceJoint
 	count            int32
 	hertz            float32
@@ -42,179 +63,17 @@ type DistanceJoint struct {
 	enableLimit      bool
 }
 
-func CreateDistanceJoint(context *SampleContext) Sampler {
-	s := &DistanceJoint{}
-	s.init(context, s, true)
-
-	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 12.0}
-		s.context.camera.zoom = 25.0 * 0.35
-	}
-
-	{
-		bodyDef := box2d.DefaultBodyDef()
-		s.groundID = s.worldID.CreateBody(&bodyDef)
-	}
-
-	s.count = 0
-	s.hertz = 5.0
-	s.dampingRatio = 0.5
-	s.length = 1.0
-	s.minLength = s.length
-	s.maxLength = s.length
-	s.tensionForce = 2000.0
-	s.compressionForce = 100.0
-	s.enableSpring = false
-	s.enableLimit = false
-
-	s.CreateScene(1)
-	return s
-}
-
-func (s *DistanceJoint) CreateScene(newCount int32) {
-	for i := range s.count {
-		s.jointIDs[i].Destroy()
-		s.jointIDs[i] = box2d.DistanceJoint{}
-	}
-
-	for i := range s.count {
-		s.bodyIDs[i].Destroy()
-		s.bodyIDs[i] = box2d.Body{}
-	}
-
-	s.count = newCount
-
-	radius := float32(0.25)
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: radius}
-
-	shapeDef := box2d.DefaultShapeDef()
-	shapeDef.Density = 20.0
-
-	yOffset := float32(20.0)
-
-	jointDef := box2d.DefaultDistanceJointDef()
-	jointDef.Hertz = s.hertz
-	jointDef.DampingRatio = s.dampingRatio
-	jointDef.Length = s.length
-	jointDef.LowerSpringForce = -s.tensionForce
-	jointDef.UpperSpringForce = s.compressionForce
-	jointDef.MinLength = s.minLength
-	jointDef.MaxLength = s.maxLength
-	jointDef.EnableSpring = s.enableSpring
-	jointDef.EnableLimit = s.enableLimit
-
-	prevBodyID := s.groundID
-	for i := range s.count {
-		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Type = box2d.DynamicBody
-		bodyDef.AngularDamping = 1.0
-		bodyDef.Position = box2d.Pos{
-			X: posScalar(s.length * (float32(i) + 1.0)),
-			Y: posScalar(yOffset),
-		}
-		s.bodyIDs[i] = s.worldID.CreateBody(&bodyDef)
-		s.bodyIDs[i].CreateCircleShape(&shapeDef, &circle)
-
-		pivotA := box2d.Pos{X: posScalar(s.length * float32(i)), Y: posScalar(yOffset)}
-		pivotB := box2d.Pos{X: posScalar(s.length * (float32(i) + 1.0)), Y: posScalar(yOffset)}
-		jointDef.Base.BodyA = prevBodyID
-		jointDef.Base.BodyB = s.bodyIDs[i]
-		jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivotA)
-		jointDef.Base.LocalFrameB.P = jointDef.Base.BodyB.LocalPoint(pivotB)
-		s.jointIDs[i] = s.worldID.CreateDistanceJoint(&jointDef)
-
-		prevBodyID = s.bodyIDs[i]
-	}
-}
-
-func (s *DistanceJoint) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	if imgui.SliderFloatV("Length", &s.length, 0.1, 4.0, "%3.1f", 0) {
-		for i := range s.count {
-			s.jointIDs[i].SetLength(s.length)
-			s.jointIDs[i].WakeBodies()
-		}
-	}
-
-	if imgui.Checkbox("Spring", &s.enableSpring) {
-		for i := range s.count {
-			s.jointIDs[i].SetSpringEnabled(s.enableSpring)
-			s.jointIDs[i].WakeBodies()
-		}
-	}
-
-	if s.enableSpring {
-		if imgui.SliderFloat("Tension", &s.tensionForce, 0.0, 4000.0) {
-			for i := range s.count {
-				s.jointIDs[i].SetSpringForceRange(-s.tensionForce, s.compressionForce)
-				s.jointIDs[i].WakeBodies()
-			}
-		}
-
-		if imgui.SliderFloat("Compression", &s.compressionForce, 0.0, 200.0) {
-			for i := range s.count {
-				s.jointIDs[i].SetSpringForceRange(-s.tensionForce, s.compressionForce)
-				s.jointIDs[i].WakeBodies()
-			}
-		}
-
-		if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, 15.0, "%3.1f", 0) {
-			for i := range s.count {
-				s.jointIDs[i].SetSpringHertz(s.hertz)
-				s.jointIDs[i].WakeBodies()
-			}
-		}
-
-		if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, 4.0, "%3.1f", 0) {
-			for i := range s.count {
-				s.jointIDs[i].SetSpringDampingRatio(s.dampingRatio)
-				s.jointIDs[i].WakeBodies()
-			}
-		}
-	}
-
-	if imgui.Checkbox("Limit", &s.enableLimit) {
-		for i := range s.count {
-			s.jointIDs[i].SetLimitEnabled(s.enableLimit)
-			s.jointIDs[i].WakeBodies()
-		}
-	}
-
-	if s.enableLimit {
-		if imgui.SliderFloatV("Min Length", &s.minLength, 0.1, 4.0, "%3.1f", 0) {
-			for i := range s.count {
-				s.jointIDs[i].SetLengthRange(s.minLength, s.maxLength)
-				s.jointIDs[i].WakeBodies()
-			}
-		}
-
-		if imgui.SliderFloatV("Max Length", &s.maxLength, 0.1, 4.0, "%3.1f", 0) {
-			for i := range s.count {
-				s.jointIDs[i].SetLengthRange(s.minLength, s.maxLength)
-				s.jointIDs[i].WakeBodies()
-			}
-		}
-	}
-
-	count := s.count
-	if imgui.SliderInt("Count", &count, 1, distanceJointMaxCount) {
-		s.CreateScene(count)
-	}
-
-	imgui.PopItemWidth()
-
-	return true
-}
-
 // This test shows how to use a motor joint. A motor joint
 // can be used to animate a dynamic body. With finite motor forces
 // the body can be blocked by collision with other bodies.
 type MotorJoint struct {
 	Sample
 
-	targetID  box2d.Body
-	bodyID    box2d.Body
+	//exhaustruct:optional
+	targetID box2d.Body
+	//exhaustruct:optional
+	bodyID box2d.Body
+	//exhaustruct:optional
 	jointID   box2d.MotorJoint
 	transform box2d.WorldTransform
 	time      float32
@@ -223,13 +82,345 @@ type MotorJoint struct {
 	maxTorque float32
 }
 
-func CreateMotorJoint(context *SampleContext) Sampler {
-	s := &MotorJoint{}
+type TopDownFriction struct {
+	Sample
+}
+
+// This sample shows how to use a filter joint to prevent collision between two bodies.
+// This is more specific than shape filters. It also shows that sleeping is coupled by the filter joint.
+type FilterJoint struct {
+	Sample
+}
+
+type RevoluteJoint struct {
+	Sample
+
+	//exhaustruct:optional
+	ball box2d.Body
+	//exhaustruct:optional
+	jointID1 box2d.RevoluteJoint
+	//exhaustruct:optional
+	jointID2      box2d.RevoluteJoint
+	motorSpeed    float32
+	motorTorque   float32
+	hertz         float32
+	dampingRatio  float32
+	targetDegrees float32
+	enableSpring  bool
+	enableMotor   bool
+	enableLimit   bool
+}
+
+type PrismaticJoint struct {
+	Sample
+
+	//exhaustruct:optional
+	jointID      box2d.PrismaticJoint
+	motorSpeed   float32
+	motorForce   float32
+	hertz        float32
+	dampingRatio float32
+	translation  float32
+	enableSpring bool
+	enableMotor  bool
+	enableLimit  bool
+}
+
+type WheelJoint struct {
+	Sample
+
+	//exhaustruct:optional
+	jointID      box2d.WheelJoint
+	hertz        float32
+	dampingRatio float32
+	motorSpeed   float32
+	motorTorque  float32
+	enableSpring bool
+	enableMotor  bool
+	enableLimit  bool
+}
+
+// A suspension bridge.
+type Bridge struct {
+	Sample
+
+	//exhaustruct:optional
+	bodyIDs [bridgeCount]box2d.Body
+	//exhaustruct:optional
+	jointIDs               [bridgeCount + 1]box2d.RevoluteJoint
+	frictionTorque         float32
+	constraintHertz        float32
+	constraintDampingRatio float32
+	springHertz            float32
+	springDampingRatio     float32
+}
+
+type BallAndChain struct {
+	Sample
+
+	//exhaustruct:optional
+	jointIDs       [ballAndChainCount + 1]box2d.RevoluteJoint
+	frictionTorque float32
+}
+
+// This sample shows the limitations of an iterative solver. The cantilever sags even though the weld
+// joint is stiff as possible.
+type Cantilever struct {
+	Sample
+
+	linearHertz         float32
+	linearDampingRatio  float32
+	angularHertz        float32
+	angularDampingRatio float32
+	gravityScale        float32
+	//exhaustruct:optional
+	tipID box2d.Body
+	//exhaustruct:optional
+	bodyIDs [cantileverCount]box2d.Body
+	//exhaustruct:optional
+	jointIDs         [cantileverCount]box2d.WeldJoint
+	collideConnected bool
+}
+
+// This test ensures joints work correctly with bodies that have motion locks.
+type MotionLocks struct {
+	Sample
+
+	//exhaustruct:optional
+	bodyIDs     [motionLocksCount]box2d.Body
+	motionLocks box2d.MotionLocks
+}
+
+// This sample shows how to break joints when the internal reaction force becomes large.
+type BreakableJoint struct {
+	Sample
+
+	//exhaustruct:optional
+	jointIDs   [breakableJointCount]box2d.Joint
+	breakForce float32
+}
+
+// This sample shows how to measure joint separation. This is the unresolved constraint error.
+type JointSeparation struct {
+	Sample
+
+	//exhaustruct:optional
+	bodyIDs [jointSeparationCount]box2d.Body
+	//exhaustruct:optional
+	jointIDs          [jointSeparationCount]box2d.Joint
+	impulse           float32
+	jointHertz        float32
+	jointDampingRatio float32
+}
+
+// This shows how you can implement a constraint outside of Box2D.
+type UserConstraint struct {
+	Sample
+
+	//exhaustruct:optional
+	bodyID box2d.Body
+	//exhaustruct:optional
+	impulses [2]float32
+}
+
+// This is a fun demo that shows off the wheel joint.
+type Driving struct {
+	Sample
+
+	//exhaustruct:optional
+	car Car
+
+	throttle     float32
+	hertz        float32
+	dampingRatio float32
+	torque       float32
+	speed        float32
+}
+
+type Ragdoll struct {
+	Sample
+
+	//exhaustruct:optional
+	human               scenes.Human
+	jointFrictionTorque float32
+	jointHertz          float32
+	jointDampingRatio   float32
+}
+
+type SoftBody struct {
+	Sample
+
+	//exhaustruct:optional
+	donut Donut
+}
+
+type DoohickeyFarm struct {
+	Sample
+}
+
+type ScissorLift struct {
+	Sample
+
+	//exhaustruct:optional
+	liftJointID box2d.DistanceJoint
+	motorForce  float32
+	motorSpeed  float32
+	enableMotor bool
+}
+
+type GearLift struct {
+	Sample
+
+	//exhaustruct:optional
+	driverID    box2d.RevoluteJoint
+	motorTorque float32
+	motorSpeed  float32
+	enableMotor bool
+}
+
+// A top down door.
+type Door struct {
+	Sample
+
+	//exhaustruct:optional
+	doorID box2d.Body
+	//exhaustruct:optional
+	jointID           box2d.RevoluteJoint
+	impulse           float32
+	translationError  float32
+	jointHertz        float32
+	jointDampingRatio float32
+	enableLimit       bool
+}
+
+type ScaleRagdoll struct {
+	Sample
+
+	//exhaustruct:optional
+	human scenes.Human
+	scale float32
+}
+
+// Theo Jansen's walking machine, inspired by a contribution from roman_m
+// Dimensions scooped from APE (http://www.cove.org/ape/index.htm)
+type TheoJansen struct {
+	Sample
+
+	offset box2d.Vec2
+	//exhaustruct:optional
+	chassisID box2d.Body
+	//exhaustruct:optional
+	wheelID box2d.Body
+	//exhaustruct:optional
+	motorJointID box2d.RevoluteJoint
+	motorSpeed   float32
+	enableMotor  bool
+}
+
+// The Anglepoise Original 1227 desk lamp.
+// https://www.anglepoise.com/usa/product-category/original-1227/
+type DeskLamp struct {
+	Sample
+
+	//exhaustruct:optional
+	springJointIDs [deskLampSpringCount]box2d.DistanceJoint
+	//exhaustruct:optional
+	postJointID box2d.RevoluteJoint
+	//exhaustruct:optional
+	elbowJointID box2d.RevoluteJoint
+	//exhaustruct:optional
+	headJointID box2d.RevoluteJoint
+	//exhaustruct:optional
+	topLinkID     box2d.Body
+	springHertz   [deskLampSpringCount]float32
+	springDamping float32
+	lowerFriction float32
+	elbowFriction float32
+	headAngle     float32
+}
+
+func CreateDistanceJoint(context *SampleContext) Sampler {
+	const (
+		cameraHeight            = 12.0
+		cameraZoomBase          = 25.0
+		cameraZoomScale         = 0.35
+		initialHertz            = 5.0
+		initialDampingRatio     = 0.5
+		initialTensionForce     = 2000.0
+		initialCompressionForce = 100.0
+	)
+
+	s := &DistanceJoint{
+		context:          context,
+		camera:           &context.camera,
+		draw:             context.draw,
+		screenTextX:      initialScreenTextX,
+		mouseForceScale:  initialMouseForceScale,
+		count:            0,
+		hertz:            initialHertz,
+		dampingRatio:     initialDampingRatio,
+		length:           1.0,
+		minLength:        1.0,
+		maxLength:        1.0,
+		tensionForce:     initialTensionForce,
+		compressionForce: initialCompressionForce,
+		enableSpring:     false,
+		enableLimit:      false,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 7.0}
-		s.context.camera.zoom = 25.0 * 0.4
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
+	}
+
+	{
+		bodyDef := box2d.DefaultBodyDef()
+		s.groundID = s.worldID.CreateBody(&bodyDef)
+	}
+
+	s.CreateScene(1)
+
+	return s
+}
+
+func CreateMotorJoint(context *SampleContext) Sampler {
+	const (
+		cameraHeight       = 7.0
+		cameraZoomBase     = 25.0
+		cameraZoomScale    = 0.4
+		groundHalfWidth    = 20.0
+		targetHeight       = 8.0
+		drivenHalfWidth    = 2.0
+		drivenHalfHeight   = 0.5
+		springBodyOffset   = 2.0
+		springBodyHalfSize = 0.5
+		springAnchorX      = 0.25
+		springAnchorY      = 0.25
+		initialMaxForce    = 5000.0
+		initialMaxTorque   = 500.0
+	)
+
+	s := &MotorJoint{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		transform: box2d.WorldTransform{
+			P: box2d.Pos{X: 0.0, Y: targetHeight},
+			Q: box2d.RotIdentity,
+		},
+		maxForce:  initialMaxForce,
+		maxTorque: initialMaxTorque,
+		speed:     1.0,
+		time:      0.0,
+	}
+	s.init(context, s, true)
+
+	if !s.context.restart {
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	var groundID box2d.Body
@@ -239,12 +430,10 @@ func CreateMotorJoint(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
-
-	s.transform = box2d.WorldTransform{P: box2d.Pos{X: 0.0, Y: 8.0}, Q: box2d.RotIdentity}
 
 	// Define a target body
 	{
@@ -261,12 +450,9 @@ func CreateMotorJoint(context *SampleContext) Sampler {
 		bodyDef.Position = s.transform.P
 		s.bodyID = s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(2.0, 0.5)
+		box := box2d.MakeBox(drivenHalfWidth, drivenHalfHeight)
 		shapeDef := box2d.DefaultShapeDef()
 		s.bodyID.CreatePolygonShape(&shapeDef, &box)
-
-		s.maxForce = 5000.0
-		s.maxTorque = 500.0
 
 		jointDef := box2d.DefaultMotorJointDef()
 		jointDef.Base.BodyA = s.targetID
@@ -285,18 +471,19 @@ func CreateMotorJoint(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -2.0, Y: 2.0}
+		bodyDef.Position = box2d.Pos{X: -springBodyOffset, Y: springBodyOffset}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeSquare(0.5)
+		box := box2d.MakeSquare(springBodyHalfSize)
 		shapeDef := box2d.DefaultShapeDef()
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
 		jointDef := box2d.DefaultMotorJointDef()
 		jointDef.Base.BodyA = groundID
 		jointDef.Base.BodyB = bodyID
-		jointDef.Base.LocalFrameA.P = bodyDef.Position.Vec2().Add(box2d.Vec2{X: 0.25, Y: 0.25})
-		jointDef.Base.LocalFrameB.P = box2d.Vec2{X: 0.25, Y: 0.25}
+		jointDef.Base.LocalFrameA.P = bodyDef.Position.Vec2().
+			Add(box2d.Vec2{X: springAnchorX, Y: springAnchorY})
+		jointDef.Base.LocalFrameB.P = box2d.Vec2{X: springAnchorX, Y: springAnchorY}
 		jointDef.LinearHertz = 7.5
 		jointDef.LinearDampingRatio = 0.7
 		jointDef.AngularHertz = 7.5
@@ -307,79 +494,36 @@ func CreateMotorJoint(context *SampleContext) Sampler {
 		s.worldID.CreateMotorJoint(&jointDef)
 	}
 
-	s.speed = 1.0
-	s.time = 0.0
 	return s
 }
 
-func (s *MotorJoint) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	imgui.SliderFloatV("Speed", &s.speed, -5.0, 5.0, "%.0f", 0)
-
-	if imgui.SliderFloatV("Max Force", &s.maxForce, 0.0, 10000.0, "%.0f", 0) {
-		s.jointID.SetMaxSpringForce(s.maxForce)
-	}
-
-	if imgui.SliderFloatV("Max Torque", &s.maxTorque, 0.0, 10000.0, "%.0f", 0) {
-		s.jointID.SetMaxSpringTorque(s.maxTorque)
-	}
-
-	imgui.PopItemWidth()
-
-	if imgui.Button("Apply Impulse") {
-		s.bodyID.ApplyLinearImpulseToCenter(box2d.Vec2{X: 100.0, Y: 0.0}, true)
-	}
-
-	return true
-}
-
-func (s *MotorJoint) Step() {
-	timeStep := float32(0.0)
-	if s.context.hertz > 0.0 {
-		timeStep = 1.0 / s.context.hertz
-	}
-
-	if s.context.pause {
-		if s.context.singleStep == 0 {
-			timeStep = 0.0
-		}
-	}
-
-	if timeStep > 0.0 {
-		s.time += s.speed * timeStep
-
-		var linearOffset box2d.Pos
-		linearOffset.X = posScalar(6.0 * sinf(2.0*s.time))
-		linearOffset.Y = posScalar(8.0 + 4.0*sinf(1.0*s.time))
-
-		angularOffset := 2.0 * s.time
-		s.transform = box2d.WorldTransform{P: linearOffset, Q: box2d.MakeRot(angularOffset)}
-
-		wake := true
-		s.targetID.SetTargetTransform(s.transform, timeStep, wake)
-	}
-
-	s.draw.DrawTransform(s.transform, 1.0)
-
-	s.Sample.Step()
-
-	force := s.jointID.ConstraintForce()
-	torque := s.jointID.ConstraintTorque()
-
-	s.DrawScreenTextLine("force = {%3.f, %3.f}, torque = %3.f", force.X, force.Y, torque)
-}
-
-type TopDownFriction struct {
-	Sample
-}
-
 func CreateTopDownFriction(context *SampleContext) Sampler {
-	s := &TopDownFriction{}
+	const (
+		cameraHeight        = 10.0
+		arenaHalfWidth      = 10.0
+		arenaHeight         = 20.0
+		capsuleHalfLength   = 0.25
+		capsuleRadius       = 0.25
+		circleRadius        = 0.35
+		squareHalfSize      = 0.35
+		initialRowHeight    = 15.0
+		shapeKindCount      = 4
+		circleShapeKind     = 2
+		randomPolygonExtent = 0.75
+		firstColumnX        = 5.0
+	)
+
+	s := &TopDownFriction{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 10.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 12.0
 	}
 
@@ -390,25 +534,25 @@ func CreateTopDownFriction(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+			Point2: box2d.Vec2{X: arenaHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		segment = box2d.Segment{
 			Point1: box2d.Vec2{X: -10.0, Y: 0.0},
-			Point2: box2d.Vec2{X: -10.0, Y: 20.0},
+			Point2: box2d.Vec2{X: -10.0, Y: arenaHeight},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		segment = box2d.Segment{
-			Point1: box2d.Vec2{X: 10.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 20.0},
+			Point1: box2d.Vec2{X: arenaHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: arenaHalfWidth, Y: arenaHeight},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		segment = box2d.Segment{
-			Point1: box2d.Vec2{X: -10.0, Y: 20.0},
-			Point2: box2d.Vec2{X: 10.0, Y: 20.0},
+			Point1: box2d.Vec2{X: -10.0, Y: arenaHeight},
+			Point2: box2d.Vec2{X: arenaHalfWidth, Y: arenaHeight},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -421,11 +565,11 @@ func CreateTopDownFriction(context *SampleContext) Sampler {
 
 	capsule := box2d.Capsule{
 		Center1: box2d.Vec2{X: -0.25, Y: 0.0},
-		Center2: box2d.Vec2{X: 0.25, Y: 0.0},
-		Radius:  0.25,
+		Center2: box2d.Vec2{X: capsuleHalfLength, Y: 0.0},
+		Radius:  capsuleRadius,
 	}
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.35}
-	square := box2d.MakeSquare(0.35)
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: circleRadius}
+	square := box2d.MakeSquare(squareHalfSize)
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
@@ -434,21 +578,23 @@ func CreateTopDownFriction(context *SampleContext) Sampler {
 	shapeDef.Material.Restitution = 0.8
 
 	n := 10
-	x, y := float32(-5.0), float32(15.0)
+	x, y := float32(-5.0), float32(initialRowHeight)
+
 	for i := range n {
 		for j := range n {
 			bodyDef.Position = box2d.Pos{X: posScalar(x), Y: posScalar(y)}
 			bodyID := s.worldID.CreateBody(&bodyDef)
 
-			remainder := (n*i + j) % 4
-			if remainder == 0 {
+			remainder := (n*i + j) % shapeKindCount
+			switch remainder {
+			case 0:
 				bodyID.CreateCapsuleShape(&shapeDef, &capsule)
-			} else if remainder == 1 {
+			case 1:
 				bodyID.CreateCircleShape(&shapeDef, &circle)
-			} else if remainder == 2 {
+			case circleShapeKind:
 				bodyID.CreatePolygonShape(&shapeDef, &square)
-			} else {
-				poly := scenes.RandomPolygon(0.75)
+			default:
+				poly := scenes.RandomPolygon(randomPolygonExtent)
 				poly.Radius = 0.1
 				bodyID.CreatePolygonShape(&shapeDef, &poly)
 			}
@@ -459,40 +605,36 @@ func CreateTopDownFriction(context *SampleContext) Sampler {
 			x += 1.0
 		}
 
-		x = -5.0
+		x = -firstColumnX
 		y -= 1.0
 	}
+
 	return s
 }
 
-func (s *TopDownFriction) DrawControls() bool {
-	if imgui.Button("Explode") {
-		def := box2d.DefaultExplosionDef()
-		def.Position = box2d.Pos{X: 0.0, Y: 10.0}
-		def.Radius = 10.0
-		def.Falloff = 5.0
-		def.ImpulsePerLength = 10.0
-		s.worldID.Explode(&def)
-
-		s.draw.DrawCircle(def.Position, 10.0, box2d.ColorWhite)
-	}
-
-	return true
-}
-
-// This sample shows how to use a filter joint to prevent collision between two bodies.
-// This is more specific than shape filters. It also shows that sleeping is coupled by the filter joint.
-type FilterJoint struct {
-	Sample
-}
-
 func CreateFilterJoint(context *SampleContext) Sampler {
-	s := &FilterJoint{}
+	const (
+		cameraHeight    = 7.0
+		cameraZoomBase  = 25.0
+		cameraZoomScale = 0.4
+		groundHalfWidth = 20.0
+		bodyHeight      = 2.0
+		bodyHalfSize    = 2.0
+		rightBodyX      = 4.0
+	)
+
+	s := &FilterJoint{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 7.0}
-		s.context.camera.zoom = 25.0 * 0.4
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	{
@@ -501,7 +643,7 @@ func CreateFilterJoint(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -509,14 +651,14 @@ func CreateFilterJoint(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -4.0, Y: 2.0}
+		bodyDef.Position = box2d.Pos{X: -4.0, Y: bodyHeight}
 		bodyID1 := s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeSquare(2.0)
+		box := box2d.MakeSquare(bodyHalfSize)
 		shapeDef := box2d.DefaultShapeDef()
 		bodyID1.CreatePolygonShape(&shapeDef, &box)
 
-		bodyDef.Position = box2d.Pos{X: 4.0, Y: 2.0}
+		bodyDef.Position = box2d.Pos{X: rightBodyX, Y: bodyHeight}
 		bodyID2 := s.worldID.CreateBody(&bodyDef)
 		bodyID2.CreatePolygonShape(&shapeDef, &box)
 
@@ -526,32 +668,58 @@ func CreateFilterJoint(context *SampleContext) Sampler {
 
 		s.worldID.CreateFilterJoint(&jointDef)
 	}
+
 	return s
 }
 
-type RevoluteJoint struct {
-	Sample
-
-	ball          box2d.Body
-	jointID1      box2d.RevoluteJoint
-	jointID2      box2d.RevoluteJoint
-	motorSpeed    float32
-	motorTorque   float32
-	hertz         float32
-	dampingRatio  float32
-	targetDegrees float32
-	enableSpring  bool
-	enableMotor   bool
-	enableLimit   bool
-}
-
 func CreateRevoluteJoint(context *SampleContext) Sampler {
-	s := &RevoluteJoint{}
+	const (
+		cameraHeight         = 15.5
+		cameraZoomBase       = 25.0
+		cameraZoomScale      = 0.7
+		groundHalfWidth      = 40.0
+		pendulumHeight       = 20.0
+		pendulumLength       = 6.0
+		pendulumRadius       = 0.5
+		pivotHeight          = 20.5
+		frameAnglePiFraction = 0.5
+		degreesPerHalfTurn   = 180.0
+		upperLimitPiFraction = 0.05
+		constraintHertz      = 60.0
+		constraintDamping    = 20.0
+		ballX                = 5.0
+		ballHeight           = 30.0
+		plankPivotX          = 20.0
+		plankHeight          = 10.0
+		plankHalfLength      = 10.0
+		plankHalfThickness   = 0.5
+		plankAnchorX         = 19.0
+		initialHertz         = 2.0
+		initialDampingRatio  = 0.5
+		initialTargetDegrees = 45.0
+		initialMotorTorque   = 1000.0
+	)
+
+	s := &RevoluteJoint{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		enableSpring:    false,
+		enableLimit:     false,
+		enableMotor:     false,
+		hertz:           initialHertz,
+		dampingRatio:    initialDampingRatio,
+		targetDegrees:   initialTargetDegrees,
+		motorSpeed:      1.0,
+		motorTorque:     initialMotorTorque,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 15.5}
-		s.context.camera.zoom = 25.0 * 0.7
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	var groundID box2d.Body
@@ -560,25 +728,16 @@ func CreateRevoluteJoint(context *SampleContext) Sampler {
 		bodyDef.Position = box2d.Pos{X: 0.0, Y: -1.0}
 		groundID = s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(40.0, 1.0)
+		box := box2d.MakeBox(groundHalfWidth, 1.0)
 
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	s.enableSpring = false
-	s.enableLimit = false
-	s.enableMotor = false
-	s.hertz = 2.0
-	s.dampingRatio = 0.5
-	s.targetDegrees = 45.0
-	s.motorSpeed = 1.0
-	s.motorTorque = 1000.0
-
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -10.0, Y: 20.0}
+		bodyDef.Position = box2d.Pos{X: -10.0, Y: pendulumHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -586,41 +745,45 @@ func CreateRevoluteJoint(context *SampleContext) Sampler {
 
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: -1.0},
-			Center2: box2d.Vec2{X: 0.0, Y: 6.0},
-			Radius:  0.5,
+			Center2: box2d.Vec2{X: 0.0, Y: pendulumLength},
+			Radius:  pendulumRadius,
 		}
 		bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
-		pivot := box2d.Pos{X: -10.0, Y: 20.5}
+		pivot := box2d.Pos{X: -10.0, Y: pivotHeight}
 		jointDef := box2d.DefaultRevoluteJointDef()
 		jointDef.Base.BodyA = groundID
 		jointDef.Base.BodyB = bodyID
-		jointDef.Base.LocalFrameA.Q = box2d.MakeRot(0.5 * box2d.Pi)
+		jointDef.Base.LocalFrameA.Q = box2d.MakeRot(frameAnglePiFraction * box2d.Pi)
 		jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
 		jointDef.Base.LocalFrameB.P = jointDef.Base.BodyB.LocalPoint(pivot)
-		jointDef.TargetAngle = box2d.Pi * s.targetDegrees / 180.0
+		jointDef.TargetAngle = box2d.Pi * s.targetDegrees / degreesPerHalfTurn
 		jointDef.EnableSpring = s.enableSpring
 		jointDef.Hertz = s.hertz
 		jointDef.DampingRatio = s.dampingRatio
 		jointDef.MotorSpeed = s.motorSpeed
 		jointDef.MaxMotorTorque = s.motorTorque
 		jointDef.EnableMotor = s.enableMotor
-		jointDef.LowerAngle = -0.5 * box2d.Pi
-		jointDef.UpperAngle = 0.05 * box2d.Pi
+
+		const lowerLimitPiFraction = -0.5
+
+		jointDef.LowerAngle = lowerLimitPiFraction * box2d.Pi
+		jointDef.UpperAngle = upperLimitPiFraction * box2d.Pi
 		jointDef.EnableLimit = s.enableLimit
 
 		s.jointID1 = s.worldID.CreateRevoluteJoint(&jointDef)
 
-		s.jointID1.SetConstraintTuning(60.0, 20.0)
+		s.jointID1.SetConstraintTuning(constraintHertz, constraintDamping)
 	}
 
 	{
 		var circle box2d.Circle
+
 		circle.Radius = 2.0
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 5.0, Y: 30.0}
+		bodyDef.Position = box2d.Pos{X: ballX, Y: ballHeight}
 		s.ball = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -631,16 +794,21 @@ func CreateRevoluteJoint(context *SampleContext) Sampler {
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: 20.0, Y: 10.0}
+		bodyDef.Position = box2d.Pos{X: plankPivotX, Y: plankHeight}
 		bodyDef.Type = box2d.DynamicBody
 		body := s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeOffsetBox(10.0, 0.5, box2d.Vec2{X: -10.0, Y: 0.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			plankHalfLength,
+			plankHalfThickness,
+			box2d.Vec2{X: -plankHalfLength, Y: 0.0},
+			box2d.RotIdentity,
+		)
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 1.0
 		body.CreatePolygonShape(&shapeDef, &box)
 
-		pivot := box2d.Pos{X: 19.0, Y: 10.0}
+		pivot := box2d.Pos{X: plankAnchorX, Y: plankHeight}
 		jointDef := box2d.DefaultRevoluteJointDef()
 		jointDef.Base.BodyA = groundID
 		jointDef.Base.BodyB = body
@@ -655,95 +823,45 @@ func CreateRevoluteJoint(context *SampleContext) Sampler {
 
 		s.jointID2 = s.worldID.CreateRevoluteJoint(&jointDef)
 	}
+
 	return s
 }
 
-func (s *RevoluteJoint) DrawControls() bool {
-	if imgui.Checkbox("Limit", &s.enableLimit) {
-		s.jointID1.SetLimitEnabled(s.enableLimit)
-		s.jointID1.WakeBodies()
-	}
-
-	if imgui.Checkbox("Motor", &s.enableMotor) {
-		s.jointID1.SetMotorEnabled(s.enableMotor)
-		s.jointID1.WakeBodies()
-	}
-
-	if s.enableMotor {
-		imgui.PushItemWidth(6.0 * imgui.FontSize())
-		if imgui.SliderFloatV("Max Torque", &s.motorTorque, 0.0, 5000.0, "%.0f", 0) {
-			s.jointID1.SetMaxMotorTorque(s.motorTorque)
-			s.jointID1.WakeBodies()
-		}
-
-		if imgui.SliderFloatV("Speed", &s.motorSpeed, -20.0, 20.0, "%.0f", 0) {
-			s.jointID1.SetMotorSpeed(s.motorSpeed)
-			s.jointID1.WakeBodies()
-		}
-		imgui.PopItemWidth()
-	}
-
-	if imgui.Checkbox("Spring", &s.enableSpring) {
-		s.jointID1.SetSpringEnabled(s.enableSpring)
-		s.jointID1.WakeBodies()
-	}
-
-	if s.enableSpring {
-		imgui.PushItemWidth(6.0 * imgui.FontSize())
-		if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, 30.0, "%.1f", 0) {
-			s.jointID1.SetSpringHertz(s.hertz)
-			s.jointID1.WakeBodies()
-		}
-
-		if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, 2.0, "%.1f", 0) {
-			s.jointID1.SetSpringDampingRatio(s.dampingRatio)
-			s.jointID1.WakeBodies()
-		}
-
-		if imgui.SliderFloatV("Degrees", &s.targetDegrees, -180.0, 180.0, "%.0f", 0) {
-			s.jointID1.SetTargetAngle(box2d.Pi * s.targetDegrees / 180.0)
-			s.jointID1.WakeBodies()
-		}
-		imgui.PopItemWidth()
-	}
-
-	return true
-}
-
-func (s *RevoluteJoint) Step() {
-	s.Sample.Step()
-
-	angle1 := s.jointID1.Angle()
-	s.DrawScreenTextLine("Angle (Deg) 1 = %2.1f", angle1)
-
-	torque1 := s.jointID1.MotorTorque()
-	s.DrawScreenTextLine("Motor Torque 1 = %4.1f", torque1)
-
-	torque2 := s.jointID2.MotorTorque()
-	s.DrawScreenTextLine("Motor Torque 2 = %4.1f", torque2)
-}
-
-type PrismaticJoint struct {
-	Sample
-
-	jointID      box2d.PrismaticJoint
-	motorSpeed   float32
-	motorForce   float32
-	hertz        float32
-	dampingRatio float32
-	translation  float32
-	enableSpring bool
-	enableMotor  bool
-	enableLimit  bool
-}
-
 func CreatePrismaticJoint(context *SampleContext) Sampler {
-	s := &PrismaticJoint{}
+	const (
+		cameraHeight        = 8.0
+		cameraZoomBase      = 25.0
+		cameraZoomScale     = 0.5
+		sliderHeight        = 10.0
+		sliderHalfWidth     = 0.5
+		sliderHalfHeight    = 2.0
+		pivotHeight         = 9.0
+		lowerTravel         = 10.0
+		initialMotorSpeed   = 2.0
+		initialMotorForce   = 25.0
+		initialDampingRatio = 0.5
+	)
+
+	s := &PrismaticJoint{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		enableSpring:    false,
+		enableLimit:     true,
+		enableMotor:     false,
+		motorSpeed:      initialMotorSpeed,
+		motorForce:      initialMotorForce,
+		hertz:           1.0,
+		dampingRatio:    initialDampingRatio,
+		translation:     0.0,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 8.0}
-		s.context.camera.zoom = 25.0 * 0.5
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	var groundID box2d.Body
@@ -752,26 +870,17 @@ func CreatePrismaticJoint(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 	}
 
-	s.enableSpring = false
-	s.enableLimit = true
-	s.enableMotor = false
-	s.motorSpeed = 2.0
-	s.motorForce = 25.0
-	s.hertz = 1.0
-	s.dampingRatio = 0.5
-	s.translation = 0.0
-
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 10.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: sliderHeight}
 		bodyDef.Type = box2d.DynamicBody
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeBox(0.5, 2.0)
+		box := box2d.MakeBox(sliderHalfWidth, sliderHalfHeight)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
-		pivot := box2d.Pos{X: 0.0, Y: 9.0}
+		pivot := box2d.Pos{X: 0.0, Y: pivotHeight}
 		axis := box2d.Vec2{X: 1.0, Y: 1.0}.Normalize()
 		jointDef := box2d.DefaultPrismaticJointDef()
 		jointDef.Base.BodyA = groundID
@@ -784,7 +893,7 @@ func CreatePrismaticJoint(context *SampleContext) Sampler {
 		jointDef.MotorSpeed = s.motorSpeed
 		jointDef.MaxMotorForce = s.motorForce
 		jointDef.EnableMotor = s.enableMotor
-		jointDef.LowerTranslation = -10.0
+		jointDef.LowerTranslation = -lowerTravel
 		jointDef.UpperTranslation = 10.0
 		jointDef.EnableLimit = s.enableLimit
 		jointDef.EnableSpring = s.enableSpring
@@ -793,94 +902,44 @@ func CreatePrismaticJoint(context *SampleContext) Sampler {
 
 		s.jointID = s.worldID.CreatePrismaticJoint(&jointDef)
 	}
+
 	return s
 }
 
-func (s *PrismaticJoint) DrawControls() bool {
-	if imgui.Checkbox("Limit", &s.enableLimit) {
-		s.jointID.SetLimitEnabled(s.enableLimit)
-		s.jointID.WakeBodies()
-	}
-
-	if imgui.Checkbox("Motor", &s.enableMotor) {
-		s.jointID.SetMotorEnabled(s.enableMotor)
-		s.jointID.WakeBodies()
-	}
-
-	if s.enableMotor {
-		imgui.PushItemWidth(6.0 * imgui.FontSize())
-		if imgui.SliderFloatV("Max Force", &s.motorForce, 0.0, 200.0, "%.0f", 0) {
-			s.jointID.SetMaxMotorForce(s.motorForce)
-			s.jointID.WakeBodies()
-		}
-
-		if imgui.SliderFloatV("Speed", &s.motorSpeed, -40.0, 40.0, "%.0f", 0) {
-			s.jointID.SetMotorSpeed(s.motorSpeed)
-			s.jointID.WakeBodies()
-		}
-		imgui.PopItemWidth()
-	}
-
-	if imgui.Checkbox("Spring", &s.enableSpring) {
-		s.jointID.SetSpringEnabled(s.enableSpring)
-		s.jointID.WakeBodies()
-	}
-
-	if s.enableSpring {
-		imgui.PushItemWidth(6.0 * imgui.FontSize())
-		if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, 10.0, "%.1f", 0) {
-			s.jointID.SetSpringHertz(s.hertz)
-			s.jointID.WakeBodies()
-		}
-
-		if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, 2.0, "%.1f", 0) {
-			s.jointID.SetSpringDampingRatio(s.dampingRatio)
-			s.jointID.WakeBodies()
-		}
-
-		if imgui.SliderFloatV("Translation", &s.translation, -15.0, 15.0, "%.1f", 0) {
-			s.jointID.SetTargetTranslation(s.translation)
-			s.jointID.WakeBodies()
-		}
-		imgui.PopItemWidth()
-	}
-
-	return true
-}
-
-func (s *PrismaticJoint) Step() {
-	s.Sample.Step()
-
-	force := s.jointID.MotorForce()
-	s.DrawScreenTextLine("Motor Force = %4.1f", force)
-
-	translation := s.jointID.Translation()
-	s.DrawScreenTextLine("Translation = %4.1f", translation)
-
-	speed := s.jointID.Speed()
-	s.DrawScreenTextLine("Speed = %4.8f", speed)
-}
-
-type WheelJoint struct {
-	Sample
-
-	jointID      box2d.WheelJoint
-	hertz        float32
-	dampingRatio float32
-	motorSpeed   float32
-	motorTorque  float32
-	enableSpring bool
-	enableMotor  bool
-	enableLimit  bool
-}
-
 func CreateWheelJoint(context *SampleContext) Sampler {
-	s := &WheelJoint{}
+	const (
+		cameraHeight        = 10.0
+		cameraZoomBase      = 25.0
+		cameraZoomScale     = 0.15
+		wheelBodyHeight     = 10.25
+		capsuleHalfLength   = 0.5
+		capsuleRadius       = 0.5
+		pivotHeight         = 10.0
+		lowerTravel         = 3.0
+		initialMotorSpeed   = 2.0
+		initialMotorTorque  = 5.0
+		initialDampingRatio = 0.7
+	)
+
+	s := &WheelJoint{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		enableSpring:    true,
+		enableLimit:     true,
+		enableMotor:     true,
+		motorSpeed:      initialMotorSpeed,
+		motorTorque:     initialMotorTorque,
+		hertz:           1.0,
+		dampingRatio:    initialDampingRatio,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 10.0}
-		s.context.camera.zoom = 25.0 * 0.15
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	var groundID box2d.Body
@@ -889,28 +948,20 @@ func CreateWheelJoint(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 	}
 
-	s.enableSpring = true
-	s.enableLimit = true
-	s.enableMotor = true
-	s.motorSpeed = 2.0
-	s.motorTorque = 5.0
-	s.hertz = 1.0
-	s.dampingRatio = 0.7
-
 	bodyDef := box2d.DefaultBodyDef()
-	bodyDef.Position = box2d.Pos{X: 0.0, Y: 10.25}
+	bodyDef.Position = box2d.Pos{X: 0.0, Y: wheelBodyHeight}
 	bodyDef.Type = box2d.DynamicBody
 	bodyID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
 	capsule := box2d.Capsule{
 		Center1: box2d.Vec2{X: 0.0, Y: -0.5},
-		Center2: box2d.Vec2{X: 0.0, Y: 0.5},
-		Radius:  0.5,
+		Center2: box2d.Vec2{X: 0.0, Y: capsuleHalfLength},
+		Radius:  capsuleRadius,
 	}
 	bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
-	pivot := box2d.Pos{X: 0.0, Y: 10.0}
+	pivot := box2d.Pos{X: 0.0, Y: pivotHeight}
 	axis := box2d.Vec2{X: 1.0, Y: 1.0}.Normalize()
 	jointDef := box2d.DefaultWheelJointDef()
 	jointDef.Base.BodyA = groundID
@@ -921,84 +972,51 @@ func CreateWheelJoint(context *SampleContext) Sampler {
 	jointDef.MotorSpeed = s.motorSpeed
 	jointDef.MaxMotorTorque = s.motorTorque
 	jointDef.EnableMotor = s.enableMotor
-	jointDef.LowerTranslation = -3.0
+	jointDef.LowerTranslation = -lowerTravel
 	jointDef.UpperTranslation = 3.0
 	jointDef.EnableLimit = s.enableLimit
 	jointDef.Hertz = s.hertz
 	jointDef.DampingRatio = s.dampingRatio
 
 	s.jointID = s.worldID.CreateWheelJoint(&jointDef)
+
 	return s
 }
 
-func (s *WheelJoint) DrawControls() bool {
-	if imgui.Checkbox("Limit", &s.enableLimit) {
-		s.jointID.SetLimitEnabled(s.enableLimit)
-	}
-
-	if imgui.Checkbox("Motor", &s.enableMotor) {
-		s.jointID.SetMotorEnabled(s.enableMotor)
-	}
-
-	if s.enableMotor {
-		imgui.PushItemWidth(6.0 * imgui.FontSize())
-		if imgui.SliderFloatV("Torque", &s.motorTorque, 0.0, 20.0, "%.0f", 0) {
-			s.jointID.SetMaxMotorTorque(s.motorTorque)
-		}
-
-		if imgui.SliderFloatV("Speed", &s.motorSpeed, -20.0, 20.0, "%.0f", 0) {
-			s.jointID.SetMotorSpeed(s.motorSpeed)
-		}
-		imgui.PopItemWidth()
-	}
-
-	if imgui.Checkbox("Spring", &s.enableSpring) {
-		s.jointID.SetSpringEnabled(s.enableSpring)
-	}
-
-	if s.enableSpring {
-		imgui.PushItemWidth(6.0 * imgui.FontSize())
-		if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, 10.0, "%.1f", 0) {
-			s.jointID.SetSpringHertz(s.hertz)
-		}
-
-		if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, 2.0, "%.1f", 0) {
-			s.jointID.SetSpringDampingRatio(s.dampingRatio)
-		}
-		imgui.PopItemWidth()
-	}
-
-	return true
-}
-
-func (s *WheelJoint) Step() {
-	s.Sample.Step()
-
-	torque := s.jointID.MotorTorque()
-	s.DrawScreenTextLine("Motor Torque = %4.1f", torque)
-}
-
-const bridgeCount = 160
-
-// A suspension bridge
-type Bridge struct {
-	Sample
-
-	bodyIDs                [bridgeCount]box2d.Body
-	jointIDs               [bridgeCount + 1]box2d.RevoluteJoint
-	frictionTorque         float32
-	constraintHertz        float32
-	constraintDampingRatio float32
-	springHertz            float32
-	springDampingRatio     float32
-}
-
 func CreateBridge(context *SampleContext) Sampler {
-	s := &Bridge{}
+	const (
+		cameraZoomBase            = 25.0
+		cameraZoomScale           = 2.5
+		linkHalfLength            = 0.5
+		linkHalfThickness         = 0.125
+		bridgeHeight              = 20.0
+		triangleHalfWidth         = 0.5
+		triangleHeight            = 1.5
+		triangleSpacing           = 22.0
+		ballRadius                = 0.5
+		ballSpacing               = 25.0
+		initialConstraintHertz    = 60.0
+		initialSpringHertz        = 2.0
+		initialSpringDampingRatio = 0.7
+		initialFrictionTorque     = 200.0
+	)
+
+	s := &Bridge{
+		context:                context,
+		camera:                 &context.camera,
+		draw:                   context.draw,
+		screenTextX:            initialScreenTextX,
+		mouseForceScale:        initialMouseForceScale,
+		constraintHertz:        initialConstraintHertz,
+		constraintDampingRatio: 0.0,
+		springHertz:            initialSpringHertz,
+		springDampingRatio:     initialSpringDampingRatio,
+		frictionTorque:         initialFrictionTorque,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.zoom = 25.0 * 2.5
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	var groundID box2d.Body
@@ -1008,13 +1026,7 @@ func CreateBridge(context *SampleContext) Sampler {
 	}
 
 	{
-		s.constraintHertz = 60.0
-		s.constraintDampingRatio = 0.0
-		s.springHertz = 2.0
-		s.springDampingRatio = 0.7
-		s.frictionTorque = 200.0
-
-		box := box2d.MakeBox(0.5, 0.125)
+		box := box2d.MakeBox(linkHalfLength, linkHalfThickness)
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 20.0
@@ -1031,10 +1043,14 @@ func CreateBridge(context *SampleContext) Sampler {
 		xbase := float32(-80.0)
 
 		prevBodyID := groundID
+
 		for i := range bridgeCount {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.Pos{X: posScalar(xbase + 0.5 + 1.0*float32(i)), Y: 20.0}
+			bodyDef.Position = box2d.Pos{
+				X: posScalar(xbase + 0.5 + 1.0*float32(i)),
+				Y: bridgeHeight,
+			}
 			bodyDef.LinearDamping = 0.1
 			bodyDef.AngularDamping = 0.1
 
@@ -1042,7 +1058,7 @@ func CreateBridge(context *SampleContext) Sampler {
 
 			s.bodyIDs[i].CreatePolygonShape(&shapeDef, &box)
 
-			pivot := box2d.Pos{X: posScalar(xbase + 1.0*float32(i)), Y: 20.0}
+			pivot := box2d.Pos{X: posScalar(xbase + 1.0*float32(i)), Y: bridgeHeight}
 			jointDef.Base.BodyA = prevBodyID
 			jointDef.Base.BodyB = s.bodyIDs[i]
 			jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
@@ -1053,7 +1069,7 @@ func CreateBridge(context *SampleContext) Sampler {
 			prevBodyID = s.bodyIDs[i]
 		}
 
-		pivot := box2d.Pos{X: posScalar(xbase + 1.0*bridgeCount), Y: 20.0}
+		pivot := box2d.Pos{X: posScalar(xbase + 1.0*bridgeCount), Y: bridgeHeight}
 		jointDef.Base.BodyA = prevBodyID
 		jointDef.Base.BodyB = groundID
 		jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
@@ -1062,7 +1078,11 @@ func CreateBridge(context *SampleContext) Sampler {
 	}
 
 	for i := range 2 {
-		vertices := []box2d.Vec2{{X: -0.5, Y: 0.0}, {X: 0.5, Y: 0.0}, {X: 0.0, Y: 1.5}}
+		vertices := []box2d.Vec2{
+			{X: -triangleHalfWidth, Y: 0.0},
+			{X: triangleHalfWidth, Y: 0.0},
+			{X: 0.0, Y: triangleHeight},
+		}
 
 		hull := box2d.ComputeHull(vertices)
 		triangle := box2d.MakePolygon(&hull, 0.0)
@@ -1072,83 +1092,44 @@ func CreateBridge(context *SampleContext) Sampler {
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(-8.0 + 8.0*float32(i)), Y: 22.0}
+		bodyDef.Position = box2d.Pos{X: posScalar(-8.0 + 8.0*float32(i)), Y: triangleSpacing}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		bodyID.CreatePolygonShape(&shapeDef, &triangle)
 	}
 
 	for i := range 3 {
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 20.0
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(-6.0 + 6.0*float32(i)), Y: 25.0}
+		bodyDef.Position = box2d.Pos{X: posScalar(-6.0 + 6.0*float32(i)), Y: ballSpacing}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
+
 	return s
 }
 
-func (s *Bridge) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	updateFriction := imgui.SliderFloatV(
-		"Joint Friction",
-		&s.frictionTorque,
-		0.0,
-		10000.0,
-		"%2.f",
-		0,
-	)
-	if updateFriction {
-		for i := 0; i <= bridgeCount; i++ {
-			s.jointIDs[i].SetMaxMotorTorque(s.frictionTorque)
-		}
-	}
-
-	if imgui.SliderFloatV("Spring hertz", &s.springHertz, 0.0, 30.0, "%.0f", 0) {
-		for i := 0; i <= bridgeCount; i++ {
-			s.jointIDs[i].SetSpringHertz(s.springHertz)
-		}
-	}
-
-	if imgui.SliderFloatV("Spring damping", &s.springDampingRatio, 0.0, 2.0, "%.1f", 0) {
-		for i := 0; i <= bridgeCount; i++ {
-			s.jointIDs[i].SetSpringDampingRatio(s.springDampingRatio)
-		}
-	}
-
-	if imgui.SliderFloatV("Constraint hertz", &s.constraintHertz, 15.0, 240.0, "%.0f", 0) {
-		for i := 0; i <= bridgeCount; i++ {
-			s.jointIDs[i].SetConstraintTuning(s.constraintHertz, s.constraintDampingRatio)
-		}
-	}
-
-	if imgui.SliderFloatV("Constraint damping", &s.constraintDampingRatio, 0.0, 10.0, "%.1f", 0) {
-		for i := 0; i <= bridgeCount; i++ {
-			s.jointIDs[i].SetConstraintTuning(s.constraintHertz, s.constraintDampingRatio)
-		}
-	}
-
-	imgui.PopItemWidth()
-
-	return true
-}
-
-const ballAndChainCount = 30
-
-type BallAndChain struct {
-	Sample
-
-	jointIDs       [ballAndChainCount + 1]box2d.RevoluteJoint
-	frictionTorque float32
-}
-
 func CreateBallAndChain(context *SampleContext) Sampler {
-	s := &BallAndChain{}
+	const (
+		linkHalfLength        = 0.5
+		linkRadius            = 0.125
+		linkLengthFactor      = 2.0
+		ballRadius            = 4.0
+		initialFrictionTorque = 100.0
+	)
+
+	s := &BallAndChain{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		frictionTorque:  initialFrictionTorque,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
@@ -1162,14 +1143,12 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 	}
 
-	s.frictionTorque = 100.0
-
 	{
-		hx := float32(0.5)
+		hx := float32(linkHalfLength)
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: -hx, Y: 0.0},
 			Center2: box2d.Vec2{X: hx, Y: 0.0},
-			Radius:  0.125,
+			Radius:  linkRadius,
 		}
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -1181,6 +1160,7 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 		jointIndex := 0
 
 		prevBodyID := groundID
+
 		for i := range ballAndChainCount {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
@@ -1192,7 +1172,7 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 			bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
 			pivot := box2d.Pos{
-				X: posScalar((2.0 * float32(i)) * hx),
+				X: posScalar((linkLengthFactor * float32(i)) * hx),
 				Y: posScalar(ballAndChainCount * hx),
 			}
 			jointDef.Base.BodyA = prevBodyID
@@ -1209,7 +1189,7 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 			prevBodyID = bodyID
 		}
 
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 4.0}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -1224,7 +1204,7 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 
 		pivot := box2d.Pos{
-			X: posScalar((2.0 * ballAndChainCount) * hx),
+			X: posScalar((linkLengthFactor * ballAndChainCount) * hx),
 			Y: posScalar(ballAndChainCount * hx),
 		}
 		jointDef.Base.BodyA = prevBodyID
@@ -1237,54 +1217,43 @@ func CreateBallAndChain(context *SampleContext) Sampler {
 		jointDef.Hertz = 4.0
 		s.jointIDs[jointIndex] = s.worldID.CreateRevoluteJoint(&jointDef)
 	}
+
 	return s
 }
 
-func (s *BallAndChain) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-	updateFriction := imgui.SliderFloatV(
-		"Joint Friction",
-		&s.frictionTorque,
-		0.0,
-		1000.0,
-		"%2.f",
-		0,
-	)
-	imgui.PopItemWidth()
-	if updateFriction {
-		for i := 0; i <= ballAndChainCount; i++ {
-			s.jointIDs[i].SetMaxMotorTorque(s.frictionTorque)
-		}
-	}
-
-	return true
-}
-
-const cantileverCount = 8
-
-// This sample shows the limitations of an iterative solver. The cantilever sags even though the weld
-// joint is stiff as possible.
-type Cantilever struct {
-	Sample
-
-	linearHertz         float32
-	linearDampingRatio  float32
-	angularHertz        float32
-	angularDampingRatio float32
-	gravityScale        float32
-	tipID               box2d.Body
-	bodyIDs             [cantileverCount]box2d.Body
-	jointIDs            [cantileverCount]box2d.WeldJoint
-	collideConnected    bool
-}
-
 func CreateCantilever(context *SampleContext) Sampler {
-	s := &Cantilever{}
+	const (
+		cameraZoomBase             = 25.0
+		cameraZoomScale            = 0.35
+		linkHalfLength             = 0.5
+		linkRadius                 = 0.125
+		linkLengthFactor           = 2.0
+		constraintHertz            = 120.0
+		constraintDamping          = 10.0
+		initialLinearHertz         = 15.0
+		initialLinearDampingRatio  = 0.5
+		initialAngularHertz        = 5.0
+		initialAngularDampingRatio = 0.5
+	)
+
+	s := &Cantilever{
+		context:             context,
+		camera:              &context.camera,
+		draw:                context.draw,
+		screenTextX:         initialScreenTextX,
+		mouseForceScale:     initialMouseForceScale,
+		linearHertz:         initialLinearHertz,
+		linearDampingRatio:  initialLinearDampingRatio,
+		angularHertz:        initialAngularHertz,
+		angularDampingRatio: initialAngularDampingRatio,
+		gravityScale:        1.0,
+		collideConnected:    false,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
 		s.context.camera.center = box2d.Pos{X: 0.0, Y: 0.0}
-		s.context.camera.zoom = 25.0 * 0.35
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	var groundID box2d.Body
@@ -1294,18 +1263,11 @@ func CreateCantilever(context *SampleContext) Sampler {
 	}
 
 	{
-		s.linearHertz = 15.0
-		s.linearDampingRatio = 0.5
-		s.angularHertz = 5.0
-		s.angularDampingRatio = 0.5
-		s.gravityScale = 1.0
-		s.collideConnected = false
-
-		hx := float32(0.5)
+		hx := float32(linkHalfLength)
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: -hx, Y: 0.0},
 			Center2: box2d.Vec2{X: hx, Y: 0.0},
-			Radius:  0.125,
+			Radius:  linkRadius,
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 20.0
@@ -1317,12 +1279,13 @@ func CreateCantilever(context *SampleContext) Sampler {
 		bodyDef.IsAwake = false
 
 		prevBodyID := groundID
+
 		for i := range cantileverCount {
 			bodyDef.Position = box2d.Pos{X: posScalar((1.0 + 2.0*float32(i)) * hx), Y: 0.0}
 			s.bodyIDs[i] = s.worldID.CreateBody(&bodyDef)
 			s.bodyIDs[i].CreateCapsuleShape(&shapeDef, &capsule)
 
-			pivot := box2d.Pos{X: posScalar((2.0 * float32(i)) * hx), Y: 0.0}
+			pivot := box2d.Pos{X: posScalar((linkLengthFactor * float32(i)) * hx), Y: 0.0}
 			jointDef.Base.BodyA = prevBodyID
 			jointDef.Base.BodyB = s.bodyIDs[i]
 			jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
@@ -1335,92 +1298,45 @@ func CreateCantilever(context *SampleContext) Sampler {
 			s.jointIDs[i] = s.worldID.CreateWeldJoint(&jointDef)
 
 			// Experimental tuning
-			s.jointIDs[i].SetConstraintTuning(120.0, 10.0)
+			s.jointIDs[i].SetConstraintTuning(constraintHertz, constraintDamping)
 
 			prevBodyID = s.bodyIDs[i]
 		}
 
 		s.tipID = prevBodyID
 	}
+
 	return s
 }
 
-func (s *Cantilever) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	if imgui.SliderFloatV("Linear Hertz", &s.linearHertz, 0.0, 20.0, "%.0f", 0) {
-		for i := range cantileverCount {
-			s.jointIDs[i].SetLinearHertz(s.linearHertz)
-		}
-	}
-
-	if imgui.SliderFloatV("Linear Damping Ratio", &s.linearDampingRatio, 0.0, 10.0, "%.1f", 0) {
-		for i := range cantileverCount {
-			s.jointIDs[i].SetLinearDampingRatio(s.linearDampingRatio)
-		}
-	}
-
-	if imgui.SliderFloatV("Angular Hertz", &s.angularHertz, 0.0, 20.0, "%.0f", 0) {
-		for i := range cantileverCount {
-			s.jointIDs[i].SetAngularHertz(s.angularHertz)
-		}
-	}
-
-	if imgui.SliderFloatV("Angular Damping Ratio", &s.angularDampingRatio, 0.0, 10.0, "%.1f", 0) {
-		for i := range cantileverCount {
-			s.jointIDs[i].SetAngularDampingRatio(s.angularDampingRatio)
-		}
-	}
-
-	if imgui.SliderFloatV("Gravity Scale", &s.gravityScale, -1.0, 1.0, "%.1f", 0) {
-		for i := range cantileverCount {
-			s.bodyIDs[i].SetGravityScale(s.gravityScale)
-		}
-	}
-
-	imgui.PopItemWidth()
-
-	if imgui.Checkbox("Collide Connected", &s.collideConnected) {
-		for i := range cantileverCount {
-			s.jointIDs[i].SetCollideConnected(s.collideConnected)
-		}
-	}
-
-	return true
-}
-
-func (s *Cantilever) Step() {
-	s.Sample.Step()
-
-	tipPosition := s.tipID.Position()
-	s.DrawScreenTextLine("tip-y = %.2f", tipPosition.Y)
-}
-
-const motionLocksCount = 6
-
-// This test ensures joints work correctly with bodies that have motion locks
-type MotionLocks struct {
-	Sample
-
-	bodyIDs     [motionLocksCount]box2d.Body
-	motionLocks box2d.MotionLocks
-}
-
 func CreateMotionLocks(context *SampleContext) Sampler {
-	s := &MotionLocks{}
+	const (
+		cameraHeight    = 8.0
+		cameraZoomBase  = 25.0
+		cameraZoomScale = 0.7
+		rowHeight       = 10.0
+		distanceLength  = 2.0
+	)
+
+	s := &MotionLocks{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		motionLocks:     box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: true},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 8.0}
-		s.context.camera.zoom = 25.0 * 0.7
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	bodyDef := box2d.DefaultBodyDef()
 	groundID := s.worldID.CreateBody(&bodyDef)
 
-	s.motionLocks = box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: true}
-
-	position := box2d.Pos{X: -12.5, Y: 10.0}
+	position := box2d.Pos{X: -12.5, Y: rowHeight}
 	bodyDef.Type = box2d.DynamicBody
 	bodyDef.MotionLocks = s.motionLocks
 
@@ -1435,7 +1351,7 @@ func CreateMotionLocks(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		s.bodyIDs[index].CreatePolygonShape(&shapeDef, &box)
 
-		length := float32(2.0)
+		length := float32(distanceLength)
 		pivot1 := box2d.Pos{X: position.X, Y: position.Y + 1.0 + posScalar(length)}
 		pivot2 := box2d.Pos{X: position.X, Y: position.Y + 1.0}
 		jointDef := box2d.DefaultDistanceJointDef()
@@ -1553,53 +1469,34 @@ func CreateMotionLocks(context *SampleContext) Sampler {
 		jointDef.MotorSpeed = 1.0
 		s.worldID.CreateWheelJoint(&jointDef)
 	}
+
 	return s
 }
 
-func (s *MotionLocks) applyLocks() {
-	for i := range motionLocksCount {
-		s.bodyIDs[i].SetMotionLocks(s.motionLocks)
-		s.bodyIDs[i].SetAwake(true)
-	}
-}
-
-func (s *MotionLocks) DrawControls() bool {
-	if imgui.Checkbox("Lock Linear X", &s.motionLocks.LinearX) {
-		s.applyLocks()
-	}
-
-	if imgui.Checkbox("Lock Linear Y", &s.motionLocks.LinearY) {
-		s.applyLocks()
-	}
-
-	if imgui.Checkbox("Lock Angular Z", &s.motionLocks.AngularZ) {
-		s.applyLocks()
-	}
-
-	if s.context.window.GetKey(glfw.KeyL) == glfw.Press {
-		s.bodyIDs[0].ApplyLinearImpulseToCenter(box2d.Vec2{X: 100.0, Y: 0.0}, true)
-	}
-
-	return true
-}
-
-const breakableJointCount = 6
-
-// This sample shows how to break joints when the internal reaction force becomes large.
-type BreakableJoint struct {
-	Sample
-
-	jointIDs   [breakableJointCount]box2d.Joint
-	breakForce float32
-}
-
 func CreateBreakableJoint(context *SampleContext) Sampler {
-	s := &BreakableJoint{}
+	const (
+		cameraHeight      = 8.0
+		cameraZoomBase    = 25.0
+		cameraZoomScale   = 0.7
+		groundHalfWidth   = 40.0
+		rowHeight         = 10.0
+		distanceLength    = 2.0
+		initialBreakForce = 1000.0
+	)
+
+	s := &BreakableJoint{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		breakForce:      initialBreakForce,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 8.0}
-		s.context.camera.zoom = 25.0 * 0.7
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	bodyDef := box2d.DefaultBodyDef()
@@ -1608,11 +1505,11 @@ func CreateBreakableJoint(context *SampleContext) Sampler {
 	shapeDef := box2d.DefaultShapeDef()
 	segment := box2d.Segment{
 		Point1: box2d.Vec2{X: -40.0, Y: 0.0},
-		Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+		Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
-	position := box2d.Pos{X: -12.5, Y: 10.0}
+	position := box2d.Pos{X: -12.5, Y: rowHeight}
 	bodyDef.Type = box2d.DynamicBody
 	bodyDef.EnableSleep = false
 
@@ -1626,7 +1523,7 @@ func CreateBreakableJoint(context *SampleContext) Sampler {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
-		length := float32(2.0)
+		length := float32(distanceLength)
 		pivot1 := box2d.Pos{X: position.X, Y: position.Y + 1.0 + posScalar(length)}
 		pivot2 := box2d.Pos{X: position.X, Y: position.Y + 1.0}
 		jointDef := box2d.DefaultDistanceJointDef()
@@ -1742,70 +1639,34 @@ func CreateBreakableJoint(context *SampleContext) Sampler {
 		s.jointIDs[index] = s.worldID.CreateWheelJoint(&jointDef).Joint
 	}
 
-	s.breakForce = 1000.0
 	return s
 }
 
-func (s *BreakableJoint) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	imgui.SliderFloatV("break force", &s.breakForce, 0.0, 10000.0, "%.1f", 0)
-
-	gravity := s.worldID.Gravity()
-	if imgui.SliderFloatV("gravity", &gravity.Y, -50.0, 50.0, "%.1f", 0) {
-		s.worldID.SetGravity(gravity)
-	}
-
-	imgui.PopItemWidth()
-
-	return true
-}
-
-func (s *BreakableJoint) Step() {
-	for i := range breakableJointCount {
-		if s.jointIDs[i] == (box2d.Joint{}) {
-			continue
-		}
-
-		force := s.jointIDs[i].ConstraintForce()
-		if force.LengthSquared() > s.breakForce*s.breakForce {
-			s.jointIDs[i].Destroy()
-			s.jointIDs[i] = box2d.Joint{}
-		} else {
-			localFrame := s.jointIDs[i].LocalFrameA()
-			s.draw.DrawString(
-				s.camera,
-				localFrame.P.Pos(),
-				box2d.ColorWhite,
-				"(%.1f, %.1f)",
-				force.X,
-				force.Y,
-			)
-		}
-	}
-
-	s.Sample.Step()
-}
-
-const jointSeparationCount = 5
-
-// This sample shows how to measure joint separation. This is the unresolved constraint error.
-type JointSeparation struct {
-	Sample
-
-	bodyIDs           [jointSeparationCount]box2d.Body
-	jointIDs          [jointSeparationCount]box2d.Joint
-	impulse           float32
-	jointHertz        float32
-	jointDampingRatio float32
-}
-
 func CreateJointSeparation(context *SampleContext) Sampler {
-	s := &JointSeparation{}
+	const (
+		cameraHeight             = 8.0
+		groundHalfWidth          = 40.0
+		rowHeight                = 10.0
+		distanceLength           = 2.0
+		initialImpulse           = 500.0
+		initialJointHertz        = 60.0
+		initialJointDampingRatio = 2.0
+	)
+
+	s := &JointSeparation{
+		context:           context,
+		camera:            &context.camera,
+		draw:              context.draw,
+		screenTextX:       initialScreenTextX,
+		mouseForceScale:   initialMouseForceScale,
+		impulse:           initialImpulse,
+		jointHertz:        initialJointHertz,
+		jointDampingRatio: initialJointDampingRatio,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 8.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 25.0
 	}
 
@@ -1815,11 +1676,11 @@ func CreateJointSeparation(context *SampleContext) Sampler {
 	shapeDef := box2d.DefaultShapeDef()
 	segment := box2d.Segment{
 		Point1: box2d.Vec2{X: -40.0, Y: 0.0},
-		Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+		Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 	}
 	groundID.CreateSegmentShape(&shapeDef, &segment)
 
-	position := box2d.Pos{X: -20.0, Y: 10.0}
+	position := box2d.Pos{X: -20.0, Y: rowHeight}
 	bodyDef.Type = box2d.DynamicBody
 	bodyDef.EnableSleep = false
 
@@ -1833,7 +1694,7 @@ func CreateJointSeparation(context *SampleContext) Sampler {
 		s.bodyIDs[index] = s.worldID.CreateBody(&bodyDef)
 		s.bodyIDs[index].CreatePolygonShape(&shapeDef, &box)
 
-		length := float32(2.0)
+		length := float32(distanceLength)
 		pivot1 := box2d.Pos{X: position.X, Y: position.Y + 1.0 + posScalar(length)}
 		pivot2 := box2d.Pos{X: position.X, Y: position.Y + 1.0}
 		jointDef := box2d.DefaultDistanceJointDef()
@@ -1930,92 +1791,32 @@ func CreateJointSeparation(context *SampleContext) Sampler {
 		s.jointIDs[index] = s.worldID.CreateWheelJoint(&jointDef).Joint
 	}
 
-	s.impulse = 500.0
-	s.jointHertz = 60.0
-	s.jointDampingRatio = 2.0
 	return s
 }
 
-func (s *JointSeparation) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	gravity := s.worldID.Gravity()
-	if imgui.SliderFloatV("gravity", &gravity.Y, -500.0, 500.0, "%.0f", 0) {
-		s.worldID.SetGravity(gravity)
-	}
-
-	imgui.SliderFloatV("magnitude", &s.impulse, 0.0, 1000.0, "%.0f", 0)
-
-	if imgui.SliderFloatV("hertz", &s.jointHertz, 15.0, 120.0, "%.0f", 0) {
-		for i := range jointSeparationCount {
-			s.jointIDs[i].SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
-		}
-	}
-
-	if imgui.SliderFloatV("damping", &s.jointDampingRatio, 0.0, 10.0, "%.1f", 0) {
-		for i := range jointSeparationCount {
-			s.jointIDs[i].SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
-		}
-	}
-
-	imgui.PopItemWidth()
-
-	if imgui.Button("impulse") {
-		for i := range jointSeparationCount {
-			p := s.bodyIDs[i].WorldPoint(box2d.Vec2{X: 1.0, Y: 1.0})
-			s.bodyIDs[i].ApplyLinearImpulse(box2d.Vec2{X: s.impulse, Y: -s.impulse}, p, true)
-		}
-	}
-
-	return true
-}
-
-func (s *JointSeparation) Step() {
-	for i := range jointSeparationCount {
-		if s.jointIDs[i] == (box2d.Joint{}) {
-			continue
-		}
-
-		linear := s.jointIDs[i].LinearSeparation()
-		angular := s.jointIDs[i].AngularSeparation()
-		localFrame := s.jointIDs[i].LocalFrameA()
-		s.draw.DrawString(
-			s.camera,
-			localFrame.P.Pos(),
-			box2d.ColorWhite,
-			"%.2f m, %.1f deg",
-			linear,
-			180.0*angular/box2d.Pi,
-		)
-	}
-
-	s.Sample.Step()
-}
-
-var (
-	userConstraintHertz    float32 = 3.0
-	userConstraintZeta     float32 = 0.7
-	userConstraintMaxForce float32 = 1000.0
-)
-
-// This shows how you can implement a constraint outside of Box2D
-type UserConstraint struct {
-	Sample
-
-	bodyID   box2d.Body
-	impulses [2]float32
-}
-
 func CreateUserConstraint(context *SampleContext) Sampler {
-	s := &UserConstraint{}
+	const (
+		cameraX         = 3.0
+		cameraZoomBase  = 25.0
+		cameraZoomScale = 0.15
+		bodyHalfWidth   = 0.5
+	)
+
+	s := &UserConstraint{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 3.0, Y: -1.0}
-		s.context.camera.zoom = 25.0 * 0.15
+		s.context.camera.center = box2d.Pos{X: cameraX, Y: -1.0}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
-	box := box2d.MakeBox(1.0, 0.5)
+	box := box2d.MakeBox(1.0, bodyHalfWidth)
 
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Density = 20.0
@@ -2030,117 +1831,55 @@ func CreateUserConstraint(context *SampleContext) Sampler {
 
 	s.impulses[0] = 0.0
 	s.impulses[1] = 0.0
+
 	return s
 }
 
-func (s *UserConstraint) Step() {
-	s.Sample.Step()
-
-	s.draw.DrawTransform(box2d.WorldTransformIdentity, 1.0)
-
-	if s.context.pause {
-		return
-	}
-
-	timeStep := float32(0.0)
-	if s.context.hertz > 0.0 {
-		timeStep = 1.0 / s.context.hertz
-	}
-	if timeStep == 0.0 {
-		return
-	}
-
-	invTimeStep := s.context.hertz
-
-	omega := 2.0 * box2d.Pi * userConstraintHertz
-	sigma := 2.0*userConstraintZeta + timeStep*omega
-	sv := timeStep * omega * sigma
-	impulseCoefficient := 1.0 / (1.0 + sv)
-	massCoefficient := sv * impulseCoefficient
-	biasCoefficient := omega / sigma
-
-	localAnchors := [2]box2d.Vec2{{X: 1.0, Y: -0.5}, {X: 1.0, Y: 0.5}}
-	mass := s.bodyID.Mass()
-	invMass := float32(0.0)
-	if mass >= 0.0001 {
-		invMass = 1.0 / mass
-	}
-	inertiaTensor := s.bodyID.RotationalInertia()
-	invI := float32(0.0)
-	if inertiaTensor >= 0.0001 {
-		invI = 1.0 / inertiaTensor
-	}
-
-	vB := s.bodyID.LinearVelocity()
-	omegaB := s.bodyID.AngularVelocity()
-	pB := s.bodyID.WorldCenter()
-
-	for i := range 2 {
-		anchorA := box2d.Pos{X: 3.0, Y: 0.0}
-		anchorB := s.bodyID.WorldPoint(localAnchors[i])
-
-		deltaAnchor := anchorB.Sub(anchorA)
-
-		slackLength := float32(1.0)
-		length := deltaAnchor.Length()
-		C := length - slackLength
-		if C < 0.0 || length < 0.001 {
-			s.draw.DrawLine(anchorA, anchorB, box2d.ColorLightCyan)
-			s.impulses[i] = 0.0
-			continue
-		}
-
-		s.draw.DrawLine(anchorA, anchorB, box2d.ColorViolet)
-		axis := deltaAnchor.Normalize()
-
-		rB := anchorB.Sub(pB)
-		Jb := rB.Cross(axis)
-		K := invMass + Jb*invI*Jb
-		invK := float32(0.0)
-		if K >= 0.0001 {
-			invK = 1.0 / K
-		}
-
-		Cdot := vB.Dot(axis) + Jb*omegaB
-		impulse := -massCoefficient * invK * (Cdot + biasCoefficient*C)
-		appliedImpulse := clampFloat(impulse, -userConstraintMaxForce*timeStep, 0.0)
-
-		vB = vB.MulAdd(invMass*appliedImpulse, axis)
-		omegaB += appliedImpulse * invI * Jb
-
-		s.impulses[i] = appliedImpulse
-	}
-
-	s.bodyID.SetLinearVelocity(vB)
-	s.bodyID.SetAngularVelocity(omegaB)
-
-	s.DrawScreenTextLine(
-		"forces = %.6g, %.6g",
-		s.impulses[0]*invTimeStep,
-		s.impulses[1]*invTimeStep,
-	)
-}
-
-// This is a fun demo that shows off the wheel joint
-type Driving struct {
-	Sample
-
-	car Car
-
-	throttle     float32
-	hertz        float32
-	dampingRatio float32
-	torque       float32
-	speed        float32
-}
-
 func CreateDriving(context *SampleContext) Sampler {
-	s := &Driving{}
+	const (
+		cameraZoomBase      = 25.0
+		cameraZoomScale     = 0.4
+		terrainStartX       = 20.0
+		terrainSegmentWidth = 5.0
+		pitWidth            = 40.0
+		rampWidth           = 10.0
+		rampHeight          = 5.0
+		runoutWidth         = 40.0
+		endWallHeight       = 20.0
+		teeterCenterX       = 140.0
+		teeterHalfLength    = 10.0
+		teeterHalfThickness = 0.25
+		degreesPerHalfTurn  = 180.0
+		teeterLimitDegrees  = 8.0
+		bridgeLinkRadius    = 0.125
+		bridgeFirstCenterX  = 161.0
+		bridgeStartX        = 160.0
+		obstacleHalfWidth   = 0.5
+		obstacleHalfHeight  = 0.5
+		obstacleStackX      = 230.0
+		initialSpeed        = 35.0
+		initialTorque       = 5.0
+		initialHertz        = 5.0
+		initialDampingRatio = 0.7
+	)
+
+	s := &Driving{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		throttle:        0.0,
+		speed:           initialSpeed,
+		torque:          initialTorque,
+		hertz:           initialHertz,
+		dampingRatio:    initialDampingRatio,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
 		s.context.camera.center.Y = 5.0
-		s.context.camera.zoom = 25.0 * 0.4
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 		s.context.debugDraw.DrawJoints = false
 	}
 
@@ -2150,6 +1889,7 @@ func CreateDriving(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 
 		var points [25]box2d.Vec2
+
 		count := 24
 
 		// fill in reverse to match line list convention
@@ -2157,11 +1897,11 @@ func CreateDriving(context *SampleContext) Sampler {
 		count--
 		points[count] = box2d.Vec2{X: -20.0, Y: 0.0}
 		count--
-		points[count] = box2d.Vec2{X: 20.0, Y: 0.0}
+		points[count] = box2d.Vec2{X: terrainStartX, Y: 0.0}
 		count--
 
 		hs := [10]float32{0.25, 1.0, 4.0, 0.0, 0.0, -1.0, -2.0, -2.0, -1.25, 0.0}
-		x, dx := float32(20.0), float32(5.0)
+		x, dx := float32(terrainStartX), float32(terrainSegmentWidth)
 
 		for range 2 {
 			for i := range 10 {
@@ -2173,9 +1913,9 @@ func CreateDriving(context *SampleContext) Sampler {
 		}
 
 		// flat before bridge
-		points[count] = box2d.Vec2{X: x + 40.0, Y: 0.0}
+		points[count] = box2d.Vec2{X: x + pitWidth, Y: 0.0}
 		count--
-		points[count] = box2d.Vec2{X: x + 40.0, Y: -20.0}
+		points[count] = box2d.Vec2{X: x + pitWidth, Y: -20.0}
 
 		chainDef := box2d.DefaultChainDef()
 		chainDef.Points = points[:]
@@ -2187,7 +1927,7 @@ func CreateDriving(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: x, Y: 0.0},
-			Point2: box2d.Vec2{X: x + 40.0, Y: 0.0},
+			Point2: box2d.Vec2{X: x + pitWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
@@ -2195,7 +1935,7 @@ func CreateDriving(context *SampleContext) Sampler {
 		x += 40.0
 		segment = box2d.Segment{
 			Point1: box2d.Vec2{X: x, Y: 0.0},
-			Point2: box2d.Vec2{X: x + 10.0, Y: 5.0},
+			Point2: box2d.Vec2{X: x + rampWidth, Y: rampHeight},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
@@ -2203,25 +1943,28 @@ func CreateDriving(context *SampleContext) Sampler {
 		x += 20.0
 		segment = box2d.Segment{
 			Point1: box2d.Vec2{X: x, Y: 0.0},
-			Point2: box2d.Vec2{X: x + 40.0, Y: 0.0},
+			Point2: box2d.Vec2{X: x + runoutWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		x += 40.0
-		segment = box2d.Segment{Point1: box2d.Vec2{X: x, Y: 0.0}, Point2: box2d.Vec2{X: x, Y: 20.0}}
+		segment = box2d.Segment{
+			Point1: box2d.Vec2{X: x, Y: 0.0},
+			Point2: box2d.Vec2{X: x, Y: endWallHeight},
+		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	// Teeter
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: 140.0, Y: 1.0}
+		bodyDef.Position = box2d.Pos{X: teeterCenterX, Y: 1.0}
 		bodyDef.AngularVelocity = 1.0
 		bodyDef.Type = box2d.DynamicBody
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeBox(10.0, 0.25)
+		box := box2d.MakeBox(teeterHalfLength, teeterHalfThickness)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
 		pivot := bodyDef.Position
@@ -2230,33 +1973,37 @@ func CreateDriving(context *SampleContext) Sampler {
 		jointDef.Base.BodyB = bodyID
 		jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
 		jointDef.Base.LocalFrameB.P = jointDef.Base.BodyB.LocalPoint(pivot)
-		jointDef.LowerAngle = -8.0 * box2d.Pi / 180.0
-		jointDef.UpperAngle = 8.0 * box2d.Pi / 180.0
+		jointDef.LowerAngle = -teeterLimitDegrees * box2d.Pi / degreesPerHalfTurn
+		jointDef.UpperAngle = teeterLimitDegrees * box2d.Pi / degreesPerHalfTurn
 		jointDef.EnableLimit = true
 		s.worldID.CreateRevoluteJoint(&jointDef)
 	}
 
 	// Bridge
 	{
-		N := 20
+		bridgeSegmentCount := 20
 		shapeDef := box2d.DefaultShapeDef()
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: -1.0, Y: 0.0},
 			Center2: box2d.Vec2{X: 1.0, Y: 0.0},
-			Radius:  0.125,
+			Radius:  bridgeLinkRadius,
 		}
 
 		jointDef := box2d.DefaultRevoluteJointDef()
 
 		prevBodyID := groundID
-		for i := range N {
+
+		for i := range bridgeSegmentCount {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.Pos{X: posScalar(161.0 + 2.0*float32(i)), Y: -0.125}
+			bodyDef.Position = box2d.Pos{
+				X: posScalar(bridgeFirstCenterX + 2.0*float32(i)),
+				Y: -0.125,
+			}
 			bodyID := s.worldID.CreateBody(&bodyDef)
 			bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 
-			pivot := box2d.Pos{X: posScalar(160.0 + 2.0*float32(i)), Y: -0.125}
+			pivot := box2d.Pos{X: posScalar(bridgeStartX + 2.0*float32(i)), Y: -0.125}
 			jointDef.Base.BodyA = prevBodyID
 			jointDef.Base.BodyB = bodyID
 			jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
@@ -2266,7 +2013,7 @@ func CreateDriving(context *SampleContext) Sampler {
 			prevBodyID = bodyID
 		}
 
-		pivot := box2d.Pos{X: posScalar(160.0 + 2.0*float32(N)), Y: -0.125}
+		pivot := box2d.Pos{X: posScalar(bridgeStartX + 2.0*float32(bridgeSegmentCount)), Y: -0.125}
 		jointDef.Base.BodyA = prevBodyID
 		jointDef.Base.BodyB = groundID
 		jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
@@ -2278,7 +2025,7 @@ func CreateDriving(context *SampleContext) Sampler {
 
 	// Boxes
 	{
-		box := box2d.MakeBox(0.5, 0.5)
+		box := box2d.MakeBox(obstacleHalfWidth, obstacleHalfHeight)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -2289,7 +2036,7 @@ func CreateDriving(context *SampleContext) Sampler {
 		shapeDef.Density = 0.25
 
 		for _, y := range []posScalar{0.5, 1.5, 2.5, 3.5, 4.5} {
-			bodyDef.Position = box2d.Pos{X: 230.0, Y: y}
+			bodyDef.Position = box2d.Pos{X: obstacleStackX, Y: y}
 			bodyID := s.worldID.CreateBody(&bodyDef)
 			bodyID.CreatePolygonShape(&shapeDef, &box)
 		}
@@ -2297,81 +2044,36 @@ func CreateDriving(context *SampleContext) Sampler {
 
 	// Car
 
-	s.throttle = 0.0
-	s.speed = 35.0
-	s.torque = 5.0
-	s.hertz = 5.0
-	s.dampingRatio = 0.7
+	s.car.Spawn(s.worldID, box2d.Pos{X: 0.0, Y: 0.0}, 1.0, s.hertz, s.dampingRatio, s.torque)
 
-	s.car.Spawn(s.worldID, box2d.Pos{X: 0.0, Y: 0.0}, 1.0, s.hertz, s.dampingRatio, s.torque, nil)
 	return s
 }
 
-func (s *Driving) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-	if imgui.SliderFloatV("Spring Hertz", &s.hertz, 0.0, 20.0, "%.0f", 0) {
-		s.car.SetHertz(s.hertz)
-	}
-
-	if imgui.SliderFloatV("Damping Ratio", &s.dampingRatio, 0.0, 10.0, "%.1f", 0) {
-		s.car.SetDampingRadio(s.dampingRatio)
-	}
-
-	if imgui.SliderFloatV("Speed", &s.speed, 0.0, 50.0, "%.0f", 0) {
-		s.car.SetSpeed(s.throttle * s.speed)
-	}
-
-	if imgui.SliderFloatV("Torque", &s.torque, 0.0, 10.0, "%.1f", 0) {
-		s.car.SetTorque(s.torque)
-	}
-	imgui.PopItemWidth()
-
-	return true
-}
-
-func (s *Driving) Step() {
-	if s.context.window.GetKey(glfw.KeyA) == glfw.Press {
-		s.throttle = 1.0
-		s.car.SetSpeed(s.speed)
-	}
-
-	if s.context.window.GetKey(glfw.KeyS) == glfw.Press {
-		s.throttle = 0.0
-		s.car.SetSpeed(0.0)
-	}
-
-	if s.context.window.GetKey(glfw.KeyD) == glfw.Press {
-		s.throttle = -1.0
-		s.car.SetSpeed(-s.speed)
-	}
-
-	s.DrawScreenTextLine("Keys: left = a, brake = s, right = d")
-
-	linearVelocity := s.car.chassisID.LinearVelocity()
-	kph := linearVelocity.X * 3.6
-	s.DrawScreenTextLine("speed in kph: %.2g", kph)
-
-	carPosition := s.car.chassisID.Position()
-	s.context.camera.center.X = carPosition.X
-
-	s.Sample.Step()
-}
-
-type Ragdoll struct {
-	Sample
-
-	human               scenes.Human
-	jointFrictionTorque float32
-	jointHertz          float32
-	jointDampingRatio   float32
-}
-
 func CreateRagdoll(context *SampleContext) Sampler {
-	s := &Ragdoll{}
+	const (
+		cameraHeight               = 12.0
+		groundHalfWidth            = 20.0
+		contactHertz               = 240.0
+		contactPushSpeed           = 2.0
+		initialJointFrictionTorque = 0.03
+		initialJointHertz          = 5.0
+		initialJointDampingRatio   = 0.5
+	)
+
+	s := &Ragdoll{
+		context:             context,
+		camera:              &context.camera,
+		draw:                context.draw,
+		screenTextX:         initialScreenTextX,
+		mouseForceScale:     initialMouseForceScale,
+		jointFrictionTorque: initialJointFrictionTorque,
+		jointHertz:          initialJointHertz,
+		jointDampingRatio:   initialJointDampingRatio,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 12.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 16.0
 	}
 
@@ -2381,76 +2083,40 @@ func CreateRagdoll(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
-
-	s.jointFrictionTorque = 0.03
-	s.jointHertz = 5.0
-	s.jointDampingRatio = 0.5
-
-	s.human = scenes.Human{}
 
 	s.Spawn()
 
-	s.worldID.SetContactTuning(240.0, 0.0, 2.0)
+	s.worldID.SetContactTuning(contactHertz, 0.0, contactPushSpeed)
+
 	return s
 }
 
-func (s *Ragdoll) Spawn() {
-	scenes.CreateHuman(
-		&s.human,
-		s.worldID,
-		box2d.Pos{X: 0.0, Y: 25.0},
-		1.0,
-		s.jointFrictionTorque,
-		s.jointHertz,
-		s.jointDampingRatio,
-		1,
-		nil,
-		false,
-	)
-}
-
-func (s *Ragdoll) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	if imgui.SliderFloatV("Friction", &s.jointFrictionTorque, 0.0, 1.0, "%3.2f", 0) {
-		s.human.SetJointFrictionTorque(s.jointFrictionTorque)
-	}
-
-	if imgui.SliderFloatV("Hertz", &s.jointHertz, 0.0, 10.0, "%3.1f", 0) {
-		s.human.SetJointSpringHertz(s.jointHertz)
-	}
-
-	if imgui.SliderFloatV("Damping", &s.jointDampingRatio, 0.0, 4.0, "%3.1f", 0) {
-		s.human.SetJointDampingRatio(s.jointDampingRatio)
-	}
-
-	imgui.PopItemWidth()
-
-	if imgui.Button("Respawn") {
-		scenes.DestroyHuman(&s.human)
-		s.Spawn()
-	}
-
-	return true
-}
-
-type SoftBody struct {
-	Sample
-
-	donut Donut
-}
-
 func CreateSoftBody(context *SampleContext) Sampler {
-	s := &SoftBody{}
+	const (
+		cameraHeight    = 5.0
+		cameraZoomBase  = 25.0
+		cameraZoomScale = 0.25
+		groundHalfWidth = 20.0
+		donutHeight     = 10.0
+		donutScale      = 2.0
+	)
+
+	s := &SoftBody{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 5.0}
-		s.context.camera.zoom = 25.0 * 0.25
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	{
@@ -2459,26 +2125,38 @@ func CreateSoftBody(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
-	s.donut.Create(s.worldID, box2d.Pos{X: 0.0, Y: 10.0}, 2.0, 0, false, nil)
+	s.donut.Create(s.worldID, box2d.Pos{X: 0.0, Y: donutHeight}, donutScale, 0, false, nil)
+
 	return s
 }
 
-type DoohickeyFarm struct {
-	Sample
-}
-
 func CreateDoohickeyFarm(context *SampleContext) Sampler {
-	s := &DoohickeyFarm{}
+	const (
+		cameraHeight     = 5.0
+		cameraZoomBase   = 25.0
+		cameraZoomScale  = 0.35
+		groundHalfWidth  = 20.0
+		firstSpawnHeight = 4.0
+		doohickeyScale   = 0.5
+	)
+
+	s := &DoohickeyFarm{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 5.0}
-		s.context.camera.zoom = 25.0 * 0.35
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	{
@@ -2488,7 +2166,7 @@ func CreateDoohickeyFarm(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
@@ -2496,31 +2174,55 @@ func CreateDoohickeyFarm(context *SampleContext) Sampler {
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	y := float32(4.0)
+	y := float32(firstSpawnHeight)
+
 	for range 4 {
 		var doohickey Doohickey
-		doohickey.Spawn(s.worldID, box2d.Pos{X: 0.0, Y: posScalar(y)}, 0.5)
+		doohickey.Spawn(s.worldID, box2d.Pos{X: 0.0, Y: posScalar(y)}, doohickeyScale)
 		y += 2.0
 	}
+
 	return s
 }
 
-type ScissorLift struct {
-	Sample
-
-	liftJointID box2d.DistanceJoint
-	motorForce  float32
-	motorSpeed  float32
-	enableMotor bool
-}
-
 func CreateScissorLift(context *SampleContext) Sampler {
-	s := &ScissorLift{}
+	const (
+		cameraHeight         = 9.0
+		cameraZoomBase       = 25.0
+		cameraZoomScale      = 0.4
+		groundHalfWidth      = 20.0
+		linkHalfLength       = 2.5
+		linkRadius           = 0.15
+		anchorHeight         = 0.2
+		firstStageHeight     = 0.5
+		constraintDamping    = 20.0
+		constraintHertzValue = 240.0
+		initialLinkAngle     = 0.15
+		platformHalfWidth    = 3.0
+		platformHalfHeight   = 0.2
+		liftAnchorX          = 0.5
+		carClearance         = 2.0
+		carSpringHertz       = 3.0
+		carSpringDamping     = 0.7
+		initialMotorSpeed    = 0.25
+		initialMotorForce    = 2000.0
+	)
+
+	s := &ScissorLift{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		enableMotor:     false,
+		motorSpeed:      initialMotorSpeed,
+		motorForce:      initialMotorForce,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 9.0}
-		s.context.camera.zoom = 25.0 * 0.4
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
 	// Need 8 sub-steps for smoother operation
@@ -2534,7 +2236,7 @@ func CreateScissorLift(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -2546,25 +2248,26 @@ func CreateScissorLift(context *SampleContext) Sampler {
 	shapeDef := box2d.DefaultShapeDef()
 	capsule := box2d.Capsule{
 		Center1: box2d.Vec2{X: -2.5, Y: 0.0},
-		Center2: box2d.Vec2{X: 2.5, Y: 0.0},
-		Radius:  0.15,
+		Center2: box2d.Vec2{X: linkHalfLength, Y: 0.0},
+		Radius:  linkRadius,
 	}
 
 	baseID1 := groundID
 	baseID2 := groundID
-	baseAnchor1 := box2d.Vec2{X: -2.5, Y: 0.2}
-	baseAnchor2 := box2d.Vec2{X: 2.5, Y: 0.2}
-	y := float32(0.5)
+	baseAnchor1 := box2d.Vec2{X: -2.5, Y: anchorHeight}
+	baseAnchor2 := box2d.Vec2{X: linkHalfLength, Y: anchorHeight}
+	y := float32(firstStageHeight)
 
 	var linkID1 box2d.Body
-	N := 3
 
-	constraintDampingRatio := float32(20.0)
-	constraintHertz := float32(240.0)
+	liftStageCount := 3
 
-	for i := range N {
+	constraintDampingRatio := float32(constraintDamping)
+	constraintHertz := float32(constraintHertzValue)
+
+	for i := range liftStageCount {
 		bodyDef.Position = box2d.Pos{X: 0.0, Y: posScalar(y)}
-		bodyDef.Rotation = box2d.MakeRot(0.15)
+		bodyDef.Rotation = box2d.MakeRot(initialLinkAngle)
 		bodyID1 := s.worldID.CreateBody(&bodyDef)
 		bodyID1.CreateCapsuleShape(&shapeDef, &capsule)
 
@@ -2597,7 +2300,7 @@ func CreateScissorLift(context *SampleContext) Sampler {
 			wheelDef.Base.BodyA = baseID2
 			wheelDef.Base.BodyB = bodyID2
 			wheelDef.Base.LocalFrameA.P = baseAnchor2
-			wheelDef.Base.LocalFrameB.P = box2d.Vec2{X: 2.5, Y: 0.0}
+			wheelDef.Base.LocalFrameB.P = box2d.Vec2{X: linkHalfLength, Y: 0.0}
 			wheelDef.EnableSpring = false
 			wheelDef.Base.CollideConnected = true
 			wheelDef.Base.ConstraintDampingRatio = constraintDampingRatio
@@ -2608,7 +2311,7 @@ func CreateScissorLift(context *SampleContext) Sampler {
 			revoluteDef.Base.BodyA = baseID2
 			revoluteDef.Base.BodyB = bodyID2
 			revoluteDef.Base.LocalFrameA.P = baseAnchor2
-			revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: 2.5, Y: 0.0}
+			revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: linkHalfLength, Y: 0.0}
 			revoluteDef.Base.CollideConnected = false
 			revoluteDef.Base.ConstraintDampingRatio = constraintDampingRatio
 			revoluteDef.Base.ConstraintHertz = constraintHertz
@@ -2630,7 +2333,7 @@ func CreateScissorLift(context *SampleContext) Sampler {
 		baseID1 = bodyID2
 		baseID2 = bodyID1
 		baseAnchor1 = box2d.Vec2{X: -2.5, Y: 0.0}
-		baseAnchor2 = box2d.Vec2{X: 2.5, Y: 0.0}
+		baseAnchor2 = box2d.Vec2{X: linkHalfLength, Y: 0.0}
 		y += 1.0
 	}
 
@@ -2638,7 +2341,7 @@ func CreateScissorLift(context *SampleContext) Sampler {
 	bodyDef.Rotation = box2d.RotIdentity
 	platformID := s.worldID.CreateBody(&bodyDef)
 
-	box := box2d.MakeBox(3.0, 0.2)
+	box := box2d.MakeBox(platformHalfWidth, platformHalfHeight)
 	platformID.CreatePolygonShape(&shapeDef, &box)
 
 	// left pin
@@ -2656,7 +2359,7 @@ func CreateScissorLift(context *SampleContext) Sampler {
 	wheelDef := box2d.DefaultWheelJointDef()
 	wheelDef.Base.BodyA = platformID
 	wheelDef.Base.BodyB = baseID2
-	wheelDef.Base.LocalFrameA.P = box2d.Vec2{X: 2.5, Y: -0.4}
+	wheelDef.Base.LocalFrameA.P = box2d.Vec2{X: linkHalfLength, Y: -0.4}
 	wheelDef.Base.LocalFrameB.P = baseAnchor2
 	wheelDef.EnableSpring = false
 	wheelDef.Base.CollideConnected = true
@@ -2664,15 +2367,11 @@ func CreateScissorLift(context *SampleContext) Sampler {
 	wheelDef.Base.ConstraintHertz = constraintHertz
 	s.worldID.CreateWheelJoint(&wheelDef)
 
-	s.enableMotor = false
-	s.motorSpeed = 0.25
-	s.motorForce = 2000.0
-
 	distanceDef := box2d.DefaultDistanceJointDef()
 	distanceDef.Base.BodyA = groundID
 	distanceDef.Base.BodyB = linkID1
-	distanceDef.Base.LocalFrameA.P = box2d.Vec2{X: -2.5, Y: 0.2}
-	distanceDef.Base.LocalFrameB.P = box2d.Vec2{X: 0.5, Y: 0.0}
+	distanceDef.Base.LocalFrameA.P = box2d.Vec2{X: -2.5, Y: anchorHeight}
+	distanceDef.Base.LocalFrameB.P = box2d.Vec2{X: liftAnchorX, Y: 0.0}
 	distanceDef.EnableSpring = true
 	distanceDef.MinLength = 0.2
 	distanceDef.MaxLength = 5.5
@@ -2683,85 +2382,55 @@ func CreateScissorLift(context *SampleContext) Sampler {
 	s.liftJointID = s.worldID.CreateDistanceJoint(&distanceDef)
 
 	var car Car
-	car.Spawn(s.worldID, box2d.Pos{X: 0.0, Y: posScalar(y + 2.0)}, 1.0, 3.0, 0.7, 0.0, nil)
+	car.Spawn(
+		s.worldID,
+		box2d.Pos{X: 0.0, Y: posScalar(y + carClearance)},
+		1.0,
+		carSpringHertz,
+		carSpringDamping,
+		0.0,
+	)
+
 	return s
 }
 
-func (s *ScissorLift) DrawControls() bool {
-	if imgui.Checkbox("Motor", &s.enableMotor) {
-		s.liftJointID.SetMotorEnabled(s.enableMotor)
-		s.liftJointID.WakeBodies()
-	}
-
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	if imgui.SliderFloatV("Max Force", &s.motorForce, 0.0, 3000.0, "%.0f", 0) {
-		s.liftJointID.SetMaxMotorForce(s.motorForce)
-		s.liftJointID.WakeBodies()
-	}
-
-	if imgui.SliderFloatV("Speed", &s.motorSpeed, -0.3, 0.3, "%.2f", 0) {
-		s.liftJointID.SetMotorSpeed(s.motorSpeed)
-		s.liftJointID.WakeBodies()
-	}
-
-	imgui.PopItemWidth()
-
-	return true
-}
-
-const gearLiftPath = "m 63.500002,201.08333 103.187498,0 1e-5,-37.04166 h -2.64584 l 0,34.39583 h -42.33333 v -2.64583 l " +
-	"-2.64584,-1e-5 v -2.64583 h -2.64583 v -2.64584 h -2.64584 v -2.64583 H 111.125 v -2.64583 h -2.64583 v " +
-	"-2.64583 h -2.64583 v -2.64584 l -2.64584,1e-5 v -2.64583 l -2.64583,-1e-5 V 174.625 h -2.645834 v -2.64584 l " +
-	"-2.645833,1e-5 v -2.64584 H 92.60417 v -2.64583 h -2.645834 v -2.64583 l -26.458334,0 0,37.04166"
-
-type GearLift struct {
-	Sample
-
-	driverID    box2d.RevoluteJoint
-	motorTorque float32
-	motorSpeed  float32
-	enableMotor bool
-}
-
-func createGear(
-	bodyID box2d.Body,
-	gearRadius, toothOffset, toothHalfWidth, toothHalfHeight, toothRadius float32,
-) {
-	shapeDef := box2d.DefaultShapeDef()
-	shapeDef.Material.Friction = 0.1
-	shapeDef.Material.CustomColor = uint32(box2d.ColorSaddleBrown)
-	circle := box2d.Circle{Center: box2d.Vec2Zero, Radius: gearRadius}
-	bodyID.CreateCircleShape(&shapeDef, &circle)
-
-	count := 16
-	deltaAngle := 2.0 * box2d.Pi / 16
-	dq := box2d.MakeRot(deltaAngle)
-	center := box2d.Vec2{X: gearRadius + toothOffset, Y: 0.0}
-	rotation := box2d.RotIdentity
-
-	for range count {
-		tooth := box2d.MakeOffsetRoundedBox(
-			toothHalfWidth,
-			toothHalfHeight,
-			center,
-			rotation,
-			toothRadius,
-		)
-		shapeDef.Material.CustomColor = uint32(box2d.ColorGray)
-		bodyID.CreatePolygonShape(&shapeDef, &tooth)
-
-		rotation = dq.Mul(rotation)
-		center = rotation.Rotate(box2d.Vec2{X: gearRadius + toothOffset, Y: 0.0})
-	}
-}
-
 func CreateGearLift(context *SampleContext) Sampler {
-	s := &GearLift{}
+	const (
+		cameraHeight                 = 6.0
+		pathScale                    = 0.2
+		toothHalfWidthValue          = 0.09
+		toothHalfHeightValue         = 0.06
+		toothRadiusValue             = 0.03
+		linkHalfLengthValue          = 0.07
+		linkRadiusValue              = 0.05
+		linkCountValue               = 40
+		doorHalfHeightValue          = 1.5
+		gearHeight                   = 9.75
+		followerOffsetX              = 2.0
+		followerFramePiFraction      = 0.25
+		followerUpperLimitPiFraction = 0.8
+		debrisStartHeight            = 4.25
+		debrisExtent                 = 0.1
+		minimumDebrisRadius          = 0.01
+		maximumDebrisRadius          = 0.02
+		maximumColorIndex            = 4
+		initialMotorTorque           = 80.0
+	)
+
+	s := &GearLift{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		motorTorque:     initialMotorTorque,
+		motorSpeed:      0.0,
+		enableMotor:     true,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 6.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 7.0
 		s.context.debugDraw.DrawJoints = false
 	}
@@ -2774,8 +2443,8 @@ func CreateGearLift(context *SampleContext) Sampler {
 		var points [128]box2d.Vec2
 
 		offset := box2d.Vec2{X: -120.0, Y: -200.0}
-		scale := float32(0.2)
-		count := ParsePath(gearLiftPath, offset, points[:64], scale, false)
+		scale := float32(pathScale)
+		count := ParsePath(gearLiftPath, offset, points[:64], scale)
 
 		material := box2d.DefaultSurfaceMaterial()
 		material.CustomColor = uint32(box2d.ColorDarkSeaGreen)
@@ -2789,16 +2458,16 @@ func CreateGearLift(context *SampleContext) Sampler {
 	}
 
 	gearRadius := float32(1.0)
-	toothHalfWidth := float32(0.09)
-	toothHalfHeight := float32(0.06)
-	toothRadius := float32(0.03)
-	linkHalfLength := float32(0.07)
-	linkRadius := float32(0.05)
-	linkCount := float32(40)
-	doorHalfHeight := float32(1.5)
+	toothHalfWidth := float32(toothHalfWidthValue)
+	toothHalfHeight := float32(toothHalfHeightValue)
+	toothRadius := float32(toothRadiusValue)
+	linkHalfLength := float32(linkHalfLengthValue)
+	linkRadius := float32(linkRadiusValue)
+	linkCount := float32(linkCountValue)
+	doorHalfHeight := float32(doorHalfHeightValue)
 
-	gearPosition1 := box2d.Pos{X: -4.25, Y: 9.75}
-	gearPosition2 := gearPosition1.Add(box2d.Vec2{X: 2.0, Y: 1.0})
+	gearPosition1 := box2d.Pos{X: -4.25, Y: gearHeight}
+	gearPosition2 := gearPosition1.Add(box2d.Vec2{X: followerOffsetX, Y: 1.0})
 	linkAttachPosition := gearPosition2.Add(
 		box2d.Vec2{X: gearRadius + 2.0*toothHalfWidth + toothRadius, Y: 0.0},
 	)
@@ -2814,20 +2483,9 @@ func CreateGearLift(context *SampleContext) Sampler {
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
-		createGear(
-			bodyID,
-			gearRadius,
-			toothHalfHeight,
-			toothHalfWidth,
-			toothHalfHeight,
-			toothRadius,
-		)
+		createGear(bodyID, toothHalfHeight)
 
 		revoluteDef := box2d.DefaultRevoluteJointDef()
-
-		s.motorTorque = 80.0
-		s.motorSpeed = 0.0
-		s.enableMotor = true
 
 		revoluteDef.Base.BodyA = groundID
 		revoluteDef.Base.BodyB = bodyID
@@ -2849,113 +2507,27 @@ func CreateGearLift(context *SampleContext) Sampler {
 
 		followerID = s.worldID.CreateBody(&bodyDef)
 
-		createGear(
-			followerID,
-			gearRadius,
-			toothHalfWidth,
-			toothHalfWidth,
-			toothHalfHeight,
-			toothRadius,
-		)
+		createGear(followerID, toothHalfWidth)
 
 		revoluteDef := box2d.DefaultRevoluteJointDef()
 
 		revoluteDef.Base.BodyA = groundID
 		revoluteDef.Base.BodyB = followerID
 		revoluteDef.Base.LocalFrameA.P = groundID.LocalPoint(position)
-		revoluteDef.Base.LocalFrameA.Q = box2d.MakeRot(0.25 * box2d.Pi)
+		revoluteDef.Base.LocalFrameA.Q = box2d.MakeRot(followerFramePiFraction * box2d.Pi)
 		revoluteDef.Base.LocalFrameB.P = box2d.Vec2Zero
 		revoluteDef.EnableMotor = true
 		revoluteDef.MaxMotorTorque = 0.5
 		revoluteDef.LowerAngle = -0.3 * box2d.Pi
-		revoluteDef.UpperAngle = 0.8 * box2d.Pi
+		revoluteDef.UpperAngle = followerUpperLimitPiFraction * box2d.Pi
 		revoluteDef.EnableLimit = true
 		s.worldID.CreateRevoluteJoint(&revoluteDef)
 	}
 
-	var lastLinkID box2d.Body
-	{
-		capsule := box2d.Capsule{
-			Center1: box2d.Vec2{X: 0.0, Y: -linkHalfLength},
-			Center2: box2d.Vec2{X: 0.0, Y: linkHalfLength},
-			Radius:  linkRadius,
-		}
-
-		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Density = 2.0
-		shapeDef.Material.CustomColor = uint32(box2d.ColorLightSteelBlue)
-
-		jointDef := box2d.DefaultRevoluteJointDef()
-		jointDef.MaxMotorTorque = 0.05
-		jointDef.EnableMotor = true
-
-		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Type = box2d.DynamicBody
-		position := linkAttachPosition.Add(box2d.Vec2{X: 0.0, Y: -linkHalfLength})
-
-		count := 40
-		prevBodyID := followerID
-		for range count {
-			bodyDef.Position = position
-
-			bodyID := s.worldID.CreateBody(&bodyDef)
-			bodyID.CreateCapsuleShape(&shapeDef, &capsule)
-
-			pivot := box2d.Pos{X: position.X, Y: position.Y + posScalar(linkHalfLength)}
-			jointDef.Base.BodyA = prevBodyID
-			jointDef.Base.BodyB = bodyID
-			jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
-			jointDef.Base.LocalFrameB.P = jointDef.Base.BodyB.LocalPoint(pivot)
-			jointDef.Base.DrawScale = 0.2
-			s.worldID.CreateRevoluteJoint(&jointDef)
-
-			position.Y -= posScalar(2.0 * linkHalfLength)
-			prevBodyID = bodyID
-		}
-
-		lastLinkID = prevBodyID
-	}
-
-	{
-		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = doorPosition
-
-		bodyID := s.worldID.CreateBody(&bodyDef)
-
-		box := box2d.MakeBox(0.15, doorHalfHeight)
-		shapeDef := box2d.DefaultShapeDef()
-		shapeDef.Material.Friction = 0.1
-		shapeDef.Material.CustomColor = uint32(box2d.ColorDarkCyan)
-		bodyID.CreatePolygonShape(&shapeDef, &box)
-
-		{
-			pivot := doorPosition.Add(box2d.Vec2{X: 0.0, Y: doorHalfHeight})
-			revoluteDef := box2d.DefaultRevoluteJointDef()
-			revoluteDef.Base.BodyA = lastLinkID
-			revoluteDef.Base.BodyB = bodyID
-			revoluteDef.Base.LocalFrameA.P = lastLinkID.LocalPoint(pivot)
-			revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: 0.0, Y: doorHalfHeight}
-			revoluteDef.EnableMotor = true
-			revoluteDef.MaxMotorTorque = 0.05
-			s.worldID.CreateRevoluteJoint(&revoluteDef)
-		}
-
-		{
-			localAxis := box2d.Vec2{X: 0.0, Y: 1.0}
-			jointDef := box2d.DefaultPrismaticJointDef()
-			jointDef.Base.BodyA = groundID
-			jointDef.Base.BodyB = bodyID
-			jointDef.Base.LocalFrameA.P = groundID.LocalPoint(doorPosition)
-			jointDef.Base.LocalFrameA.Q = box2d.MakeRotFromUnitVector(localAxis)
-			jointDef.Base.LocalFrameB.P = box2d.Vec2Zero
-			jointDef.Base.LocalFrameB.Q = box2d.MakeRotFromUnitVector(localAxis)
-			jointDef.MaxMotorForce = 0.2
-			jointDef.EnableMotor = true
-			jointDef.Base.CollideConnected = true
-			s.worldID.CreatePrismaticJoint(&jointDef)
-		}
-	}
+	createLiftChainAndDoor(
+		s.worldID, groundID, followerID, linkAttachPosition, doorPosition,
+		linkHalfLength, linkRadius, doorHalfHeight,
+	)
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
@@ -2971,83 +2543,53 @@ func CreateGearLift(context *SampleContext) Sampler {
 			box2d.ColorDarkGray,
 		}
 
-		y := float32(4.25)
+		y := float32(debrisStartHeight)
+
 		xCount, yCount := 10, 20
 		for range yCount {
 			x := float32(-3.15)
 			for range xCount {
 				bodyDef.Position = box2d.Pos{X: posScalar(x), Y: posScalar(y)}
 				bodyID := s.worldID.CreateBody(&bodyDef)
-				poly := scenes.RandomPolygon(0.1)
-				poly.Radius = scenes.RandomFloatRange(0.01, 0.02)
+				poly := scenes.RandomPolygon(debrisExtent)
+				poly.Radius = scenes.RandomFloatRange(minimumDebrisRadius, maximumDebrisRadius)
 
-				colorIndex := scenes.RandomIntRange(0, 4)
+				colorIndex := scenes.RandomIntRange(0, maximumColorIndex)
 				shapeDef.Material.CustomColor = uint32(colors[colorIndex])
 
 				bodyID.CreatePolygonShape(&shapeDef, &poly)
+
 				x += 0.2
 			}
 
 			y += 0.2
 		}
 	}
+
 	return s
 }
 
-func (s *GearLift) DrawControls() bool {
-	if imgui.Checkbox("Motor", &s.enableMotor) {
-		s.driverID.SetMotorEnabled(s.enableMotor)
-		s.driverID.WakeBodies()
-	}
-
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	if imgui.SliderFloatV("Max Torque", &s.motorTorque, 0.0, 100.0, "%.0f", 0) {
-		s.driverID.SetMaxMotorTorque(s.motorTorque)
-		s.driverID.WakeBodies()
-	}
-
-	if imgui.SliderFloatV("Speed", &s.motorSpeed, -0.3, 0.3, "%.2f", 0) {
-		s.driverID.SetMotorSpeed(s.motorSpeed)
-		s.driverID.WakeBodies()
-	}
-
-	imgui.PopItemWidth()
-
-	return true
-}
-
-func (s *GearLift) Step() {
-	if s.context.window.GetKey(glfw.KeyA) == glfw.Press {
-		s.motorSpeed = max(-0.3, s.motorSpeed-0.01)
-		s.driverID.SetMotorSpeed(s.motorSpeed)
-		s.driverID.WakeBodies()
-	}
-
-	if s.context.window.GetKey(glfw.KeyD) == glfw.Press {
-		s.motorSpeed = min(0.3, s.motorSpeed+0.01)
-		s.driverID.SetMotorSpeed(s.motorSpeed)
-		s.driverID.WakeBodies()
-	}
-
-	s.Sample.Step()
-}
-
-// A top down door
-type Door struct {
-	Sample
-
-	doorID            box2d.Body
-	jointID           box2d.RevoluteJoint
-	impulse           float32
-	translationError  float32
-	jointHertz        float32
-	jointDampingRatio float32
-	enableLimit       bool
-}
-
 func CreateDoor(context *SampleContext) Sampler {
-	s := &Door{}
+	const (
+		doorHalfHeight       = 1.5
+		doorHalfWidth        = 0.1
+		upperLimitPiFraction = 0.5
+		initialImpulse       = 50000.0
+		initialJointHertz    = 240.0
+	)
+
+	s := &Door{
+		context:           context,
+		camera:            &context.camera,
+		draw:              context.draw,
+		screenTextX:       initialScreenTextX,
+		mouseForceScale:   initialMouseForceScale,
+		enableLimit:       true,
+		impulse:           initialImpulse,
+		translationError:  0.0,
+		jointHertz:        initialJointHertz,
+		jointDampingRatio: 1.0,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
@@ -3062,16 +2604,10 @@ func CreateDoor(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 	}
 
-	s.enableLimit = true
-	s.impulse = 50000.0
-	s.translationError = 0.0
-	s.jointHertz = 240.0
-	s.jointDampingRatio = 1.0
-
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 1.5}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: doorHalfHeight}
 		bodyDef.GravityScale = 0.0
 
 		s.doorID = s.worldID.CreateBody(&bodyDef)
@@ -3079,7 +2615,7 @@ func CreateDoor(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 1000.0
 
-		box := box2d.MakeBox(0.1, 1.5)
+		box := box2d.MakeBox(doorHalfWidth, doorHalfHeight)
 		s.doorID.CreatePolygonShape(&shapeDef, &box)
 
 		jointDef := box2d.DefaultRevoluteJointDef()
@@ -3097,67 +2633,33 @@ func CreateDoor(context *SampleContext) Sampler {
 		jointDef.MaxMotorTorque = 0.0
 		jointDef.EnableMotor = false
 		jointDef.LowerAngle = -0.5 * box2d.Pi
-		jointDef.UpperAngle = 0.5 * box2d.Pi
+		jointDef.UpperAngle = upperLimitPiFraction * box2d.Pi
 		jointDef.EnableLimit = s.enableLimit
 
 		s.jointID = s.worldID.CreateRevoluteJoint(&jointDef)
 	}
+
 	return s
 }
 
-func (s *Door) DrawControls() bool {
-	if imgui.Button("impulse") {
-		p := s.doorID.WorldPoint(box2d.Vec2{X: 0.0, Y: 1.5})
-		s.doorID.ApplyLinearImpulse(box2d.Vec2{X: s.impulse, Y: 0.0}, p, true)
-		s.translationError = 0.0
-	}
-
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	imgui.SliderFloatV("magnitude", &s.impulse, 1000.0, 100000.0, "%.0f", 0)
-
-	if imgui.SliderFloatV("hertz", &s.jointHertz, 15.0, 480.0, "%.0f", 0) {
-		s.jointID.SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
-	}
-
-	if imgui.SliderFloatV("damping", &s.jointDampingRatio, 0.0, 10.0, "%.1f", 0) {
-		s.jointID.SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
-	}
-
-	imgui.PopItemWidth()
-
-	if imgui.Checkbox("limit", &s.enableLimit) {
-		s.jointID.SetLimitEnabled(s.enableLimit)
-	}
-
-	return true
-}
-
-func (s *Door) Step() {
-	s.Sample.Step()
-
-	p := s.doorID.WorldPoint(box2d.Vec2{X: 0.0, Y: 1.5})
-	s.draw.DrawPoint(p, 5.0, box2d.ColorDarkKhaki)
-
-	translationError := s.jointID.LinearSeparation()
-	s.translationError = max(s.translationError, translationError)
-
-	s.DrawScreenTextLine("translation error = %.6g", s.translationError)
-}
-
-type ScaleRagdoll struct {
-	Sample
-
-	human scenes.Human
-	scale float32
-}
-
 func CreateScaleRagdoll(context *SampleContext) Sampler {
-	s := &ScaleRagdoll{}
+	const (
+		cameraHeight    = 4.5
+		groundHalfWidth = 20.0
+	)
+
+	s := &ScaleRagdoll{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		scale:           1.0,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 4.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 6.0
 	}
 
@@ -3166,75 +2668,55 @@ func CreateScaleRagdoll(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
 
-		box := box2d.MakeOffsetBox(20.0, 1.0, box2d.Vec2{X: 0.0, Y: -1.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			groundHalfWidth,
+			1.0,
+			box2d.Vec2{X: 0.0, Y: -1.0},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	s.scale = 1.0
-
-	s.human = scenes.Human{}
-
 	s.Spawn()
+
 	return s
 }
 
-func (s *ScaleRagdoll) Spawn() {
-	jointFrictionTorque := float32(0.03)
-	jointHertz := float32(1.0)
-	jointDampingRatio := float32(0.5)
-	scenes.CreateHuman(
-		&s.human,
-		s.worldID,
-		box2d.Pos{X: 0.0, Y: 5.0},
-		s.scale,
-		jointFrictionTorque,
-		jointHertz,
-		jointDampingRatio,
-		1,
-		nil,
-		false,
-	)
-	s.human.ApplyRandomAngularImpulse(0.1)
-}
-
-func (s *ScaleRagdoll) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	if imgui.SliderFloatV("Scale", &s.scale, 0.1, 10.0, "%3.2f", imgui.SliderFlagsClampOnInput) {
-		s.human.SetScale(s.scale)
-	}
-
-	imgui.PopItemWidth()
-
-	return true
-}
-
-// Theo Jansen's walking machine, inspired by a contribution from roman_m
-// Dimensions scooped from APE (http://www.cove.org/ape/index.htm)
-type TheoJansen struct {
-	Sample
-
-	offset       box2d.Vec2
-	chassisID    box2d.Body
-	wheelID      box2d.Body
-	motorJointID box2d.RevoluteJoint
-	motorSpeed   float32
-	enableMotor  bool
-}
-
 func CreateTheoJansen(context *SampleContext) Sampler {
-	s := &TheoJansen{}
+	const (
+		cameraHeight      = 6.0
+		cameraZoomBase    = 25.0
+		cameraZoomScale   = 0.5
+		chassisHeight     = 8.0
+		pivotHeight       = 0.8
+		arenaHalfWidth    = 50.0
+		arenaHeight       = 10.0
+		ballRadius        = 0.25
+		ballSpacing       = 0.5
+		chassisHalfWidth  = 2.5
+		wheelRadius       = 1.6
+		legPhaseDegrees   = 180.0
+		initialMotorSpeed = 2.0
+	)
+
+	s := &TheoJansen{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		offset:          box2d.Vec2{X: 0.0, Y: chassisHeight},
+		motorSpeed:      initialMotorSpeed,
+		enableMotor:     true,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 6.0}
-		s.context.camera.zoom = 25.0 * 0.5
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
+		s.context.camera.zoom = cameraZoomBase * cameraZoomScale
 	}
 
-	s.offset = box2d.Vec2{X: 0.0, Y: 8.0}
-	s.motorSpeed = 2.0
-	s.enableMotor = true
-	pivot := box2d.Vec2{X: 0.0, Y: 0.8}
+	pivot := box2d.Vec2{X: 0.0, Y: pivotHeight}
 
 	// Ground
 	{
@@ -3245,30 +2727,30 @@ func CreateTheoJansen(context *SampleContext) Sampler {
 
 		segment := box2d.Segment{
 			Point1: box2d.Vec2{X: -50.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 50.0, Y: 0.0},
+			Point2: box2d.Vec2{X: arenaHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		segment = box2d.Segment{
 			Point1: box2d.Vec2{X: -50.0, Y: 0.0},
-			Point2: box2d.Vec2{X: -50.0, Y: 10.0},
+			Point2: box2d.Vec2{X: -50.0, Y: arenaHeight},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		segment = box2d.Segment{
-			Point1: box2d.Vec2{X: 50.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 50.0, Y: 10.0},
+			Point1: box2d.Vec2{X: arenaHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: arenaHalfWidth, Y: arenaHeight},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	// Balls
 	for i := range 40 {
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.25}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(-40.0 + 2.0*float32(i)), Y: 0.5}
+		bodyDef.Position = box2d.Pos{X: posScalar(-40.0 + 2.0*float32(i)), Y: ballSpacing}
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
@@ -3279,7 +2761,7 @@ func CreateTheoJansen(context *SampleContext) Sampler {
 
 	// Chassis
 	{
-		box := box2d.MakeBox(2.5, 1.0)
+		box := box2d.MakeBox(chassisHalfWidth, 1.0)
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -3294,7 +2776,7 @@ func CreateTheoJansen(context *SampleContext) Sampler {
 
 	// Wheel
 	{
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 1.6}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: wheelRadius}
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
@@ -3328,23 +2810,1336 @@ func CreateTheoJansen(context *SampleContext) Sampler {
 	s.CreateLeg(1.0, wheelAnchor)
 
 	// Stagger three leg pairs around the wheel so some feet always touch the ground
-	s.wheelID.SetTransform(s.wheelID.Position(), box2d.MakeRot(120.0*box2d.Pi/180.0))
+	s.wheelID.SetTransform(s.wheelID.Position(), box2d.MakeRot(120.0*box2d.Pi/legPhaseDegrees))
 	s.CreateLeg(-1.0, wheelAnchor)
 	s.CreateLeg(1.0, wheelAnchor)
 
-	s.wheelID.SetTransform(s.wheelID.Position(), box2d.MakeRot(-120.0*box2d.Pi/180.0))
+	s.wheelID.SetTransform(s.wheelID.Position(), box2d.MakeRot(-120.0*box2d.Pi/legPhaseDegrees))
 	s.CreateLeg(-1.0, wheelAnchor)
 	s.CreateLeg(1.0, wheelAnchor)
+
 	return s
 }
 
+func CreateDeskLamp(context *SampleContext) Sampler {
+	const (
+		cameraX              = 0.2
+		cameraHeight         = 1.42
+		groundHalfWidth      = 20.0
+		initialSpringHertz   = 5.0
+		initialSpringDamping = 4.0
+		initialLowerFriction = 100.0
+		initialElbowFriction = 100.0
+	)
+
+	s := &DeskLamp{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		springHertz:     [deskLampSpringCount]float32{initialSpringHertz, initialSpringHertz},
+		springDamping:   initialSpringDamping,
+		lowerFriction:   initialLowerFriction,
+		elbowFriction:   initialElbowFriction,
+		headAngle:       0.0,
+	}
+	s.init(context, s, true)
+
+	if !s.context.restart {
+		s.context.camera.center = box2d.Pos{X: cameraX, Y: cameraHeight}
+		s.context.camera.zoom = 1.6
+	}
+
+	// The parallelogram is narrow, so it wants the extra resolution
+	s.context.subStepCount = 8
+
+	{
+		bodyDef := box2d.DefaultBodyDef()
+		groundID := s.worldID.CreateBody(&bodyDef)
+
+		shapeDef := box2d.DefaultShapeDef()
+		segment := box2d.Segment{
+			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
+		}
+		groundID.CreateSegmentShape(&shapeDef, &segment)
+	}
+
+	s.createAssembly()
+
+	return s
+}
+
+func (s *DistanceJoint) CreateScene(newCount int32) {
+	const (
+		particleRadius = 0.25
+		chainHeight    = 20.0
+	)
+
+	for i := range s.count {
+		s.jointIDs[i].Destroy()
+
+		var destroyedJoint box2d.DistanceJoint
+
+		s.jointIDs[i] = destroyedJoint
+	}
+
+	for i := range s.count {
+		s.bodyIDs[i].Destroy()
+		s.bodyIDs[i] = box2d.Body{}
+	}
+
+	s.count = newCount
+
+	radius := float32(particleRadius)
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: radius}
+
+	shapeDef := box2d.DefaultShapeDef()
+	shapeDef.Density = 20.0
+
+	yOffset := float32(chainHeight)
+
+	jointDef := box2d.DefaultDistanceJointDef()
+	jointDef.Hertz = s.hertz
+	jointDef.DampingRatio = s.dampingRatio
+	jointDef.Length = s.length
+	jointDef.LowerSpringForce = -s.tensionForce
+	jointDef.UpperSpringForce = s.compressionForce
+	jointDef.MinLength = s.minLength
+	jointDef.MaxLength = s.maxLength
+	jointDef.EnableSpring = s.enableSpring
+	jointDef.EnableLimit = s.enableLimit
+
+	prevBodyID := s.groundID
+	for i := range s.count {
+		bodyDef := box2d.DefaultBodyDef()
+		bodyDef.Type = box2d.DynamicBody
+		bodyDef.AngularDamping = 1.0
+		bodyDef.Position = box2d.Pos{
+			X: posScalar(s.length * (float32(i) + 1.0)),
+			Y: posScalar(yOffset),
+		}
+		s.bodyIDs[i] = s.worldID.CreateBody(&bodyDef)
+		s.bodyIDs[i].CreateCircleShape(&shapeDef, &circle)
+
+		pivotA := box2d.Pos{X: posScalar(s.length * float32(i)), Y: posScalar(yOffset)}
+		pivotB := box2d.Pos{X: posScalar(s.length * (float32(i) + 1.0)), Y: posScalar(yOffset)}
+		jointDef.Base.BodyA = prevBodyID
+		jointDef.Base.BodyB = s.bodyIDs[i]
+		jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivotA)
+		jointDef.Base.LocalFrameB.P = jointDef.Base.BodyB.LocalPoint(pivotB)
+		s.jointIDs[i] = s.worldID.CreateDistanceJoint(&jointDef)
+
+		prevBodyID = s.bodyIDs[i]
+	}
+}
+
+func (s *DistanceJoint) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		minimumLength  = 0.1
+		maximumLength  = 4.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Length", &s.length, minimumLength, maximumLength, "%3.1f", 0) {
+		for i := range s.count {
+			s.jointIDs[i].SetLength(s.length)
+			s.jointIDs[i].WakeBodies()
+		}
+	}
+
+	if imgui.Checkbox("Spring", &s.enableSpring) {
+		for i := range s.count {
+			s.jointIDs[i].SetSpringEnabled(s.enableSpring)
+			s.jointIDs[i].WakeBodies()
+		}
+	}
+
+	if s.enableSpring {
+		s.drawSpringControls()
+	}
+
+	s.drawLimitControls()
+
+	count := s.count
+	if imgui.SliderInt("Count", &count, 1, distanceJointMaxCount) {
+		s.CreateScene(count)
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
+func (s *DistanceJoint) drawSpringControls() {
+	const (
+		maximumTension     = 4000.0
+		maximumCompression = 200.0
+		maximumHertz       = 15.0
+		maximumDamping     = 4.0
+	)
+	if imgui.SliderFloat("Tension", &s.tensionForce, 0.0, maximumTension) {
+		for i := range s.count {
+			s.jointIDs[i].SetSpringForceRange(-s.tensionForce, s.compressionForce)
+			s.jointIDs[i].WakeBodies()
+		}
+	}
+
+	if imgui.SliderFloat("Compression", &s.compressionForce, 0.0, maximumCompression) {
+		for i := range s.count {
+			s.jointIDs[i].SetSpringForceRange(-s.tensionForce, s.compressionForce)
+			s.jointIDs[i].WakeBodies()
+		}
+	}
+
+	if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, maximumHertz, "%3.1f", 0) {
+		for i := range s.count {
+			s.jointIDs[i].SetSpringHertz(s.hertz)
+			s.jointIDs[i].WakeBodies()
+		}
+	}
+
+	if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, maximumDamping, "%3.1f", 0) {
+		for i := range s.count {
+			s.jointIDs[i].SetSpringDampingRatio(s.dampingRatio)
+			s.jointIDs[i].WakeBodies()
+		}
+	}
+}
+
+func (s *DistanceJoint) drawLimitControls() {
+	const (
+		minimumLength = 0.1
+		maximumLength = 4.0
+	)
+
+	if imgui.Checkbox("Limit", &s.enableLimit) {
+		for i := range s.count {
+			s.jointIDs[i].SetLimitEnabled(s.enableLimit)
+			s.jointIDs[i].WakeBodies()
+		}
+	}
+
+	if s.enableLimit {
+		if imgui.SliderFloatV(
+			"Min Length",
+			&s.minLength,
+			minimumLength,
+			maximumLength,
+			"%3.1f",
+			0,
+		) {
+			for i := range s.count {
+				s.jointIDs[i].SetLengthRange(s.minLength, s.maxLength)
+				s.jointIDs[i].WakeBodies()
+			}
+		}
+
+		if imgui.SliderFloatV(
+			"Max Length",
+			&s.maxLength,
+			minimumLength,
+			maximumLength,
+			"%3.1f",
+			0,
+		) {
+			for i := range s.count {
+				s.jointIDs[i].SetLengthRange(s.minLength, s.maxLength)
+				s.jointIDs[i].WakeBodies()
+			}
+		}
+	}
+}
+
+func (s *MotorJoint) DrawControls() bool {
+	const (
+		controlWidthEm   = 6.0
+		maximumSpeed     = 5.0
+		maximumForce     = 10000.0
+		maximumTorque    = 10000.0
+		impulseMagnitude = 100.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	imgui.SliderFloatV("Speed", &s.speed, -maximumSpeed, maximumSpeed, "%.0f", 0)
+
+	if imgui.SliderFloatV("Max Force", &s.maxForce, 0.0, maximumForce, "%.0f", 0) {
+		s.jointID.SetMaxSpringForce(s.maxForce)
+	}
+
+	if imgui.SliderFloatV("Max Torque", &s.maxTorque, 0.0, maximumTorque, "%.0f", 0) {
+		s.jointID.SetMaxSpringTorque(s.maxTorque)
+	}
+
+	imgui.PopItemWidth()
+
+	if imgui.Button("Apply Impulse") {
+		s.bodyID.ApplyLinearImpulseToCenter(box2d.Vec2{X: impulseMagnitude, Y: 0.0}, true)
+	}
+
+	return true
+}
+
+func (s *MotorJoint) Step() {
+	const (
+		horizontalAmplitude = 6.0
+		horizontalFrequency = 2.0
+		verticalCenter      = 8.0
+		angularFrequency    = 2.0
+	)
+
+	timeStep := float32(0.0)
+	if s.context.hertz > 0.0 {
+		timeStep = 1.0 / s.context.hertz
+	}
+
+	if s.context.pause {
+		if s.context.singleStep == 0 {
+			timeStep = 0.0
+		}
+	}
+
+	if timeStep > 0.0 {
+		s.time += s.speed * timeStep
+
+		var linearOffset box2d.Pos
+
+		linearOffset.X = posScalar(horizontalAmplitude * sinf(horizontalFrequency*s.time))
+		linearOffset.Y = posScalar(verticalCenter + 4.0*sinf(1.0*s.time))
+
+		angularOffset := angularFrequency * s.time
+		s.transform = box2d.WorldTransform{P: linearOffset, Q: box2d.MakeRot(angularOffset)}
+
+		wake := true
+		s.targetID.SetTargetTransform(s.transform, timeStep, wake)
+	}
+
+	s.draw.DrawTransform(s.transform, 1.0)
+
+	s.Sample.Step()
+
+	force := s.jointID.ConstraintForce()
+	torque := s.jointID.ConstraintTorque()
+
+	s.DrawScreenTextLinef("force = {%3.f, %3.f}, torque = %3.f", force.X, force.Y, torque)
+}
+
+func (s *TopDownFriction) DrawControls() bool {
+	const (
+		frictionRegionHeight = 10.0
+		frictionRegionRadius = 10.0
+	)
+
+	if imgui.Button("Explode") {
+		def := box2d.DefaultExplosionDef()
+		def.Position = box2d.Pos{X: 0.0, Y: frictionRegionHeight}
+		def.Radius = 10.0
+		def.Falloff = 5.0
+		def.ImpulsePerLength = 10.0
+		s.worldID.Explode(&def)
+
+		s.draw.DrawCircle(def.Position, frictionRegionRadius, box2d.ColorWhite)
+	}
+
+	return true
+}
+
+func (s *RevoluteJoint) DrawControls() bool {
+	const (
+		controlWidthEm     = 6.0
+		maximumTorque      = 5000.0
+		maximumSpeed       = 20.0
+		maximumHertz       = 30.0
+		maximumDamping     = 2.0
+		maximumDegrees     = 180.0
+		degreesPerHalfTurn = 180.0
+	)
+
+	if imgui.Checkbox("Limit", &s.enableLimit) {
+		s.jointID1.SetLimitEnabled(s.enableLimit)
+		s.jointID1.WakeBodies()
+	}
+
+	if imgui.Checkbox("Motor", &s.enableMotor) {
+		s.jointID1.SetMotorEnabled(s.enableMotor)
+		s.jointID1.WakeBodies()
+	}
+
+	if s.enableMotor {
+		imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+		if imgui.SliderFloatV("Max Torque", &s.motorTorque, 0.0, maximumTorque, "%.0f", 0) {
+			s.jointID1.SetMaxMotorTorque(s.motorTorque)
+			s.jointID1.WakeBodies()
+		}
+
+		if imgui.SliderFloatV("Speed", &s.motorSpeed, -maximumSpeed, maximumSpeed, "%.0f", 0) {
+			s.jointID1.SetMotorSpeed(s.motorSpeed)
+			s.jointID1.WakeBodies()
+		}
+
+		imgui.PopItemWidth()
+	}
+
+	if imgui.Checkbox("Spring", &s.enableSpring) {
+		s.jointID1.SetSpringEnabled(s.enableSpring)
+		s.jointID1.WakeBodies()
+	}
+
+	if s.enableSpring {
+		imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+		if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, maximumHertz, "%.1f", 0) {
+			s.jointID1.SetSpringHertz(s.hertz)
+			s.jointID1.WakeBodies()
+		}
+
+		if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, maximumDamping, "%.1f", 0) {
+			s.jointID1.SetSpringDampingRatio(s.dampingRatio)
+			s.jointID1.WakeBodies()
+		}
+
+		if imgui.SliderFloatV(
+			"Degrees",
+			&s.targetDegrees,
+			-maximumDegrees,
+			maximumDegrees,
+			"%.0f",
+			0,
+		) {
+			s.jointID1.SetTargetAngle(box2d.Pi * s.targetDegrees / degreesPerHalfTurn)
+			s.jointID1.WakeBodies()
+		}
+
+		imgui.PopItemWidth()
+	}
+
+	return true
+}
+
+func (s *RevoluteJoint) Step() {
+	s.Sample.Step()
+
+	angle1 := s.jointID1.Angle()
+	s.DrawScreenTextLinef("Angle (Deg) 1 = %2.1f", angle1)
+
+	torque1 := s.jointID1.MotorTorque()
+	s.DrawScreenTextLinef("Motor Torque 1 = %4.1f", torque1)
+
+	torque2 := s.jointID2.MotorTorque()
+	s.DrawScreenTextLinef("Motor Torque 2 = %4.1f", torque2)
+}
+
+func (s *PrismaticJoint) DrawControls() bool {
+	const (
+		controlWidthEm     = 6.0
+		maximumForce       = 200.0
+		maximumSpeed       = 40.0
+		maximumHertz       = 10.0
+		maximumDamping     = 2.0
+		maximumTranslation = 15.0
+	)
+
+	if imgui.Checkbox("Limit", &s.enableLimit) {
+		s.jointID.SetLimitEnabled(s.enableLimit)
+		s.jointID.WakeBodies()
+	}
+
+	if imgui.Checkbox("Motor", &s.enableMotor) {
+		s.jointID.SetMotorEnabled(s.enableMotor)
+		s.jointID.WakeBodies()
+	}
+
+	if s.enableMotor {
+		imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+		if imgui.SliderFloatV("Max Force", &s.motorForce, 0.0, maximumForce, "%.0f", 0) {
+			s.jointID.SetMaxMotorForce(s.motorForce)
+			s.jointID.WakeBodies()
+		}
+
+		if imgui.SliderFloatV("Speed", &s.motorSpeed, -maximumSpeed, maximumSpeed, "%.0f", 0) {
+			s.jointID.SetMotorSpeed(s.motorSpeed)
+			s.jointID.WakeBodies()
+		}
+
+		imgui.PopItemWidth()
+	}
+
+	if imgui.Checkbox("Spring", &s.enableSpring) {
+		s.jointID.SetSpringEnabled(s.enableSpring)
+		s.jointID.WakeBodies()
+	}
+
+	if s.enableSpring {
+		imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+		if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, maximumHertz, "%.1f", 0) {
+			s.jointID.SetSpringHertz(s.hertz)
+			s.jointID.WakeBodies()
+		}
+
+		if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, maximumDamping, "%.1f", 0) {
+			s.jointID.SetSpringDampingRatio(s.dampingRatio)
+			s.jointID.WakeBodies()
+		}
+
+		if imgui.SliderFloatV(
+			"Translation",
+			&s.translation,
+			-maximumTranslation,
+			maximumTranslation,
+			"%.1f",
+			0,
+		) {
+			s.jointID.SetTargetTranslation(s.translation)
+			s.jointID.WakeBodies()
+		}
+
+		imgui.PopItemWidth()
+	}
+
+	return true
+}
+
+func (s *PrismaticJoint) Step() {
+	s.Sample.Step()
+
+	force := s.jointID.MotorForce()
+	s.DrawScreenTextLinef("Motor Force = %4.1f", force)
+
+	translation := s.jointID.Translation()
+	s.DrawScreenTextLinef("Translation = %4.1f", translation)
+
+	speed := s.jointID.Speed()
+	s.DrawScreenTextLinef("Speed = %4.8f", speed)
+}
+
+func (s *WheelJoint) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		maximumTorque  = 20.0
+		maximumSpeed   = 20.0
+		maximumHertz   = 10.0
+		maximumDamping = 2.0
+	)
+
+	if imgui.Checkbox("Limit", &s.enableLimit) {
+		s.jointID.SetLimitEnabled(s.enableLimit)
+	}
+
+	if imgui.Checkbox("Motor", &s.enableMotor) {
+		s.jointID.SetMotorEnabled(s.enableMotor)
+	}
+
+	if s.enableMotor {
+		imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+		if imgui.SliderFloatV("Torque", &s.motorTorque, 0.0, maximumTorque, "%.0f", 0) {
+			s.jointID.SetMaxMotorTorque(s.motorTorque)
+		}
+
+		if imgui.SliderFloatV("Speed", &s.motorSpeed, -maximumSpeed, maximumSpeed, "%.0f", 0) {
+			s.jointID.SetMotorSpeed(s.motorSpeed)
+		}
+
+		imgui.PopItemWidth()
+	}
+
+	if imgui.Checkbox("Spring", &s.enableSpring) {
+		s.jointID.SetSpringEnabled(s.enableSpring)
+	}
+
+	if s.enableSpring {
+		imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+		if imgui.SliderFloatV("Hertz", &s.hertz, 0.0, maximumHertz, "%.1f", 0) {
+			s.jointID.SetSpringHertz(s.hertz)
+		}
+
+		if imgui.SliderFloatV("Damping", &s.dampingRatio, 0.0, maximumDamping, "%.1f", 0) {
+			s.jointID.SetSpringDampingRatio(s.dampingRatio)
+		}
+
+		imgui.PopItemWidth()
+	}
+
+	return true
+}
+
+func (s *WheelJoint) Step() {
+	s.Sample.Step()
+
+	torque := s.jointID.MotorTorque()
+	s.DrawScreenTextLinef("Motor Torque = %4.1f", torque)
+}
+
+func (s *Bridge) DrawControls() bool {
+	const (
+		controlWidthEm           = 6.0
+		maximumFrictionTorque    = 10000.0
+		maximumSpringHertz       = 30.0
+		maximumSpringDamping     = 2.0
+		minimumConstraintHertz   = 15.0
+		maximumConstraintHertz   = 240.0
+		maximumConstraintDamping = 10.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	updateFriction := imgui.SliderFloatV(
+		"Joint Friction",
+		&s.frictionTorque,
+		0.0,
+		maximumFrictionTorque,
+		"%2.f",
+		0,
+	)
+	if updateFriction {
+		for i := 0; i <= bridgeCount; i++ {
+			s.jointIDs[i].SetMaxMotorTorque(s.frictionTorque)
+		}
+	}
+
+	if imgui.SliderFloatV("Spring hertz", &s.springHertz, 0.0, maximumSpringHertz, "%.0f", 0) {
+		for i := 0; i <= bridgeCount; i++ {
+			s.jointIDs[i].SetSpringHertz(s.springHertz)
+		}
+	}
+
+	if imgui.SliderFloatV(
+		"Spring damping",
+		&s.springDampingRatio,
+		0.0,
+		maximumSpringDamping,
+		"%.1f",
+		0,
+	) {
+		for i := 0; i <= bridgeCount; i++ {
+			s.jointIDs[i].SetSpringDampingRatio(s.springDampingRatio)
+		}
+	}
+
+	if imgui.SliderFloatV(
+		"Constraint hertz",
+		&s.constraintHertz,
+		minimumConstraintHertz,
+		maximumConstraintHertz,
+		"%.0f",
+		0,
+	) {
+		for i := 0; i <= bridgeCount; i++ {
+			s.jointIDs[i].SetConstraintTuning(s.constraintHertz, s.constraintDampingRatio)
+		}
+	}
+
+	if imgui.SliderFloatV(
+		"Constraint damping",
+		&s.constraintDampingRatio,
+		0.0,
+		maximumConstraintDamping,
+		"%.1f",
+		0,
+	) {
+		for i := 0; i <= bridgeCount; i++ {
+			s.jointIDs[i].SetConstraintTuning(s.constraintHertz, s.constraintDampingRatio)
+		}
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
+func (s *BallAndChain) DrawControls() bool {
+	const (
+		controlWidthEm        = 6.0
+		maximumFrictionTorque = 1000.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	updateFriction := imgui.SliderFloatV(
+		"Joint Friction",
+		&s.frictionTorque,
+		0.0,
+		maximumFrictionTorque,
+		"%2.f",
+		0,
+	)
+
+	imgui.PopItemWidth()
+
+	if updateFriction {
+		for i := 0; i <= ballAndChainCount; i++ {
+			s.jointIDs[i].SetMaxMotorTorque(s.frictionTorque)
+		}
+	}
+
+	return true
+}
+
+func (s *Cantilever) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		maximumHertz   = 20.0
+		maximumDamping = 10.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Linear Hertz", &s.linearHertz, 0.0, maximumHertz, "%.0f", 0) {
+		for i := range cantileverCount {
+			s.jointIDs[i].SetLinearHertz(s.linearHertz)
+		}
+	}
+
+	if imgui.SliderFloatV(
+		"Linear Damping Ratio",
+		&s.linearDampingRatio,
+		0.0,
+		maximumDamping,
+		"%.1f",
+		0,
+	) {
+		for i := range cantileverCount {
+			s.jointIDs[i].SetLinearDampingRatio(s.linearDampingRatio)
+		}
+	}
+
+	s.drawAngularControls()
+
+	if imgui.SliderFloatV("Gravity Scale", &s.gravityScale, -1.0, 1.0, "%.1f", 0) {
+		for i := range cantileverCount {
+			s.bodyIDs[i].SetGravityScale(s.gravityScale)
+		}
+	}
+
+	imgui.PopItemWidth()
+
+	if imgui.Checkbox("Collide Connected", &s.collideConnected) {
+		for i := range cantileverCount {
+			s.jointIDs[i].SetCollideConnected(s.collideConnected)
+		}
+	}
+
+	return true
+}
+
+func (s *Cantilever) Step() {
+	s.Sample.Step()
+
+	tipPosition := s.tipID.Position()
+	s.DrawScreenTextLinef("tip-y = %.2f", tipPosition.Y)
+}
+
+func (s *Cantilever) drawAngularControls() {
+	const (
+		maximumHertz   = 20.0
+		maximumDamping = 10.0
+	)
+	if imgui.SliderFloatV("Angular Hertz", &s.angularHertz, 0.0, maximumHertz, "%.0f", 0) {
+		for i := range cantileverCount {
+			s.jointIDs[i].SetAngularHertz(s.angularHertz)
+		}
+	}
+
+	if imgui.SliderFloatV(
+		"Angular Damping Ratio",
+		&s.angularDampingRatio,
+		0.0,
+		maximumDamping,
+		"%.1f",
+		0,
+	) {
+		for i := range cantileverCount {
+			s.jointIDs[i].SetAngularDampingRatio(s.angularDampingRatio)
+		}
+	}
+}
+
+func (s *MotionLocks) DrawControls() bool {
+	const (
+		impulseMagnitude = 100.0
+	)
+
+	if imgui.Checkbox("Lock Linear X", &s.motionLocks.LinearX) {
+		s.applyLocks()
+	}
+
+	if imgui.Checkbox("Lock Linear Y", &s.motionLocks.LinearY) {
+		s.applyLocks()
+	}
+
+	if imgui.Checkbox("Lock Angular Z", &s.motionLocks.AngularZ) {
+		s.applyLocks()
+	}
+
+	if s.context.window.GetKey(glfw.KeyL) == glfw.Press {
+		s.bodyIDs[0].ApplyLinearImpulseToCenter(box2d.Vec2{X: impulseMagnitude, Y: 0.0}, true)
+	}
+
+	return true
+}
+
+func (s *MotionLocks) applyLocks() {
+	for i := range motionLocksCount {
+		s.bodyIDs[i].SetMotionLocks(s.motionLocks)
+		s.bodyIDs[i].SetAwake(true)
+	}
+}
+
+func (s *BreakableJoint) DrawControls() bool {
+	const (
+		controlWidthEm    = 6.0
+		maximumBreakForce = 10000.0
+		maximumGravity    = 50.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	imgui.SliderFloatV("break force", &s.breakForce, 0.0, maximumBreakForce, "%.1f", 0)
+
+	gravity := s.worldID.Gravity()
+	if imgui.SliderFloatV("gravity", &gravity.Y, -maximumGravity, maximumGravity, "%.1f", 0) {
+		s.worldID.SetGravity(gravity)
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
+func (s *BreakableJoint) Step() {
+	for i := range breakableJointCount {
+		if s.jointIDs[i] == (box2d.Joint{}) {
+			continue
+		}
+
+		force := s.jointIDs[i].ConstraintForce()
+		if force.LengthSquared() > s.breakForce*s.breakForce {
+			s.jointIDs[i].Destroy()
+			s.jointIDs[i] = box2d.Joint{}
+		} else {
+			localFrame := s.jointIDs[i].LocalFrameA()
+			s.draw.DrawStringf(
+				s.camera,
+				localFrame.P.Pos(),
+				box2d.ColorWhite,
+				"(%.1f, %.1f)",
+				force.X,
+				force.Y,
+			)
+		}
+	}
+
+	s.Sample.Step()
+}
+
+func (s *JointSeparation) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		maximumGravity = 500.0
+		maximumImpulse = 1000.0
+		minimumHertz   = 15.0
+		maximumHertz   = 120.0
+		maximumDamping = 10.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	gravity := s.worldID.Gravity()
+	if imgui.SliderFloatV("gravity", &gravity.Y, -maximumGravity, maximumGravity, "%.0f", 0) {
+		s.worldID.SetGravity(gravity)
+	}
+
+	imgui.SliderFloatV("magnitude", &s.impulse, 0.0, maximumImpulse, "%.0f", 0)
+
+	if imgui.SliderFloatV("hertz", &s.jointHertz, minimumHertz, maximumHertz, "%.0f", 0) {
+		for i := range jointSeparationCount {
+			s.jointIDs[i].SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
+		}
+	}
+
+	if imgui.SliderFloatV("damping", &s.jointDampingRatio, 0.0, maximumDamping, "%.1f", 0) {
+		for i := range jointSeparationCount {
+			s.jointIDs[i].SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
+		}
+	}
+
+	imgui.PopItemWidth()
+
+	if imgui.Button("impulse") {
+		for i := range jointSeparationCount {
+			p := s.bodyIDs[i].WorldPoint(box2d.Vec2{X: 1.0, Y: 1.0})
+			s.bodyIDs[i].ApplyLinearImpulse(box2d.Vec2{X: s.impulse, Y: -s.impulse}, p, true)
+		}
+	}
+
+	return true
+}
+
+func (s *JointSeparation) Step() {
+	for i := range jointSeparationCount {
+		if s.jointIDs[i] == (box2d.Joint{}) {
+			continue
+		}
+
+		linear := s.jointIDs[i].LinearSeparation()
+		angular := s.jointIDs[i].AngularSeparation()
+		localFrame := s.jointIDs[i].LocalFrameA()
+		s.draw.DrawStringf(
+			s.camera,
+			localFrame.P.Pos(),
+			box2d.ColorWhite,
+			"%.2f m, %.1f deg",
+			linear,
+			180.0*angular/box2d.Pi,
+		)
+	}
+
+	s.Sample.Step()
+}
+
+func (s *UserConstraint) Step() {
+	const (
+		radiansPerPi                = 2.0
+		dampingFactor               = 2.0
+		anchorHalfHeight            = 0.5
+		minimumMass                 = 0.0001
+		minimumInertia              = 0.0001
+		groundAnchorX               = 3.0
+		minimumInverseEffectiveMass = 0.0001
+	)
+
+	s.Sample.Step()
+
+	s.draw.DrawTransform(box2d.WorldTransformIdentity, 1.0)
+
+	if s.context.pause {
+		return
+	}
+
+	timeStep := float32(0.0)
+	if s.context.hertz > 0.0 {
+		timeStep = 1.0 / s.context.hertz
+	}
+
+	if timeStep == 0.0 {
+		return
+	}
+
+	invTimeStep := s.context.hertz
+
+	omega := radiansPerPi * box2d.Pi * userConstraintHertz
+	sigma := dampingFactor*userConstraintZeta + timeStep*omega
+	sv := timeStep * omega * sigma
+	impulseCoefficient := 1.0 / (1.0 + sv)
+	massCoefficient := sv * impulseCoefficient
+	biasCoefficient := omega / sigma
+
+	localAnchors := [2]box2d.Vec2{{X: 1.0, Y: -anchorHalfHeight}, {X: 1.0, Y: anchorHalfHeight}}
+	mass := s.bodyID.Mass()
+
+	invMass := float32(0.0)
+	if mass >= minimumMass {
+		invMass = 1.0 / mass
+	}
+
+	inertiaTensor := s.bodyID.RotationalInertia()
+
+	invI := float32(0.0)
+	if inertiaTensor >= minimumInertia {
+		invI = 1.0 / inertiaTensor
+	}
+
+	vB := s.bodyID.LinearVelocity()
+	omegaB := s.bodyID.AngularVelocity()
+	pB := s.bodyID.WorldCenter()
+
+	for i := range 2 {
+		anchorA := box2d.Pos{X: groundAnchorX, Y: 0.0}
+		anchorB := s.bodyID.WorldPoint(localAnchors[i])
+
+		deltaAnchor := anchorB.Sub(anchorA)
+
+		slackLength := float32(1.0)
+		length := deltaAnchor.Length()
+
+		separation := length - slackLength
+		if separation < 0.0 || length < 0.001 {
+			s.draw.DrawLine(anchorA, anchorB, box2d.ColorLightCyan)
+			s.impulses[i] = 0.0
+
+			continue
+		}
+
+		s.draw.DrawLine(anchorA, anchorB, box2d.ColorViolet)
+
+		axis := deltaAnchor.Normalize()
+
+		rB := anchorB.Sub(pB)
+		angularJacobian := rB.Cross(axis)
+		inverseEffectiveMass := invMass + angularJacobian*invI*angularJacobian
+
+		invK := float32(0.0)
+		if inverseEffectiveMass >= minimumInverseEffectiveMass {
+			invK = 1.0 / inverseEffectiveMass
+		}
+
+		constraintVelocity := vB.Dot(axis) + angularJacobian*omegaB
+		impulse := -massCoefficient * invK * (constraintVelocity + biasCoefficient*separation)
+		appliedImpulse := clampFloat(impulse, -userConstraintMaxForce*timeStep, 0.0)
+
+		vB = vB.MulAdd(invMass*appliedImpulse, axis)
+		omegaB += appliedImpulse * invI * angularJacobian
+
+		s.impulses[i] = appliedImpulse
+	}
+
+	s.bodyID.SetLinearVelocity(vB)
+	s.bodyID.SetAngularVelocity(omegaB)
+
+	s.DrawScreenTextLinef(
+		"forces = %.6g, %.6g",
+		s.impulses[0]*invTimeStep,
+		s.impulses[1]*invTimeStep,
+	)
+}
+
+func (s *Driving) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		maximumHertz   = 20.0
+		maximumDamping = 10.0
+		maximumSpeed   = 50.0
+		maximumTorque  = 10.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Spring Hertz", &s.hertz, 0.0, maximumHertz, "%.0f", 0) {
+		s.car.SetHertz(s.hertz)
+	}
+
+	if imgui.SliderFloatV("Damping Ratio", &s.dampingRatio, 0.0, maximumDamping, "%.1f", 0) {
+		s.car.SetDampingRadio(s.dampingRatio)
+	}
+
+	if imgui.SliderFloatV("Speed", &s.speed, 0.0, maximumSpeed, "%.0f", 0) {
+		s.car.SetSpeed(s.throttle * s.speed)
+	}
+
+	if imgui.SliderFloatV("Torque", &s.torque, 0.0, maximumTorque, "%.1f", 0) {
+		s.car.SetTorque(s.torque)
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
+func (s *Driving) Step() {
+	const (
+		metersPerSecondToKPH = 3.6
+	)
+
+	if s.context.window.GetKey(glfw.KeyA) == glfw.Press {
+		s.throttle = 1.0
+		s.car.SetSpeed(s.speed)
+	}
+
+	if s.context.window.GetKey(glfw.KeyS) == glfw.Press {
+		s.throttle = 0.0
+		s.car.SetSpeed(0.0)
+	}
+
+	if s.context.window.GetKey(glfw.KeyD) == glfw.Press {
+		s.throttle = -1.0
+		s.car.SetSpeed(-s.speed)
+	}
+
+	s.DrawScreenTextLinef("Keys: left = a, brake = s, right = d")
+
+	linearVelocity := s.car.chassisID.LinearVelocity()
+	kph := linearVelocity.X * metersPerSecondToKPH
+	s.DrawScreenTextLinef("speed in kph: %.2g", kph)
+
+	carPosition := s.car.chassisID.Position()
+	s.context.camera.center.X = carPosition.X
+
+	s.Sample.Step()
+}
+
+func (s *Ragdoll) Spawn() {
+	const (
+		spawnHeight = 25.0
+	)
+
+	scenes.CreateHuman(
+		&s.human,
+		s.worldID,
+		box2d.Pos{X: 0.0, Y: spawnHeight},
+		1.0,
+		s.jointFrictionTorque,
+		s.jointHertz,
+		s.jointDampingRatio,
+		1,
+		nil,
+		false,
+	)
+}
+
+func (s *Ragdoll) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		maximumHertz   = 10.0
+		maximumDamping = 4.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Friction", &s.jointFrictionTorque, 0.0, 1.0, "%3.2f", 0) {
+		s.human.SetJointFrictionTorque(s.jointFrictionTorque)
+	}
+
+	if imgui.SliderFloatV("Hertz", &s.jointHertz, 0.0, maximumHertz, "%3.1f", 0) {
+		s.human.SetJointSpringHertz(s.jointHertz)
+	}
+
+	if imgui.SliderFloatV("Damping", &s.jointDampingRatio, 0.0, maximumDamping, "%3.1f", 0) {
+		s.human.SetJointDampingRatio(s.jointDampingRatio)
+	}
+
+	imgui.PopItemWidth()
+
+	if imgui.Button("Respawn") {
+		scenes.DestroyHuman(&s.human)
+		s.Spawn()
+	}
+
+	return true
+}
+
+func (s *ScissorLift) DrawControls() bool {
+	const (
+		controlWidthEm    = 6.0
+		maximumMotorForce = 3000.0
+		maximumMotorSpeed = 0.3
+	)
+
+	if imgui.Checkbox("Motor", &s.enableMotor) {
+		s.liftJointID.SetMotorEnabled(s.enableMotor)
+		s.liftJointID.WakeBodies()
+	}
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Max Force", &s.motorForce, 0.0, maximumMotorForce, "%.0f", 0) {
+		s.liftJointID.SetMaxMotorForce(s.motorForce)
+		s.liftJointID.WakeBodies()
+	}
+
+	if imgui.SliderFloatV(
+		"Speed",
+		&s.motorSpeed,
+		-maximumMotorSpeed,
+		maximumMotorSpeed,
+		"%.2f",
+		0,
+	) {
+		s.liftJointID.SetMotorSpeed(s.motorSpeed)
+		s.liftJointID.WakeBodies()
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
+func (s *GearLift) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		maximumTorque  = 100.0
+		maximumSpeed   = 0.3
+	)
+
+	if imgui.Checkbox("Motor", &s.enableMotor) {
+		s.driverID.SetMotorEnabled(s.enableMotor)
+		s.driverID.WakeBodies()
+	}
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Max Torque", &s.motorTorque, 0.0, maximumTorque, "%.0f", 0) {
+		s.driverID.SetMaxMotorTorque(s.motorTorque)
+		s.driverID.WakeBodies()
+	}
+
+	if imgui.SliderFloatV("Speed", &s.motorSpeed, -maximumSpeed, maximumSpeed, "%.2f", 0) {
+		s.driverID.SetMotorSpeed(s.motorSpeed)
+		s.driverID.WakeBodies()
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
+func (s *GearLift) Step() {
+	const (
+		speedDecrement = 0.01
+		maximumSpeed   = 0.3
+		speedIncrement = 0.01
+	)
+
+	if s.context.window.GetKey(glfw.KeyA) == glfw.Press {
+		s.motorSpeed = max(-0.3, s.motorSpeed-speedDecrement)
+		s.driverID.SetMotorSpeed(s.motorSpeed)
+		s.driverID.WakeBodies()
+	}
+
+	if s.context.window.GetKey(glfw.KeyD) == glfw.Press {
+		s.motorSpeed = min(maximumSpeed, s.motorSpeed+speedIncrement)
+		s.driverID.SetMotorSpeed(s.motorSpeed)
+		s.driverID.WakeBodies()
+	}
+
+	s.Sample.Step()
+}
+
+func (s *Door) DrawControls() bool {
+	const (
+		doorHalfHeight = 1.5
+		controlWidthEm = 6.0
+		minimumImpulse = 1000.0
+		maximumImpulse = 100000.0
+		minimumHertz   = 15.0
+		maximumHertz   = 480.0
+		maximumDamping = 10.0
+	)
+
+	if imgui.Button("impulse") {
+		p := s.doorID.WorldPoint(box2d.Vec2{X: 0.0, Y: doorHalfHeight})
+		s.doorID.ApplyLinearImpulse(box2d.Vec2{X: s.impulse, Y: 0.0}, p, true)
+		s.translationError = 0.0
+	}
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	imgui.SliderFloatV("magnitude", &s.impulse, minimumImpulse, maximumImpulse, "%.0f", 0)
+
+	if imgui.SliderFloatV("hertz", &s.jointHertz, minimumHertz, maximumHertz, "%.0f", 0) {
+		s.jointID.SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
+	}
+
+	if imgui.SliderFloatV("damping", &s.jointDampingRatio, 0.0, maximumDamping, "%.1f", 0) {
+		s.jointID.SetConstraintTuning(s.jointHertz, s.jointDampingRatio)
+	}
+
+	imgui.PopItemWidth()
+
+	if imgui.Checkbox("limit", &s.enableLimit) {
+		s.jointID.SetLimitEnabled(s.enableLimit)
+	}
+
+	return true
+}
+
+func (s *Door) Step() {
+	const (
+		doorHalfHeight = 1.5
+		markerSize     = 5.0
+	)
+
+	s.Sample.Step()
+
+	p := s.doorID.WorldPoint(box2d.Vec2{X: 0.0, Y: doorHalfHeight})
+	s.draw.DrawPoint(p, markerSize, box2d.ColorDarkKhaki)
+
+	translationError := s.jointID.LinearSeparation()
+	s.translationError = max(s.translationError, translationError)
+
+	s.DrawScreenTextLinef("translation error = %.6g", s.translationError)
+}
+
+func (s *ScaleRagdoll) Spawn() {
+	const (
+		frictionTorque       = 0.03
+		dampingRatio         = 0.5
+		spawnHeight          = 5.0
+		randomAngularImpulse = 0.1
+	)
+
+	jointFrictionTorque := float32(frictionTorque)
+	jointHertz := float32(1.0)
+	jointDampingRatio := float32(dampingRatio)
+	scenes.CreateHuman(
+		&s.human,
+		s.worldID,
+		box2d.Pos{X: 0.0, Y: spawnHeight},
+		s.scale,
+		jointFrictionTorque,
+		jointHertz,
+		jointDampingRatio,
+		1,
+		nil,
+		false,
+	)
+	s.human.ApplyRandomAngularImpulse(randomAngularImpulse)
+}
+
+func (s *ScaleRagdoll) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		minimumScale   = 0.1
+		maximumScale   = 10.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV(
+		"Scale",
+		&s.scale,
+		minimumScale,
+		maximumScale,
+		"%3.2f",
+		imgui.SliderFlagsClampOnInput,
+	) {
+		s.human.SetScale(s.scale)
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
 func (s *TheoJansen) CreateLeg(sign float32, wheelAnchor box2d.Vec2) {
-	p1 := box2d.Vec2{X: 5.4 * sign, Y: -6.1}
-	p2 := box2d.Vec2{X: 7.2 * sign, Y: -1.2}
-	p3 := box2d.Vec2{X: 4.3 * sign, Y: -1.9}
-	p4 := box2d.Vec2{X: 3.1 * sign, Y: 0.8}
-	p5 := box2d.Vec2{X: 6.0 * sign, Y: 1.5}
-	p6 := box2d.Vec2{X: 2.5 * sign, Y: 3.7}
+	const (
+		footX      = 5.4
+		footY      = -6.1
+		lowerKneeX = 7.2
+		lowerKneeY = -1.2
+		lowerHipX  = 4.3
+		lowerHipY  = -1.9
+		upperHipX  = 3.1
+		upperHipY  = 0.8
+		upperKneeX = 6.0
+		upperKneeY = 1.5
+		crankPinX  = 2.5
+		crankPinY  = 3.7
+	)
+
+	p1 := box2d.Vec2{X: footX * sign, Y: footY}
+	p2 := box2d.Vec2{X: lowerKneeX * sign, Y: lowerKneeY}
+	p3 := box2d.Vec2{X: lowerHipX * sign, Y: lowerHipY}
+	p4 := box2d.Vec2{X: upperHipX * sign, Y: upperHipY}
+	p5 := box2d.Vec2{X: upperKneeX * sign, Y: upperKneeY}
+	p6 := box2d.Vec2{X: crankPinX * sign, Y: crankPinY}
 
 	// The hull computation handles the mirrored winding for s < 0
 	vertices1 := []box2d.Vec2{p1, p2, p3}
@@ -3424,13 +4219,18 @@ func (s *TheoJansen) CreateLeg(sign float32, wheelAnchor box2d.Vec2) {
 }
 
 func (s *TheoJansen) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const (
+		controlWidthEm = 6.0
+		maximumSpeed   = 5.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 
 	if imgui.Checkbox("Motor", &s.enableMotor) {
 		s.motorJointID.SetMotorEnabled(s.enableMotor)
 	}
 
-	if imgui.SliderFloatV("Speed", &s.motorSpeed, -5.0, 5.0, "%.1f", 0) {
+	if imgui.SliderFloatV("Speed", &s.motorSpeed, -maximumSpeed, maximumSpeed, "%.1f", 0) {
 		s.motorJointID.SetMotorSpeed(s.motorSpeed)
 	}
 
@@ -3440,12 +4240,13 @@ func (s *TheoJansen) DrawControls() bool {
 }
 
 func (s *TheoJansen) Step() {
-	s.DrawScreenTextLine("Keys: left = a, brake = s, right = d, toggle motor = f")
+	s.DrawScreenTextLinef("Keys: left = a, brake = s, right = d, toggle motor = f")
 
 	s.Sample.Step()
 }
 
 func (s *TheoJansen) Keyboard(key glfw.Key, action glfw.Action, mods glfw.ModifierKey) {
+	//nolint:exhaustive // GLFW keys are external input; only the documented machine controls apply.
 	switch key {
 	case glfw.KeyA:
 		s.motorJointID.SetMotorSpeed(-s.motorSpeed)
@@ -3459,88 +4260,422 @@ func (s *TheoJansen) Keyboard(key glfw.Key, action glfw.Action, mods glfw.Modifi
 	case glfw.KeyF:
 		s.enableMotor = !s.motorJointID.MotorEnabled()
 		s.motorJointID.SetMotorEnabled(s.enableMotor)
+	default:
+		// Other keys do not control the walking machine.
 	}
 }
 
-const deskLampSpringCount = 2
+func (s *DeskLamp) DrawControls() bool {
+	const (
+		controlWidthEm       = 6.0
+		maximumSpringHertz   = 20.0
+		maximumSpringDamping = 5.0
+		maximumPostFriction  = 20.0
+		maximumElbowFriction = 60.0
+		maximumHeadAngle     = 1.2
+	)
 
-// The Anglepoise Original 1227 desk lamp.
-// https://www.anglepoise.com/usa/product-category/original-1227/
-type DeskLamp struct {
-	Sample
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 
-	springJointIDs [deskLampSpringCount]box2d.DistanceJoint
-	postJointID    box2d.RevoluteJoint
-	elbowJointID   box2d.RevoluteJoint
-	headJointID    box2d.RevoluteJoint
-	topLinkID      box2d.Body
-	springHertz    [deskLampSpringCount]float32
-	springDamping  float32
-	lowerFriction  float32
-	elbowFriction  float32
-	headAngle      float32
-}
-
-func CreateDeskLamp(context *SampleContext) Sampler {
-	s := &DeskLamp{}
-	s.init(context, s, true)
-
-	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.2, Y: 1.42}
-		s.context.camera.zoom = 1.6
+	if imgui.SliderFloatV("Arm Spring", &s.springHertz[0], 0.0, maximumSpringHertz, "%.2f", 0) {
+		s.springJointIDs[0].SetSpringHertz(s.springHertz[0])
+		s.springJointIDs[0].WakeBodies()
 	}
 
-	// The parallelogram is narrow, so it wants the extra resolution
-	s.context.subStepCount = 8
+	if imgui.SliderFloatV("Head Spring", &s.springHertz[1], 0.0, maximumSpringHertz, "%.2f", 0) {
+		s.springJointIDs[1].SetSpringHertz(s.springHertz[1])
+		s.springJointIDs[1].WakeBodies()
+	}
+
+	if imgui.SliderFloatV(
+		"Spring Damping",
+		&s.springDamping,
+		0.0,
+		maximumSpringDamping,
+		"%.1f",
+		0,
+	) {
+		for k := range deskLampSpringCount {
+			s.springJointIDs[k].SetSpringDampingRatio(s.springDamping)
+			s.springJointIDs[k].WakeBodies()
+		}
+	}
+
+	if imgui.SliderFloatV("Post Friction", &s.lowerFriction, 0.0, maximumPostFriction, "%.1f", 0) {
+		s.postJointID.SetMaxMotorTorque(s.lowerFriction)
+		s.postJointID.WakeBodies()
+	}
+
+	if imgui.SliderFloatV(
+		"Elbow Friction",
+		&s.elbowFriction,
+		0.0,
+		maximumElbowFriction,
+		"%.0f",
+		0,
+	) {
+		s.elbowJointID.SetMaxMotorTorque(s.elbowFriction)
+		s.elbowJointID.WakeBodies()
+	}
+
+	if imgui.SliderFloatV("Head", &s.headAngle, -maximumHeadAngle, maximumHeadAngle, "%.2f", 0) {
+		s.headJointID.SetTargetAngle(s.headAngle)
+		s.headJointID.WakeBodies()
+	}
+
+	imgui.PopItemWidth()
+
+	return true
+}
+
+func (s *DeskLamp) Step() {
+	s.Sample.Step()
+
+	postTorque := s.postJointID.MotorTorque()
+	elbowTorque := s.elbowJointID.MotorTorque()
+	s.DrawScreenTextLinef("friction carrying: post %.2f, elbow %.2f N m", postTorque, elbowTorque)
+
+	spring1 := s.springJointIDs[0].SpringForce()
+	spring2 := s.springJointIDs[1].SpringForce()
+	s.DrawScreenTextLinef("spring forces: %.2f, %.2f N", spring1, spring2)
+}
+
+func (s *DeskLamp) createShade(
+	upperArmID box2d.Body,
+	upperRotation box2d.Rot,
+	upperArmLength float32,
+	headPivot box2d.Pos,
+	scale float32,
+) {
+	const (
+		shadeLengthMeters      = 0.161
+		shadeNeckRadiusMeters  = 0.020
+		shadeMouthRadiusMeters = 0.061
+		shadeNeckFraction      = 0.45
+		shadeRadiusMeters      = 0.01
+		headLowerLimit         = 1.2
+		jointDrawScale         = 0.03
+	)
+
+	shadeLength := shadeLengthMeters * scale
+	shadeNeckRadius := shadeNeckRadiusMeters * scale
+	shadeMouthRadius := shadeMouthRadiusMeters * scale
+	shadeTilt := float32(-0.41)
+	bodyDef := box2d.DefaultBodyDef()
+	bodyDef.Type = box2d.DynamicBody
+	shapeDef := box2d.DefaultShapeDef()
+	pinDef := box2d.DefaultRevoluteJointDef()
+	pinDef.Base.DrawScale = jointDrawScale * scale
+	pinDef.Base.ConstraintHertz = 240.0
+	pinDef.Base.ConstraintDampingRatio = 2.0
+	bodyDef.Position = headPivot
+	bodyDef.Rotation = box2d.MakeRot(shadeTilt)
+	headID := s.worldID.CreateBody(&bodyDef)
+
+	// The pivot is on the shade center line, where the arm capsule ends. The shade opens along
+	// the local negative y.
+	neck := shadeNeckFraction * shadeLength
+	mouth := neck - shadeLength
+	points := []box2d.Vec2{
+		{X: -shadeNeckRadius, Y: neck},
+		{X: shadeNeckRadius, Y: neck},
+		{X: shadeMouthRadius, Y: mouth},
+		{X: -shadeMouthRadius, Y: mouth},
+	}
+	hull := box2d.ComputeHull(points)
+	shade := box2d.MakePolygon(&hull, shadeRadiusMeters*scale)
+
+	// The shade is a thin shell.
+	shapeDef.Density = 1.0
+	headID.CreatePolygonShape(&shapeDef, &shade)
+
+	// Offset the reference frame so the head slider reads zero at the pose above.
+	pinDef.Base.BodyA = upperArmID
+	pinDef.Base.BodyB = headID
+	pinDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: upperArmLength}
+	pinDef.Base.LocalFrameA.Q = upperRotation.InvMul(box2d.MakeRot(shadeTilt))
+	pinDef.Base.LocalFrameB.P = box2d.Vec2Zero
+	pinDef.EnableMotor = false
+	pinDef.MaxMotorTorque = 10.0
+	pinDef.EnableSpring = true
+	pinDef.Hertz = 8.0
+	pinDef.DampingRatio = 2.0
+	pinDef.TargetAngle = s.headAngle
+	pinDef.EnableLimit = true
+	pinDef.LowerAngle = -headLowerLimit
+	pinDef.UpperAngle = 1.2
+	s.headJointID = s.worldID.CreateRevoluteJoint(&pinDef)
+}
+
+func sinf(x float32) float32 {
+	return float32(math.Sin(float64(x)))
+}
+
+func cosf(x float32) float32 {
+	return float32(math.Cos(float64(x)))
+}
+
+func createGear(bodyID box2d.Body, toothOffset float32) {
+	const (
+		gearRadiusValue      = 1.0
+		toothHalfWidthValue  = 0.09
+		toothHalfHeightValue = 0.06
+		toothRadiusValue     = 0.03
+	)
+
+	gearRadius := float32(gearRadiusValue)
+	toothHalfWidth := float32(toothHalfWidthValue)
+	toothHalfHeight := float32(toothHalfHeightValue)
+	toothRadius := float32(toothRadiusValue)
+
+	const (
+		radiansPerPi = 2.0
+		toothCount   = 16
+	)
+
+	shapeDef := box2d.DefaultShapeDef()
+	shapeDef.Material.Friction = 0.1
+	shapeDef.Material.CustomColor = uint32(box2d.ColorSaddleBrown)
+	circle := box2d.Circle{Center: box2d.Vec2Zero, Radius: gearRadius}
+	bodyID.CreateCircleShape(&shapeDef, &circle)
+
+	count := 16
+	deltaAngle := radiansPerPi * box2d.Pi / toothCount
+	dq := box2d.MakeRot(deltaAngle)
+	center := box2d.Vec2{X: gearRadius + toothOffset, Y: 0.0}
+	rotation := box2d.RotIdentity
+
+	for range count {
+		tooth := box2d.MakeOffsetRoundedBox(
+			toothHalfWidth,
+			toothHalfHeight,
+			center,
+			rotation,
+			toothRadius,
+		)
+		shapeDef.Material.CustomColor = uint32(box2d.ColorGray)
+		bodyID.CreatePolygonShape(&shapeDef, &tooth)
+
+		rotation = dq.Mul(rotation)
+		center = rotation.Rotate(box2d.Vec2{X: gearRadius + toothOffset, Y: 0.0})
+	}
+}
+
+func registerJointSamples() {
+	RegisterSample("Joints", "Distance Joint", CreateDistanceJoint)
+	RegisterSample("Joints", "Motor Joint", CreateMotorJoint)
+	RegisterSample("Joints", "Top Down Friction", CreateTopDownFriction)
+	RegisterSample("Joints", "Filter Joint", CreateFilterJoint)
+	RegisterSample("Joints", "Revolute", CreateRevoluteJoint)
+	RegisterSample("Joints", "Prismatic", CreatePrismaticJoint)
+	RegisterSample("Joints", "Wheel", CreateWheelJoint)
+	RegisterSample("Joints", "Bridge", CreateBridge)
+	RegisterSample("Joints", "Ball & Chain", CreateBallAndChain)
+	RegisterSample("Joints", "Cantilever", CreateCantilever)
+	RegisterSample("Joints", "Motion Locks", CreateMotionLocks)
+	RegisterSample("Joints", "Breakable", CreateBreakableJoint)
+	RegisterSample("Joints", "Separation", CreateJointSeparation)
+	RegisterSample("Joints", "User Constraint", CreateUserConstraint)
+	RegisterSample("Joints", "Driving", CreateDriving)
+	RegisterSample("Joints", "Ragdoll", CreateRagdoll)
+	RegisterSample("Joints", "Soft Body", CreateSoftBody)
+	RegisterSample("Joints", "Doohickey", CreateDoohickeyFarm)
+	RegisterSample("Joints", "Scissor Lift", CreateScissorLift)
+	RegisterSample("Joints", "Gear Lift", CreateGearLift)
+	RegisterSample("Joints", "Door", CreateDoor)
+	RegisterSample("Joints", "Scale Ragdoll", CreateScaleRagdoll)
+	RegisterSample("Joints", "Theo Jansen", CreateTheoJansen)
+	RegisterSample("Joints", "Desk Lamp", CreateDeskLamp)
+}
+
+func createLiftChainAndDoor(
+	world *box2d.World,
+	groundID box2d.Body,
+	followerID box2d.Body,
+	linkAttachPosition box2d.Pos,
+	doorPosition box2d.Pos,
+	linkHalfLength float32,
+	linkRadius float32,
+	doorHalfHeight float32,
+) {
+	const (
+		linkLengthFactor = 2.0
+		doorHalfWidth    = 0.15
+	)
+
+	var lastLinkID box2d.Body
+	{
+		capsule := box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -linkHalfLength},
+			Center2: box2d.Vec2{X: 0.0, Y: linkHalfLength},
+			Radius:  linkRadius,
+		}
+
+		shapeDef := box2d.DefaultShapeDef()
+		shapeDef.Density = 2.0
+		shapeDef.Material.CustomColor = uint32(box2d.ColorLightSteelBlue)
+
+		jointDef := box2d.DefaultRevoluteJointDef()
+		jointDef.MaxMotorTorque = 0.05
+		jointDef.EnableMotor = true
+
+		bodyDef := box2d.DefaultBodyDef()
+		bodyDef.Type = box2d.DynamicBody
+		position := linkAttachPosition.Add(box2d.Vec2{X: 0.0, Y: -linkHalfLength})
+
+		count := 40
+		prevBodyID := followerID
+
+		for range count {
+			bodyDef.Position = position
+
+			bodyID := world.CreateBody(&bodyDef)
+			bodyID.CreateCapsuleShape(&shapeDef, &capsule)
+
+			pivot := box2d.Pos{X: position.X, Y: position.Y + posScalar(linkHalfLength)}
+			jointDef.Base.BodyA = prevBodyID
+			jointDef.Base.BodyB = bodyID
+			jointDef.Base.LocalFrameA.P = jointDef.Base.BodyA.LocalPoint(pivot)
+			jointDef.Base.LocalFrameB.P = jointDef.Base.BodyB.LocalPoint(pivot)
+			jointDef.Base.DrawScale = 0.2
+			world.CreateRevoluteJoint(&jointDef)
+
+			position.Y -= posScalar(linkLengthFactor * linkHalfLength)
+			prevBodyID = bodyID
+		}
+
+		lastLinkID = prevBodyID
+	}
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		groundID := s.worldID.CreateBody(&bodyDef)
+		bodyDef.Type = box2d.DynamicBody
+		bodyDef.Position = doorPosition
 
+		bodyID := world.CreateBody(&bodyDef)
+
+		box := box2d.MakeBox(doorHalfWidth, doorHalfHeight)
 		shapeDef := box2d.DefaultShapeDef()
-		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
-		}
-		groundID.CreateSegmentShape(&shapeDef, &segment)
-	}
+		shapeDef.Material.Friction = 0.1
+		shapeDef.Material.CustomColor = uint32(box2d.ColorDarkCyan)
+		bodyID.CreatePolygonShape(&shapeDef, &box)
 
+		{
+			pivot := doorPosition.Add(box2d.Vec2{X: 0.0, Y: doorHalfHeight})
+			revoluteDef := box2d.DefaultRevoluteJointDef()
+			revoluteDef.Base.BodyA = lastLinkID
+			revoluteDef.Base.BodyB = bodyID
+			revoluteDef.Base.LocalFrameA.P = lastLinkID.LocalPoint(pivot)
+			revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: 0.0, Y: doorHalfHeight}
+			revoluteDef.EnableMotor = true
+			revoluteDef.MaxMotorTorque = 0.05
+			world.CreateRevoluteJoint(&revoluteDef)
+		}
+
+		{
+			localAxis := box2d.Vec2{X: 0.0, Y: 1.0}
+			jointDef := box2d.DefaultPrismaticJointDef()
+			jointDef.Base.BodyA = groundID
+			jointDef.Base.BodyB = bodyID
+			jointDef.Base.LocalFrameA.P = groundID.LocalPoint(doorPosition)
+			jointDef.Base.LocalFrameA.Q = box2d.MakeRotFromUnitVector(localAxis)
+			jointDef.Base.LocalFrameB.P = box2d.Vec2Zero
+			jointDef.Base.LocalFrameB.Q = box2d.MakeRotFromUnitVector(localAxis)
+			jointDef.MaxMotorForce = 0.2
+			jointDef.EnableMotor = true
+			jointDef.Base.CollideConnected = true
+			world.CreatePrismaticJoint(&jointDef)
+		}
+	}
+}
+
+func createDeskLampBase(
+	world *box2d.World,
+	baseHalfWidth float32,
+	baseHalfHeight float32,
+	postHalfWidth float32,
+	pivotHeight float32,
+) box2d.Body {
+	const (
+		halfHeightFactor   = 0.5
+		postDiameterFactor = 2.0
+	)
+
+	bodyDef := box2d.DefaultBodyDef()
+	shapeDef := box2d.DefaultShapeDef()
+	// The base is static so the linkage is all that moves
+	bodyDef.Type = box2d.StaticBody
+	bodyDef.Position = box2d.WorldTransformIdentity.P
+	bodyDef.Rotation = box2d.RotIdentity
+	baseID := world.CreateBody(&bodyDef)
+
+	plinth := box2d.MakeOffsetBox(
+		baseHalfWidth,
+		baseHalfHeight,
+		box2d.Vec2{X: 0.0, Y: baseHalfHeight},
+		box2d.RotIdentity,
+	)
+	postHalfHeight := halfHeightFactor * (pivotHeight - 2.0*baseHalfHeight)
+	post := box2d.MakeOffsetBox(
+		postHalfWidth,
+		postHalfHeight,
+		box2d.Vec2{X: 0.0, Y: pivotHeight - postHalfHeight},
+		box2d.RotIdentity,
+	)
+
+	baseID.CreatePolygonShape(&shapeDef, &plinth)
+	baseID.CreatePolygonShape(&shapeDef, &post)
+
+	return baseID
+}
+
+func (s *DeskLamp) createAssembly() {
+	const (
+		modelScale               = 5.0
+		baseHalfWidthMeters      = 0.070
+		baseHalfHeightMeters     = 0.018
+		postHalfWidthMeters      = 0.008
+		pivotHeightMeters        = 0.185
+		springAnchorHeightMeters = 0.095
+		topLinkLengthMeters      = 0.296
+		silverFootMeters         = 0.024
+		topLeverLengthMeters     = 0.019
+		lowerLeverLengthMeters   = 0.028
+		upperArmLengthMeters     = 0.324
+		tubeRadiusMeters         = 0.0036
+		silverSpanXMeters        = 0.0212
+		silverSpanYMeters        = 0.0109
+		upperArmAngleRadians     = 1.192
+		silverRadiusScale        = 1.4
+		upperArmRadiusScale      = 0.8
+		jointDrawScale           = 0.03
+	)
 	// Dimensions taken off an Original 1227 in meters, then scaled up. At life size the silver
 	// link is two centimeters, which is far too close to the linear slop.
-	scale := float32(5.0)
+	scale := float32(modelScale)
 
-	baseHalfWidth := 0.070 * scale
-	baseHalfHeight := 0.018 * scale
-	postHalfWidth := 0.008 * scale
-	pivotHeight := 0.185 * scale
-	springAnchorHeight := 0.095 * scale
-	topLinkLength := 0.296 * scale
-	silverFoot := 0.024 * scale
-	topLeverLength := 0.019 * scale
-	lowerLeverLength := 0.028 * scale
-	upperArmLength := 0.324 * scale
-	tubeRadius := 0.0036 * scale
-	shadeLength := 0.161 * scale
-	shadeNeckRadius := 0.020 * scale
-	shadeMouthRadius := 0.061 * scale
+	baseHalfWidth := baseHalfWidthMeters * scale
+	baseHalfHeight := baseHalfHeightMeters * scale
+	postHalfWidth := postHalfWidthMeters * scale
+	pivotHeight := pivotHeightMeters * scale
+	springAnchorHeight := springAnchorHeightMeters * scale
+	topLinkLength := topLinkLengthMeters * scale
+	silverFoot := silverFootMeters * scale
+	topLeverLength := topLeverLengthMeters * scale
+	lowerLeverLength := lowerLeverLengthMeters * scale
+	upperArmLength := upperArmLengthMeters * scale
+	tubeRadius := tubeRadiusMeters * scale
 
 	// The silver link measured in the top link frame. The same span separates the two pins on the
 	// upper arm, which is what closes the parallelogram.
-	silverSpan := box2d.Vec2{X: 0.0212 * scale, Y: 0.0109 * scale}
+	silverSpan := box2d.Vec2{X: silverSpanXMeters * scale, Y: silverSpanYMeters * scale}
 	silverLength := silverSpan.Length()
 
 	topLinkAngle := float32(-0.878)
-	upperArmAngle := float32(1.192)
-	shadeTilt := float32(-0.41)
+	upperArmAngle := float32(upperArmAngleRadians)
 
 	// The arm spring balances the elevation, the head spring balances the upper arm through the
 	// parallelogram. That is what the real lamp uses two springs for.
-	s.springHertz[0] = 5.0
-	s.springHertz[1] = 5.0
-	s.springDamping = 4.0
-	s.lowerFriction = 100.0
-	s.elbowFriction = 100.0
-	s.headAngle = 0.0
 	topRotation := box2d.MakeRot(topLinkAngle)
 	upperRotation := box2d.MakeRot(upperArmAngle)
 
@@ -3564,31 +4699,13 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 
 	shapeDef := box2d.DefaultShapeDef()
 
-	var baseID box2d.Body
-	{
-		// The base is static so the linkage is all that moves
-		bodyDef.Type = box2d.StaticBody
-		bodyDef.Position = box2d.Pos{}
-		bodyDef.Rotation = box2d.RotIdentity
-		baseID = s.worldID.CreateBody(&bodyDef)
-
-		plinth := box2d.MakeOffsetBox(
-			baseHalfWidth,
-			baseHalfHeight,
-			box2d.Vec2{X: 0.0, Y: baseHalfHeight},
-			box2d.RotIdentity,
-		)
-		postHalfHeight := 0.5 * (pivotHeight - 2.0*baseHalfHeight)
-		post := box2d.MakeOffsetBox(
-			postHalfWidth,
-			postHalfHeight,
-			box2d.Vec2{X: 0.0, Y: pivotHeight - postHalfHeight},
-			box2d.RotIdentity,
-		)
-
-		baseID.CreatePolygonShape(&shapeDef, &plinth)
-		baseID.CreatePolygonShape(&shapeDef, &post)
-	}
+	baseID := createDeskLampBase(
+		s.worldID,
+		baseHalfWidth,
+		baseHalfHeight,
+		postHalfWidth,
+		pivotHeight,
+	)
 
 	bodyDef.Type = box2d.DynamicBody
 	shapeDef.Density = 20.0
@@ -3630,7 +4747,7 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
 			Center2: box2d.Vec2{X: 0.0, Y: silverLength},
-			Radius:  1.4 * tubeRadius,
+			Radius:  silverRadiusScale * tubeRadius,
 		}
 		shapeDef.Material.CustomColor = uint32(box2d.ColorSilver)
 		silverID.CreateCapsuleShape(&shapeDef, &capsule)
@@ -3646,7 +4763,7 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
 			Center2: box2d.Vec2{X: 0.0, Y: upperArmLength},
-			Radius:  0.8 * tubeRadius,
+			Radius:  upperArmRadiusScale * tubeRadius,
 		}
 		upperArmID.CreateCapsuleShape(&shapeDef, &capsule)
 
@@ -3660,7 +4777,7 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 	}
 
 	pinDef := box2d.DefaultRevoluteJointDef()
-	pinDef.Base.DrawScale = 0.03 * scale
+	pinDef.Base.DrawScale = jointDrawScale * scale
 	pinDef.Base.ConstraintHertz = 240.0
 	pinDef.Base.ConstraintDampingRatio = 2.0
 
@@ -3705,7 +4822,7 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 	s.elbowJointID = s.worldID.CreateRevoluteJoint(&pinDef)
 
 	springDef := box2d.DefaultDistanceJointDef()
-	springDef.Base.DrawScale = 0.03 * scale
+	springDef.Base.DrawScale = jointDrawScale * scale
 	springDef.EnableSpring = true
 	springDef.DampingRatio = s.springDamping
 
@@ -3727,123 +4844,5 @@ func CreateDeskLamp(context *SampleContext) Sampler {
 		s.springJointIDs[k] = s.worldID.CreateDistanceJoint(&springDef)
 	}
 
-	{
-		bodyDef.Position = headPivot
-		bodyDef.Rotation = box2d.MakeRot(shadeTilt)
-		headID := s.worldID.CreateBody(&bodyDef)
-
-		// The pivot is on the shade center line, where the arm capsule ends. The shade opens along
-		// the local negative y.
-		neck := 0.45 * shadeLength
-		mouth := neck - shadeLength
-		points := []box2d.Vec2{
-			{X: -shadeNeckRadius, Y: neck},
-			{X: shadeNeckRadius, Y: neck},
-			{X: shadeMouthRadius, Y: mouth},
-			{X: -shadeMouthRadius, Y: mouth},
-		}
-		hull := box2d.ComputeHull(points)
-		shade := box2d.MakePolygon(&hull, 0.01*scale)
-
-		// The shade is a thin shell.
-		shapeDef.Density = 1.0
-		headID.CreatePolygonShape(&shapeDef, &shade)
-
-		// Offset the reference frame so the head slider reads zero at the pose above.
-		pinDef.Base.BodyA = upperArmID
-		pinDef.Base.BodyB = headID
-		pinDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: upperArmLength}
-		pinDef.Base.LocalFrameA.Q = upperRotation.InvMul(box2d.MakeRot(shadeTilt))
-		pinDef.Base.LocalFrameB.P = box2d.Vec2Zero
-		pinDef.EnableMotor = false
-		pinDef.MaxMotorTorque = 10.0
-		pinDef.EnableSpring = true
-		pinDef.Hertz = 8.0
-		pinDef.DampingRatio = 2.0
-		pinDef.TargetAngle = s.headAngle
-		pinDef.EnableLimit = true
-		pinDef.LowerAngle = -1.2
-		pinDef.UpperAngle = 1.2
-		s.headJointID = s.worldID.CreateRevoluteJoint(&pinDef)
-	}
-	return s
-}
-
-func (s *DeskLamp) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-
-	if imgui.SliderFloatV("Arm Spring", &s.springHertz[0], 0.0, 20.0, "%.2f", 0) {
-		s.springJointIDs[0].SetSpringHertz(s.springHertz[0])
-		s.springJointIDs[0].WakeBodies()
-	}
-
-	if imgui.SliderFloatV("Head Spring", &s.springHertz[1], 0.0, 20.0, "%.2f", 0) {
-		s.springJointIDs[1].SetSpringHertz(s.springHertz[1])
-		s.springJointIDs[1].WakeBodies()
-	}
-
-	if imgui.SliderFloatV("Spring Damping", &s.springDamping, 0.0, 5.0, "%.1f", 0) {
-		for k := range deskLampSpringCount {
-			s.springJointIDs[k].SetSpringDampingRatio(s.springDamping)
-			s.springJointIDs[k].WakeBodies()
-		}
-	}
-
-	if imgui.SliderFloatV("Post Friction", &s.lowerFriction, 0.0, 20.0, "%.1f", 0) {
-		s.postJointID.SetMaxMotorTorque(s.lowerFriction)
-		s.postJointID.WakeBodies()
-	}
-
-	if imgui.SliderFloatV("Elbow Friction", &s.elbowFriction, 0.0, 60.0, "%.0f", 0) {
-		s.elbowJointID.SetMaxMotorTorque(s.elbowFriction)
-		s.elbowJointID.WakeBodies()
-	}
-
-	if imgui.SliderFloatV("Head", &s.headAngle, -1.2, 1.2, "%.2f", 0) {
-		s.headJointID.SetTargetAngle(s.headAngle)
-		s.headJointID.WakeBodies()
-	}
-
-	imgui.PopItemWidth()
-
-	return true
-}
-
-func (s *DeskLamp) Step() {
-	s.Sample.Step()
-
-	postTorque := s.postJointID.MotorTorque()
-	elbowTorque := s.elbowJointID.MotorTorque()
-	s.DrawScreenTextLine("friction carrying: post %.2f, elbow %.2f N m", postTorque, elbowTorque)
-
-	spring1 := s.springJointIDs[0].SpringForce()
-	spring2 := s.springJointIDs[1].SpringForce()
-	s.DrawScreenTextLine("spring forces: %.2f, %.2f N", spring1, spring2)
-}
-
-func init() {
-	RegisterSample("Joints", "Distance Joint", CreateDistanceJoint)
-	RegisterSample("Joints", "Motor Joint", CreateMotorJoint)
-	RegisterSample("Joints", "Top Down Friction", CreateTopDownFriction)
-	RegisterSample("Joints", "Filter Joint", CreateFilterJoint)
-	RegisterSample("Joints", "Revolute", CreateRevoluteJoint)
-	RegisterSample("Joints", "Prismatic", CreatePrismaticJoint)
-	RegisterSample("Joints", "Wheel", CreateWheelJoint)
-	RegisterSample("Joints", "Bridge", CreateBridge)
-	RegisterSample("Joints", "Ball & Chain", CreateBallAndChain)
-	RegisterSample("Joints", "Cantilever", CreateCantilever)
-	RegisterSample("Joints", "Motion Locks", CreateMotionLocks)
-	RegisterSample("Joints", "Breakable", CreateBreakableJoint)
-	RegisterSample("Joints", "Separation", CreateJointSeparation)
-	RegisterSample("Joints", "User Constraint", CreateUserConstraint)
-	RegisterSample("Joints", "Driving", CreateDriving)
-	RegisterSample("Joints", "Ragdoll", CreateRagdoll)
-	RegisterSample("Joints", "Soft Body", CreateSoftBody)
-	RegisterSample("Joints", "Doohickey", CreateDoohickeyFarm)
-	RegisterSample("Joints", "Scissor Lift", CreateScissorLift)
-	RegisterSample("Joints", "Gear Lift", CreateGearLift)
-	RegisterSample("Joints", "Door", CreateDoor)
-	RegisterSample("Joints", "Scale Ragdoll", CreateScaleRagdoll)
-	RegisterSample("Joints", "Theo Jansen", CreateTheoJansen)
-	RegisterSample("Joints", "Desk Lamp", CreateDeskLamp)
+	s.createShade(upperArmID, upperRotation, upperArmLength, headPivot, scale)
 }

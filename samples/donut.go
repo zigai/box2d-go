@@ -25,14 +25,23 @@ func (d *Donut) Create(
 	enableSensorEvents bool,
 	userData any,
 ) {
+	const (
+		fullTurn              = 2.0 * box2d.Pi
+		capsuleCenterFraction = 0.5
+		capsuleRadius         = 0.25
+		shapeFriction         = 0.3
+		weldHertz             = 5.0
+		jointDrawScale        = 0.5
+	)
+
 	radius := 1.0 * scale
-	deltaAngle := 2.0 * box2d.Pi / donutSides
-	length := 2.0 * box2d.Pi * radius / donutSides
+	deltaAngle := fullTurn / donutSides
+	length := fullTurn * radius / donutSides
 
 	capsule := box2d.Capsule{
-		Center1: box2d.Vec2{X: 0.0, Y: -0.5 * length},
-		Center2: box2d.Vec2{X: 0.0, Y: 0.5 * length},
-		Radius:  0.25 * scale,
+		Center1: box2d.Vec2{X: 0.0, Y: -capsuleCenterFraction * length},
+		Center2: box2d.Vec2{X: 0.0, Y: capsuleCenterFraction * length},
+		Radius:  capsuleRadius * scale,
 	}
 
 	center := position
@@ -44,7 +53,7 @@ func (d *Donut) Create(
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.EnableSensorEvents = enableSensorEvents
 	shapeDef.Filter.GroupIndex = -groupIndex
-	shapeDef.Material.Friction = 0.3
+	shapeDef.Material.Friction = shapeFriction
 
 	angle := float32(0.0)
 	for i := range donutSides {
@@ -63,11 +72,11 @@ func (d *Donut) Create(
 	}
 
 	weldDef := box2d.DefaultWeldJointDef()
-	weldDef.AngularHertz = 5.0
+	weldDef.AngularHertz = weldHertz
 	weldDef.AngularDampingRatio = 0.0
-	weldDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: 0.5 * length}
-	weldDef.Base.LocalFrameB.P = box2d.Vec2{X: 0.0, Y: -0.5 * length}
-	weldDef.Base.DrawScale = 0.5 * scale
+	weldDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: capsuleCenterFraction * length}
+	weldDef.Base.LocalFrameB.P = box2d.Vec2{X: 0.0, Y: -capsuleCenterFraction * length}
+	weldDef.Base.DrawScale = jointDrawScale * scale
 
 	prevBodyID := d.bodyIDs[donutSides-1]
 	for i := range donutSides {

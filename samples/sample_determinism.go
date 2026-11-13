@@ -12,23 +12,62 @@ import (
 	"github.com/zigai/box2d-go/internal/scenes"
 )
 
+const (
+	rollbackSnapshotInterval = 20
+	hingeCameraCenterY       = 7.5
+)
+
+const (
+	rollbackRunning rollbackResult = iota
+	rollbackMatch
+	rollbackMismatch
+)
+
+type rollbackSnapshot struct {
+	image []byte
+	step  int
+}
+
+type rollbackResult int
+
+type Rollback struct {
+	Sample
+
+	snapshots          []rollbackSnapshot      //exhaustruct:optional
+	data               scenes.FallingHingeData //exhaustruct:optional
+	referenceSleepStep int
+	referenceHash      uint32
+	selected           int
+	rollbackStep       int
+	result             rollbackResult
+	done               bool
+}
+
 type FallingHinges struct {
 	Sample
-	data scenes.FallingHingeData
+
+	data scenes.FallingHingeData //exhaustruct:optional
 	done bool
 }
 
 func CreateFallingHingesSample(context *SampleContext) Sampler {
-	s := &FallingHinges{}
+	s := &FallingHinges{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		done:            false,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 7.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: hingeCameraCenterY}
 		s.context.camera.zoom = 10.0
 	}
 
 	s.data = scenes.CreateFallingHinges(s.worldID)
-	s.done = false
+
 	return s
 }
 
@@ -38,6 +77,21 @@ func (s *FallingHinges) Destroy() {
 }
 
 func (s *FallingHinges) Step() {
+	const (
+		scanMinX                = 5.0
+		scanMinY                = 1.0
+		scanMaxX                = 7.0
+		scanMaxY                = 2.5
+		verticalRayOriginY      = 12.0
+		verticalRayTranslationY = -14.0
+		verticalRayStep         = 30
+		horizontalRayOriginX    = -10.0
+		horizontalRayOriginY    = 2.0
+		horizontalRayLength     = 20.0
+		horizontalRayEarlySteps = 5
+		horizontalRayResumeStep = 100
+	)
+
 	s.Sample.Step()
 
 	if !s.context.pause && !s.done {
@@ -45,21 +99,23 @@ func (s *FallingHinges) Step() {
 
 		filter := box2d.DefaultQueryFilter()
 		scanBox := box2d.AABB{
-			LowerBound: box2d.Vec2{X: 5.0, Y: 1.0},
-			UpperBound: box2d.Vec2{X: 7.0, Y: 2.5},
+			LowerBound: box2d.Vec2{X: scanMinX, Y: scanMinY},
+			UpperBound: box2d.Vec2{X: scanMaxX, Y: scanMaxY},
 		}
-		s.worldID.OverlapAABB(box2d.Pos{}, scanBox, filter, func(box2d.Shape) bool { return true })
 
-		origin := box2d.Pos{X: 0.0, Y: 12.0}
-		translation := box2d.Vec2{X: 0.0, Y: -14.0}
+		var scanOrigin box2d.Pos
+		s.worldID.OverlapAABB(scanOrigin, scanBox, filter, func(box2d.Shape) bool { return true })
 
-		if s.stepCount == 30 {
+		origin := box2d.Pos{X: 0.0, Y: verticalRayOriginY}
+		translation := box2d.Vec2{X: 0.0, Y: verticalRayTranslationY}
+
+		if s.stepCount == verticalRayStep {
 			s.worldID.CastRayClosest(origin, translation, filter)
 		}
 
-		if s.stepCount < 5 || 100 < s.stepCount {
-			origin = box2d.Pos{X: -10.0, Y: 2.0}
-			translation = box2d.Vec2{X: 20.0, Y: 0.0}
+		if s.stepCount < horizontalRayEarlySteps || horizontalRayResumeStep < s.stepCount {
+			origin = box2d.Pos{X: horizontalRayOriginX, Y: horizontalRayOriginY}
+			translation = box2d.Vec2{X: horizontalRayLength, Y: 0.0}
 			s.worldID.CastRay(
 				origin,
 				translation,
@@ -74,55 +130,35 @@ func (s *FallingHinges) Step() {
 			s.FinishRecording()
 		}
 	} else {
-		s.DrawScreenTextLine("sleep step = %d, hash = 0x%08X", s.data.SleepStep, s.data.Hash)
+		s.DrawScreenTextLinef("sleep step = %d, hash = 0x%08X", s.data.SleepStep, s.data.Hash)
 	}
 }
 
-type rollbackSnapshot struct {
-	image []byte
-	step  int
-}
-
-const rollbackSnapshotInterval = 20
-
-type rollbackResult int
-
-const (
-	rollbackRunning rollbackResult = iota
-	rollbackMatch
-	rollbackMismatch
-)
-
-type Rollback struct {
-	Sample
-	snapshots          []rollbackSnapshot
-	data               scenes.FallingHingeData
-	referenceSleepStep int
-	referenceHash      uint32
-	selected           int
-	rollbackStep       int
-	result             rollbackResult
-	done               bool
-}
-
 func CreateRollback(context *SampleContext) Sampler {
-	s := &Rollback{}
+	s := &Rollback{
+		context:            context,
+		camera:             &context.camera,
+		draw:               context.draw,
+		screenTextX:        initialScreenTextX,
+		mouseForceScale:    initialMouseForceScale,
+		referenceSleepStep: 0,
+		referenceHash:      0,
+		selected:           0,
+		rollbackStep:       -1,
+		result:             rollbackRunning,
+		done:               false,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 7.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: hingeCameraCenterY}
 		s.context.camera.zoom = 10.0
 	}
 
 	s.data = scenes.CreateFallingHinges(s.worldID)
-	s.referenceSleepStep = 0
-	s.referenceHash = 0
-	s.selected = 0
-	s.rollbackStep = -1
-	s.result = rollbackRunning
-	s.done = false
 
 	s.Capture()
+
 	return s
 }
 
@@ -137,6 +173,7 @@ func (s *Rollback) Capture() {
 	if err != nil {
 		panic(err)
 	}
+
 	s.snapshots = append(s.snapshots, rollbackSnapshot{image: image, step: s.stepCount})
 }
 
@@ -156,32 +193,45 @@ func (s *Rollback) RollBack(index int) {
 }
 
 func (s *Rollback) DrawControls() bool {
+	const (
+		bytesPerKilobyte           = 1024
+		snapshotListRows           = 8.0
+		rollbackButtonWidthInFonts = 8.0
+		matchRedBlue               = 0.4
+		matchGreen                 = 0.8
+		mismatchRed                = 0.9
+		mismatchGreenBlue          = 0.3
+	)
+
 	if s.referenceHash == 0 {
-		imText("reference run: step %d", s.stepCount)
+		imTextf("reference run: step %d", s.stepCount)
 		return true
 	}
 
-	imText("reference sleep step %d", s.referenceSleepStep)
-	imText("reference hash 0x%08X", s.referenceHash)
+	imTextf("reference sleep step %d", s.referenceSleepStep)
+	imTextf("reference hash 0x%08X", s.referenceHash)
 
 	totalSize := 0
 	for _, snapshot := range s.snapshots {
 		totalSize += len(snapshot.image)
 	}
-	imTextDisabled("%d snapshots, %.0f kB", len(s.snapshots), float32(totalSize)/1024.0)
+
+	imTextDisabledf("%d snapshots, %.0f kB", len(s.snapshots), float32(totalSize)/bytesPerKilobyte)
 
 	if imgui.BeginListBoxV(
 		"##snapshots",
-		imgui.Vec2{X: -fltMin, Y: 8.0 * imgui.TextLineHeightWithSpacing()},
+		imgui.Vec2{X: -fltMin, Y: snapshotListRows * imgui.TextLineHeightWithSpacing()},
 	) {
+		var automaticSize imgui.Vec2
+
 		for i := range s.snapshots {
 			label := fmt.Sprintf(
 				"step %d, %d kB",
 				s.snapshots[i].step,
-				len(s.snapshots[i].image)/1024,
+				len(s.snapshots[i].image)/bytesPerKilobyte,
 			)
 
-			if imgui.SelectableBoolV(label, i == s.selected, 0, imgui.Vec2{}) {
+			if imgui.SelectableBoolV(label, i == s.selected, 0, automaticSize) {
 				s.selected = i
 			}
 		}
@@ -189,28 +239,36 @@ func (s *Rollback) DrawControls() bool {
 		imgui.EndListBox()
 	}
 
-	if imgui.ButtonV("Roll Back", imgui.Vec2{X: 8.0 * imgui.FontSize(), Y: 0.0}) {
+	if imgui.ButtonV(
+		"Roll Back",
+		imgui.Vec2{X: rollbackButtonWidthInFonts * imgui.FontSize(), Y: 0.0},
+	) {
 		s.RollBack(s.selected)
 	}
 
 	switch s.result {
 	case rollbackRunning:
-		imText("resimulating from step %d", s.rollbackStep)
+		imTextf("resimulating from step %d", s.rollbackStep)
 	case rollbackMatch:
-		imTextColored(
-			imgui.Vec4{X: 0.4, Y: 0.8, Z: 0.4, W: 1.0},
+		imTextColoredf(
+			imgui.Vec4{X: matchRedBlue, Y: matchGreen, Z: matchRedBlue, W: 1.0},
 			"match: sleep step %d",
 			s.data.SleepStep,
 		)
-		imTextColored(imgui.Vec4{X: 0.4, Y: 0.8, Z: 0.4, W: 1.0}, "match: hash 0x%08X", s.data.Hash)
+		imTextColoredf(
+			imgui.Vec4{X: matchRedBlue, Y: matchGreen, Z: matchRedBlue, W: 1.0},
+			"match: hash 0x%08X", s.data.Hash,
+		)
+	case rollbackMismatch:
+		fallthrough
 	default:
-		imTextColored(
-			imgui.Vec4{X: 0.9, Y: 0.3, Z: 0.3, W: 1.0},
+		imTextColoredf(
+			imgui.Vec4{X: mismatchRed, Y: mismatchGreenBlue, Z: mismatchGreenBlue, W: 1.0},
 			"MISMATCH: sleep step %d",
 			s.data.SleepStep,
 		)
-		imTextColored(
-			imgui.Vec4{X: 0.9, Y: 0.3, Z: 0.3, W: 1.0},
+		imTextColoredf(
+			imgui.Vec4{X: mismatchRed, Y: mismatchGreenBlue, Z: mismatchGreenBlue, W: 1.0},
 			"MISMATCH: hash 0x%08X",
 			s.data.Hash,
 		)
@@ -229,36 +287,44 @@ func (s *Rollback) Step() {
 
 		s.done = scenes.UpdateFallingHinges(s.worldID, &s.data)
 
-		if s.done {
-			if s.referenceHash == 0 {
-				s.referenceSleepStep = s.data.SleepStep
-				s.referenceHash = s.data.Hash
-
-				s.FinishRecording()
-			}
-
-			if s.data.SleepStep == s.referenceSleepStep && s.data.Hash == s.referenceHash {
-				s.result = rollbackMatch
-			} else {
-				s.result = rollbackMismatch
-			}
-
-			fmt.Printf(
-				"sleep step = %d, hash = 0x%08X%s\n",
-				s.data.SleepStep,
-				s.data.Hash,
-				mismatchSuffix(s.result),
-			)
-		}
+		s.finishRollbackRun()
 	}
 
 	if s.referenceHash == 0 {
-		s.DrawScreenTextLine("reference run")
-	} else if s.result == rollbackRunning {
-		s.DrawScreenTextLine("rolled back to step %d", s.rollbackStep)
-	} else {
-		s.DrawScreenTextLine(
-			"sleep step = %d, hash = 0x%08X%s",
+		s.DrawScreenTextLinef("reference run")
+		return
+	}
+
+	if s.result == rollbackRunning {
+		s.DrawScreenTextLinef("rolled back to step %d", s.rollbackStep)
+		return
+	}
+
+	s.DrawScreenTextLinef(
+		"sleep step = %d, hash = 0x%08X%s",
+		s.data.SleepStep,
+		s.data.Hash,
+		mismatchSuffix(s.result),
+	)
+}
+
+func (s *Rollback) finishRollbackRun() {
+	if s.done {
+		if s.referenceHash == 0 {
+			s.referenceSleepStep = s.data.SleepStep
+			s.referenceHash = s.data.Hash
+
+			s.FinishRecording()
+		}
+
+		if s.data.SleepStep == s.referenceSleepStep && s.data.Hash == s.referenceHash {
+			s.result = rollbackMatch
+		} else {
+			s.result = rollbackMismatch
+		}
+
+		fmt.Printf(
+			"sleep step = %d, hash = 0x%08X%s\n",
 			s.data.SleepStep,
 			s.data.Hash,
 			mismatchSuffix(s.result),
@@ -270,10 +336,11 @@ func mismatchSuffix(result rollbackResult) string {
 	if result == rollbackMatch {
 		return ""
 	}
+
 	return " MISMATCH"
 }
 
-func init() {
+func registerDeterminismSamples() {
 	RegisterSample("Determinism", "Falling Hinges", CreateFallingHingesSample)
 	RegisterSample("Determinism", "Rollback", CreateRollback)
 }

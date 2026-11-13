@@ -19,6 +19,7 @@ func checkOpenGL() {
 
 func printLogGL(object uint32) {
 	var logLength int32
+
 	switch {
 	case gl.IsShader(object):
 		gl.GetShaderiv(object, gl.INFO_LOG_LENGTH, &logLength)
@@ -53,22 +54,25 @@ func createShaderFromString(source string, shaderType uint32) uint32 {
 		fmt.Printf("Error compiling shader of type %d!\n", shaderType)
 		printLogGL(shader)
 		gl.DeleteShader(shader)
+
 		return 0
 	}
 
 	return shader
 }
 
-func createProgramFromStrings(vertexString, fragmentString string) uint32 {
+func createProgramFromStrings(vertexString string, fragmentString string) uint32 {
 	vertex := createShaderFromString(vertexString, gl.VERTEX_SHADER)
 	if vertex == 0 {
 		return 0
 	}
+	defer gl.DeleteShader(vertex)
 
 	fragment := createShaderFromString(fragmentString, gl.FRAGMENT_SHADER)
 	if fragment == 0 {
 		return 0
 	}
+	defer gl.DeleteShader(fragment)
 
 	program := gl.CreateProgram()
 	gl.AttachShader(program, vertex)
@@ -78,14 +82,14 @@ func createProgramFromStrings(vertexString, fragmentString string) uint32 {
 
 	var success int32 = gl.FALSE
 	gl.GetProgramiv(program, gl.LINK_STATUS, &success)
+
 	if success == gl.FALSE {
 		fmt.Printf("glLinkProgram:")
 		printLogGL(program)
+		gl.DeleteProgram(program)
+
 		return 0
 	}
-
-	gl.DeleteShader(vertex)
-	gl.DeleteShader(fragment)
 
 	return program
 }

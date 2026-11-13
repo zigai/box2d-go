@@ -9,6 +9,11 @@ import (
 	"github.com/zigai/box2d-go/box2d"
 )
 
+const (
+	geometricMoverPlaneCapacity    = 8
+	geometricMoverMinGroundNormalY = 0.7
+)
+
 type GeometricMoverDef struct {
 	position             box2d.Pos
 	capsule              box2d.Capsule
@@ -28,30 +33,6 @@ type GeometricMoverDef struct {
 	pogoTensionScale     float32
 }
 
-func DefaultGeometricMoverDef() GeometricMoverDef {
-	return GeometricMoverDef{
-		capsule: box2d.Capsule{
-			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
-			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
-			Radius:  0.3,
-		},
-		filter:               box2d.DefaultQueryFilter(),
-		jumpSpeed:            10.0,
-		maxSpeed:             6.0,
-		minSpeed:             0.1,
-		stopSpeed:            3.0,
-		accelerate:           20.0,
-		airSteer:             0.2,
-		friction:             8.0,
-		gravity:              30.0,
-		pogoRestLength:       0.9,
-		pogoHertz:            5.0,
-		pogoDampingRatio:     0.8,
-		pogoCompressionScale: 100.0,
-		pogoTensionScale:     100.0,
-	}
-}
-
 // Optional shape user data read by GeometryMover when it gathers collision planes.
 // Shapes without user data are treated as rigid and fully clipping.
 type MoverShapeUserData struct {
@@ -69,8 +50,6 @@ type PlaneExtra struct {
 	point   box2d.Pos
 	shapeID box2d.Shape
 }
-
-const geometricMoverPlaneCapacity = 8
 
 // Geometric character mover. The capsule is moved by casting
 // and by solving collision planes, so the game keeps full control of the motion.
@@ -112,54 +91,94 @@ type GeometricMover struct {
 
 	filter box2d.QueryFilter
 
-	worldID *box2d.World
+	worldID *box2d.World //exhaustruct:optional
 
 	// The center of the capsule.
 	position box2d.Pos
 
-	velocity     box2d.Vec2
-	pogoVelocity float32
-	onGround     bool
+	velocity     box2d.Vec2 //exhaustruct:optional
+	pogoVelocity float32    //exhaustruct:optional
+	onGround     bool       //exhaustruct:optional
 
 	// Planes from the last solve, kept for debug drawing.
-	planes          [geometricMoverPlaneCapacity]box2d.CollisionPlane
-	planeExtras     [geometricMoverPlaneCapacity]PlaneExtra
-	planeCount      int
-	totalIterations int
+	planes          [geometricMoverPlaneCapacity]box2d.CollisionPlane //exhaustruct:optional
+	planeExtras     [geometricMoverPlaneCapacity]PlaneExtra           //exhaustruct:optional
+	planeCount      int                                               //exhaustruct:optional
+	totalIterations int                                               //exhaustruct:optional
 
-	pogoOrigin      box2d.Pos
-	pogoTranslation box2d.Vec2
+	pogoOrigin      box2d.Pos  //exhaustruct:optional
+	pogoTranslation box2d.Vec2 //exhaustruct:optional
 	pogoFraction    float32
-	pogoHit         bool
+	pogoHit         bool //exhaustruct:optional
+}
+
+func DefaultGeometricMoverDef() GeometricMoverDef {
+	const (
+		capsuleHalfHeight    = 0.5
+		capsuleRadius        = 0.3
+		jumpSpeed            = 10.0
+		maxSpeed             = 6.0
+		minSpeed             = 0.1
+		stopSpeed            = 3.0
+		acceleration         = 20.0
+		airSteer             = 0.2
+		friction             = 8.0
+		gravity              = 30.0
+		pogoRestLength       = 0.9
+		pogoHertz            = 5.0
+		pogoDampingRatio     = 0.8
+		pogoCompressionScale = 100.0
+		pogoTensionScale     = 100.0
+	)
+
+	return GeometricMoverDef{
+		position: box2d.Pos{X: 0.0, Y: 0.0},
+		capsule: box2d.Capsule{
+			Center1: box2d.Vec2{X: 0.0, Y: -capsuleHalfHeight},
+			Center2: box2d.Vec2{X: 0.0, Y: capsuleHalfHeight},
+			Radius:  capsuleRadius,
+		},
+		filter:               box2d.DefaultQueryFilter(),
+		jumpSpeed:            jumpSpeed,
+		maxSpeed:             maxSpeed,
+		minSpeed:             minSpeed,
+		stopSpeed:            stopSpeed,
+		accelerate:           acceleration,
+		airSteer:             airSteer,
+		friction:             friction,
+		gravity:              gravity,
+		pogoRestLength:       pogoRestLength,
+		pogoHertz:            pogoHertz,
+		pogoDampingRatio:     pogoDampingRatio,
+		pogoCompressionScale: pogoCompressionScale,
+		pogoTensionScale:     pogoTensionScale,
+	}
 }
 
 func NewGeometricMover() GeometricMover {
+	const pogoGroundForce = 50.0
+
+	def := DefaultGeometricMoverDef()
+
 	return GeometricMover{
-		jumpSpeed:        10.0,
-		maxSpeed:         6.0,
-		minSpeed:         0.1,
-		stopSpeed:        3.0,
-		accelerate:       20.0,
-		airSteer:         0.2,
-		friction:         8.0,
-		gravity:          30.0,
-		pogoRestLength:   0.9,
-		pogoHertz:        5.0,
-		pogoDampingRatio: 0.8,
-		pogoGroundForce:  50.0,
+		jumpSpeed:        def.jumpSpeed,
+		maxSpeed:         def.maxSpeed,
+		minSpeed:         def.minSpeed,
+		stopSpeed:        def.stopSpeed,
+		accelerate:       def.accelerate,
+		airSteer:         def.airSteer,
+		friction:         def.friction,
+		gravity:          def.gravity,
+		pogoRestLength:   def.pogoRestLength,
+		pogoHertz:        def.pogoHertz,
+		pogoDampingRatio: def.pogoDampingRatio,
+		pogoGroundForce:  pogoGroundForce,
 		pushBodies:       true,
-
-		capsule: box2d.Capsule{
-			Center1: box2d.Vec2{X: 0.0, Y: -0.5},
-			Center2: box2d.Vec2{X: 0.0, Y: 0.5},
-			Radius:  0.3,
-		},
-
-		filter: box2d.DefaultQueryFilter(),
-
-		minGroundNormalY: 0.7,
-
-		pogoFraction: 1.0,
+		capsule:          def.capsule,
+		filter:           def.filter,
+		position:         box2d.Pos{X: 0.0, Y: 0.0},
+		minGroundNormalY: geometricMoverMinGroundNormalY,
+		pogoFraction:     1.0,
 	}
 }
 
@@ -178,7 +197,7 @@ func (m *GeometricMover) Create(worldID *box2d.World, def *GeometricMoverDef) {
 	m.pogoRestLength = def.pogoRestLength
 	m.pogoHertz = def.pogoHertz
 	m.pogoDampingRatio = def.pogoDampingRatio
-	m.minGroundNormalY = 0.7
+	m.minGroundNormalY = geometricMoverMinGroundNormalY
 
 	m.worldID = worldID
 	m.position = def.position
@@ -199,6 +218,7 @@ func (m *GeometricMover) Jump() bool {
 
 	m.velocity.Y = m.jumpSpeed
 	m.onGround = false
+
 	return true
 }
 
@@ -219,12 +239,14 @@ func (m *GeometricMover) PushBodies() {
 		invMassA := float32(0.0)
 
 		massB := bodyID.Mass()
+
 		invMassB := float32(0.0)
 		if massB > 0.0 {
 			invMassB = 1.0 / massB
 		}
 
 		inertiaB := bodyID.RotationalInertia()
+
 		invIB := float32(0.0)
 		if inertiaB > 0.0 {
 			invIB = 1.0 / inertiaB
@@ -235,6 +257,7 @@ func (m *GeometricMover) PushBodies() {
 
 		rnB := rB.Cross(normal)
 		kNormal := invMassA + invMassB + invIB*rnB*rnB
+
 		normalMass := float32(0.0)
 		if kNormal > 0.0 {
 			normalMass = 1.0 / kNormal
@@ -248,17 +271,37 @@ func (m *GeometricMover) PushBodies() {
 		// Push only, a separating body is left alone
 		impulse := max(-normalMass*vn, 0.0)
 
-		P := normal.Scale(impulse)
-		m.velocity = m.velocity.MulSub(invMassA, P)
+		impulseVector := normal.Scale(impulse)
+		m.velocity = m.velocity.MulSub(invMassA, impulseVector)
 
-		bodyID.ApplyLinearImpulse(P, point, true)
+		bodyID.ApplyLinearImpulse(impulseVector, point, true)
 	}
 }
 
 // Movement follows the Quake ground and air model:
 // https://github.com/id-Software/Quake/blob/master/QW/client/pmove.c#L390
-func (m *GeometricMover) Update(timeStep, throttle float32) {
-	// Friction
+func (m *GeometricMover) Update(timeStep float32, throttle float32) {
+	m.applyGroundFriction(timeStep)
+	m.accelerateHorizontal(timeStep, throttle)
+
+	var castResult DynamicMoverCastResult
+
+	rayLength := m.castGround(&castResult)
+	m.applyPogo(timeStep, &castResult, rayLength)
+
+	target := m.position.Add(m.velocity.Scale(timeStep)).
+		Add(box2d.Vec2{X: 0.0, Y: 1.0}.Scale(timeStep * m.pogoVelocity))
+	m.moveTo(target)
+
+	if m.pushBodies {
+		m.PushBodies()
+	}
+
+	// Stop pushing into surfaces so speed can't accumulate against a wall
+	m.velocity = box2d.ClipVector(m.velocity, m.planes[:m.planeCount])
+}
+
+func (m *GeometricMover) applyGroundFriction(timeStep float32) {
 	speed := m.velocity.Length()
 	if speed < m.minSpeed {
 		m.velocity.X = 0.0
@@ -275,7 +318,9 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 		newSpeed := max(0.0, speed-drop)
 		m.velocity = m.velocity.Scale(newSpeed / speed)
 	}
+}
 
+func (m *GeometricMover) accelerateHorizontal(timeStep float32, throttle float32) {
 	desiredVelocity := box2d.Vec2{X: m.maxSpeed * throttle, Y: 0.0}
 	desiredSpeed, desiredDirection := desiredVelocity.LengthAndNormalize()
 
@@ -283,14 +328,15 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 		desiredSpeed = m.maxSpeed
 	}
 
-	// Accelerate
 	currentSpeed := m.velocity.Dot(desiredDirection)
 	addSpeed := desiredSpeed - currentSpeed
+
 	if addSpeed > 0.0 {
 		steer := m.airSteer
 		if m.onGround {
 			steer = 1.0
 		}
+
 		accelSpeed := steer * m.accelerate * m.maxSpeed * timeStep
 		if accelSpeed > addSpeed {
 			accelSpeed = addSpeed
@@ -298,16 +344,20 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 
 		m.velocity = m.velocity.Add(desiredDirection.Scale(accelSpeed))
 	}
+}
+
+func (m *GeometricMover) castGround(castResult *DynamicMoverCastResult) float32 {
+	const groundProbeLengthScale = 2.0
 
 	// The probe reaches past the rest length so the spring can be stretched
 	rayLength := m.pogoRestLength
 	if m.onGround {
-		rayLength = 2.0 * m.pogoRestLength
+		rayLength = groundProbeLengthScale * m.pogoRestLength
 	}
+
 	translation := box2d.Vec2{X: 0.0, Y: -rayLength}
 	origin := m.position.Add(m.capsule.Center1)
 
-	var castResult DynamicMoverCastResult
 	m.worldID.CastRay(
 		origin,
 		translation,
@@ -318,6 +368,7 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 			castResult.bodyID = shapeID.Body()
 			castResult.fraction = fraction
 			castResult.hit = true
+
 			return fraction
 		},
 	)
@@ -325,16 +376,27 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 	m.pogoOrigin = origin
 	m.pogoTranslation = translation
 	m.pogoFraction = 1.0
+
 	if castResult.hit {
 		m.pogoFraction = castResult.fraction
 	}
+
 	m.pogoHit = castResult.hit
+
+	return rayLength
+}
+
+func (m *GeometricMover) applyPogo(
+	timeStep float32,
+	castResult *DynamicMoverCastResult,
+	rayLength float32,
+) {
+	const maxLandingSpeed = 0.01
 
 	// Avoid snapping to ground if still going up
 	haveGround := castResult.hit && castResult.normal.Y > m.minGroundNormalY
-
 	if !m.onGround {
-		m.onGround = haveGround && m.velocity.Y <= 0.01
+		m.onGround = haveGround && m.velocity.Y <= maxLandingSpeed
 	} else {
 		m.onGround = haveGround
 	}
@@ -342,32 +404,35 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 	if !m.onGround {
 		m.velocity.Y -= m.gravity * timeStep
 		m.pogoVelocity = 0.0
-	} else {
-		m.velocity.Y = 0.0
 
-		pogoCurrentLength := castResult.fraction * rayLength
-
-		offset := pogoCurrentLength - m.pogoRestLength
-		m.pogoVelocity = box2d.SpringDamper(
-			m.pogoHertz,
-			m.pogoDampingRatio,
-			offset,
-			m.pogoVelocity,
-			timeStep,
-		)
-
-		castResult.bodyID.ApplyForce(
-			box2d.Vec2{X: 0.0, Y: -m.pogoGroundForce},
-			castResult.point,
-			true,
-		)
+		return
 	}
 
-	target := m.position.Add(m.velocity.Scale(timeStep)).
-		Add(box2d.Vec2{X: 0.0, Y: 1.0}.Scale(timeStep * m.pogoVelocity))
+	m.velocity.Y = 0.0
+	pogoCurrentLength := castResult.fraction * rayLength
+	offset := pogoCurrentLength - m.pogoRestLength
+	m.pogoVelocity = box2d.SpringDamper(
+		m.pogoHertz,
+		m.pogoDampingRatio,
+		offset,
+		m.pogoVelocity,
+		timeStep,
+	)
+	castResult.bodyID.ApplyForce(
+		box2d.Vec2{X: 0.0, Y: -m.pogoGroundForce},
+		castResult.point,
+		true,
+	)
+}
+
+func (m *GeometricMover) moveTo(target box2d.Pos) {
+	const (
+		collisionTolerance = 0.01
+		maxPlaneSolves     = 5
+	)
 
 	m.totalIterations = 0
-	tolerance := float32(0.01)
+	tolerance := float32(collisionTolerance)
 
 	// Don't cast against other movers.
 	castFilter := box2d.QueryFilter{
@@ -375,16 +440,13 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 		MaskBits:     m.filter.MaskBits &^ m.filter.CategoryBits,
 	}
 
-	for range 5 {
+	for range maxPlaneSolves {
 		m.planeCount = 0
-
 		m.worldID.CollideMover(m.position, &m.capsule, m.filter, m.collectPlane)
 		result := box2d.SolvePlanes(target.Sub(m.position), m.planes[:m.planeCount])
-
 		m.totalIterations += result.IterationCount
 
 		fraction := m.worldID.CastMover(m.position, &m.capsule, result.Delta, castFilter)
-
 		delta := result.Delta.Scale(fraction)
 		m.position = m.position.Add(delta)
 
@@ -392,18 +454,12 @@ func (m *GeometricMover) Update(timeStep, throttle float32) {
 			break
 		}
 	}
-
-	if m.pushBodies {
-		m.PushBodies()
-	}
-
-	// Stop pushing into surfaces so speed can't accumulate against a wall
-	m.velocity = box2d.ClipVector(m.velocity, m.planes[:m.planeCount])
 }
 
 func (m *GeometricMover) collectPlane(shapeID box2d.Shape, planeResult *box2d.PlaneResult) bool {
 	maxPush := float32(math.MaxFloat32)
 	clipVelocity := true
+
 	if userData, ok := shapeID.UserData().(*MoverShapeUserData); ok {
 		maxPush = userData.maxPush
 		clipVelocity = userData.clipVelocity

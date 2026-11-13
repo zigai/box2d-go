@@ -11,8 +11,11 @@ import (
 	"github.com/zigai/box2d-go/box2d"
 )
 
+const wakeTouchingCount = 10
+
 type BodyType struct {
 	Sample
+
 	attachmentID       box2d.Body
 	secondAttachmentID box2d.Body
 	platformID         box2d.Body
@@ -24,17 +27,95 @@ type BodyType struct {
 	isEnabled          bool
 }
 
+type Weeble struct {
+	Sample
+
+	weebleID           box2d.Body
+	explosionPosition  box2d.Pos
+	explosionRadius    float32
+	explosionMagnitude float32
+}
+
+type Sleep struct {
+	Sample
+
+	pendulumID     box2d.Body
+	staticBodyID   box2d.Body
+	groundShapeID  box2d.Shape
+	sensorIDs      [2]box2d.Shape
+	sensorTouching [2]bool
+}
+
+type BadBody struct {
+	Sample
+
+	badBodyID box2d.Body
+}
+
+type Pivot struct {
+	Sample
+
+	bodyID box2d.Body
+	lever  float32
+}
+
+type Kinematic struct {
+	Sample
+
+	bodyID    box2d.Body
+	amplitude float32
+	time      float32
+}
+
+type MixedLocks struct {
+	Sample
+}
+
+type SetVelocity struct {
+	Sample
+
+	bodyID box2d.Body
+}
+
+type WakeTouching struct {
+	Sample
+
+	groundID box2d.Body
+}
+
 func CreateBodyType(context *SampleContext) Sampler {
-	s := &BodyType{}
+	const (
+		cameraCenterX        = 0.8
+		cameraCenterY        = 6.4
+		baseCameraZoom       = 25.0
+		cameraZoomScale      = 0.4
+		groundHalfLength     = 20.0
+		attachmentHeight     = 3.0
+		attachmentHalfWidth  = 0.5
+		attachmentHalfHeight = 2.0
+		secondAttachmentX    = 3.0
+		platformSpeed        = 3.0
+	)
+
+	s := &BodyType{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		attachmentID:       box2d.Body{},
+		secondAttachmentID: box2d.Body{},
+		platformID:         box2d.Body{},
+		secondPayloadID:    box2d.Body{},
+		touchingBodyID:     box2d.Body{},
+		floatingBodyID:     box2d.Body{},
+		bodyType:           box2d.StaticBody,
+		speed:              platformSpeed,
+		isEnabled:          true,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.8, Y: 6.4}
-		s.context.camera.zoom = 25.0 * 0.4
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
-
-	s.bodyType = box2d.StaticBody
-	s.isEnabled = true
 
 	var groundID box2d.Body
 	{
@@ -43,8 +124,8 @@ func CreateBodyType(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
@@ -53,11 +134,11 @@ func CreateBodyType(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -2.0, Y: 3.0}
+		bodyDef.Position = box2d.Pos{X: -2.0, Y: attachmentHeight}
 		bodyDef.Name = "attach1"
 		s.attachmentID = s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(0.5, 2.0)
+		box := box2d.MakeBox(attachmentHalfWidth, attachmentHalfHeight)
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 1.0
 		s.attachmentID.CreatePolygonShape(&shapeDef, &box)
@@ -67,29 +148,37 @@ func CreateBodyType(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = s.bodyType
 		bodyDef.IsEnabled = s.isEnabled
-		bodyDef.Position = box2d.Pos{X: 3.0, Y: 3.0}
+		bodyDef.Position = box2d.Pos{X: secondAttachmentX, Y: attachmentHeight}
 		bodyDef.Name = "attach2"
 		s.secondAttachmentID = s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(0.5, 2.0)
+		box := box2d.MakeBox(attachmentHalfWidth, attachmentHalfHeight)
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 1.0
 		s.secondAttachmentID.CreatePolygonShape(&shapeDef, &box)
 	}
 
 	{
+		const (
+			platformHeight      = 5.0
+			platformHalfWidth   = 0.5
+			platformHalfLength  = 4.0
+			quarterTurnPiFactor = 0.5
+			translationLimit    = 10.0
+		)
+
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = s.bodyType
 		bodyDef.IsEnabled = s.isEnabled
-		bodyDef.Position = box2d.Pos{X: -4.0, Y: 5.0}
+		bodyDef.Position = box2d.Pos{X: -platformHalfLength, Y: platformHeight}
 		bodyDef.Name = "platform"
 		s.platformID = s.worldID.CreateBody(&bodyDef)
 
 		box := box2d.MakeOffsetBox(
-			0.5,
-			4.0,
-			box2d.Vec2{X: 4.0, Y: 0.0},
-			box2d.MakeRot(0.5*box2d.Pi),
+			platformHalfWidth,
+			platformHalfLength,
+			box2d.Vec2{X: platformHalfLength, Y: 0.0},
+			box2d.MakeRot(quarterTurnPiFactor*box2d.Pi),
 		)
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -97,7 +186,7 @@ func CreateBodyType(context *SampleContext) Sampler {
 		s.platformID.CreatePolygonShape(&shapeDef, &box)
 
 		revoluteDef := box2d.DefaultRevoluteJointDef()
-		pivot := box2d.Pos{X: -2.0, Y: 5.0}
+		pivot := box2d.Pos{X: -2.0, Y: platformHeight}
 		revoluteDef.Base.BodyA = s.attachmentID
 		revoluteDef.Base.BodyB = s.platformID
 		revoluteDef.Base.LocalFrameA.P = s.attachmentID.LocalPoint(pivot)
@@ -106,7 +195,7 @@ func CreateBodyType(context *SampleContext) Sampler {
 		revoluteDef.EnableMotor = true
 		s.worldID.CreateRevoluteJoint(&revoluteDef)
 
-		pivot = box2d.Pos{X: 3.0, Y: 5.0}
+		pivot = box2d.Pos{X: secondAttachmentX, Y: platformHeight}
 		revoluteDef.Base.BodyA = s.secondAttachmentID
 		revoluteDef.Base.BodyB = s.platformID
 		revoluteDef.Base.LocalFrameA.P = s.secondAttachmentID.LocalPoint(pivot)
@@ -116,7 +205,7 @@ func CreateBodyType(context *SampleContext) Sampler {
 		s.worldID.CreateRevoluteJoint(&revoluteDef)
 
 		prismaticDef := box2d.DefaultPrismaticJointDef()
-		anchor := box2d.Pos{X: 0.0, Y: 5.0}
+		anchor := box2d.Pos{X: 0.0, Y: platformHeight}
 		prismaticDef.Base.BodyA = groundID
 		prismaticDef.Base.BodyB = s.platformID
 		prismaticDef.Base.LocalFrameA.P = groundID.LocalPoint(anchor)
@@ -124,23 +213,27 @@ func CreateBodyType(context *SampleContext) Sampler {
 		prismaticDef.MaxMotorForce = 1000.0
 		prismaticDef.MotorSpeed = 0.0
 		prismaticDef.EnableMotor = true
-		prismaticDef.LowerTranslation = -10.0
-		prismaticDef.UpperTranslation = 10.0
+		prismaticDef.LowerTranslation = -translationLimit
+		prismaticDef.UpperTranslation = translationLimit
 		prismaticDef.EnableLimit = true
 
 		s.worldID.CreatePrismaticJoint(&prismaticDef)
-
-		s.speed = 3.0
 	}
 
 	{
+		const (
+			crateX          = -3.0
+			crateHeight     = 8.0
+			crateHalfExtent = 0.75
+		)
+
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -3.0, Y: 8.0}
+		bodyDef.Position = box2d.Pos{X: crateX, Y: crateHeight}
 		bodyDef.Name = "crate1"
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(0.75, 0.75)
+		box := box2d.MakeBox(crateHalfExtent, crateHalfExtent)
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 2.0
@@ -149,14 +242,20 @@ func CreateBodyType(context *SampleContext) Sampler {
 	}
 
 	{
+		const (
+			crateX          = 2.0
+			crateHeight     = 8.0
+			crateHalfExtent = 0.75
+		)
+
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = s.bodyType
 		bodyDef.IsEnabled = s.isEnabled
-		bodyDef.Position = box2d.Pos{X: 2.0, Y: 8.0}
+		bodyDef.Position = box2d.Pos{X: crateX, Y: crateHeight}
 		bodyDef.Name = "crate2"
 		s.secondPayloadID = s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(0.75, 0.75)
+		box := box2d.MakeBox(crateHalfExtent, crateHalfExtent)
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 2.0
@@ -165,17 +264,23 @@ func CreateBodyType(context *SampleContext) Sampler {
 	}
 
 	{
+		const (
+			debrisX      = 8.0
+			debrisHeight = 0.2
+			debrisRadius = 0.25
+		)
+
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = s.bodyType
 		bodyDef.IsEnabled = s.isEnabled
-		bodyDef.Position = box2d.Pos{X: 8.0, Y: 0.2}
+		bodyDef.Position = box2d.Pos{X: debrisX, Y: debrisHeight}
 		bodyDef.Name = "debris"
 		s.touchingBodyID = s.worldID.CreateBody(&bodyDef)
 
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
 			Center2: box2d.Vec2{X: 1.0, Y: 0.0},
-			Radius:  0.25,
+			Radius:  debrisRadius,
 		}
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -185,17 +290,23 @@ func CreateBodyType(context *SampleContext) Sampler {
 	}
 
 	{
+		const (
+			debrisX      = 8.5
+			debrisHeight = 0.2
+			debrisRadius = 0.5
+		)
+
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.StaticBody
 		bodyDef.IsEnabled = s.isEnabled
-		bodyDef.Position = box2d.Pos{X: 8.5, Y: 0.2}
+		bodyDef.Position = box2d.Pos{X: debrisX, Y: debrisHeight}
 		bodyDef.Name = "debris"
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
 			Center2: box2d.Vec2{X: 1.0, Y: 0.0},
-			Radius:  0.5,
+			Radius:  debrisRadius,
 		}
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -203,15 +314,21 @@ func CreateBodyType(context *SampleContext) Sampler {
 	}
 
 	{
+		const (
+			floaterHeight = 12.0
+			circleOffsetY = 0.5
+			circleRadius  = 0.25
+		)
+
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = s.bodyType
 		bodyDef.IsEnabled = s.isEnabled
-		bodyDef.Position = box2d.Pos{X: -8.0, Y: 12.0}
+		bodyDef.Position = box2d.Pos{X: -8.0, Y: floaterHeight}
 		bodyDef.GravityScale = 0.0
 		bodyDef.Name = "floater"
 		s.floatingBodyID = s.worldID.CreateBody(&bodyDef)
 
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.5}, Radius: 0.25}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: circleOffsetY}, Radius: circleRadius}
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 2.0
@@ -285,24 +402,39 @@ func (s *BodyType) Step() {
 	s.Sample.Step()
 }
 
-type Weeble struct {
-	Sample
-	weebleID           box2d.Body
-	explosionPosition  box2d.Pos
-	explosionRadius    float32
-	explosionMagnitude float32
-}
-
 func CreateWeeble(context *SampleContext) Sampler {
-	s := &Weeble{}
+	const (
+		cameraCenterX       = 2.3
+		cameraCenterY       = 10.0
+		baseCameraZoom      = 25.0
+		cameraZoomScale     = 0.5
+		contactFriction     = 0.1
+		groundHalfLength    = 20.0
+		bodyStartHeight     = 3.0
+		initialAnglePiRatio = 0.25
+		massCenterOffset    = 1.5
+		initialBlastRadius  = 2.0
+		initialBlastImpulse = 8.0
+	)
+
+	s := &Weeble{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		weebleID:           box2d.Body{},
+		explosionPosition:  box2d.Pos{X: 0, Y: 0},
+		explosionRadius:    initialBlastRadius,
+		explosionMagnitude: initialBlastImpulse,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 2.3, Y: 10.0}
-		s.context.camera.zoom = 25.0 * 0.5
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
-	s.worldID.SetFrictionCallback(func(float32, uint64, float32, uint64) float32 { return 0.1 })
+	s.worldID.SetFrictionCallback(
+		func(float32, uint64, float32, uint64) float32 { return contactFriction },
+	)
 	s.worldID.SetRestitutionCallback(func(float32, uint64, float32, uint64) float32 { return 1.0 })
 
 	{
@@ -310,8 +442,8 @@ func CreateWeeble(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
@@ -320,8 +452,8 @@ func CreateWeeble(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 3.0}
-		bodyDef.Rotation = box2d.MakeRot(0.25 * box2d.Pi)
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: bodyStartHeight}
+		bodyDef.Rotation = box2d.MakeRot(initialAnglePiRatio * box2d.Pi)
 		s.weebleID = s.worldID.CreateBody(&bodyDef)
 
 		capsule := box2d.Capsule{
@@ -335,7 +467,7 @@ func CreateWeeble(context *SampleContext) Sampler {
 		mass := s.weebleID.Mass()
 		inertiaTensor := s.weebleID.RotationalInertia()
 
-		offset := float32(1.5)
+		offset := float32(massCenterOffset)
 
 		inertiaTensor += mass * offset * offset
 
@@ -347,15 +479,22 @@ func CreateWeeble(context *SampleContext) Sampler {
 		s.weebleID.SetMassData(massData)
 	}
 
-	s.explosionPosition = box2d.Pos{X: 0.0, Y: 0.0}
-	s.explosionRadius = 2.0
-	s.explosionMagnitude = 8.0
 	return s
 }
 
 func (s *Weeble) DrawControls() bool {
+	const (
+		teleportHeight       = 5.0
+		teleportAnglePiRatio = 0.95
+		controlWidthEm       = 6.0
+		magnitudeLimit       = 100.0
+	)
+
 	if imgui.Button("Teleport") {
-		s.weebleID.SetTransform(box2d.Pos{X: 0.0, Y: 5.0}, box2d.MakeRot(0.95*box2d.Pi))
+		s.weebleID.SetTransform(
+			box2d.Pos{X: 0.0, Y: teleportHeight},
+			box2d.MakeRot(teleportAnglePiRatio*box2d.Pi),
+		)
 	}
 
 	if imgui.Button("Explode") {
@@ -367,25 +506,38 @@ func (s *Weeble) DrawControls() bool {
 		s.worldID.Explode(&def)
 	}
 
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-	imgui.SliderFloatV("Magnitude", &s.explosionMagnitude, -100.0, 100.0, "%.1f", 0)
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+	imgui.SliderFloatV(
+		"Magnitude",
+		&s.explosionMagnitude,
+		-magnitudeLimit,
+		magnitudeLimit,
+		"%.1f",
+		0,
+	)
 	imgui.PopItemWidth()
 
 	return true
 }
 
 func (s *Weeble) Step() {
+	const (
+		velocityProbeHeight = 2.0
+		velocityLineOffset  = 0.05
+	)
+
 	s.Sample.Step()
 
 	s.context.draw.DrawCircle(s.explosionPosition, s.explosionRadius, box2d.ColorAzure)
 
-	localPoint := box2d.Vec2{X: 0.0, Y: 2.0}
+	localPoint := box2d.Vec2{X: 0.0, Y: velocityProbeHeight}
 	worldPoint := s.weebleID.WorldPoint(localPoint)
 
 	v1 := s.weebleID.LocalPointVelocity(localPoint)
 	v2 := s.weebleID.WorldPointVelocity(worldPoint)
 
-	offset := box2d.Vec2{X: 0.05, Y: 0.0}
+	offset := box2d.Vec2{X: velocityLineOffset, Y: 0.0}
+
 	s.context.draw.DrawLine(worldPoint, worldPoint.Add(v1), box2d.ColorRed)
 	s.context.draw.DrawLine(
 		worldPoint.Add(offset),
@@ -394,22 +546,40 @@ func (s *Weeble) Step() {
 	)
 }
 
-type Sleep struct {
-	Sample
-	pendulumID     box2d.Body
-	staticBodyID   box2d.Body
-	groundShapeID  box2d.Shape
-	sensorIDs      [2]box2d.Shape
-	sensorTouching [2]bool
-}
-
 func CreateSleep(context *SampleContext) Sampler {
-	s := &Sleep{}
+	const (
+		cameraCenterX       = 3.0
+		cameraCenterY       = 50.0
+		baseCameraZoom      = 25.0
+		cameraZoomScale     = 2.2
+		groundHalfLength    = 40.0
+		sensorBaseHeight    = 3.0
+		sensorHeightStep    = 2.0
+		sensorCapsuleRadius = 0.75
+		sleepCircleHeight   = 3.0
+		awakeBoxX           = 5.0
+		awakeBoxHeight      = 3.0
+		awakeBoxAnglePi     = 0.25
+		sleepBoxX           = 5.0
+		pendulumHeight      = 100.0
+		pendulumLength      = 90.0
+		pendulumRadius      = 0.25
+	)
+
+	s := &Sleep{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+		pendulumID:     box2d.Body{},
+		staticBodyID:   box2d.Body{},
+		groundShapeID:  box2d.Shape{},
+		sensorIDs:      [2]box2d.Shape{},
+		sensorTouching: [2]bool{},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 3.0, Y: 50.0}
-		s.context.camera.zoom = 25.0 * 2.2
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	var groundID box2d.Body
@@ -418,8 +588,8 @@ func CreateSleep(context *SampleContext) Sampler {
 		groundID = s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.EnableSensorEvents = true
@@ -429,7 +599,10 @@ func CreateSleep(context *SampleContext) Sampler {
 	for i := range 2 {
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -4.0, Y: posScalar(3.0 + 2.0*float32(i))}
+		bodyDef.Position = box2d.Pos{
+			X: -4.0,
+			Y: posScalar(sensorBaseHeight + sensorHeightStep*float32(i)),
+		}
 		bodyDef.IsAwake = false
 		bodyDef.EnableSleep = true
 		bodyID := s.worldID.CreateBody(&bodyDef)
@@ -437,7 +610,7 @@ func CreateSleep(context *SampleContext) Sampler {
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: 1.0},
 			Center2: box2d.Vec2{X: 1.0, Y: 1.0},
-			Radius:  0.75,
+			Radius:  sensorCapsuleRadius,
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		bodyID.CreateCapsuleShape(&shapeDef, &capsule)
@@ -452,7 +625,7 @@ func CreateSleep(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 3.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: sleepCircleHeight}
 		bodyDef.IsAwake = false
 		bodyDef.EnableSleep = false
 		bodyID := s.worldID.CreateBody(&bodyDef)
@@ -465,7 +638,7 @@ func CreateSleep(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 5.0, Y: 3.0}
+		bodyDef.Position = box2d.Pos{X: awakeBoxX, Y: awakeBoxHeight}
 		bodyDef.IsAwake = true
 		bodyDef.EnableSleep = false
 		bodyID := s.worldID.CreateBody(&bodyDef)
@@ -474,7 +647,7 @@ func CreateSleep(context *SampleContext) Sampler {
 			1.0,
 			1.0,
 			box2d.Vec2{X: 0.0, Y: 1.0},
-			box2d.MakeRot(0.25*box2d.Pi),
+			box2d.MakeRot(awakeBoxAnglePi*box2d.Pi),
 		)
 		shapeDef := box2d.DefaultShapeDef()
 		bodyID.CreatePolygonShape(&shapeDef, &box)
@@ -483,7 +656,7 @@ func CreateSleep(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 5.0, Y: 1.0}
+		bodyDef.Position = box2d.Pos{X: sleepBoxX, Y: 1.0}
 		bodyDef.IsAwake = false
 		bodyDef.EnableSleep = true
 		bodyID := s.worldID.CreateBody(&bodyDef)
@@ -496,15 +669,15 @@ func CreateSleep(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 100.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: pendulumHeight}
 		bodyDef.AngularDamping = 0.5
 		bodyDef.SleepThreshold = 0.05
 		s.pendulumID = s.worldID.CreateBody(&bodyDef)
 
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: 0.0, Y: 0.0},
-			Center2: box2d.Vec2{X: 90.0, Y: 0.0},
-			Radius:  0.25,
+			Center2: box2d.Vec2{X: pendulumLength, Y: 0.0},
+			Radius:  pendulumRadius,
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		s.pendulumID.CreateCapsuleShape(&shapeDef, &capsule)
@@ -531,21 +704,27 @@ func CreateSleep(context *SampleContext) Sampler {
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	s.staticBodyID = box2d.Body{}
 	return s
 }
 
 func (s *Sleep) ToggleInvoker() {
+	const (
+		invokerHeight       = 3.0
+		invokerHalfWidth    = 2.0
+		invokerHalfHeight   = 0.1
+		invokerAnglePiRatio = 0.25
+	)
+
 	if s.staticBodyID == (box2d.Body{}) {
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: -10.5, Y: 3.0}
+		bodyDef.Position = box2d.Pos{X: -10.5, Y: invokerHeight}
 		s.staticBodyID = s.worldID.CreateBody(&bodyDef)
 
 		box := box2d.MakeOffsetBox(
-			2.0,
-			0.1,
+			invokerHalfWidth,
+			invokerHalfHeight,
 			box2d.Vec2{X: 0.0, Y: 0.0},
-			box2d.MakeRot(0.25*box2d.Pi),
+			box2d.MakeRot(invokerAnglePiRatio*box2d.Pi),
 		)
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.InvokeContactCreation = true
@@ -557,7 +736,12 @@ func (s *Sleep) ToggleInvoker() {
 }
 
 func (s *Sleep) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const (
+		controlWidthEm    = 6.0
+		maxAngularDamping = 2.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 
 	imgui.Text("Pendulum Tuning")
 
@@ -568,7 +752,7 @@ func (s *Sleep) DrawControls() bool {
 	}
 
 	angularDamping := s.pendulumID.AngularDamping()
-	if imgui.SliderFloatV("angular damping", &angularDamping, 0.0, 2.0, "%.2f", 0) {
+	if imgui.SliderFloatV("angular damping", &angularDamping, 0.0, maxAngularDamping, "%.2f", 0) {
 		s.pendulumID.SetAngularDamping(angularDamping)
 	}
 
@@ -594,9 +778,10 @@ func (s *Sleep) Step() {
 
 	for event := range s.worldID.SensorBeginEvents() {
 		if event.VisitorShape == s.groundShapeID {
-			if event.SensorShape == s.sensorIDs[0] {
+			switch event.SensorShape {
+			case s.sensorIDs[0]:
 				s.sensorTouching[0] = true
-			} else if event.SensorShape == s.sensorIDs[1] {
+			case s.sensorIDs[1]:
 				s.sensorTouching[1] = true
 			}
 		}
@@ -604,31 +789,45 @@ func (s *Sleep) Step() {
 
 	for event := range s.worldID.SensorEndEvents() {
 		if event.VisitorShape == s.groundShapeID {
-			if event.SensorShape == s.sensorIDs[0] {
+			switch event.SensorShape {
+			case s.sensorIDs[0]:
 				s.sensorTouching[0] = false
-			} else if event.SensorShape == s.sensorIDs[1] {
+			case s.sensorIDs[1]:
 				s.sensorTouching[1] = false
 			}
 		}
 	}
 
 	for i := range 2 {
-		s.DrawScreenTextLine("sensor touch %d = %t", i, s.sensorTouching[i])
+		s.DrawScreenTextLinef("sensor touch %d = %t", i, s.sensorTouching[i])
 	}
 }
 
-type BadBody struct {
-	Sample
-	badBodyID box2d.Body
-}
-
 func CreateBadBody(context *SampleContext) Sampler {
-	s := &BadBody{}
+	const (
+		cameraCenterX       = 2.3
+		cameraCenterY       = 10.0
+		baseCameraZoom      = 25.0
+		cameraZoomScale     = 0.5
+		groundHalfLength    = 20.0
+		bodyHeight          = 3.0
+		bodyAnglePiFraction = 0.25
+		comparisonBodyX     = 2.0
+	)
+
+	s := &BadBody{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		badBodyID:       box2d.Body{},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 2.3, Y: 10.0}
-		s.context.camera.zoom = 25.0 * 0.5
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	{
@@ -636,8 +835,8 @@ func CreateBadBody(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
@@ -646,9 +845,9 @@ func CreateBadBody(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 3.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: bodyHeight}
 		bodyDef.AngularVelocity = 0.5
-		bodyDef.Rotation = box2d.MakeRot(0.25 * box2d.Pi)
+		bodyDef.Rotation = box2d.MakeRot(bodyAnglePiFraction * box2d.Pi)
 
 		s.badBodyID = s.worldID.CreateBody(&bodyDef)
 
@@ -666,8 +865,8 @@ func CreateBadBody(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 2.0, Y: 3.0}
-		bodyDef.Rotation = box2d.MakeRot(0.25 * box2d.Pi)
+		bodyDef.Position = box2d.Pos{X: comparisonBodyX, Y: bodyHeight}
+		bodyDef.Rotation = box2d.MakeRot(bodyAnglePiFraction * box2d.Pi)
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
@@ -685,31 +884,47 @@ func CreateBadBody(context *SampleContext) Sampler {
 }
 
 func (s *BadBody) Step() {
+	const appliedUpwardForce = 10.0
+
 	s.Sample.Step()
 
-	s.DrawScreenTextLine(
+	s.DrawScreenTextLinef(
 		"A bad body is a dynamic body with no mass and behaves like a kinematic body.",
 	)
-	s.DrawScreenTextLine(
+	s.DrawScreenTextLinef(
 		"Bad bodies are considered invalid and a user bug. Behavior is not guaranteed.",
 	)
 
-	s.badBodyID.ApplyForceToCenter(box2d.Vec2{X: 0.0, Y: 10.0}, true)
-}
-
-type Pivot struct {
-	Sample
-	bodyID box2d.Body
-	lever  float32
+	s.badBodyID.ApplyForceToCenter(box2d.Vec2{X: 0.0, Y: appliedUpwardForce}, true)
 }
 
 func CreatePivot(context *SampleContext) Sampler {
-	s := &Pivot{}
+	const (
+		cameraCenterX    = 0.8
+		cameraCenterY    = 6.4
+		baseCameraZoom   = 25.0
+		cameraZoomScale  = 0.4
+		groundHalfLength = 20.0
+		initialVelocityX = 5.0
+		bodyHeight       = 3.0
+		leverHalfWidth   = 0.1
+		leverLength      = 3.0
+	)
+
+	s := &Pivot{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		bodyID:          box2d.Body{},
+		lever:           leverLength,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.8, Y: 6.4}
-		s.context.camera.zoom = 25.0 * 0.4
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
+		s.context.camera.zoom = baseCameraZoom * cameraZoomScale
 	}
 
 	{
@@ -717,31 +932,30 @@ func CreatePivot(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
 	{
-		v := box2d.Vec2{X: 5.0, Y: 0.0}
+		v := box2d.Vec2{X: initialVelocityX, Y: 0.0}
 
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 3.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: bodyHeight}
 		bodyDef.GravityScale = 1.0
 		bodyDef.LinearVelocity = v
 
 		s.bodyID = s.worldID.CreateBody(&bodyDef)
 
-		s.lever = 3.0
 		r := box2d.Vec2{X: 0.0, Y: -s.lever}
 
 		omega := v.Cross(r) / r.Dot(r)
 		s.bodyID.SetAngularVelocity(omega)
 
-		box := box2d.MakeBox(0.1, s.lever)
+		box := box2d.MakeBox(leverHalfWidth, s.lever)
 
 		shapeDef := box2d.DefaultShapeDef()
 		s.bodyID.CreatePolygonShape(&shapeDef, &box)
@@ -758,18 +972,27 @@ func (s *Pivot) Step() {
 	r := s.bodyID.WorldVector(box2d.Vec2{X: 0.0, Y: -s.lever})
 
 	vp := v.Add(r.ScalarCross(omega))
-	s.DrawScreenTextLine("pivot velocity = (%.6g, %.6g)", vp.X, vp.Y)
-}
-
-type Kinematic struct {
-	Sample
-	bodyID    box2d.Body
-	amplitude float32
-	time      float32
+	s.DrawScreenTextLinef("pivot velocity = (%.6g, %.6g)", vp.X, vp.Y)
 }
 
 func CreateKinematic(context *SampleContext) Sampler {
-	s := &Kinematic{}
+	const (
+		horizontalAmplitudeScale = 2.0
+		bodyHalfWidth            = 0.1
+		bodyHalfHeight           = 1.0
+		motionAmplitude          = 2.0
+	)
+
+	s := &Kinematic{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		bodyID:          box2d.Body{},
+		amplitude:       motionAmplitude,
+		time:            0,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
@@ -777,47 +1000,55 @@ func CreateKinematic(context *SampleContext) Sampler {
 		s.context.camera.zoom = 4.0
 	}
 
-	s.amplitude = 2.0
-
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.KinematicBody
-		bodyDef.Position.X = posScalar(2.0 * s.amplitude)
+		bodyDef.Position.X = posScalar(horizontalAmplitudeScale * s.amplitude)
 
 		s.bodyID = s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(0.1, 1.0)
+		box := box2d.MakeBox(bodyHalfWidth, bodyHalfHeight)
 		shapeDef := box2d.DefaultShapeDef()
 		s.bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	s.time = 0.0
 	return s
 }
 
 func (s *Kinematic) Step() {
+	const (
+		horizontalAmplitudeScale = 2.0
+		verticalFrequencyScale   = 2.0
+		angularFrequencyScale    = 2.0
+		axisHalfLength           = 0.5
+		markerSize               = 10.0
+	)
+
 	var timeStep float32
 	if s.context.hertz > 0.0 {
 		timeStep = 1.0 / s.context.hertz
 	}
+
 	if s.context.pause && s.context.singleStep == 0 {
 		timeStep = 0.0
 	}
 
 	if timeStep > 0.0 {
 		point := box2d.Pos{
-			X: posScalar(2.0 * s.amplitude * float32(math.Cos(float64(s.time)))),
-			Y: posScalar(s.amplitude * float32(math.Sin(float64(2.0*s.time)))),
+			X: posScalar(
+				horizontalAmplitudeScale * s.amplitude * float32(math.Cos(float64(s.time))),
+			),
+			Y: posScalar(s.amplitude * float32(math.Sin(float64(verticalFrequencyScale*s.time)))),
 		}
-		rotation := box2d.MakeRot(2.0 * s.time)
+		rotation := box2d.MakeRot(angularFrequencyScale * s.time)
 
 		axis := rotation.Rotate(box2d.Vec2{X: 0.0, Y: 1.0})
 		s.context.draw.DrawLine(
-			point.Add(axis.Scale(-0.5)),
-			point.Add(axis.Scale(0.5)),
+			point.Add(axis.Scale(-axisHalfLength)),
+			point.Add(axis.Scale(axisHalfLength)),
 			box2d.ColorPlum,
 		)
-		s.context.draw.DrawPoint(point, 10.0, box2d.ColorPlum)
+		s.context.draw.DrawPoint(point, markerSize, box2d.ColorPlum)
 
 		wake := true
 		s.bodyID.SetTargetTransform(box2d.WorldTransform{P: point, Q: rotation}, timeStep, wake)
@@ -828,16 +1059,26 @@ func (s *Kinematic) Step() {
 	s.time += timeStep
 }
 
-type MixedLocks struct {
-	Sample
-}
-
 func CreateMixedLocks(context *SampleContext) Sampler {
-	s := &MixedLocks{}
+	const (
+		cameraHeight         = 2.5
+		groundHalfLength     = 40.0
+		boxHalfExtent        = 0.5
+		staticBodyX          = 2.0
+		upperFreeBodyHeight  = 3.0
+		horizontalLockX      = -2.0
+		horizontalLockHeight = 2.0
+		mixedLockHeight      = 2.5
+	)
+
+	s := &MixedLocks{
+		context: context, camera: &context.camera, draw: context.draw,
+		screenTextX: initialScreenTextX, mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 2.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 3.5
 	}
 
@@ -847,13 +1088,13 @@ func CreateMixedLocks(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
-	box := box2d.MakeSquare(0.5)
+	box := box2d.MakeSquare(boxHalfExtent)
 	shapeDef := box2d.DefaultShapeDef()
 
 	create := func(bodyType box2d.BodyType, position box2d.Pos, locks box2d.MotionLocks, name string) {
@@ -867,25 +1108,34 @@ func CreateMixedLocks(context *SampleContext) Sampler {
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 
-	create(box2d.StaticBody, box2d.Pos{X: 2.0, Y: 1.0}, box2d.MotionLocks{}, "static")
-	create(box2d.DynamicBody, box2d.Pos{X: 1.0, Y: 1.0}, box2d.MotionLocks{}, "free")
-	create(box2d.DynamicBody, box2d.Pos{X: 1.0, Y: 3.0}, box2d.MotionLocks{}, "free")
+	create(
+		box2d.StaticBody, box2d.Pos{X: staticBodyX, Y: 1.0},
+		box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: false}, "static",
+	)
+	create(
+		box2d.DynamicBody, box2d.Pos{X: 1.0, Y: 1.0},
+		box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: false}, "free",
+	)
+	create(
+		box2d.DynamicBody, box2d.Pos{X: 1.0, Y: upperFreeBodyHeight},
+		box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: false}, "free",
+	)
 	create(
 		box2d.DynamicBody,
 		box2d.Pos{X: -1.0, Y: 1.0},
-		box2d.MotionLocks{AngularZ: true},
+		box2d.MotionLocks{LinearX: false, LinearY: false, AngularZ: true},
 		"angular z",
 	)
 	create(
 		box2d.DynamicBody,
-		box2d.Pos{X: -2.0, Y: 2.0},
-		box2d.MotionLocks{LinearX: true},
+		box2d.Pos{X: horizontalLockX, Y: horizontalLockHeight},
+		box2d.MotionLocks{LinearX: true, LinearY: false, AngularZ: false},
 		"linear x",
 	)
 	create(
 		box2d.DynamicBody,
-		box2d.Pos{X: -1.0, Y: 2.5},
-		box2d.MotionLocks{LinearY: true, AngularZ: true},
+		box2d.Pos{X: -1.0, Y: mixedLockHeight},
+		box2d.MotionLocks{LinearX: false, LinearY: true, AngularZ: true},
 		"lin y ang z",
 	)
 	create(
@@ -898,27 +1148,36 @@ func CreateMixedLocks(context *SampleContext) Sampler {
 	return s
 }
 
-type SetVelocity struct {
-	Sample
-	bodyID box2d.Body
-}
-
 func CreateSetVelocity(context *SampleContext) Sampler {
-	s := &SetVelocity{}
+	const (
+		cameraHeight     = 2.5
+		groundHalfWidth  = 20.0
+		groundHalfHeight = 0.25
+		boxHalfExtent    = 0.5
+	)
+
+	s := &SetVelocity{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		bodyID:          box2d.Body{},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 2.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 3.5
 	}
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: -0.25}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: -groundHalfHeight}
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeBox(20.0, 0.25)
+		box := box2d.MakeBox(groundHalfWidth, groundHalfHeight)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
@@ -927,8 +1186,8 @@ func CreateSetVelocity(context *SampleContext) Sampler {
 		bodyDef.Type = box2d.DynamicBody
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeSquare(0.5)
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 0.5}
+		box := box2d.MakeSquare(boxHalfExtent)
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: boxHalfExtent}
 		s.bodyID = s.worldID.CreateBody(&bodyDef)
 		s.bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
@@ -942,22 +1201,29 @@ func (s *SetVelocity) Step() {
 	s.bodyID.SetLinearVelocity(box2d.Vec2{X: 0.0, Y: -20.0})
 
 	position := s.bodyID.Position()
-	s.DrawScreenTextLine("(x, y) = (%.2g, %.2g)", position.X, position.Y)
-}
-
-const wakeTouchingCount = 10
-
-type WakeTouching struct {
-	Sample
-	groundID box2d.Body
+	s.DrawScreenTextLinef("(x, y) = (%.2g, %.2g)", position.X, position.Y)
 }
 
 func CreateWakeTouching(context *SampleContext) Sampler {
-	s := &WakeTouching{}
+	const (
+		cameraHeight     = 4.0
+		groundHalfLength = 20.0
+		boxHalfExtent    = 0.5
+		dropHeight       = 4.0
+	)
+
+	s := &WakeTouching{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		groundID:        box2d.Body{},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 4.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraHeight}
 		s.context.camera.zoom = 8.0
 	}
 
@@ -966,14 +1232,14 @@ func CreateWakeTouching(context *SampleContext) Sampler {
 		s.groundID = s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfLength, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfLength, Y: 0.0},
 		}
 		shapeDef := box2d.DefaultShapeDef()
 		s.groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
 
-	box := box2d.MakeBox(0.5, 0.5)
+	box := box2d.MakeBox(boxHalfExtent, boxHalfExtent)
 
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Density = 1.0
@@ -984,9 +1250,10 @@ func CreateWakeTouching(context *SampleContext) Sampler {
 	x := -1.0 * float32(wakeTouchingCount-1)
 
 	for range wakeTouchingCount {
-		bodyDef.Position = box2d.Pos{X: posScalar(x), Y: 4.0}
+		bodyDef.Position = box2d.Pos{X: posScalar(x), Y: dropHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
+
 		x += 2.0
 	}
 
@@ -1001,7 +1268,7 @@ func (s *WakeTouching) DrawControls() bool {
 	return true
 }
 
-func init() {
+func registerBodySamples() {
 	RegisterSample("Bodies", "Body Type", CreateBodyType)
 	RegisterSample("Bodies", "Weeble", CreateWeeble)
 	RegisterSample("Bodies", "Sleep", CreateSleep)

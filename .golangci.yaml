@@ -247,6 +247,7 @@ linters:
         - "^log/slog\\.HandlerOptions$"
         - "^os/exec\\.Cmd$"
         - "^syscall\\.SysProcAttr$"
+        - "^github\\.com/ncruces/zenity\\.FileFilter$"
     staticcheck:
       checks:
         - all

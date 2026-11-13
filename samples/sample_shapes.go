@@ -17,41 +17,196 @@ const (
 	shapeChoiceBox     = 2
 )
 
+const (
+	chainSegmentSegmentCount = 32
+	chainSegmentPointCount   = chainSegmentSegmentCount + 3
+)
+
+const (
+	shapeFilterGround  = 0x00000001
+	shapeFilterTeam1   = 0x00000002
+	shapeFilterTeam2   = 0x00000004
+	shapeFilterTeam3   = 0x00000008
+	shapeFilterAllBits = 0xFFFFFFFF
+)
+
+const customFilterCount = 10
+
+const tangentSpeedTotalCount = 200
+
+const windMaxCount = 60
+
 var shapeChoiceNames = []string{"Circle", "Capsule", "Box"}
 
 type ChainShape struct {
 	Sample
 
-	groundID  box2d.Body
-	bodyID    box2d.Body
-	chainID   box2d.Chain
+	groundID  box2d.Body  //exhaustruct:optional
+	bodyID    box2d.Body  //exhaustruct:optional
+	chainID   box2d.Chain //exhaustruct:optional
 	shapeType int32
-	shapeID   box2d.Shape
+	shapeID   box2d.Shape //exhaustruct:optional
 	material  box2d.SurfaceMaterial
 }
 
+type ChainSegmentShape struct {
+	Sample
+
+	bodyID        box2d.Body //exhaustruct:optional
+	shapeType     int32
+	segmentShapes [chainSegmentSegmentCount]box2d.Shape //exhaustruct:optional
+	points        [chainSegmentPointCount]box2d.Vec2    //exhaustruct:optional
+	mutateIndex   int                                   //exhaustruct:optional
+}
+
+// This sample shows how careful creation of compound shapes leads to better simulation and avoids
+// objects getting stuck.
+// This also shows how to get the combined AABB for the body.
+type CompoundShapes struct {
+	Sample
+
+	table1ID      box2d.Body //exhaustruct:optional
+	table2ID      box2d.Body //exhaustruct:optional
+	ship1ID       box2d.Body //exhaustruct:optional
+	ship2ID       box2d.Body //exhaustruct:optional
+	drawBodyAABBs bool       //exhaustruct:optional
+}
+
+type ShapeFilter struct {
+	Sample
+
+	player1ID box2d.Body //exhaustruct:optional
+	player2ID box2d.Body //exhaustruct:optional
+	player3ID box2d.Body //exhaustruct:optional
+
+	shape1ID box2d.Shape //exhaustruct:optional
+	shape2ID box2d.Shape //exhaustruct:optional
+	shape3ID box2d.Shape //exhaustruct:optional
+}
+
+// This shows how to use custom filtering.
+type CustomFilter struct {
+	Sample
+
+	bodyIDs  [customFilterCount]box2d.Body  //exhaustruct:optional
+	shapeIDs [customFilterCount]box2d.Shape //exhaustruct:optional
+}
+
+type Friction struct {
+	Sample
+}
+
+type RollingResistance struct {
+	Sample
+
+	resistScale float32
+	lift        float32 //exhaustruct:optional
+}
+
+type ConveyorBelt struct {
+	Sample
+}
+
+type TangentSpeed struct {
+	Sample
+
+	bodyIDs           []box2d.Body //exhaustruct:optional
+	friction          float32
+	rollingResistance float32
+}
+
+// This sample shows how to modify the geometry on an existing shape. This is only supported on
+// dynamic and kinematic shapes because static shapes don't look for new collisions.
+type ModifyGeometry struct {
+	Sample
+
+	shapeID   box2d.Shape //exhaustruct:optional
+	shapeType box2d.ShapeType
+	scale     float32
+
+	circle  box2d.Circle
+	capsule box2d.Capsule //exhaustruct:optional
+	segment box2d.Segment //exhaustruct:optional
+	polygon box2d.Polygon //exhaustruct:optional
+}
+
+// Shows how to link chain shapes together to build large game levels with smooth collision.
+type ChainLink struct {
+	Sample
+}
+
+type RoundedShapes struct {
+	Sample
+}
+
+type EllipseShape struct {
+	Sample
+}
+
+type OffsetShapes struct {
+	Sample
+}
+
+// This shows how to use explosions and demonstrates the projected perimeter.
+type Explosion struct {
+	Sample
+
+	jointIDs       []box2d.Joint //exhaustruct:optional
+	radius         float32
+	falloff        float32
+	impulse        float32
+	referenceAngle float32 //exhaustruct:optional
+}
+
+// This sample tests a static shape being recreated every step.
+type RecreateStatic struct {
+	Sample
+
+	groundID box2d.Body //exhaustruct:optional
+}
+
+type Wind struct {
+	Sample
+
+	shapeType int32
+	wind      box2d.Vec2
+	drag      float32
+	lift      float32
+	noise     box2d.Vec2               //exhaustruct:optional
+	groundID  box2d.Body               //exhaustruct:optional
+	bodyIDs   [windMaxCount]box2d.Body //exhaustruct:optional
+	count     int32
+}
+
 func CreateChainShape(context *SampleContext) Sampler {
-	s := &ChainShape{}
+	const (
+		cameraBaseZoom  = 25.0
+		cameraZoomScale = 1.75
+	)
+
+	s := &ChainShape{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		shapeType:       shapeChoiceCircle,
+		material:        box2d.DefaultSurfaceMaterial(),
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
 		s.context.camera.center = box2d.Pos{X: 0.0, Y: 0.0}
-		s.context.camera.zoom = 25.0 * 1.75
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
 	}
 
-	s.groundID = box2d.Body{}
-	s.bodyID = box2d.Body{}
-	s.chainID = box2d.Chain{}
-	s.shapeID = box2d.Shape{}
-	s.shapeType = shapeChoiceCircle
-
-	s.material = box2d.DefaultSurfaceMaterial()
 	s.material.Friction = 0.2
 	s.material.CustomColor = uint32(box2d.ColorSteelBlue)
 	s.material.UserMaterialID = 42
 
 	s.CreateScene()
 	s.Launch()
+
 	return s
 }
 
@@ -61,6 +216,7 @@ func (s *ChainShape) CreateScene() {
 	}
 
 	// https://betravis.github.io/shape-tools/path-to-polygon/
+	//nolint:mnd // These are the authored path's sampled polygon coordinates.
 	points := []box2d.Vec2{
 		{X: -56.885498, Y: 12.8985004},
 		{X: -56.885498, Y: 16.2057495},
@@ -95,30 +251,39 @@ func (s *ChainShape) CreateScene() {
 }
 
 func (s *ChainShape) Launch() {
+	const (
+		launchHeight      = 13.5
+		circleRadius      = 0.5
+		capsuleHalfLength = 0.5
+		capsuleRadius     = 0.25
+		boxHalfExtent     = 0.5
+	)
+
 	if s.bodyID != (box2d.Body{}) {
 		s.bodyID.Destroy()
 	}
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: -55.0, Y: 13.5}
+	bodyDef.Position = box2d.Pos{X: -55.0, Y: launchHeight}
 	s.bodyID = s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Material = s.material
 
-	if s.shapeType == shapeChoiceCircle {
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+	switch s.shapeType {
+	case shapeChoiceCircle:
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: circleRadius}
 		s.shapeID = s.bodyID.CreateCircleShape(&shapeDef, &circle)
-	} else if s.shapeType == shapeChoiceCapsule {
+	case shapeChoiceCapsule:
 		capsule := box2d.Capsule{
-			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
-			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
-			Radius:  0.25,
+			Center1: box2d.Vec2{X: -capsuleHalfLength, Y: 0.0},
+			Center2: box2d.Vec2{X: capsuleHalfLength, Y: 0.0},
+			Radius:  capsuleRadius,
 		}
 		s.shapeID = s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
-	} else {
-		h := float32(0.5)
+	default:
+		h := float32(boxHalfExtent)
 		box := box2d.MakeBox(h, h)
 		s.shapeID = s.bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
@@ -127,7 +292,12 @@ func (s *ChainShape) Launch() {
 }
 
 func (s *ChainShape) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const (
+		controlWidthEm        = 6.0
+		maxSurfaceCoefficient = 2.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 
 	if imgui.ComboStrarr("Shape", &s.shapeType, shapeChoiceNames, int32(len(shapeChoiceNames))) {
 		s.Launch()
@@ -138,7 +308,14 @@ func (s *ChainShape) DrawControls() bool {
 		s.chainID.SetAllSurfaceMaterials(&s.material)
 	}
 
-	if imgui.SliderFloatV("Restitution", &s.material.Restitution, 0.0, 2.0, "%.1f", 0) {
+	if imgui.SliderFloatV(
+		"Restitution",
+		&s.material.Restitution,
+		0.0,
+		maxSurfaceCoefficient,
+		"%.1f",
+		0,
+	) {
 		s.shapeID.SetSurfaceMaterial(&s.material)
 	}
 
@@ -152,39 +329,41 @@ func (s *ChainShape) DrawControls() bool {
 }
 
 func (s *ChainShape) Step() {
+	const (
+		axisLength = 0.5
+	)
+
 	s.Sample.Step()
 
-	s.draw.DrawLine(box2d.Pos{}, box2d.Vec2{X: 0.5, Y: 0.0}.Pos(), box2d.ColorRed)
-	s.draw.DrawLine(box2d.Pos{}, box2d.Vec2{X: 0.0, Y: 0.5}.Pos(), box2d.ColorGreen)
-}
+	var origin box2d.Pos
 
-const (
-	chainSegmentSegmentCount = 32
-	chainSegmentPointCount   = chainSegmentSegmentCount + 3
-)
-
-type ChainSegmentShape struct {
-	Sample
-
-	bodyID        box2d.Body
-	shapeType     int32
-	segmentShapes [chainSegmentSegmentCount]box2d.Shape
-	points        [chainSegmentPointCount]box2d.Vec2
-	mutateIndex   int
+	s.draw.DrawLine(origin, box2d.Vec2{X: axisLength, Y: 0.0}.Pos(), box2d.ColorRed)
+	s.draw.DrawLine(origin, box2d.Vec2{X: 0.0, Y: axisLength}.Pos(), box2d.ColorGreen)
 }
 
 func CreateChainSegmentShape(context *SampleContext) Sampler {
-	s := &ChainSegmentShape{}
+	const (
+		cameraBaseZoom   = 25.0
+		terrainHalfWidth = 25.0
+		terrainWidth     = 50.0
+		terrainAmplitude = 1.5
+		terrainFrequency = 0.18
+	)
+
+	s := &ChainSegmentShape{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		shapeType:       shapeChoiceCircle,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
 		s.context.camera.center = box2d.Pos{X: 0.0, Y: 0.0}
-		s.context.camera.zoom = 25.0 * 1.0
+		s.context.camera.zoom = cameraBaseZoom * 1.0
 	}
-
-	s.bodyID = box2d.Body{}
-	s.shapeType = shapeChoiceCircle
-	s.mutateIndex = 0
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
@@ -192,14 +371,16 @@ func CreateChainSegmentShape(context *SampleContext) Sampler {
 
 		// Walk right-to-left so the right-perpendicular normal of (point2 - point1) points up.
 		for i := range chainSegmentPointCount {
-			x := 25.0 - 50.0*float32(i)/(chainSegmentPointCount-1)
-			y := 1.5 * sinf(0.18*x)
+			x := terrainHalfWidth - terrainWidth*float32(i)/(chainSegmentPointCount-1)
+			y := terrainAmplitude * sinf(terrainFrequency*x)
 			s.points[i] = box2d.Vec2{X: x, Y: y}
 		}
 
 		shapeDef := box2d.DefaultShapeDef()
+
 		for i := range chainSegmentSegmentCount {
 			var chainSegment box2d.ChainSegment
+
 			chainSegment.Ghost1 = s.points[i]
 			chainSegment.Segment.Point1 = s.points[i+1]
 			chainSegment.Segment.Point2 = s.points[i+2]
@@ -210,32 +391,43 @@ func CreateChainSegmentShape(context *SampleContext) Sampler {
 	}
 
 	s.Launch()
+
 	return s
 }
 
 func (s *ChainSegmentShape) Launch() {
+	const (
+		launchHeight      = 5.0
+		circleRadius      = 0.25
+		capsuleHalfLength = 0.5
+		capsuleRadius     = 0.25
+		boxHalfExtent     = 0.5
+	)
+
 	if s.bodyID != (box2d.Body{}) {
 		s.bodyID.Destroy()
 	}
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: -18.0, Y: 5.0}
+	bodyDef.Position = box2d.Pos{X: -18.0, Y: launchHeight}
 	s.bodyID = s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
-	if s.shapeType == shapeChoiceCircle {
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.25}
+
+	switch s.shapeType {
+	case shapeChoiceCircle:
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: circleRadius}
 		s.bodyID.CreateCircleShape(&shapeDef, &circle)
-	} else if s.shapeType == shapeChoiceCapsule {
+	case shapeChoiceCapsule:
 		capsule := box2d.Capsule{
-			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
-			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
-			Radius:  0.25,
+			Center1: box2d.Vec2{X: -capsuleHalfLength, Y: 0.0},
+			Center2: box2d.Vec2{X: capsuleHalfLength, Y: 0.0},
+			Radius:  capsuleRadius,
 		}
 		s.bodyID.CreateCapsuleShape(&shapeDef, &capsule)
-	} else {
-		box := box2d.MakeSquare(0.5)
+	default:
+		box := box2d.MakeSquare(boxHalfExtent)
 		s.bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 }
@@ -253,6 +445,7 @@ func (s *ChainSegmentShape) Mutate() {
 	s.points[index].Y += 0.25
 
 	var cs box2d.ChainSegment
+
 	cs.Ghost1 = s.points[index-1]
 	cs.Segment.Point1 = s.points[index]
 	cs.Segment.Point2 = s.points[index+1]
@@ -263,6 +456,7 @@ func (s *ChainSegmentShape) Mutate() {
 
 	if index-1 > 0 {
 		var cs2 box2d.ChainSegment
+
 		cs2.Ghost1 = s.points[index-2]
 		cs2.Segment.Point1 = s.points[index-1]
 		cs2.Segment.Point2 = s.points[index]
@@ -273,6 +467,7 @@ func (s *ChainSegmentShape) Mutate() {
 
 	if index+1 < chainSegmentPointCount-2 {
 		var cs3 box2d.ChainSegment
+
 		cs3.Ghost1 = s.points[index]
 		cs3.Segment.Point1 = s.points[index+1]
 		cs3.Segment.Point2 = s.points[index+2]
@@ -283,7 +478,11 @@ func (s *ChainSegmentShape) Mutate() {
 }
 
 func (s *ChainSegmentShape) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const (
+		controlWidthEm = 6.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 
 	if imgui.ComboStrarr("Shape", &s.shapeType, shapeChoiceNames, int32(len(shapeChoiceNames))) {
 		s.Launch()
@@ -302,26 +501,40 @@ func (s *ChainSegmentShape) DrawControls() bool {
 	return true
 }
 
-// This sample shows how careful creation of compound shapes leads to better simulation and avoids
-// objects getting stuck.
-// This also shows how to get the combined AABB for the body.
-type CompoundShapes struct {
-	Sample
-
-	table1ID      box2d.Body
-	table2ID      box2d.Body
-	ship1ID       box2d.Body
-	ship2ID       box2d.Body
-	drawBodyAABBs bool
-}
-
 func CreateCompoundShapes(context *SampleContext) Sampler {
-	s := &CompoundShapes{}
+	const (
+		cameraBaseZoom     = 25.0
+		cameraCenterHeight = 6.0
+		cameraZoomScale    = 0.5
+		groundHalfWidth    = 50.0
+		tableHalfWidth     = 3.0
+		tableHalfThickness = 0.5
+		tableTopHeight     = 3.5
+		tableLegHalfWidth  = 0.5
+		shortLegHalfHeight = 1.5
+		tableLegOffset     = 2.5
+		tallLegHalfHeight  = 2.0
+		leftShipX          = 5.0
+		shipVertexCount    = 3
+		shipHeight         = 4.0
+		shipNotchDivisor   = 3.0
+		shipHalfWidth      = 2.0
+		rightShipX         = 15.0
+		shipNotchHeight    = 2.0
+	)
+
+	s := &CompoundShapes{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 6.0}
-		s.context.camera.zoom = 25.0 * 0.5
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterHeight}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
 	}
 
 	{
@@ -329,8 +542,8 @@ func CreateCompoundShapes(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: 50.0, Y: 0.0},
-			Point2: box2d.Vec2{X: -50.0, Y: 0.0},
+			Point1: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: -groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -343,9 +556,24 @@ func CreateCompoundShapes(context *SampleContext) Sampler {
 		s.table1ID = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		top := box2d.MakeOffsetBox(3.0, 0.5, box2d.Vec2{X: 0.0, Y: 3.5}, box2d.RotIdentity)
-		leftLeg := box2d.MakeOffsetBox(0.5, 1.5, box2d.Vec2{X: -2.5, Y: 1.5}, box2d.RotIdentity)
-		rightLeg := box2d.MakeOffsetBox(0.5, 1.5, box2d.Vec2{X: 2.5, Y: 1.5}, box2d.RotIdentity)
+		top := box2d.MakeOffsetBox(
+			tableHalfWidth,
+			tableHalfThickness,
+			box2d.Vec2{X: 0.0, Y: tableTopHeight},
+			box2d.RotIdentity,
+		)
+		leftLeg := box2d.MakeOffsetBox(
+			tableLegHalfWidth,
+			shortLegHalfHeight,
+			box2d.Vec2{X: -tableLegOffset, Y: shortLegHalfHeight},
+			box2d.RotIdentity,
+		)
+		rightLeg := box2d.MakeOffsetBox(
+			tableLegHalfWidth,
+			shortLegHalfHeight,
+			box2d.Vec2{X: tableLegOffset, Y: shortLegHalfHeight},
+			box2d.RotIdentity,
+		)
 
 		s.table1ID.CreatePolygonShape(&shapeDef, &top)
 		s.table1ID.CreatePolygonShape(&shapeDef, &leftLeg)
@@ -360,9 +588,24 @@ func CreateCompoundShapes(context *SampleContext) Sampler {
 		s.table2ID = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		top := box2d.MakeOffsetBox(3.0, 0.5, box2d.Vec2{X: 0.0, Y: 3.5}, box2d.RotIdentity)
-		leftLeg := box2d.MakeOffsetBox(0.5, 2.0, box2d.Vec2{X: -2.5, Y: 2.0}, box2d.RotIdentity)
-		rightLeg := box2d.MakeOffsetBox(0.5, 2.0, box2d.Vec2{X: 2.5, Y: 2.0}, box2d.RotIdentity)
+		top := box2d.MakeOffsetBox(
+			tableHalfWidth,
+			tableHalfThickness,
+			box2d.Vec2{X: 0.0, Y: tableTopHeight},
+			box2d.RotIdentity,
+		)
+		leftLeg := box2d.MakeOffsetBox(
+			tableLegHalfWidth,
+			tallLegHalfHeight,
+			box2d.Vec2{X: -tableLegOffset, Y: tallLegHalfHeight},
+			box2d.RotIdentity,
+		)
+		rightLeg := box2d.MakeOffsetBox(
+			tableLegHalfWidth,
+			tallLegHalfHeight,
+			box2d.Vec2{X: tableLegOffset, Y: tallLegHalfHeight},
+			box2d.RotIdentity,
+		)
 
 		s.table2ID.CreatePolygonShape(&shapeDef, &top)
 		s.table2ID.CreatePolygonShape(&shapeDef, &leftLeg)
@@ -373,21 +616,21 @@ func CreateCompoundShapes(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 5.0, Y: 1.0}
+		bodyDef.Position = box2d.Pos{X: leftShipX, Y: 1.0}
 		s.ship1ID = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		vertices := make([]box2d.Vec2, 3)
+		vertices := make([]box2d.Vec2, shipVertexCount)
 
-		vertices[0] = box2d.Vec2{X: -2.0, Y: 0.0}
-		vertices[1] = box2d.Vec2{X: 0.0, Y: 4.0 / 3.0}
-		vertices[2] = box2d.Vec2{X: 0.0, Y: 4.0}
+		vertices[0] = box2d.Vec2{X: -shipHalfWidth, Y: 0.0}
+		vertices[1] = box2d.Vec2{X: 0.0, Y: shipHeight / shipNotchDivisor}
+		vertices[2] = box2d.Vec2{X: 0.0, Y: shipHeight}
 		hull := box2d.ComputeHull(vertices)
 		left := box2d.MakePolygon(&hull, 0.0)
 
-		vertices[0] = box2d.Vec2{X: 2.0, Y: 0.0}
-		vertices[1] = box2d.Vec2{X: 0.0, Y: 4.0 / 3.0}
-		vertices[2] = box2d.Vec2{X: 0.0, Y: 4.0}
+		vertices[0] = box2d.Vec2{X: shipHalfWidth, Y: 0.0}
+		vertices[1] = box2d.Vec2{X: 0.0, Y: shipHeight / shipNotchDivisor}
+		vertices[2] = box2d.Vec2{X: 0.0, Y: shipHeight}
 		hull = box2d.ComputeHull(vertices)
 		right := box2d.MakePolygon(&hull, 0.0)
 
@@ -399,21 +642,21 @@ func CreateCompoundShapes(context *SampleContext) Sampler {
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 15.0, Y: 1.0}
+		bodyDef.Position = box2d.Pos{X: rightShipX, Y: 1.0}
 		s.ship2ID = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		vertices := make([]box2d.Vec2, 3)
+		vertices := make([]box2d.Vec2, shipVertexCount)
 
-		vertices[0] = box2d.Vec2{X: -2.0, Y: 0.0}
-		vertices[1] = box2d.Vec2{X: 1.0, Y: 2.0}
-		vertices[2] = box2d.Vec2{X: 0.0, Y: 4.0}
+		vertices[0] = box2d.Vec2{X: -shipHalfWidth, Y: 0.0}
+		vertices[1] = box2d.Vec2{X: 1.0, Y: shipNotchHeight}
+		vertices[2] = box2d.Vec2{X: 0.0, Y: shipHeight}
 		hull := box2d.ComputeHull(vertices)
 		left := box2d.MakePolygon(&hull, 0.0)
 
-		vertices[0] = box2d.Vec2{X: 2.0, Y: 0.0}
-		vertices[1] = box2d.Vec2{X: -1.0, Y: 2.0}
-		vertices[2] = box2d.Vec2{X: 0.0, Y: 4.0}
+		vertices[0] = box2d.Vec2{X: shipHalfWidth, Y: 0.0}
+		vertices[1] = box2d.Vec2{X: -1.0, Y: shipNotchHeight}
+		vertices[2] = box2d.Vec2{X: 0.0, Y: shipHeight}
 		hull = box2d.ComputeHull(vertices)
 		right := box2d.MakePolygon(&hull, 0.0)
 
@@ -421,11 +664,18 @@ func CreateCompoundShapes(context *SampleContext) Sampler {
 		s.ship2ID.CreatePolygonShape(&shapeDef, &right)
 	}
 
-	s.drawBodyAABBs = false
 	return s
 }
 
 func (s *CompoundShapes) Spawn() {
+	const (
+		tableObstructionHalfWidth  = 4.0
+		tableObstructionHalfHeight = 0.1
+		tableObstructionHeight     = 3.0
+		shipObstructionHeight      = 2.0
+		shipObstructionRadius      = 0.5
+	)
+
 	// Table 1 obstruction
 	{
 		bodyDef := box2d.DefaultBodyDef()
@@ -435,7 +685,12 @@ func (s *CompoundShapes) Spawn() {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeOffsetBox(4.0, 0.1, box2d.Vec2{X: 0.0, Y: 3.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			tableObstructionHalfWidth,
+			tableObstructionHalfHeight,
+			box2d.Vec2{X: 0.0, Y: tableObstructionHeight},
+			box2d.RotIdentity,
+		)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 
@@ -448,7 +703,12 @@ func (s *CompoundShapes) Spawn() {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeOffsetBox(4.0, 0.1, box2d.Vec2{X: 0.0, Y: 3.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			tableObstructionHalfWidth,
+			tableObstructionHalfHeight,
+			box2d.Vec2{X: 0.0, Y: tableObstructionHeight},
+			box2d.RotIdentity,
+		)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
 
@@ -462,7 +722,10 @@ func (s *CompoundShapes) Spawn() {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 2.0}, Radius: 0.5}
+		circle := box2d.Circle{
+			Center: box2d.Vec2{X: 0.0, Y: shipObstructionHeight},
+			Radius: shipObstructionRadius,
+		}
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
 
@@ -476,7 +739,10 @@ func (s *CompoundShapes) Spawn() {
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 2.0}, Radius: 0.5}
+		circle := box2d.Circle{
+			Center: box2d.Vec2{X: 0.0, Y: shipObstructionHeight},
+			Radius: shipObstructionRadius,
+		}
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
 }
@@ -509,41 +775,38 @@ func (s *CompoundShapes) Step() {
 	}
 }
 
-const (
-	shapeFilterGround  = 0x00000001
-	shapeFilterTeam1   = 0x00000002
-	shapeFilterTeam2   = 0x00000004
-	shapeFilterTeam3   = 0x00000008
-	shapeFilterAllBits = 0xFFFFFFFF
-)
-
-type ShapeFilter struct {
-	Sample
-
-	player1ID box2d.Body
-	player2ID box2d.Body
-	player3ID box2d.Body
-
-	shape1ID box2d.Shape
-	shape2ID box2d.Shape
-	shape3ID box2d.Shape
-}
-
 func CreateShapeFilter(context *SampleContext) Sampler {
-	s := &ShapeFilter{}
+	const (
+		cameraBaseZoom     = 25.0
+		cameraZoomScale    = 0.5
+		cameraCenterHeight = 5.0
+		groundHalfWidth    = 20.0
+		lowerPlayerHeight  = 2.0
+		middlePlayerHeight = 5.0
+		upperPlayerHeight  = 8.0
+		playerHalfWidth    = 2.0
+	)
+
+	s := &ShapeFilter{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.zoom = 25.0 * 0.5
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 5.0}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterHeight}
 	}
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -557,16 +820,16 @@ func CreateShapeFilter(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
 
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 2.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: lowerPlayerHeight}
 		s.player1ID = s.worldID.CreateBody(&bodyDef)
 
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 5.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: middlePlayerHeight}
 		s.player2ID = s.worldID.CreateBody(&bodyDef)
 
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 8.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: upperPlayerHeight}
 		s.player3ID = s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(2.0, 1.0)
+		box := box2d.MakeBox(playerHalfWidth, 1.0)
 
 		shapeDef := box2d.DefaultShapeDef()
 
@@ -582,12 +845,15 @@ func CreateShapeFilter(context *SampleContext) Sampler {
 		shapeDef.Filter.MaskBits = shapeFilterGround | shapeFilterTeam1 | shapeFilterTeam2
 		s.shape3ID = s.player3ID.CreatePolygonShape(&shapeDef, &box)
 	}
+
 	return s
 }
 
 func (s *ShapeFilter) DrawControls() bool {
 	imgui.Text("Player 1 Collides With")
+
 	filter1 := s.shape1ID.Filter()
+
 	team2 := (filter1.MaskBits & shapeFilterTeam2) == shapeFilterTeam2
 	if imgui.Checkbox("Team 2##1", &team2) {
 		if team2 {
@@ -614,34 +880,55 @@ func (s *ShapeFilter) DrawControls() bool {
 }
 
 func (s *ShapeFilter) Step() {
+	const (
+		labelOffsetX = 0.5
+	)
+
 	s.Sample.Step()
 
 	p1 := s.player1ID.Position()
-	s.draw.DrawString(s.camera, box2d.Pos{X: p1.X - 0.5, Y: p1.Y}, box2d.ColorWhite, "player 1")
+	s.draw.DrawStringf(
+		s.camera,
+		box2d.Pos{X: p1.X - labelOffsetX, Y: p1.Y},
+		box2d.ColorWhite,
+		"player 1",
+	)
 
 	p2 := s.player2ID.Position()
-	s.draw.DrawString(s.camera, box2d.Pos{X: p2.X - 0.5, Y: p2.Y}, box2d.ColorWhite, "player 2")
+	s.draw.DrawStringf(
+		s.camera,
+		box2d.Pos{X: p2.X - labelOffsetX, Y: p2.Y},
+		box2d.ColorWhite,
+		"player 2",
+	)
 
 	p3 := s.player3ID.Position()
-	s.draw.DrawString(s.camera, box2d.Pos{X: p3.X - 0.5, Y: p3.Y}, box2d.ColorWhite, "player 3")
-}
-
-const customFilterCount = 10
-
-// This shows how to use custom filtering
-type CustomFilter struct {
-	Sample
-
-	bodyIDs  [customFilterCount]box2d.Body
-	shapeIDs [customFilterCount]box2d.Shape
+	s.draw.DrawStringf(
+		s.camera,
+		box2d.Pos{X: p3.X - labelOffsetX, Y: p3.Y},
+		box2d.ColorWhite,
+		"player 3",
+	)
 }
 
 func CreateCustomFilter(context *SampleContext) Sampler {
-	s := &CustomFilter{}
+	const (
+		cameraCenterHeight = 5.0
+		groundHalfWidth    = 40.0
+		bodyHeight         = 5.0
+	)
+
+	s := &CustomFilter{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 5.0}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterHeight}
 		s.context.camera.zoom = 10.0
 	}
 
@@ -652,8 +939,8 @@ func CreateCustomFilter(context *SampleContext) Sampler {
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 
 		shapeDef := box2d.DefaultShapeDef()
@@ -669,28 +956,29 @@ func CreateCustomFilter(context *SampleContext) Sampler {
 	x := posScalar(-customFilterCount)
 
 	for i := range customFilterCount {
-		bodyDef.Position = box2d.Pos{X: x, Y: 5.0}
+		bodyDef.Position = box2d.Pos{X: x, Y: bodyHeight}
 		s.bodyIDs[i] = s.worldID.CreateBody(&bodyDef)
 
 		shapeDef.UserData = i + 1
 		s.shapeIDs[i] = s.bodyIDs[i].CreatePolygonShape(&shapeDef, &box)
 		x += 2.0
 	}
+
 	return s
 }
 
 func (s *CustomFilter) Step() {
-	s.DrawScreenTextLine("Custom filter disables collision between odd and even shapes")
+	s.DrawScreenTextLinef("Custom filter disables collision between odd and even shapes")
 
 	s.Sample.Step()
 
 	for i := range customFilterCount {
 		p := s.bodyIDs[i].Position()
-		s.draw.DrawString(s.camera, box2d.Pos{X: p.X, Y: p.Y}, box2d.ColorWhite, "%d", i)
+		s.draw.DrawStringf(s.camera, box2d.Pos{X: p.X, Y: p.Y}, box2d.ColorWhite, "%d", i)
 	}
 }
 
-func (s *CustomFilter) ShouldCollide(shapeIDA, shapeIDB box2d.Shape) bool {
+func (s *CustomFilter) ShouldCollide(shapeIDA box2d.Shape, shapeIDB box2d.Shape) bool {
 	userDataA := shapeIDA.UserData()
 	userDataB := shapeIDB.UserData()
 
@@ -698,23 +986,56 @@ func (s *CustomFilter) ShouldCollide(shapeIDA, shapeIDB box2d.Shape) bool {
 		return true
 	}
 
-	indexA := userDataA.(int)
-	indexB := userDataB.(int)
+	indexA, ok := userDataA.(int)
+	if !ok {
+		panic(
+			"custom filter: shape A user data must be the integer index set by CreateCustomFilter",
+		)
+	}
+
+	indexB, ok := userDataB.(int)
+	if !ok {
+		panic(
+			"custom filter: shape B user data must be the integer index set by CreateCustomFilter",
+		)
+	}
 
 	return ((indexA & 1) + (indexB & 1)) != 1
 }
 
-type Friction struct {
-	Sample
-}
-
 func CreateFriction(context *SampleContext) Sampler {
-	s := &Friction{}
+	const (
+		cameraBaseZoom     = 25.0
+		cameraCenterHeight = 14.0
+		cameraZoomScale    = 0.6
+		groundHalfWidth    = 40.0
+		rampHalfLength     = 13.0
+		rampHalfThickness  = 0.25
+		rampAngle          = 0.25
+		upperRampHeight    = 22.0
+		stopHalfWidth      = 0.25
+		stopOffsetX        = 10.5
+		upperStopHeight    = 19.0
+		rampOffsetX        = 4.0
+		middleRampHeight   = 14.0
+		lowerStopHeight    = 11.0
+		lowerRampHeight    = 6.0
+		boxHalfExtent      = 0.5
+		boxStartHeight     = 28.0
+	)
+
+	s := &Friction{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 14.0}
-		s.context.camera.zoom = 25.0 * 0.6
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterHeight}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
 	}
 
 	{
@@ -725,29 +1046,54 @@ func CreateFriction(context *SampleContext) Sampler {
 		shapeDef.Material.Friction = 0.2
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -40.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 40.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
-		box := box2d.MakeOffsetBox(13.0, 0.25, box2d.Vec2{X: -4.0, Y: 22.0}, box2d.MakeRot(-0.25))
+		box := box2d.MakeOffsetBox(
+			rampHalfLength,
+			rampHalfThickness,
+			box2d.Vec2{X: -rampOffsetX, Y: upperRampHeight},
+			box2d.MakeRot(-rampAngle),
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(0.25, 1.0, box2d.Vec2{X: 10.5, Y: 19.0}, box2d.RotIdentity)
+		box = box2d.MakeOffsetBox(
+			stopHalfWidth,
+			1.0,
+			box2d.Vec2{X: stopOffsetX, Y: upperStopHeight},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(13.0, 0.25, box2d.Vec2{X: 4.0, Y: 14.0}, box2d.MakeRot(0.25))
+		box = box2d.MakeOffsetBox(
+			rampHalfLength,
+			rampHalfThickness,
+			box2d.Vec2{X: rampOffsetX, Y: middleRampHeight},
+			box2d.MakeRot(rampAngle),
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(0.25, 1.0, box2d.Vec2{X: -10.5, Y: 11.0}, box2d.RotIdentity)
+		box = box2d.MakeOffsetBox(
+			stopHalfWidth,
+			1.0,
+			box2d.Vec2{X: -stopOffsetX, Y: lowerStopHeight},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(13.0, 0.25, box2d.Vec2{X: -4.0, Y: 6.0}, box2d.MakeRot(-0.25))
+		box = box2d.MakeOffsetBox(
+			rampHalfLength,
+			rampHalfThickness,
+			box2d.Vec2{X: -rampOffsetX, Y: lowerRampHeight},
+			box2d.MakeRot(-rampAngle),
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
 	{
-		box := box2d.MakeBox(0.5, 0.5)
+		box := box2d.MakeBox(boxHalfExtent, boxHalfExtent)
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Density = 25.0
@@ -757,40 +1103,55 @@ func CreateFriction(context *SampleContext) Sampler {
 		for i := range 5 {
 			bodyDef := box2d.DefaultBodyDef()
 			bodyDef.Type = box2d.DynamicBody
-			bodyDef.Position = box2d.Pos{X: posScalar(-15.0 + 4.0*float32(i)), Y: 28.0}
+			bodyDef.Position = box2d.Pos{X: posScalar(-15.0 + 4.0*float32(i)), Y: boxStartHeight}
 			bodyID := s.worldID.CreateBody(&bodyDef)
 
 			shapeDef.Material.Friction = friction[i]
 			bodyID.CreatePolygonShape(&shapeDef, &box)
 		}
 	}
+
 	return s
 }
 
-type RollingResistance struct {
-	Sample
-
-	resistScale float32
-	lift        float32
-}
-
 func CreateRollingResistance(context *SampleContext) Sampler {
-	s := &RollingResistance{}
+	const (
+		cameraCenterX          = 5.0
+		cameraCenterY          = 20.0
+		initialResistanceScale = 0.02
+	)
+
+	s := &RollingResistance{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		resistScale:     initialResistanceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 5.0, Y: 20.0}
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
 		s.context.camera.zoom = 27.5
 	}
 
-	s.lift = 0.0
-	s.resistScale = 0.02
 	s.CreateScene()
+
 	return s
 }
 
 func (s *RollingResistance) CreateScene() {
-	circle := box2d.Circle{Center: box2d.Vec2Zero, Radius: 0.5}
+	const (
+		circleRadius        = 0.5
+		laneSpacing         = 2.0
+		groundHalfWidth     = 40.0
+		circleStartHeight   = 0.75
+		initialAngularSpeed = 10.0
+		initialLinearSpeed  = 5.0
+	)
+
+	circle := box2d.Circle{Center: box2d.Vec2Zero, Radius: circleRadius}
 
 	shapeDef := box2d.DefaultShapeDef()
 
@@ -799,15 +1160,15 @@ func (s *RollingResistance) CreateScene() {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -40.0, Y: 2.0 * float32(i)},
-			Point2: box2d.Vec2{X: 40.0, Y: 2.0*float32(i) + s.lift},
+			Point1: box2d.Vec2{X: -groundHalfWidth, Y: laneSpacing * float32(i)},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: laneSpacing*float32(i) + s.lift},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: -39.5, Y: posScalar(2.0*float32(i) + 0.75)}
-		bodyDef.AngularVelocity = -10.0
-		bodyDef.LinearVelocity = box2d.Vec2{X: 5.0, Y: 0.0}
+		bodyDef.Position = box2d.Pos{X: -39.5, Y: posScalar(2.0*float32(i) + circleStartHeight)}
+		bodyDef.AngularVelocity = -initialAngularSpeed
+		bodyDef.LinearVelocity = box2d.Vec2{X: initialLinearSpeed, Y: 0.0}
 
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		shapeDef.Material.RollingResistance = s.resistScale * float32(i)
@@ -816,6 +1177,9 @@ func (s *RollingResistance) CreateScene() {
 }
 
 func (s *RollingResistance) Keyboard(key glfw.Key, action glfw.Action, mods glfw.ModifierKey) {
+	const rampLift = 5.0
+
+	//nolint:exhaustive // GLFW's external key set is open-ended; other keys pass to Sample.Keyboard.
 	switch key {
 	case glfw.Key1:
 		s.lift = 0.0
@@ -823,12 +1187,12 @@ func (s *RollingResistance) Keyboard(key glfw.Key, action glfw.Action, mods glfw
 		s.CreateScene()
 
 	case glfw.Key2:
-		s.lift = 5.0
+		s.lift = rampLift
 		s.CreateWorld()
 		s.CreateScene()
 
 	case glfw.Key3:
-		s.lift = -5.0
+		s.lift = -rampLift
 		s.CreateWorld()
 		s.CreateScene()
 
@@ -841,7 +1205,7 @@ func (s *RollingResistance) Step() {
 	s.Sample.Step()
 
 	for i := range 20 {
-		s.draw.DrawString(
+		s.draw.DrawStringf(
 			s.camera,
 			box2d.Pos{X: -41.5, Y: posScalar(2.0*float32(i) + 1.0)},
 			box2d.ColorWhite,
@@ -851,16 +1215,31 @@ func (s *RollingResistance) Step() {
 	}
 }
 
-type ConveyorBelt struct {
-	Sample
-}
-
 func CreateConveyorBelt(context *SampleContext) Sampler {
-	s := &ConveyorBelt{}
+	const (
+		cameraCenterX      = 2.0
+		cameraCenterY      = 7.5
+		groundHalfWidth    = 20.0
+		platformHeight     = 5.0
+		platformOffsetX    = 5.0
+		platformHalfHeight = 0.25
+		platformHalfWidth  = 10.0
+		platformRounding   = 0.25
+		boxHalfExtent      = 0.5
+		boxStartHeight     = 7.0
+	)
+
+	s := &ConveyorBelt{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 2.0, Y: 7.5}
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
 		s.context.camera.zoom = 12.0
 	}
 
@@ -871,8 +1250,8 @@ func CreateConveyorBelt(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -20.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 20.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -880,10 +1259,10 @@ func CreateConveyorBelt(context *SampleContext) Sampler {
 	// Platform
 	{
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: -5.0, Y: 5.0}
+		bodyDef.Position = box2d.Pos{X: -platformOffsetX, Y: platformHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeRoundedBox(10.0, 0.25, 0.25)
+		box := box2d.MakeRoundedBox(platformHalfWidth, platformHalfHeight, platformRounding)
 
 		shapeDef := box2d.DefaultShapeDef()
 		shapeDef.Material.Friction = 0.8
@@ -894,34 +1273,49 @@ func CreateConveyorBelt(context *SampleContext) Sampler {
 
 	// Boxes
 	shapeDef := box2d.DefaultShapeDef()
-	cube := box2d.MakeSquare(0.5)
+	cube := box2d.MakeSquare(boxHalfExtent)
+
 	for i := range 5 {
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: posScalar(-10.0 + 2.0*float32(i)), Y: 7.0}
+		bodyDef.Position = box2d.Pos{X: posScalar(-10.0 + 2.0*float32(i)), Y: boxStartHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
 		bodyID.CreatePolygonShape(&shapeDef, &cube)
 	}
+
 	return s
 }
 
-const tangentSpeedTotalCount = 200
-
-type TangentSpeed struct {
-	Sample
-
-	bodyIDs           []box2d.Body
-	friction          float32
-	rollingResistance float32
-}
-
 func CreateTangentSpeed(context *SampleContext) Sampler {
-	s := &TangentSpeed{}
+	const (
+		cameraCenterX            = 60.0
+		pathOffsetY              = 0.25
+		pathScale                = 0.2
+		blueTangentSpeed         = 10.0
+		cyanTangentSpeed         = 20.0
+		goldenTangentSpeed       = 30.0
+		grayTangentSpeed         = 40.0
+		greenTangentSpeed        = 50.0
+		khakiTangentSpeed        = 60.0
+		magentaTangentSpeed      = 70.0
+		initialFriction          = 0.6
+		initialRollingResistance = 0.3
+	)
+
+	s := &TangentSpeed{
+		context:           context,
+		camera:            &context.camera,
+		draw:              context.draw,
+		screenTextX:       initialScreenTextX,
+		mouseForceScale:   initialMouseForceScale,
+		friction:          initialFriction,
+		rollingResistance: initialRollingResistance,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 60.0, Y: -15.0}
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: -15.0}
 		s.context.camera.zoom = 38.0
 	}
 
@@ -933,30 +1327,32 @@ func CreateTangentSpeed(context *SampleContext) Sampler {
 			"-26.45833,-13.22917 -23.81251,-21.16666 h -13.22916 v 44.97916 H 68.791712 V 0 h -21.16671 v " +
 			"206.375 l 566.208398,-1e-5 z"
 
-		offset := box2d.Vec2{X: -47.375002, Y: 0.25}
+		offset := box2d.Vec2{X: -47.375002, Y: pathOffsetY}
 
-		scale := float32(0.2)
+		scale := float32(pathScale)
+
 		var points [20]box2d.Vec2
-		count := ParsePath(path, offset, points[:], scale, true)
+
+		count := ParsePath(path, offset, points[:], scale)
 
 		var materials [20]box2d.SurfaceMaterial
 		for i := range 20 {
 			materials[i].Friction = 0.6
 		}
 
-		materials[0].TangentSpeed = -10.0
+		materials[0].TangentSpeed = -blueTangentSpeed
 		materials[0].CustomColor = uint32(box2d.ColorDarkBlue)
-		materials[1].TangentSpeed = -20.0
+		materials[1].TangentSpeed = -cyanTangentSpeed
 		materials[1].CustomColor = uint32(box2d.ColorDarkCyan)
-		materials[2].TangentSpeed = -30.0
+		materials[2].TangentSpeed = -goldenTangentSpeed
 		materials[2].CustomColor = uint32(box2d.ColorDarkGoldenRod)
-		materials[3].TangentSpeed = -40.0
+		materials[3].TangentSpeed = -grayTangentSpeed
 		materials[3].CustomColor = uint32(box2d.ColorDarkGray)
-		materials[4].TangentSpeed = -50.0
+		materials[4].TangentSpeed = -greenTangentSpeed
 		materials[4].CustomColor = uint32(box2d.ColorDarkGreen)
-		materials[5].TangentSpeed = -60.0
+		materials[5].TangentSpeed = -khakiTangentSpeed
 		materials[5].CustomColor = uint32(box2d.ColorDarkKhaki)
-		materials[6].TangentSpeed = -70.0
+		materials[6].TangentSpeed = -magentaTangentSpeed
 		materials[6].CustomColor = uint32(box2d.ColorDarkMagenta)
 
 		chainDef := box2d.DefaultChainDef()
@@ -965,25 +1361,29 @@ func CreateTangentSpeed(context *SampleContext) Sampler {
 		chainDef.Materials = materials[:count]
 
 		groundID.CreateChain(&chainDef)
-
-		s.friction = 0.6
-		s.rollingResistance = 0.3
 	}
+
 	return s
 }
 
 func (s *TangentSpeed) DropBall() box2d.Body {
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+	const (
+		ballRadius = 0.5
+		ballStartX = 110.0
+	)
+
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: ballRadius}
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
-	bodyDef.Position = box2d.Pos{X: 110.0, Y: -30.0}
+	bodyDef.Position = box2d.Pos{X: ballStartX, Y: -30.0}
 	bodyID := s.worldID.CreateBody(&bodyDef)
 
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Material.Friction = s.friction
 	shapeDef.Material.RollingResistance = s.rollingResistance
 	bodyID.CreateCircleShape(&shapeDef, &circle)
+
 	return bodyID
 }
 
@@ -996,9 +1396,14 @@ func (s *TangentSpeed) Reset() {
 }
 
 func (s *TangentSpeed) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const (
+		controlWidthEm        = 6.0
+		maxSurfaceCoefficient = 2.0
+	)
 
-	if imgui.SliderFloatV("Friction", &s.friction, 0.0, 2.0, "%.2f", 0) {
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Friction", &s.friction, 0.0, maxSurfaceCoefficient, "%.2f", 0) {
 		s.Reset()
 	}
 
@@ -1020,42 +1425,53 @@ func (s *TangentSpeed) Step() {
 	s.Sample.Step()
 }
 
-// This sample shows how to modify the geometry on an existing shape. This is only supported on
-// dynamic and kinematic shapes because static shapes don't look for new collisions.
-type ModifyGeometry struct {
-	Sample
-
-	shapeID   box2d.Shape
-	shapeType box2d.ShapeType
-	scale     float32
-
-	circle  box2d.Circle
-	capsule box2d.Capsule
-	segment box2d.Segment
-	polygon box2d.Polygon
-}
-
 func CreateModifyGeometry(context *SampleContext) Sampler {
-	s := &ModifyGeometry{}
+	const (
+		cameraBaseZoom      = 25.0
+		cameraZoomScale     = 0.25
+		cameraCenterHeight  = 5.0
+		groundHalfWidth     = 10.0
+		dynamicBodyHeight   = 4.0
+		initialCircleRadius = 0.5
+	)
+
+	s := &ModifyGeometry{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		shapeType:       box2d.CircleShape,
+		scale:           1.0,
+		circle: box2d.Circle{
+			Center: box2d.Vec2{X: 0.0, Y: 0.0},
+			Radius: initialCircleRadius,
+		},
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.zoom = 25.0 * 0.25
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 5.0}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterHeight}
 	}
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		groundID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeOffsetBox(10.0, 1.0, box2d.Vec2{X: 0.0, Y: -1.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			groundHalfWidth,
+			1.0,
+			box2d.Vec2{X: 0.0, Y: -1.0},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
 	{
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.DynamicBody
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 4.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: dynamicBodyHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
 		box := box2d.MakeBox(1.0, 1.0)
@@ -1063,9 +1479,6 @@ func CreateModifyGeometry(context *SampleContext) Sampler {
 	}
 
 	{
-		s.shapeType = box2d.CircleShape
-		s.scale = 1.0
-		s.circle = box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Type = box2d.KinematicBody
 		bodyDef.Position = box2d.Pos{X: 0.0, Y: 1.0}
@@ -1073,33 +1486,48 @@ func CreateModifyGeometry(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		s.shapeID = bodyID.CreateCircleShape(&shapeDef, &s.circle)
 	}
+
 	return s
 }
 
 func (s *ModifyGeometry) UpdateShape() {
+	const (
+		circleBaseRadius      = 0.5
+		capsuleBaseHalfLength = 0.5
+		capsuleBaseRadius     = 0.5
+		segmentRightExtent    = 0.75
+		polygonHalfWidth      = 0.5
+		polygonHalfHeight     = 0.75
+		segmentLeftExtent     = 0.5
+	)
+
 	switch s.shapeType {
 	case box2d.CircleShape:
-		s.circle = box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5 * s.scale}
+		s.circle = box2d.Circle{
+			Center: box2d.Vec2{X: 0.0, Y: 0.0},
+			Radius: circleBaseRadius * s.scale,
+		}
 		s.shapeID.SetCircle(&s.circle)
 
 	case box2d.CapsuleShape:
 		s.capsule = box2d.Capsule{
-			Center1: box2d.Vec2{X: -0.5 * s.scale, Y: 0.0},
-			Center2: box2d.Vec2{X: 0.0, Y: 0.5 * s.scale},
-			Radius:  0.5 * s.scale,
+			Center1: box2d.Vec2{X: -capsuleBaseHalfLength * s.scale, Y: 0.0},
+			Center2: box2d.Vec2{X: 0.0, Y: capsuleBaseHalfLength * s.scale},
+			Radius:  capsuleBaseRadius * s.scale,
 		}
 		s.shapeID.SetCapsule(&s.capsule)
 
 	case box2d.SegmentShape:
 		s.segment = box2d.Segment{
-			Point1: box2d.Vec2{X: -0.5 * s.scale, Y: 0.0},
-			Point2: box2d.Vec2{X: 0.75 * s.scale, Y: 0.0},
+			Point1: box2d.Vec2{X: -segmentLeftExtent * s.scale, Y: 0.0},
+			Point2: box2d.Vec2{X: segmentRightExtent * s.scale, Y: 0.0},
 		}
 		s.shapeID.SetSegment(&s.segment)
 
 	case box2d.PolygonShape:
-		s.polygon = box2d.MakeBox(0.5*s.scale, 0.75*s.scale)
+		s.polygon = box2d.MakeBox(polygonHalfWidth*s.scale, polygonHalfHeight*s.scale)
 		s.shapeID.SetPolygon(&s.polygon)
+	case box2d.ChainSegmentShape, box2d.ShapeTypeCount:
 	}
 
 	bodyID := s.shapeID.Body()
@@ -1107,6 +1535,12 @@ func (s *ModifyGeometry) UpdateShape() {
 }
 
 func (s *ModifyGeometry) DrawControls() bool {
+	const (
+		controlWidthEm = 6.0
+		minShapeScale  = 0.1
+		maxShapeScale  = 10.0
+	)
+
 	if imgui.RadioButtonBool("Circle", s.shapeType == box2d.CircleShape) {
 		s.shapeType = box2d.CircleShape
 		s.UpdateShape()
@@ -1127,10 +1561,12 @@ func (s *ModifyGeometry) DrawControls() bool {
 		s.UpdateShape()
 	}
 
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-	if imgui.SliderFloatV("Scale", &s.scale, 0.1, 10.0, "%.2f", 0) {
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+
+	if imgui.SliderFloatV("Scale", &s.scale, minShapeScale, maxShapeScale, "%.2f", 0) {
 		s.UpdateShape()
 	}
+
 	imgui.PopItemWidth()
 
 	bodyID := s.shapeID.Body()
@@ -1151,30 +1587,44 @@ func (s *ModifyGeometry) DrawControls() bool {
 	return true
 }
 
-// Shows how to link to chain shapes together. This is a useful technique for building large game levels with smooth collision.
-type ChainLink struct {
-	Sample
-}
-
 func CreateChainLink(context *SampleContext) Sampler {
-	s := &ChainLink{}
+	const (
+		cameraBaseZoom     = 25.0
+		cameraCenterHeight = 5.0
+		cameraZoomScale    = 0.5
+		chainHalfWidth     = 40.0
+		bodyStartHeight    = 2.0
+		circleRadius       = 0.5
+		capsuleHalfLength  = 0.5
+		capsuleRadius      = 0.25
+		boxStartX          = 5.0
+		boxHalfExtent      = 0.5
+	)
+
+	s := &ChainLink{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 5.0}
-		s.context.camera.zoom = 25.0 * 0.5
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterHeight}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
 	}
 
 	points1 := []box2d.Vec2{
 		{X: 0.0, Y: 0.0},
-		{X: -40.0, Y: 0.0},
-		{X: -40.0, Y: -1.0},
+		{X: -chainHalfWidth, Y: 0.0},
+		{X: -chainHalfWidth, Y: -1.0},
 		{X: 0.0, Y: -1.0},
 	}
 	points2 := []box2d.Vec2{
 		{X: 0.0, Y: -1.0},
-		{X: 40.0, Y: -1.0},
-		{X: 40.0, Y: 0.0},
+		{X: chainHalfWidth, Y: -1.0},
+		{X: chainHalfWidth, Y: 0.0},
 		{X: 0.0, Y: 0.0},
 	}
 
@@ -1186,8 +1636,8 @@ func CreateChainLink(context *SampleContext) Sampler {
 		chainDef.Points = points1
 
 		// The other chain carries on past both ends of this one
-		chainDef.Ghost1 = box2d.Vec2{X: 40.0, Y: 1.0}
-		chainDef.Ghost2 = box2d.Vec2{X: 40.0, Y: -1.0}
+		chainDef.Ghost1 = box2d.Vec2{X: chainHalfWidth, Y: 1.0}
+		chainDef.Ghost2 = box2d.Vec2{X: chainHalfWidth, Y: -1.0}
 		chainDef.IsLoop = false
 		groundID.CreateChain(&chainDef)
 	}
@@ -1195,8 +1645,8 @@ func CreateChainLink(context *SampleContext) Sampler {
 	{
 		chainDef := box2d.DefaultChainDef()
 		chainDef.Points = points2
-		chainDef.Ghost1 = box2d.Vec2{X: -40.0, Y: -1.0}
-		chainDef.Ghost2 = box2d.Vec2{X: -40.0, Y: 0.0}
+		chainDef.Ghost1 = box2d.Vec2{X: -chainHalfWidth, Y: -1.0}
+		chainDef.Ghost2 = box2d.Vec2{X: -chainHalfWidth, Y: 0.0}
 		chainDef.IsLoop = false
 		groundID.CreateChain(&chainDef)
 	}
@@ -1205,50 +1655,67 @@ func CreateChainLink(context *SampleContext) Sampler {
 	shapeDef := box2d.DefaultShapeDef()
 
 	{
-		bodyDef.Position = box2d.Pos{X: -5.0, Y: 2.0}
+		bodyDef.Position = box2d.Pos{X: -5.0, Y: bodyStartHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
-		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 0.5}
+		circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: circleRadius}
 		bodyID.CreateCircleShape(&shapeDef, &circle)
 	}
 
 	{
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: 2.0}
+		bodyDef.Position = box2d.Pos{X: 0.0, Y: bodyStartHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		capsule := box2d.Capsule{
-			Center1: box2d.Vec2{X: -0.5, Y: 0.0},
-			Center2: box2d.Vec2{X: 0.5, Y: 0.0},
-			Radius:  0.25,
+			Center1: box2d.Vec2{X: -capsuleHalfLength, Y: 0.0},
+			Center2: box2d.Vec2{X: capsuleHalfLength, Y: 0.0},
+			Radius:  capsuleRadius,
 		}
 		bodyID.CreateCapsuleShape(&shapeDef, &capsule)
 	}
 
 	{
-		bodyDef.Position = box2d.Pos{X: 5.0, Y: 2.0}
+		bodyDef.Position = box2d.Pos{X: boxStartX, Y: bodyStartHeight}
 		bodyID := s.worldID.CreateBody(&bodyDef)
-		h := float32(0.5)
+		h := float32(boxHalfExtent)
 		box := box2d.MakeBox(h, h)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
+
 	return s
 }
 
 func (s *ChainLink) Step() {
 	s.Sample.Step()
 
-	s.DrawScreenTextLine("This shows how to link together two chain shapes")
-}
-
-type RoundedShapes struct {
-	Sample
+	s.DrawScreenTextLinef("This shows how to link together two chain shapes")
 }
 
 func CreateRoundedShapes(context *SampleContext) Sampler {
-	s := &RoundedShapes{}
+	const (
+		cameraBaseZoom    = 25.0
+		cameraZoomScale   = 0.55
+		cameraCenterX     = 2.0
+		cameraCenterY     = 8.0
+		groundHalfWidth   = 20.0
+		wallHalfHeight    = 5.0
+		wallOffsetX       = 19.0
+		firstRowHeight    = 2.0
+		polygonExtent     = 0.5
+		minRoundingRadius = 0.05
+		maxRoundingRadius = 0.25
+	)
+
+	s := &RoundedShapes{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.zoom = 25.0 * 0.55
-		s.context.camera.center = box2d.Pos{X: 2.0, Y: 8.0}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
 	}
 
 	{
@@ -1256,13 +1723,28 @@ func CreateRoundedShapes(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeOffsetBox(20.0, 1.0, box2d.Vec2{X: 0.0, Y: -1.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			groundHalfWidth,
+			1.0,
+			box2d.Vec2{X: 0.0, Y: -1.0},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(1.0, 5.0, box2d.Vec2{X: 19.0, Y: 5.0}, box2d.RotIdentity)
+		box = box2d.MakeOffsetBox(
+			1.0,
+			wallHalfHeight,
+			box2d.Vec2{X: wallOffsetX, Y: wallHalfHeight},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(1.0, 5.0, box2d.Vec2{X: -19.0, Y: 5.0}, box2d.RotIdentity)
+		box = box2d.MakeOffsetBox(
+			1.0,
+			wallHalfHeight,
+			box2d.Vec2{X: -wallOffsetX, Y: wallHalfHeight},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
@@ -1271,7 +1753,7 @@ func CreateRoundedShapes(context *SampleContext) Sampler {
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Material.RollingResistance = 0.3
 
-	y := float32(2.0)
+	y := float32(firstRowHeight)
 	xcount, ycount := 10, 10
 
 	for range ycount {
@@ -1280,8 +1762,8 @@ func CreateRoundedShapes(context *SampleContext) Sampler {
 			bodyDef.Position = box2d.Pos{X: posScalar(x), Y: posScalar(y)}
 			bodyID := s.worldID.CreateBody(&bodyDef)
 
-			poly := scenes.RandomPolygon(0.5)
-			poly.Radius = scenes.RandomFloatRange(0.05, 0.25)
+			poly := scenes.RandomPolygon(polygonExtent)
+			poly.Radius = scenes.RandomFloatRange(minRoundingRadius, maxRoundingRadius)
 			bodyID.CreatePolygonShape(&shapeDef, &poly)
 
 			x += 1.0
@@ -1289,20 +1771,38 @@ func CreateRoundedShapes(context *SampleContext) Sampler {
 
 		y += 1.0
 	}
+
 	return s
 }
 
-type EllipseShape struct {
-	Sample
-}
-
 func CreateEllipseShape(context *SampleContext) Sampler {
-	s := &EllipseShape{}
+	const (
+		cameraBaseZoom        = 25.0
+		cameraZoomScale       = 0.55
+		cameraCenterX         = 2.0
+		cameraCenterY         = 8.0
+		groundHalfWidth       = 20.0
+		wallHalfHeight        = 5.0
+		wallOffsetX           = 19.0
+		ellipseHalfHeight     = 0.25
+		ellipseHalfWidth      = 0.05
+		ellipseShoulderHeight = 0.075
+		ellipseRoundingRadius = 0.2
+		firstRowHeight        = 2.0
+	)
+
+	s := &EllipseShape{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.zoom = 25.0 * 0.55
-		s.context.camera.center = box2d.Pos{X: 2.0, Y: 8.0}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
 	}
 
 	{
@@ -1310,36 +1810,51 @@ func CreateEllipseShape(context *SampleContext) Sampler {
 		groundID := s.worldID.CreateBody(&bodyDef)
 
 		shapeDef := box2d.DefaultShapeDef()
-		box := box2d.MakeOffsetBox(20.0, 1.0, box2d.Vec2{X: 0.0, Y: -1.0}, box2d.RotIdentity)
+		box := box2d.MakeOffsetBox(
+			groundHalfWidth,
+			1.0,
+			box2d.Vec2{X: 0.0, Y: -1.0},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(1.0, 5.0, box2d.Vec2{X: 19.0, Y: 5.0}, box2d.RotIdentity)
+		box = box2d.MakeOffsetBox(
+			1.0,
+			wallHalfHeight,
+			box2d.Vec2{X: wallOffsetX, Y: wallHalfHeight},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 
-		box = box2d.MakeOffsetBox(1.0, 5.0, box2d.Vec2{X: -19.0, Y: 5.0}, box2d.RotIdentity)
+		box = box2d.MakeOffsetBox(
+			1.0,
+			wallHalfHeight,
+			box2d.Vec2{X: -wallOffsetX, Y: wallHalfHeight},
+			box2d.RotIdentity,
+		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
 
 	points := []box2d.Vec2{
 		{
 			X: 0.0,
-			Y: -0.25,
+			Y: -ellipseHalfHeight,
 		},
-		{X: 0.0, Y: 0.25},
-		{X: 0.05, Y: 0.075},
-		{X: -0.05, Y: 0.075},
-		{X: 0.05, Y: -0.075},
-		{X: -0.05, Y: -0.075},
+		{X: 0.0, Y: ellipseHalfHeight},
+		{X: ellipseHalfWidth, Y: ellipseShoulderHeight},
+		{X: -ellipseHalfWidth, Y: ellipseShoulderHeight},
+		{X: ellipseHalfWidth, Y: -ellipseShoulderHeight},
+		{X: -ellipseHalfWidth, Y: -ellipseShoulderHeight},
 	}
 	diamondHull := box2d.ComputeHull(points)
-	poly := box2d.MakePolygon(&diamondHull, 0.2)
+	poly := box2d.MakePolygon(&diamondHull, ellipseRoundingRadius)
 
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
 	shapeDef := box2d.DefaultShapeDef()
 	shapeDef.Material.RollingResistance = 0.2
 
-	y := float32(2.0)
+	y := float32(firstRowHeight)
 	xCount, yCount := 10, 10
 
 	for range yCount {
@@ -1354,20 +1869,39 @@ func CreateEllipseShape(context *SampleContext) Sampler {
 
 		y += 1.0
 	}
+
 	return s
 }
 
-type OffsetShapes struct {
-	Sample
-}
-
 func CreateOffsetShapes(context *SampleContext) Sampler {
-	s := &OffsetShapes{}
+	const (
+		cameraBaseZoom      = 25.0
+		cameraZoomScale     = 0.55
+		cameraCenterX       = 2.0
+		cameraCenterY       = 8.0
+		staticShapeOffsetX  = 10.0
+		quarterTurnFactor   = 0.5
+		capsuleRadius       = 0.25
+		capsuleBodyX        = 13.5
+		offsetBoxHalfWidth  = 0.75
+		offsetBoxHalfHeight = 0.5
+		dynamicShapeOffsetX = 9.0
+		dynamicShapeOffsetY = 2.0
+		capsuleBodyY        = 0.75
+	)
+
+	s := &OffsetShapes{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.zoom = 25.0 * 0.55
-		s.context.camera.center = box2d.Pos{X: 2.0, Y: 8.0}
+		s.context.camera.zoom = cameraBaseZoom * cameraZoomScale
+		s.context.camera.center = box2d.Pos{X: cameraCenterX, Y: cameraCenterY}
 	}
 
 	{
@@ -1379,8 +1913,8 @@ func CreateOffsetShapes(context *SampleContext) Sampler {
 		box := box2d.MakeOffsetBox(
 			1.0,
 			1.0,
-			box2d.Vec2{X: 10.0, Y: -2.0},
-			box2d.MakeRot(0.5*box2d.Pi),
+			box2d.Vec2{X: staticShapeOffsetX, Y: -2.0},
+			box2d.MakeRot(quarterTurnFactor*box2d.Pi),
 		)
 		groundID.CreatePolygonShape(&shapeDef, &box)
 	}
@@ -1389,10 +1923,10 @@ func CreateOffsetShapes(context *SampleContext) Sampler {
 		capsule := box2d.Capsule{
 			Center1: box2d.Vec2{X: -5.0, Y: 1.0},
 			Center2: box2d.Vec2{X: -4.0, Y: 1.0},
-			Radius:  0.25,
+			Radius:  capsuleRadius,
 		}
 		bodyDef := box2d.DefaultBodyDef()
-		bodyDef.Position = box2d.Pos{X: 13.5, Y: -0.75}
+		bodyDef.Position = box2d.Pos{X: capsuleBodyX, Y: -capsuleBodyY}
 		bodyDef.Type = box2d.DynamicBody
 		bodyID := s.worldID.CreateBody(&bodyDef)
 		shapeDef := box2d.DefaultShapeDef()
@@ -1401,10 +1935,10 @@ func CreateOffsetShapes(context *SampleContext) Sampler {
 
 	{
 		box := box2d.MakeOffsetBox(
-			0.75,
-			0.5,
-			box2d.Vec2{X: 9.0, Y: 2.0},
-			box2d.MakeRot(0.5*box2d.Pi),
+			offsetBoxHalfWidth,
+			offsetBoxHalfHeight,
+			box2d.Vec2{X: dynamicShapeOffsetX, Y: dynamicShapeOffsetY},
+			box2d.MakeRot(quarterTurnFactor*box2d.Pi),
 		)
 		bodyDef := box2d.DefaultBodyDef()
 		bodyDef.Position = box2d.Pos{X: 0.0, Y: 0.0}
@@ -1413,6 +1947,7 @@ func CreateOffsetShapes(context *SampleContext) Sampler {
 		shapeDef := box2d.DefaultShapeDef()
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 	}
+
 	return s
 }
 
@@ -1422,19 +1957,26 @@ func (s *OffsetShapes) Step() {
 	s.draw.DrawTransform(box2d.WorldTransformIdentity, 1.0)
 }
 
-// This shows how to use explosions and demonstrates the projected perimeter
-type Explosion struct {
-	Sample
-
-	jointIDs       []box2d.Joint
-	radius         float32
-	falloff        float32
-	impulse        float32
-	referenceAngle float32
-}
-
 func CreateExplosion(context *SampleContext) Sampler {
-	s := &Explosion{}
+	const (
+		bodyRingRadius          = 8.0
+		halfTurnDegrees         = 180.0
+		bodyHalfHeight          = 0.1
+		initialExplosionRadius  = 7.0
+		initialExplosionFalloff = 3.0
+		initialExplosionImpulse = 10.0
+	)
+
+	s := &Explosion{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		radius:          initialExplosionRadius,
+		falloff:         initialExplosionFalloff,
+		impulse:         initialExplosionImpulse,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
@@ -1449,8 +1991,6 @@ func CreateExplosion(context *SampleContext) Sampler {
 	bodyDef.GravityScale = 0.0
 	shapeDef := box2d.DefaultShapeDef()
 
-	s.referenceAngle = 0.0
-
 	weldDef := box2d.DefaultWeldJointDef()
 	weldDef.Base.BodyA = groundID
 	weldDef.Base.LocalFrameA.Q = box2d.MakeRot(s.referenceAngle)
@@ -1460,13 +2000,14 @@ func CreateExplosion(context *SampleContext) Sampler {
 	weldDef.LinearHertz = 0.5
 	weldDef.LinearDampingRatio = 0.7
 
-	r := float32(8.0)
+	r := float32(bodyRingRadius)
+
 	for angle := float32(0.0); angle < 360.0; angle += 30.0 {
-		cosSin := box2d.ComputeCosSin(angle * box2d.Pi / 180.0)
+		cosSin := box2d.ComputeCosSin(angle * box2d.Pi / halfTurnDegrees)
 		bodyDef.Position = box2d.Pos{X: posScalar(r * cosSin.Cosine), Y: posScalar(r * cosSin.Sine)}
 		bodyID := s.worldID.CreateBody(&bodyDef)
 
-		box := box2d.MakeBox(1.0, 0.1)
+		box := box2d.MakeBox(1.0, bodyHalfHeight)
 		bodyID.CreatePolygonShape(&shapeDef, &box)
 
 		weldDef.Base.LocalFrameA.P = bodyDef.Position.Vec2()
@@ -1476,36 +2017,48 @@ func CreateExplosion(context *SampleContext) Sampler {
 		s.jointIDs = append(s.jointIDs, jointID.Joint)
 	}
 
-	s.radius = 7.0
-	s.falloff = 3.0
-	s.impulse = 10.0
 	return s
 }
 
 func (s *Explosion) DrawControls() bool {
+	const (
+		controlWidthEm      = 6.0
+		maxRadius           = 20.0
+		maxFalloff          = 20.0
+		maxImpulseMagnitude = 20.0
+	)
+
 	if imgui.Button("Explode") {
 		def := box2d.DefaultExplosionDef()
-		def.Position = box2d.Pos{}
+
+		var origin box2d.Pos
+
+		def.Position = origin
 		def.Radius = s.radius
 		def.Falloff = s.falloff
 		def.ImpulsePerLength = s.impulse
 		s.worldID.Explode(&def)
 	}
 
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
-	imgui.SliderFloatV("radius", &s.radius, 0.0, 20.0, "%.1f", 0)
-	imgui.SliderFloatV("falloff", &s.falloff, 0.0, 20.0, "%.1f", 0)
-	imgui.SliderFloatV("impulse", &s.impulse, -20.0, 20.0, "%.1f", 0)
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
+	imgui.SliderFloatV("radius", &s.radius, 0.0, maxRadius, "%.1f", 0)
+	imgui.SliderFloatV("falloff", &s.falloff, 0.0, maxFalloff, "%.1f", 0)
+	imgui.SliderFloatV("impulse", &s.impulse, -maxImpulseMagnitude, maxImpulseMagnitude, "%.1f", 0)
 	imgui.PopItemWidth()
 
 	return true
 }
 
 func (s *Explosion) Step() {
+	const (
+		halfTurnDegrees = 180.0
+	)
+
 	if !s.context.pause || s.context.singleStep > 0 {
 		if s.context.hertz > 0.0 {
-			s.referenceAngle += 60.0 * box2d.Pi / 180.0 / s.context.hertz
+			s.referenceAngle += 60.0 * box2d.Pi / halfTurnDegrees / s.context.hertz
 		}
+
 		s.referenceAngle = box2d.UnwindAngle(s.referenceAngle)
 
 		for _, jointID := range s.jointIDs {
@@ -1517,25 +2070,30 @@ func (s *Explosion) Step() {
 
 	s.Sample.Step()
 
-	s.DrawScreenTextLine("reference angle = %.6g", s.referenceAngle)
+	s.DrawScreenTextLinef("reference angle = %.6g", s.referenceAngle)
 
-	s.draw.DrawCircle(box2d.Pos{}, s.radius+s.falloff, box2d.ColorBox2DBlue)
-	s.draw.DrawCircle(box2d.Pos{}, s.radius, box2d.ColorBox2DYellow)
-}
+	var origin box2d.Pos
 
-// This sample tests a static shape being recreated every step.
-type RecreateStatic struct {
-	Sample
-
-	groundID box2d.Body
+	s.draw.DrawCircle(origin, s.radius+s.falloff, box2d.ColorBox2DBlue)
+	s.draw.DrawCircle(origin, s.radius, box2d.ColorBox2DYellow)
 }
 
 func CreateRecreateStatic(context *SampleContext) Sampler {
-	s := &RecreateStatic{}
+	const (
+		cameraCenterHeight = 2.5
+	)
+
+	s := &RecreateStatic{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 2.5}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterHeight}
 		s.context.camera.zoom = 3.5
 	}
 
@@ -1548,11 +2106,14 @@ func CreateRecreateStatic(context *SampleContext) Sampler {
 	box := box2d.MakeBox(1.0, 1.0)
 	bodyID.CreatePolygonShape(&shapeDef, &box)
 
-	s.groundID = box2d.Body{}
 	return s
 }
 
 func (s *RecreateStatic) Step() {
+	const (
+		groundHalfWidth = 10.0
+	)
+
 	if s.groundID != (box2d.Body{}) {
 		s.groundID.Destroy()
 		s.groundID = box2d.Body{}
@@ -1568,31 +2129,33 @@ func (s *RecreateStatic) Step() {
 	shapeDef.InvokeContactCreation = true
 
 	segment := box2d.Segment{
-		Point1: box2d.Vec2{X: -10.0, Y: 0.0},
-		Point2: box2d.Vec2{X: 10.0, Y: 0.0},
+		Point1: box2d.Vec2{X: -groundHalfWidth, Y: 0.0},
+		Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 	}
 	s.groundID.CreateSegmentShape(&shapeDef, &segment)
 
 	s.Sample.Step()
 }
 
-const windMaxCount = 60
-
-type Wind struct {
-	Sample
-
-	shapeType int32
-	wind      box2d.Vec2
-	drag      float32
-	lift      float32
-	noise     box2d.Vec2
-	groundID  box2d.Body
-	bodyIDs   [windMaxCount]box2d.Body
-	count     int32
-}
-
 func CreateWind(context *SampleContext) Sampler {
-	s := &Wind{}
+	const (
+		initialWindSpeed = 6.0
+		initialLift      = 0.75
+		initialBodyCount = 10
+	)
+
+	s := &Wind{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+		shapeType:       shapeChoiceCapsule,
+		wind:            box2d.Vec2{X: initialWindSpeed, Y: 0.0},
+		drag:            1.0,
+		lift:            initialLift,
+		count:           initialBodyCount,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
@@ -1605,18 +2168,21 @@ func CreateWind(context *SampleContext) Sampler {
 		s.groundID = s.worldID.CreateBody(&bodyDef)
 	}
 
-	s.shapeType = shapeChoiceCapsule
-	s.wind = box2d.Vec2{X: 6.0, Y: 0.0}
-	s.drag = 1.0
-	s.lift = 0.75
-	s.count = 10
-	s.noise = box2d.Vec2{X: 0.0, Y: 0.0}
-
 	s.CreateScene()
+
 	return s
 }
 
 func (s *Wind) CreateScene() {
+	const (
+		shapeRadius        = 0.1
+		capsuleRadiusScale = 0.25
+		boxHalfWidthScale  = 0.25
+		boxHalfHeightScale = 1.25
+		firstBodyHeight    = 2.0
+		bodySpacingFactor  = 2.0
+	)
+
 	for i := range windMaxCount {
 		if s.bodyIDs[i] != (box2d.Body{}) {
 			s.bodyIDs[i].Destroy()
@@ -1624,18 +2190,18 @@ func (s *Wind) CreateScene() {
 		}
 	}
 
-	radius := float32(0.1)
+	radius := float32(shapeRadius)
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: radius}
 	capsule := box2d.Capsule{
 		Center1: box2d.Vec2{X: 0.0, Y: -radius},
 		Center2: box2d.Vec2{X: 0.0, Y: radius},
-		Radius:  0.25 * radius,
+		Radius:  capsuleRadiusScale * radius,
 	}
-	box := box2d.MakeBox(0.25*radius, 1.25*radius)
+	box := box2d.MakeBox(boxHalfWidthScale*radius, boxHalfHeightScale*radius)
 
 	jointDef := box2d.DefaultRevoluteJointDef()
 	jointDef.Base.BodyA = s.groundID
-	jointDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: 2.0 + radius}
+	jointDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: firstBodyHeight + radius}
 	jointDef.Base.DrawScale = 0.1
 	jointDef.Hertz = 0.1
 	jointDef.DampingRatio = 0.0
@@ -1650,14 +2216,18 @@ func (s *Wind) CreateScene() {
 	bodyDef.EnableSleep = false
 
 	for i := range int(s.count) {
-		bodyDef.Position = box2d.Pos{X: 0.0, Y: posScalar(2.0 - 2.0*radius*float32(i))}
+		bodyDef.Position = box2d.Pos{
+			X: 0.0,
+			Y: posScalar(bodySpacingFactor - bodySpacingFactor*radius*float32(i)),
+		}
 		s.bodyIDs[i] = s.worldID.CreateBody(&bodyDef)
 
-		if s.shapeType == shapeChoiceCircle {
+		switch s.shapeType {
+		case shapeChoiceCircle:
 			s.bodyIDs[i].CreateCircleShape(&shapeDef, &circle)
-		} else if s.shapeType == shapeChoiceCapsule {
+		case shapeChoiceCapsule:
 			s.bodyIDs[i].CreateCapsuleShape(&shapeDef, &capsule)
-		} else {
+		default:
 			s.bodyIDs[i].CreatePolygonShape(&shapeDef, &box)
 		}
 
@@ -1671,18 +2241,26 @@ func (s *Wind) CreateScene() {
 }
 
 func (s *Wind) DrawControls() bool {
-	imgui.PushItemWidth(6.0 * imgui.FontSize())
+	const (
+		controlWidthEm = 6.0
+		maxWindSpeed   = 20.0
+		maxLift        = 4.0
+	)
+
+	imgui.PushItemWidth(controlWidthEm * imgui.FontSize())
 
 	if imgui.ComboStrarr("Shape", &s.shapeType, shapeChoiceNames, int32(len(shapeChoiceNames))) {
 		s.CreateScene()
 	}
 
 	wind := [2]float32{s.wind.X, s.wind.Y}
-	if imgui.SliderFloat2V("Wind", &wind, -20.0, 20.0, "%.1f", 0) {
+	if imgui.SliderFloat2V("Wind", &wind, -maxWindSpeed, maxWindSpeed, "%.1f", 0) {
 		s.wind = box2d.Vec2{X: wind[0], Y: wind[1]}
 	}
+
 	imgui.SliderFloatV("Drag", &s.drag, 0.0, 1.0, "%.2f", 0)
-	imgui.SliderFloatV("Lift", &s.lift, 0.0, 4.0, "%.2f", 0)
+	imgui.SliderFloatV("Lift", &s.lift, 0.0, maxLift, "%.2f", 0)
+
 	if imgui.SliderIntV("Count", &s.count, 1, windMaxCount, "%d", 0) {
 		s.CreateScene()
 	}
@@ -1693,6 +2271,12 @@ func (s *Wind) DrawControls() bool {
 }
 
 func (s *Wind) Step() {
+	const (
+		noiseAmplitude = 0.3
+		noiseBlend     = 0.05
+		windArrowScale = 0.2
+	)
+
 	if !s.context.pause || s.context.singleStep > 0 {
 		speed, direction := s.wind.LengthAndNormalize()
 		wind := direction.Add(s.noise).Scale(speed)
@@ -1704,16 +2288,18 @@ func (s *Wind) Step() {
 			}
 		}
 
-		rand := scenes.RandomVec2(-0.3, 0.3)
-		s.noise = s.noise.Lerp(rand, 0.05)
+		rand := scenes.RandomVec2(-noiseAmplitude, noiseAmplitude)
+		s.noise = s.noise.Lerp(rand, noiseBlend)
 
-		s.draw.DrawLine(box2d.Pos{}, wind.Scale(0.2).Pos(), box2d.ColorFuchsia)
+		var origin box2d.Pos
+
+		s.draw.DrawLine(origin, wind.Scale(windArrowScale).Pos(), box2d.ColorFuchsia)
 	}
 
 	s.Sample.Step()
 }
 
-func init() {
+func registerShapeSamples() {
 	RegisterSample("Shapes", "Chain Shape", CreateChainShape)
 	RegisterSample("Shapes", "Chain Segment", CreateChainSegmentShape)
 	RegisterSample("Shapes", "Compound Shapes", CreateCompoundShapes)

@@ -10,7 +10,6 @@ import (
 	"os"
 	"runtime"
 	"slices"
-	"unsafe"
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	imglfw "github.com/AllenDang/cimgui-go/impl/glfw"
@@ -22,10 +21,6 @@ import (
 	"github.com/zigai/box2d-go/box2d"
 	"github.com/zigai/box2d-go/internal/scenes"
 )
-
-func init() {
-	runtime.LockOSThread()
-}
 
 var (
 	sContext          = newSampleContext()
@@ -128,7 +123,7 @@ func createUI(window *glfw.Window) {
 	imgui.CreateContext()
 	implot.CreateContext()
 
-	sImguiWindow = imglfw.NewGLFWwindowFromC((*struct{})(unsafe.Pointer(window.Handle())))
+	sImguiWindow = imglfw.NewGLFWwindowFromC((*struct{})(window.Handle()))
 	if !imglfw.InitForOpenGL(sImguiWindow, false) {
 		panic("ImGui_ImplGlfw_InitForOpenGL failed")
 	}
@@ -138,6 +133,7 @@ func createUI(window *glfw.Window) {
 	}
 
 	io := imgui.CurrentIO()
+
 	applyUIStyle()
 
 	style := imgui.CurrentStyle()
@@ -158,7 +154,7 @@ func destroyUI() {
 	imgui.DestroyContext()
 }
 
-func resizeWindowCallback(_ *glfw.Window, width, height int) {
+func resizeWindowCallback(_ *glfw.Window, width int, height int) {
 	sContext.camera.width = float32(width)
 	sContext.camera.height = float32(height)
 }
@@ -171,82 +167,91 @@ func keyCallback(
 	mods glfw.ModifierKey,
 ) {
 	imglfw.KeyCallback(sImguiWindow, int32(key), int32(scancode), int32(action), int32(mods))
-	if imgui.CurrentIO().WantCaptureKeyboard() {
+
+	if imgui.CurrentIO().WantCaptureKeyboard() || action != glfw.Press {
 		return
 	}
 
-	if action == glfw.Press {
-		switch key {
-		case glfw.KeyEscape:
-			if sContext.showControls {
-				sContext.showControls = false
-			} else if sContext.sample != nil {
-				sContext.sample.Keyboard(key, action, mods)
-			}
+	handlePressedKey(key, mods)
+}
 
-		case glfw.KeyQ:
-			if mods == glfw.ModControl {
-				sContext.window.SetShouldClose(true)
-			} else if sContext.sample != nil {
-				sContext.sample.Keyboard(key, action, mods)
-			}
-
-		case glfw.KeyLeft, glfw.KeyRight, glfw.KeyDown, glfw.KeyUp, glfw.KeyZ, glfw.KeyX:
-
-		case glfw.KeyHome:
-			if sContext.sample != nil {
-				sContext.sample.FocusHome()
-			}
-
-		case glfw.KeyR:
-			SelectSample(sContext, sContext.sampleIndex, true)
-
-		case glfw.KeyO:
-			if mods == glfw.ModControl {
-				sContext.showUI = true
-				sContext.openSamplePicker = true
-			} else if sContext.sample != nil {
-				sContext.sample.Keyboard(key, action, mods)
-			}
-
-		case glfw.KeyPeriod:
-			if mods&glfw.ModShift != 0 {
-				sContext.singleStep += 5
-			} else {
-				sContext.singleStep += 1
-			}
-
-		case glfw.KeyP, glfw.KeyPause:
-			sContext.pause = !sContext.pause
-
-		case glfw.KeyLeftBracket:
-			selection := sContext.sampleIndex - 1
-			if selection < 0 {
-				selection = len(sampleEntries) - 1
-			}
-			SelectSample(sContext, selection, false)
-
-		case glfw.KeyRightBracket:
-			selection := sContext.sampleIndex + 1
-			if selection == len(sampleEntries) {
-				selection = 0
-			}
-			SelectSample(sContext, selection, false)
-
-		case glfw.KeyTab:
-			sContext.showUI = !sContext.showUI
-
-		case glfw.KeyM:
-			sContext.showMetrics = !sContext.showMetrics
-
-		case glfw.KeyI:
-			sContext.showProfile = !sContext.showProfile
-
-		default:
-			if sContext.sample != nil {
-				sContext.sample.Keyboard(key, action, mods)
-			}
+func handlePressedKey(key glfw.Key, mods glfw.ModifierKey) {
+	//nolint:exhaustive // GLFW keys are extensible; the default delegates unmatched keys.
+	switch key {
+	case glfw.KeyEscape:
+		if sContext.showControls {
+			sContext.showControls = false
+			return
 		}
+
+		forwardKey(sContext.sample, key, mods)
+	case glfw.KeyQ:
+		if mods == glfw.ModControl {
+			sContext.window.SetShouldClose(true)
+			return
+		}
+
+		forwardKey(sContext.sample, key, mods)
+	case glfw.KeyO:
+		if mods == glfw.ModControl {
+			sContext.showUI = true
+			sContext.openSamplePicker = true
+
+			return
+		}
+
+		forwardKey(sContext.sample, key, mods)
+	case glfw.KeyLeft, glfw.KeyRight, glfw.KeyDown, glfw.KeyUp, glfw.KeyZ, glfw.KeyX:
+	case glfw.KeyHome:
+		if sContext.sample != nil {
+			sContext.sample.FocusHome()
+		}
+	case glfw.KeyR:
+		SelectSample(sContext, sContext.sampleIndex, true)
+	default:
+		handleNavigationKey(key, mods)
+	}
+}
+
+func forwardKey(sample sampleInput, key glfw.Key, mods glfw.ModifierKey) {
+	if sample != nil {
+		sample.Keyboard(key, glfw.Press, mods)
+	}
+}
+
+func handleNavigationKey(key glfw.Key, mods glfw.ModifierKey) {
+	//nolint:exhaustive // GLFW keys are extensible; the default delegates unmatched keys.
+	switch key {
+	case glfw.KeyPeriod:
+		if mods&glfw.ModShift != 0 {
+			sContext.singleStep += 5
+		} else {
+			sContext.singleStep++
+		}
+	case glfw.KeyP, glfw.KeyPause:
+		sContext.pause = !sContext.pause
+	case glfw.KeyLeftBracket:
+		selection := sContext.sampleIndex - 1
+		if selection < 0 {
+			selection = len(sampleEntries) - 1
+		}
+
+		SelectSample(sContext, selection, false)
+	case glfw.KeyRightBracket:
+		selection := sContext.sampleIndex + 1
+		if selection == len(sampleEntries) {
+			selection = 0
+		}
+
+		SelectSample(sContext, selection, false)
+	case glfw.KeyTab:
+		sContext.showUI = !sContext.showUI
+	case glfw.KeyM:
+		sContext.showMetrics = !sContext.showMetrics
+	case glfw.KeyI:
+		sContext.showProfile = !sContext.showProfile
+	default:
+		forwardKey(sContext.sample, key, mods)
 	}
 }
 
@@ -271,24 +276,30 @@ func updateCameraKeys(frameTime float32) {
 	}
 
 	panStep := camera.zoom * dt
+
 	var pan box2d.Vec2
 	if window.GetKey(glfw.KeyLeft) == glfw.Press {
 		pan.X -= panStep
 	}
+
 	if window.GetKey(glfw.KeyRight) == glfw.Press {
 		pan.X += panStep
 	}
+
 	if window.GetKey(glfw.KeyDown) == glfw.Press {
 		pan.Y -= panStep
 	}
+
 	if window.GetKey(glfw.KeyUp) == glfw.Press {
 		pan.Y += panStep
 	}
+
 	camera.center = camera.center.Add(pan)
 }
 
 func charCallback(window *glfw.Window, c rune) {
 	imglfw.CharCallback(sImguiWindow, uint32(c))
+
 	if imgui.CurrentIO().WantCaptureKeyboard() {
 		return
 	}
@@ -313,7 +324,9 @@ func mouseButtonCallback(
 	xd, yd := window.GetCursorPos()
 	ps := box2d.Vec2{X: float32(xd), Y: float32(yd)}
 
-	if button == glfw.MouseButton1 {
+	//nolint:exhaustive // GLFW buttons are extensible; other buttons have no action.
+	switch button {
+	case glfw.MouseButton1:
 		pw := ConvertScreenToWorld(&sContext.camera, ps)
 		if action == glfw.Press {
 			sContext.sample.MouseDown(pw, button, mods)
@@ -322,7 +335,7 @@ func mouseButtonCallback(
 		if action == glfw.Release {
 			sContext.sample.MouseUp(pw, button)
 		}
-	} else if button == glfw.MouseButton2 {
+	case glfw.MouseButton2:
 		if action == glfw.Press {
 			sClickPointWS = ConvertScreenToWorld(&sContext.camera, ps)
 			sRightMouseDown = true
@@ -331,10 +344,11 @@ func mouseButtonCallback(
 		if action == glfw.Release {
 			sRightMouseDown = false
 		}
+	default:
 	}
 }
 
-func mouseMotionCallback(window *glfw.Window, xd, yd float64) {
+func mouseMotionCallback(window *glfw.Window, xd float64, yd float64) {
 	ps := box2d.Vec2{X: float32(xd), Y: float32(yd)}
 
 	imglfw.CursorPosCallback(sImguiWindow, float64(ps.X), float64(ps.Y))
@@ -349,8 +363,9 @@ func mouseMotionCallback(window *glfw.Window, xd, yd float64) {
 	}
 }
 
-func scrollCallback(window *glfw.Window, dx, dy float64) {
+func scrollCallback(window *glfw.Window, dx float64, dy float64) {
 	imglfw.ScrollCallback(sImguiWindow, dx, dy)
+
 	if imgui.CurrentIO().WantCaptureMouse() {
 		return
 	}
@@ -376,6 +391,8 @@ func main() {
 }
 
 func run() int {
+	runtime.LockOSThread()
+	registerSamples()
 	sortSamples()
 
 	sContext.Load()
@@ -401,30 +418,9 @@ func run() int {
 
 	glfw.WindowHint(glfw.Samples, 4)
 
-	version := box2d.CurrentVersion()
-	precision := "single"
-	if box2d.IsDoublePrecision() {
-		precision = "double"
-	}
-	title := fmt.Sprintf(
-		"Box2D Version %d.%d.%d - %s precision",
-		version.Major,
-		version.Minor,
-		version.Revision,
-		precision,
-	)
+	title := sampleWindowTitle()
 
-	if primaryMonitor := glfw.GetPrimaryMonitor(); primaryMonitor != nil {
-		contentScale, _ := primaryMonitor.GetContentScale()
-
-		if runtime.GOOS == "darwin" {
-			sContext.uiScale = 1.0
-			sFramebufferScale = contentScale
-		} else {
-			sContext.uiScale = contentScale
-			sFramebufferScale = 1.0
-		}
-	}
+	updateDisplayScale()
 
 	window, err := glfw.CreateWindow(
 		int(sContext.camera.width),
@@ -436,8 +432,10 @@ func run() int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open GLFW window: %v\n", err)
 		glfw.Terminate()
+
 		return -1
 	}
+
 	sContext.window = window
 
 	window.MakeContextCurrent()
@@ -445,6 +443,7 @@ func run() int {
 	if err := gl.Init(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize OpenGL: %v\n", err)
 		glfw.Terminate()
+
 		return -1
 	}
 
@@ -462,6 +461,7 @@ func run() int {
 	window.SetScrollCallback(scrollCallback)
 
 	createUI(window)
+
 	sContext.draw = CreateDraw()
 
 	sContext.sampleIndex = min(max(sContext.sampleIndex, 0), len(sampleEntries)-1)
@@ -524,9 +524,11 @@ func run() int {
 		glfw.PollEvents()
 
 		time2 := glfw.GetTime()
+
 		targetTime := time1 + 1.0/60.0
 		for time2 < targetTime {
 			runtime.Gosched()
+
 			time2 = glfw.GetTime()
 		}
 
@@ -543,4 +545,38 @@ func run() int {
 	sContext.Save()
 
 	return 0
+}
+
+func sampleWindowTitle() string {
+	version := box2d.CurrentVersion()
+
+	precision := "single"
+	if box2d.IsDoublePrecision() {
+		precision = "double"
+	}
+
+	return fmt.Sprintf(
+		"Box2D Version %d.%d.%d - %s precision",
+		version.Major,
+		version.Minor,
+		version.Revision,
+		precision,
+	)
+}
+
+func updateDisplayScale() {
+	primaryMonitor := glfw.GetPrimaryMonitor()
+	if primaryMonitor == nil {
+		return
+	}
+
+	contentScale, _ := primaryMonitor.GetContentScale()
+
+	if runtime.GOOS == "darwin" {
+		sContext.uiScale = 1.0
+		sFramebufferScale = contentScale
+	} else {
+		sContext.uiScale = contentScale
+		sFramebufferScale = 1.0
+	}
 }

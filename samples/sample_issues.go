@@ -8,12 +8,30 @@ type UnstablePrismaticJoints struct {
 	Sample
 }
 
+type UnstableWindmill struct {
+	Sample
+}
+
 func CreateUnstablePrismaticJoints(context *SampleContext) Sampler {
-	s := &UnstablePrismaticJoints{}
+	const (
+		cameraCenterY          = 1.75
+		groundHalfWidth        = 100.0
+		bodyHeight             = 3
+		sideBodyOffset         = 3.5
+		jointTargetTranslation = 3.0
+	)
+
+	s := &UnstablePrismaticJoints{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 1.75}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterY}
 		s.context.camera.zoom = 32.0
 	}
 
@@ -23,8 +41,8 @@ func CreateUnstablePrismaticJoints(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -100.0, Y: 0.0},
-			Point2: box2d.Vec2{X: 100.0, Y: 0.0},
+			Point1: box2d.Vec2{X: -groundHalfWidth, Y: 0.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: 0.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -33,12 +51,13 @@ func CreateUnstablePrismaticJoints(context *SampleContext) Sampler {
 	{
 		bd := box2d.DefaultBodyDef()
 		bd.Type = box2d.DynamicBody
-		bd.Position = box2d.Pos{X: 0, Y: 3}
+		bd.Position = box2d.Pos{X: 0, Y: bodyHeight}
 		centerID = s.worldID.CreateBody(&bd)
 
 		sd := box2d.DefaultShapeDef()
 
 		var circle box2d.Circle
+
 		circle.Center = box2d.Vec2{X: 0, Y: 0}
 
 		circle.Radius = 0.5
@@ -54,32 +73,34 @@ func CreateUnstablePrismaticJoints(context *SampleContext) Sampler {
 	{
 		bd := box2d.DefaultBodyDef()
 		bd.Type = box2d.DynamicBody
-		bd.Position = box2d.Pos{X: -3.5, Y: 3}
+		bd.Position = box2d.Pos{X: -sideBodyOffset, Y: bodyHeight}
 
 		leftID := s.worldID.CreateBody(&bd)
 
 		sd := box2d.DefaultShapeDef()
 
 		var circle box2d.Circle
+
 		circle.Center = box2d.Vec2{X: 0, Y: 0}
 		circle.Radius = 2.0
 		leftID.CreateCircleShape(&sd, &circle)
 
 		jd.Base.BodyA = centerID
 		jd.Base.BodyB = leftID
-		jd.TargetTranslation = -3.0
+		jd.TargetTranslation = -jointTargetTranslation
 		s.worldID.CreatePrismaticJoint(&jd)
 	}
 
 	{
 		bd := box2d.DefaultBodyDef()
 		bd.Type = box2d.DynamicBody
-		bd.Position = box2d.Pos{X: 3.5, Y: 3}
+		bd.Position = box2d.Pos{X: sideBodyOffset, Y: bodyHeight}
 		rightID := s.worldID.CreateBody(&bd)
 
 		sd := box2d.DefaultShapeDef()
 
 		var circle box2d.Circle
+
 		circle.Center = box2d.Vec2{X: 0, Y: 0}
 		circle.Radius = 2.0
 
@@ -87,23 +108,36 @@ func CreateUnstablePrismaticJoints(context *SampleContext) Sampler {
 
 		jd.Base.BodyA = centerID
 		jd.Base.BodyB = rightID
-		jd.TargetTranslation = 3.0
+		jd.TargetTranslation = jointTargetTranslation
 		s.worldID.CreatePrismaticJoint(&jd)
 	}
 
 	return s
 }
 
-type UnstableWindmill struct {
-	Sample
-}
-
 func CreateUnstableWindmill(context *SampleContext) Sampler {
-	s := &UnstableWindmill{}
+	const (
+		cameraCenterY    = 1.75
+		groundHalfWidth  = 100.0
+		centerPosition   = 10
+		outerPosition    = 20
+		hubRadius        = 5
+		bladeHalfWidth   = 4
+		bladeHalfLength  = 5
+		bladeJointOffset = 5
+	)
+
+	s := &UnstableWindmill{
+		context:         context,
+		camera:          &context.camera,
+		draw:            context.draw,
+		screenTextX:     initialScreenTextX,
+		mouseForceScale: initialMouseForceScale,
+	}
 	s.init(context, s, true)
 
 	if !s.context.restart {
-		s.context.camera.center = box2d.Pos{X: 0.0, Y: 1.75}
+		s.context.camera.center = box2d.Pos{X: 0.0, Y: cameraCenterY}
 		s.context.camera.zoom = 32.0
 	}
 
@@ -113,8 +147,8 @@ func CreateUnstableWindmill(context *SampleContext) Sampler {
 
 		shapeDef := box2d.DefaultShapeDef()
 		segment := box2d.Segment{
-			Point1: box2d.Vec2{X: -100.0, Y: -10.0},
-			Point2: box2d.Vec2{X: 100.0, Y: -10.0},
+			Point1: box2d.Vec2{X: -groundHalfWidth, Y: -10.0},
+			Point2: box2d.Vec2{X: groundHalfWidth, Y: -10.0},
 		}
 		groundID.CreateSegmentShape(&shapeDef, &segment)
 	}
@@ -126,9 +160,9 @@ func CreateUnstableWindmill(context *SampleContext) Sampler {
 	sdef.Material = box2d.DefaultSurfaceMaterial()
 	sdef.Material.Friction = 0.1
 
-	bdef.Position = box2d.Pos{X: 10, Y: 10}
+	bdef.Position = box2d.Pos{X: centerPosition, Y: centerPosition}
 	center := s.worldID.CreateBody(&bdef)
-	circle := box2d.Circle{Center: box2d.Vec2{X: 0, Y: 0}, Radius: 5}
+	circle := box2d.Circle{Center: box2d.Vec2{X: 0, Y: 0}, Radius: hubRadius}
 	center.CreateCircleShape(&sdef, &circle)
 
 	wjdef := box2d.DefaultWeldJointDef()
@@ -137,46 +171,74 @@ func CreateUnstableWindmill(context *SampleContext) Sampler {
 
 	var polygon box2d.Polygon
 
-	bdef.Position = box2d.Pos{X: 10, Y: 0}
+	bdef.Position = box2d.Pos{X: centerPosition, Y: 0}
 	body := s.worldID.CreateBody(&bdef)
-	polygon = box2d.MakeBox(4, 5)
+	polygon = box2d.MakeBox(bladeHalfWidth, bladeHalfLength)
 	body.CreatePolygonShape(&sdef, &polygon)
-	wjdef.Base.LocalFrameA = box2d.Transform{P: box2d.Vec2{X: 0, Y: -5}, Q: box2d.RotIdentity}
+
+	wjdef.Base.LocalFrameA = box2d.Transform{
+		P: box2d.Vec2{X: 0, Y: -bladeJointOffset},
+		Q: box2d.RotIdentity,
+	}
 	wjdef.Base.BodyB = body
-	wjdef.Base.LocalFrameB = box2d.Transform{P: box2d.Vec2{X: 0, Y: 5}, Q: box2d.RotIdentity}
+	wjdef.Base.LocalFrameB = box2d.Transform{
+		P: box2d.Vec2{X: 0, Y: bladeJointOffset},
+		Q: box2d.RotIdentity,
+	}
 	s.worldID.CreateWeldJoint(&wjdef)
 
-	bdef.Position = box2d.Pos{X: 20, Y: 10}
+	bdef.Position = box2d.Pos{X: outerPosition, Y: centerPosition}
 	body = s.worldID.CreateBody(&bdef)
-	polygon = box2d.MakeBox(5, 4)
+	polygon = box2d.MakeBox(bladeHalfLength, bladeHalfWidth)
 	body.CreatePolygonShape(&sdef, &polygon)
-	wjdef.Base.LocalFrameA = box2d.Transform{P: box2d.Vec2{X: 5, Y: 0}, Q: box2d.RotIdentity}
+
+	wjdef.Base.LocalFrameA = box2d.Transform{
+		P: box2d.Vec2{X: bladeJointOffset, Y: 0},
+		Q: box2d.RotIdentity,
+	}
 	wjdef.Base.BodyB = body
-	wjdef.Base.LocalFrameB = box2d.Transform{P: box2d.Vec2{X: -5, Y: 0}, Q: box2d.RotIdentity}
+	wjdef.Base.LocalFrameB = box2d.Transform{
+		P: box2d.Vec2{X: -bladeJointOffset, Y: 0},
+		Q: box2d.RotIdentity,
+	}
 	s.worldID.CreateWeldJoint(&wjdef)
 
-	bdef.Position = box2d.Pos{X: 10, Y: 20}
+	bdef.Position = box2d.Pos{X: centerPosition, Y: outerPosition}
 	body = s.worldID.CreateBody(&bdef)
-	polygon = box2d.MakeBox(4, 5)
+	polygon = box2d.MakeBox(bladeHalfWidth, bladeHalfLength)
 	body.CreatePolygonShape(&sdef, &polygon)
-	wjdef.Base.LocalFrameA = box2d.Transform{P: box2d.Vec2{X: 0, Y: 5}, Q: box2d.RotIdentity}
+
+	wjdef.Base.LocalFrameA = box2d.Transform{
+		P: box2d.Vec2{X: 0, Y: bladeJointOffset},
+		Q: box2d.RotIdentity,
+	}
 	wjdef.Base.BodyB = body
-	wjdef.Base.LocalFrameB = box2d.Transform{P: box2d.Vec2{X: 0, Y: -5}, Q: box2d.RotIdentity}
+	wjdef.Base.LocalFrameB = box2d.Transform{
+		P: box2d.Vec2{X: 0, Y: -bladeJointOffset},
+		Q: box2d.RotIdentity,
+	}
 	s.worldID.CreateWeldJoint(&wjdef)
 
-	bdef.Position = box2d.Pos{X: 0, Y: 10}
+	bdef.Position = box2d.Pos{X: 0, Y: centerPosition}
 	body = s.worldID.CreateBody(&bdef)
-	polygon = box2d.MakeBox(5, 4)
+	polygon = box2d.MakeBox(bladeHalfLength, bladeHalfWidth)
 	body.CreatePolygonShape(&sdef, &polygon)
-	wjdef.Base.LocalFrameA = box2d.Transform{P: box2d.Vec2{X: -5, Y: 0}, Q: box2d.RotIdentity}
+
+	wjdef.Base.LocalFrameA = box2d.Transform{
+		P: box2d.Vec2{X: -bladeJointOffset, Y: 0},
+		Q: box2d.RotIdentity,
+	}
 	wjdef.Base.BodyB = body
-	wjdef.Base.LocalFrameB = box2d.Transform{P: box2d.Vec2{X: 5, Y: 0}, Q: box2d.RotIdentity}
+	wjdef.Base.LocalFrameB = box2d.Transform{
+		P: box2d.Vec2{X: bladeJointOffset, Y: 0},
+		Q: box2d.RotIdentity,
+	}
 	s.worldID.CreateWeldJoint(&wjdef)
 
 	return s
 }
 
-func init() {
+func registerIssueSamples() {
 	RegisterSample("Issues", "Unstable Prismatic Joints", CreateUnstablePrismaticJoints)
 	RegisterSample("Issues", "Unstable Windmill", CreateUnstableWindmill)
 }

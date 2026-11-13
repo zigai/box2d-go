@@ -17,32 +17,46 @@ type Doohickey struct {
 }
 
 func (d *Doohickey) Spawn(worldID *box2d.World, position box2d.Pos, scale float32) {
+	const (
+		rollingResistance  = 0.1
+		barHalfLength      = 3.5
+		barRadius          = 0.15
+		wheelOffsetX       = 5.0
+		barOffsetX         = 1.5
+		bodyHeight         = 3.0
+		motorTorque        = 2.0
+		sliderAnchorOffset = 2.0
+		sliderLimit        = 2.0
+		motorForce         = 2.0
+		springDampingRatio = 0.5
+	)
+
 	bodyDef := box2d.DefaultBodyDef()
 	bodyDef.Type = box2d.DynamicBody
 
 	shapeDef := box2d.DefaultShapeDef()
-	shapeDef.Material.RollingResistance = 0.1
+	shapeDef.Material.RollingResistance = rollingResistance
 
 	circle := box2d.Circle{Center: box2d.Vec2{X: 0.0, Y: 0.0}, Radius: 1.0 * scale}
 	capsule := box2d.Capsule{
-		Center1: box2d.Vec2{X: -3.5 * scale, Y: 0.0},
-		Center2: box2d.Vec2{X: 3.5 * scale, Y: 0.0},
-		Radius:  0.15 * scale,
+		Center1: box2d.Vec2{X: -barHalfLength * scale, Y: 0.0},
+		Center2: box2d.Vec2{X: barHalfLength * scale, Y: 0.0},
+		Radius:  barRadius * scale,
 	}
 
-	bodyDef.Position = position.Add(box2d.Vec2{X: -5.0, Y: 3.0}.Scale(scale))
+	bodyDef.Position = position.Add(box2d.Vec2{X: -wheelOffsetX, Y: bodyHeight}.Scale(scale))
 	d.wheelID1 = worldID.CreateBody(&bodyDef)
 	d.wheelID1.CreateCircleShape(&shapeDef, &circle)
 
-	bodyDef.Position = position.Add(box2d.Vec2{X: 5.0, Y: 3.0}.Scale(scale))
+	bodyDef.Position = position.Add(box2d.Vec2{X: wheelOffsetX, Y: bodyHeight}.Scale(scale))
 	d.wheelID2 = worldID.CreateBody(&bodyDef)
 	d.wheelID2.CreateCircleShape(&shapeDef, &circle)
 
-	bodyDef.Position = position.Add(box2d.Vec2{X: -1.5, Y: 3.0}.Scale(scale))
+	bodyDef.Position = position.Add(box2d.Vec2{X: -barOffsetX, Y: bodyHeight}.Scale(scale))
 	d.barID1 = worldID.CreateBody(&bodyDef)
 	d.barID1.CreateCapsuleShape(&shapeDef, &capsule)
 
-	bodyDef.Position = position.Add(box2d.Vec2{X: 1.5, Y: 3.0}.Scale(scale))
+	bodyDef.Position = position.Add(box2d.Vec2{X: barOffsetX, Y: bodyHeight}.Scale(scale))
 	d.barID2 = worldID.CreateBody(&bodyDef)
 	d.barID2.CreateCapsuleShape(&shapeDef, &capsule)
 
@@ -51,32 +65,32 @@ func (d *Doohickey) Spawn(worldID *box2d.World, position box2d.Pos, scale float3
 	revoluteDef.Base.BodyA = d.wheelID1
 	revoluteDef.Base.BodyB = d.barID1
 	revoluteDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: 0.0}
-	revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: -3.5 * scale, Y: 0.0}
+	revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: -barHalfLength * scale, Y: 0.0}
 	revoluteDef.EnableMotor = true
-	revoluteDef.MaxMotorTorque = 2.0 * scale
+	revoluteDef.MaxMotorTorque = motorTorque * scale
 	worldID.CreateRevoluteJoint(&revoluteDef)
 
 	revoluteDef.Base.BodyA = d.wheelID2
 	revoluteDef.Base.BodyB = d.barID2
 	revoluteDef.Base.LocalFrameA.P = box2d.Vec2{X: 0.0, Y: 0.0}
-	revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: 3.5 * scale, Y: 0.0}
+	revoluteDef.Base.LocalFrameB.P = box2d.Vec2{X: barHalfLength * scale, Y: 0.0}
 	revoluteDef.EnableMotor = true
-	revoluteDef.MaxMotorTorque = 2.0 * scale
+	revoluteDef.MaxMotorTorque = motorTorque * scale
 	worldID.CreateRevoluteJoint(&revoluteDef)
 
 	prismaticDef := box2d.DefaultPrismaticJointDef()
 	prismaticDef.Base.BodyA = d.barID1
 	prismaticDef.Base.BodyB = d.barID2
-	prismaticDef.Base.LocalFrameA.P = box2d.Vec2{X: 2.0 * scale, Y: 0.0}
-	prismaticDef.Base.LocalFrameB.P = box2d.Vec2{X: -2.0 * scale, Y: 0.0}
-	prismaticDef.LowerTranslation = -2.0 * scale
-	prismaticDef.UpperTranslation = 2.0 * scale
+	prismaticDef.Base.LocalFrameA.P = box2d.Vec2{X: sliderAnchorOffset * scale, Y: 0.0}
+	prismaticDef.Base.LocalFrameB.P = box2d.Vec2{X: -sliderAnchorOffset * scale, Y: 0.0}
+	prismaticDef.LowerTranslation = -sliderLimit * scale
+	prismaticDef.UpperTranslation = sliderLimit * scale
 	prismaticDef.EnableLimit = true
 	prismaticDef.EnableMotor = true
-	prismaticDef.MaxMotorForce = 2.0 * scale
+	prismaticDef.MaxMotorForce = motorForce * scale
 	prismaticDef.EnableSpring = true
 	prismaticDef.Hertz = 1.0
-	prismaticDef.DampingRatio = 0.5
+	prismaticDef.DampingRatio = springDampingRatio
 	worldID.CreatePrismaticJoint(&prismaticDef)
 }
 

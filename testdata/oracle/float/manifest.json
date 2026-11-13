@@ -374,9 +374,9 @@
     {
       "oracle/CMakeLists.txt" : "732399db2c37ea5ff772d1245204d56ae58bc6fde0f05e0a0d376a47faecaeeb",
       "oracle/bench/scenes.c" : "a5ad54084a7dca8029c6fdffee1c0bacbc53651c3eb675a26c2a34ef30192efb",
-      "oracle/build.sh" : "de26690357d3b55bc34c4c083bd1ea079f11c11bc9443b8d0fac38c317b80390",
+      "oracle/build.sh" : "fe4008c0f78852bfbcda914371c372b5554cee62ac6f4d717222c3371431a2a8",
       "oracle/capture.cmake" : "2ba17a91ca55fd9306f6f9b85fb9b22ae07b815660002dccc9b9e9508b821747",
-      "oracle/cases.json" : "3bbfb991635b7d443d3106157faba98057c1ebceb2836b86e91200d9b112c0d9",
+      "oracle/cases.json" : "67ea128cb95b0e6823786d7cdb4acb82a9cf1d63b9d8138c456839febb0a519d",
       "oracle/check-upstream.cmake" : "71ed1b56feb390f47c7e16f9831c596c2a0e79053460cee801b0fb3857dac3ce",
       "oracle/debug/distance.c" : "43185c60afc1ead1478bc77b431f4c3ca559ad8dff93a9c9c729f69ba549d09f",
       "oracle/differential.c" : "6303e975e6055885428207ddd83524b8dea55522cd7917e70301a80e67dd585c",
@@ -7286,9 +7286,9 @@
   {
     "oracle/CMakeLists.txt" : "732399db2c37ea5ff772d1245204d56ae58bc6fde0f05e0a0d376a47faecaeeb",
     "oracle/bench/scenes.c" : "a5ad54084a7dca8029c6fdffee1c0bacbc53651c3eb675a26c2a34ef30192efb",
-    "oracle/build.sh" : "de26690357d3b55bc34c4c083bd1ea079f11c11bc9443b8d0fac38c317b80390",
+    "oracle/build.sh" : "fe4008c0f78852bfbcda914371c372b5554cee62ac6f4d717222c3371431a2a8",
     "oracle/capture.cmake" : "2ba17a91ca55fd9306f6f9b85fb9b22ae07b815660002dccc9b9e9508b821747",
-    "oracle/cases.json" : "3bbfb991635b7d443d3106157faba98057c1ebceb2836b86e91200d9b112c0d9",
+    "oracle/cases.json" : "67ea128cb95b0e6823786d7cdb4acb82a9cf1d63b9d8138c456839febb0a519d",
     "oracle/check-upstream.cmake" : "71ed1b56feb390f47c7e16f9831c596c2a0e79053460cee801b0fb3857dac3ce",
     "oracle/debug/distance.c" : "43185c60afc1ead1478bc77b431f4c3ca559ad8dff93a9c9c729f69ba549d09f",
     "oracle/differential.c" : "6303e975e6055885428207ddd83524b8dea55522cd7917e70301a80e67dd585c",

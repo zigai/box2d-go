@@ -19,7 +19,10 @@ var Analyzer = &analysis.Analyzer{
 }
 
 func run(pass *analysis.Pass) (any, error) {
-	in := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	in, ok := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	if !ok {
+		panic("fmaround: inspect analyzer result is not an *inspector.Inspector")
+	}
 
 	in.Preorder([]ast.Node{(*ast.BinaryExpr)(nil), (*ast.AssignStmt)(nil)}, func(n ast.Node) {
 		switch n := n.(type) {
@@ -27,9 +30,11 @@ func run(pass *analysis.Pass) (any, error) {
 			if n.Op != token.ADD && n.Op != token.SUB {
 				return
 			}
+
 			if !isFloat32(pass.TypesInfo.TypeOf(n)) {
 				return
 			}
+
 			report(pass, n.X, "an addition or subtraction")
 			report(pass, n.Y, "an addition or subtraction")
 		case *ast.AssignStmt:
@@ -37,13 +42,16 @@ func run(pass *analysis.Pass) (any, error) {
 				len(n.Rhs) != 1 {
 				return
 			}
+
 			if !isFloat32(pass.TypesInfo.TypeOf(n.Lhs[0])) {
 				return
 			}
+
 			report(pass, n.Rhs[0], n.Tok.String())
 		}
 	})
-	return nil, nil
+
+	return nil, nil //nolint:nilnil // No ResultType requires a nil analysis result; covered by TestAnalyzer.
 }
 
 func report(pass *analysis.Pass, operand ast.Expr, consumer string) {
@@ -51,7 +59,9 @@ func report(pass *analysis.Pass, operand ast.Expr, consumer string) {
 	if mul == nil {
 		return
 	}
+
 	typ := roundingType(pass, mul)
+
 	diagnostic := analysis.Diagnostic{
 		Pos:     mul.Pos(),
 		End:     mul.End(),
@@ -67,6 +77,7 @@ func report(pass *analysis.Pass, operand ast.Expr, consumer string) {
 			},
 		}}
 	}
+
 	pass.Report(diagnostic)
 }
 
@@ -74,44 +85,57 @@ func report(pass *analysis.Pass, operand ast.Expr, consumer string) {
 // site: imports can be renamed or dotted, and type names can be shadowed.
 func roundingType(pass *analysis.Pass, product ast.Expr) string {
 	target := pass.TypesInfo.TypeOf(product)
+
 	scope := pass.Pkg.Scope().Innermost(product.Pos())
 	if scope == nil {
 		return ""
 	}
+
 	qualifier := func(pkg *types.Package) string {
 		if pkg.Path() == pass.Pkg.Path() {
 			return ""
 		}
-		for s := scope; s != nil; s = s.Parent() {
-			for _, name := range s.Names() {
-				obj, ok := s.Lookup(name).(*types.PkgName)
-				if !ok || obj.Imported().Path() != pkg.Path() {
-					continue
-				}
-				if _, visible := scope.LookupParent(name, product.Pos()); visible == obj {
-					return name
-				}
-			}
-		}
-		return "" // A dot-imported type is unqualified; Eval checks visibility.
+
+		return importName(scope, product.Pos(), pkg)
 	}
+
 	name := types.TypeString(target, qualifier)
 	if value, err := types.Eval(pass.Fset, pass.Pkg, product.Pos(), name); err == nil &&
 		value.IsType() && types.Identical(value.Type, target) {
 		return name
 	}
+
 	for s := scope; s != nil; s = s.Parent() {
 		for _, name := range s.Names() {
 			obj, ok := s.Lookup(name).(*types.TypeName)
 			if !ok || !types.Identical(obj.Type(), target) {
 				continue
 			}
+
 			if _, visible := scope.LookupParent(name, product.Pos()); visible == obj {
 				return name
 			}
 		}
 	}
+
 	return "" // Report the defect without offering a conversion that cannot compile.
+}
+
+func importName(scope *types.Scope, pos token.Pos, pkg *types.Package) string {
+	for s := scope; s != nil; s = s.Parent() {
+		for _, name := range s.Names() {
+			obj, ok := s.Lookup(name).(*types.PkgName)
+			if !ok || obj.Imported().Path() != pkg.Path() {
+				continue
+			}
+
+			if _, visible := scope.LookupParent(name, pos); visible == obj {
+				return name
+			}
+		}
+	}
+
+	return ""
 }
 
 func product(info *types.Info, e ast.Expr) *ast.BinaryExpr {
@@ -123,14 +147,17 @@ func product(info *types.Info, e ast.Expr) *ast.BinaryExpr {
 			if x.Op != token.SUB && x.Op != token.ADD {
 				return nil
 			}
+
 			e = x.X
 		case *ast.BinaryExpr:
 			if x.Op != token.MUL || !isFloat32(info.TypeOf(x)) {
 				return nil
 			}
+
 			if tv, ok := info.Types[x]; ok && tv.Value != nil {
 				return nil
 			}
+
 			return x
 		default:
 			return nil
@@ -142,6 +169,8 @@ func isFloat32(t types.Type) bool {
 	if t == nil {
 		return false
 	}
+
 	b, ok := t.Underlying().(*types.Basic)
+
 	return ok && b.Kind() == types.Float32
 }

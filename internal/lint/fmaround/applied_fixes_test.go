@@ -32,6 +32,7 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 		"nonzero_grouping": 0x41300000, "nonzero_outer_minus": 0xbf800000,
 		"nonzero_nested_sign": 0xbf800000,
 	}
+
 	cases := []struct {
 		name        string
 		diagnostics int
@@ -49,26 +50,32 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			mainFile := filepath.Join(dir, "main.go")
+
 			source, err := os.ReadFile(filepath.Join("testdata", "applied", tc.name, "main.go"))
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			writeAppliedFile(t, mainFile, source)
 			writeAppliedFile(
 				t,
 				filepath.Join(dir, "go.mod"),
 				[]byte("module roundingfixture\n\ngo 1.27\n"),
 			)
+
 			if err := os.Mkdir(filepath.Join(dir, "measures"), 0o700); err != nil {
 				t.Fatal(err)
 			}
+
 			measure, err := os.ReadFile(filepath.Join("testdata", "src", "measures", "measures.go"))
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			writeAppliedFile(t, filepath.Join(dir, "measures", "measures.go"), measure)
 
 			pkg := loadAppliedPackage(t, dir)
+
 			diagnostics := analyzeAppliedPackage(t, pkg)
 			if len(diagnostics) != tc.diagnostics {
 				t.Fatalf(
@@ -78,7 +85,9 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 					diagnostics,
 				)
 			}
+
 			var edits []analysis.TextEdit
+
 			for i, diagnostic := range diagnostics {
 				if len(diagnostic.SuggestedFixes) != 1 {
 					t.Fatalf(
@@ -87,19 +96,25 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 						len(diagnostic.SuggestedFixes),
 					)
 				}
+
 				fix := diagnostic.SuggestedFixes[0]
 				if len(fix.TextEdits) == 0 {
 					t.Fatalf("diagnostic %d offers an empty fix", i)
 				}
+
 				edits = append(edits, fix.TextEdits...)
 			}
+
 			sort.SliceStable(edits, func(i, j int) bool { return edits[i].Pos > edits[j].Pos })
+
 			lastStart := len(source)
+
 			for _, edit := range edits {
 				file := pkg.Fset.File(edit.Pos)
 				if file == nil || file.Name() != mainFile || pkg.Fset.File(edit.End) != file {
 					t.Fatalf("fix edits an unexpected file: %+v", edit)
 				}
+
 				start, end := file.Offset(edit.Pos), file.Offset(edit.End)
 				if start > end || end > lastStart {
 					t.Fatalf(
@@ -109,12 +124,14 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 						lastStart,
 					)
 				}
+
 				source = append(
 					append(append([]byte(nil), source[:start]...), edit.NewText...),
 					source[end:]...,
 				)
 				lastStart = start
 			}
+
 			writeAppliedFile(t, mainFile, source)
 
 			// Loading with NeedTypes/NeedTypesInfo rejects invalid conversions,
@@ -123,34 +140,45 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 			if remaining := analyzeAppliedPackage(t, fixed); len(remaining) != 0 {
 				t.Fatalf("applied fixes leave %d diagnostics: %+v", len(remaining), remaining)
 			}
+
 			cmd := exec.CommandContext(t.Context(), "go", "run", ".")
 			cmd.Dir = dir
+
 			cmd.Env = append(os.Environ(), "GOWORK=off")
+
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("compiling/executing actual fixes: %v\n%s", err, output)
 			}
+
 			seen := make(map[string]bool)
+
 			scanner := bufio.NewScanner(strings.NewReader(string(output)))
 			for scanner.Scan() {
 				fields := strings.Fields(scanner.Text())
 				if len(fields) != 2 {
 					t.Fatalf("invalid observation %q", scanner.Text())
 				}
+
 				key := fields[0]
+
 				want, ok := tc.want[key]
 				if !ok || seen[key] {
 					t.Fatalf("unexpected or duplicate observation %q", key)
 				}
+
 				seen[key] = true
+
 				bits, err := strconv.ParseUint(fields[1], 16, 32)
-				if err != nil || uint32(bits) != want {
+				if err != nil || bits != uint64(want) {
 					t.Errorf("%s = %s (%v), want %08x", key, fields[1], err, want)
 				}
 			}
+
 			if err := scanner.Err(); err != nil {
 				t.Fatal(err)
 			}
+
 			for key := range tc.want {
 				if !seen[key] {
 					t.Errorf("missing numeric observation %q", key)
@@ -162,6 +190,7 @@ func TestAppliedSuggestedFixes(t *testing.T) {
 
 func writeAppliedFile(t *testing.T, path string, data []byte) {
 	t.Helper()
+
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -169,6 +198,7 @@ func writeAppliedFile(t *testing.T, path string, data []byte) {
 
 func loadAppliedPackage(t *testing.T, dir string) *packages.Package {
 	t.Helper()
+
 	loaded, err := packages.Load(&packages.Config{
 		Mode: packages.LoadSyntax,
 		Dir:  dir,
@@ -177,19 +207,24 @@ func loadAppliedPackage(t *testing.T, dir string) *packages.Package {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(loaded) != 1 {
 		t.Fatalf("loaded %d fixture packages, want one", len(loaded))
 	}
+
 	pkg := loaded[0]
 	if len(pkg.Errors) != 0 {
 		t.Fatalf("fixture does not type-check: %v", pkg.Errors)
 	}
+
 	return pkg
 }
 
 func analyzeAppliedPackage(t *testing.T, pkg *packages.Package) []analysis.Diagnostic {
 	t.Helper()
+
 	var diagnostics []analysis.Diagnostic
+
 	pass := &analysis.Pass{
 		Analyzer:   fmaround.Analyzer,
 		Fset:       pkg.Fset,
@@ -204,5 +239,6 @@ func analyzeAppliedPackage(t *testing.T, pkg *packages.Package) []analysis.Diagn
 	if _, err := fmaround.Analyzer.Run(pass); err != nil {
 		t.Fatal(fmt.Errorf("running analyzer: %w", err))
 	}
+
 	return diagnostics
 }

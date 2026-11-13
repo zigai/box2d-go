@@ -97,6 +97,13 @@ type chainSegmentParams struct {
 	convex2 bool
 }
 
+type chainPolygonFeatures struct {
+	p1, p2, normal1, n0, n2 Vec2
+	smoothParams            chainSegmentParams
+	vertices, normals       []Vec2
+	radius                  float32
+}
+
 // Compute the contact manifold between two circles.
 func CollideCircles(circleA *Circle, circleB *Circle, xf Transform) LocalManifold {
 	manifold := LocalManifold{}
@@ -411,18 +418,10 @@ func CollideCapsules(capsuleA *Capsule, capsuleB *Capsule, xf Transform) LocalMa
 	length2, u2 := d2.LengthAndNormalize()
 
 	// Does segment B project outside segment A?
-	var (
-		fp2      = p2.Sub(p1).Dot(u1)
-		fq2      = q2.Sub(p1).Dot(u1)
-		outsideA = (fp2 <= 0.0 && fq2 <= 0.0) || (fp2 >= length1 && fq2 >= length1)
-	)
+	fp2, fq2, outsideA := projectCapsule(p1, u1, p2, q2, length1)
 
 	// Does segment A project outside segment B?
-	var (
-		fp1      = p1.Sub(p2).Dot(u2)
-		fq1      = q1.Sub(p2).Dot(u2)
-		outsideB = (fp1 <= 0.0 && fq1 <= 0.0) || (fp1 >= length2 && fq1 >= length2)
-	)
+	fp1, fq1, outsideB := projectCapsule(p2, u2, p1, q1, length2)
 
 	if !outsideA && !outsideB {
 		// attempt to clip
@@ -436,123 +435,27 @@ func CollideCapsules(capsuleA *Capsule, capsuleB *Capsule, xf Transform) LocalMa
 		// biased to avoid feature flip-flop
 		// todo more testing?
 		if separationA+float32(0.1*LinearSlop()) >= separationB {
-			manifold.Normal = normalA
-
-			var (
-				cp = p2
-				cq = q2
+			manifold = clipCapsuleFace(
+				&Capsule{p1, q1, radiusA}, &Capsule{p2, q2, radiusB},
+				normalA, fp2, fq2, length1, distance, radius,
 			)
-
-			// clip to p1
-			if fp2 < 0.0 && fq2 > 0.0 {
-				cp = p2.Lerp(q2, (0.0-fp2)/(fq2-fp2))
-			} else if fq2 < 0.0 && fp2 > 0.0 {
-				cq = q2.Lerp(p2, (0.0-fq2)/(fp2-fq2))
-			}
-
-			// clip to q1
-			if fp2 > length1 && fq2 < length1 {
-				cp = p2.Lerp(q2, (fp2-length1)/(fp2-fq2))
-			} else if fq2 > length1 && fp2 < length1 {
-				cq = q2.Lerp(p2, (fq2-length1)/(fq2-fp2))
-			}
-
-			var (
-				sp = cp.Sub(p1).Dot(normalA)
-				sq = cq.Sub(p1).Dot(normalA)
-			)
-
-			if sp <= distance+LinearSlop() || sq <= distance+LinearSlop() {
-				var mp *LocalManifoldPoint
-
-				mp = &manifold.Points[0]
-				mp.Point = cp.MulAdd(0.5*(radiusA-radiusB-sp), normalA)
-				mp.Separation = sp - radius
-				mp.ID = (uint16(uint8(0))<<8 | uint16(uint8(0)))
-
-				mp = &manifold.Points[1]
-				mp.Point = cq.MulAdd(0.5*(radiusA-radiusB-sq), normalA)
-				mp.Separation = sq - radius
-				mp.ID = (uint16(uint8(0))<<8 | uint16(uint8(1)))
-				manifold.PointCount = 2
-			}
 		} else {
-			// normal always points from A to B
+			manifold = clipCapsuleFace(
+				&Capsule{p2, q2, radiusB}, &Capsule{p1, q1, radiusA},
+				normalB, fp1, fq1, length2, distance, radius,
+			)
+
 			manifold.Normal = normalB.Neg()
-
-			var (
-				cp = p1
-				cq = q1
-			)
-
-			// clip to p2
-			if fp1 < 0.0 && fq1 > 0.0 {
-				cp = p1.Lerp(q1, (0.0-fp1)/(fq1-fp1))
-			} else if fq1 < 0.0 && fp1 > 0.0 {
-				cq = q1.Lerp(p1, (0.0-fq1)/(fp1-fq1))
-			}
-
-			// clip to q2
-			if fp1 > length2 && fq1 < length2 {
-				cp = p1.Lerp(q1, (fp1-length2)/(fp1-fq1))
-			} else if fq1 > length2 && fp1 < length2 {
-				cq = q1.Lerp(p1, (fq1-length2)/(fq1-fp1))
-			}
-
-			var (
-				sp = cp.Sub(p2).Dot(normalB)
-				sq = cq.Sub(p2).Dot(normalB)
-			)
-
-			if sp <= distance+LinearSlop() || sq <= distance+LinearSlop() {
-				var mp *LocalManifoldPoint
-
-				mp = &manifold.Points[0]
-				mp.Point = cp.MulAdd(0.5*(radiusB-radiusA-sp), normalB)
-				mp.Separation = sp - radius
-				mp.ID = (uint16(uint8(0))<<8 | uint16(uint8(0)))
-				mp = &manifold.Points[1]
-				mp.Point = cq.MulAdd(0.5*(radiusB-radiusA-sq), normalB)
-				mp.Separation = sq - radius
-				mp.ID = (uint16(uint8(1))<<8 | uint16(uint8(0)))
-				manifold.PointCount = 2
+			if manifold.PointCount == 2 {
+				manifold.Points[1].ID = (uint16(uint8(1))<<8 | uint16(uint8(0)))
 			}
 		}
 	}
 
 	if manifold.PointCount == 0 {
-		// single point collision
-		normal := closest2.Sub(closest1)
-		if normal.Dot(normal) > epsSqr {
-			normal = normal.Normalize()
-		} else {
-			normal = u1.LeftPerp()
-		}
-
-		var (
-			c1 = closest1.MulAdd(radiusA, normal)
-			c2 = closest2.MulAdd(-radiusB, normal)
+		manifold = capsulePointContact(
+			closest1, closest2, u1, radiusA, radiusB, radius, distanceSquared, f1, f2,
 		)
-
-		var i1 int
-		if f1 == 0.0 {
-			i1 = 0
-		} else {
-			i1 = 1
-		}
-
-		var i2 int
-		if f2 == 0.0 {
-			i2 = 0
-		} else {
-			i2 = 1
-		}
-
-		manifold.Normal = normal
-		manifold.Points[0].Point = c1.Lerp(c2, 0.5)
-		manifold.Points[0].Separation = float32(math.Sqrt(float64(distanceSquared))) - radius
-		manifold.Points[0].ID = (uint16(uint8(i1))<<8 | uint16(uint8(i2)))
-		manifold.PointCount = 1
 	}
 
 	// Undo the origin shift so points are in frame A
@@ -928,290 +831,339 @@ func CollideChainSegmentAndPolygon(
 	}
 
 	// Snap concave normals for partial polygon
-	var n0 Vec2
-	if smoothParams.convex1 {
-		n0 = smoothParams.normal0
-	} else {
-		n0 = normal1
-	}
+	n0, n2 := smoothParams.adjacentNormals(normal1)
 
-	var n2 Vec2
-	if smoothParams.convex2 {
-		n2 = smoothParams.normal2
-	} else {
-		n2 = normal1
-	}
-
-	// Index of incident vertex on polygon
 	var (
-		incidentIndex  = -1
+		incidentIndex  int
 		incidentNormal = -1
 	)
 
+	features := chainPolygonFeatures{
+		p1:           p1,
+		p2:           p2,
+		normal1:      normal1,
+		n0:           n0,
+		n2:           n2,
+		smoothParams: smoothParams,
+		vertices:     vertices[:count],
+		normals:      normals[:count],
+		radius:       radiusB,
+	}
+
+	var done bool
 	if !behind1 && output.Distance > float32(0.1*LinearSlop()) {
-		// The closest features may be two vertices or an edge and a vertex even when there should
-		// be face contact
-		if cache.Count == 1 {
-			// vertex-vertex collision
-			var (
-				pA = output.PointA
-				pB = output.PointB
-			)
-
-			normal := pB.Sub(pA).Normalize()
-
-			kind := classifyNormal(smoothParams, normal)
-			if kind == normalSkip {
-				return manifold
-			}
-
-			if kind == normalAdmit {
-				manifold.Normal = normal
-
-				cp := &manifold.Points[0]
-
-				cp.Point = pA
-				cp.Separation = output.Distance - radiusB
-				cp.ID = (uint16(cache.IndexA[0])<<8 | uint16(cache.IndexB[0]))
-				manifold.PointCount = 1
-
-				return manifold
-			}
-
-			// fall through b2_normalSnap
-			incidentIndex = int(cache.IndexB[0])
-		} else {
-			// vertex-edge collision
-			core.Assert(cache.Count == 2, "cache->count == 2")
-
-			var (
-				ia1 = int(cache.IndexA[0])
-				ia2 = int(cache.IndexA[1])
-				ib1 = int(cache.IndexB[0])
-				ib2 = int(cache.IndexB[1])
-			)
-
-			if ia1 == ia2 {
-				// 1 point on A, expect 2 points on B
-				core.Assert(ib1 != ib2, "ib1 != ib2")
-
-				// Find polygon normal most aligned with vector between closest points.
-				// This effectively sorts ib1 and ib2
-				var (
-					normalB = output.PointA.Sub(output.PointB)
-					dot1    = normalB.Dot(normals[ib1])
-					dot2    = normalB.Dot(normals[ib2])
-					ib      int
-				)
-				if dot1 > dot2 {
-					ib = ib1
-				} else {
-					ib = ib2
-				}
-
-				// Use accurate normal
-				normalB = normals[ib]
-
-				kind := classifyNormal(smoothParams, normalB.Neg())
-				if kind == normalSkip {
-					return manifold
-				}
-
-				if kind == normalAdmit {
-					// Get polygon edge associated with normal
-					ib1 = ib
-					if ib < count-1 {
-						ib2 = ib + 1
-					} else {
-						ib2 = 0
-					}
-
-					var (
-						b1 = vertices[ib1]
-						b2 = vertices[ib2]
-					)
-
-					// Find incident segment vertex
-					dot1 = normalB.Dot(p1.Sub(b1))
-					dot2 = normalB.Dot(p2.Sub(b1))
-
-					if dot1 < dot2 {
-						if n0.Dot(normalB) < normal1.Dot(normalB) {
-							// Neighbor is incident
-							return manifold
-						}
-					} else {
-						if n2.Dot(normalB) < normal1.Dot(normalB) {
-							// Neighbor is incident
-							return manifold
-						}
-					}
-
-					manifold = clipSegments(
-						b1,
-						b2,
-						p1,
-						p2,
-						normalB,
-						radiusB,
-						0.0,
-						(uint16(uint8(ib1))<<8 | uint16(uint8(1))),
-						(uint16(uint8(ib2))<<8 | uint16(uint8(0))),
-					)
-
-					core.Assert(
-						manifold.PointCount == 0 || manifold.PointCount == 2,
-						"manifold.pointCount == 0 || manifold.pointCount == 2",
-					)
-
-					if manifold.PointCount == 2 {
-						manifold.Normal = normalB.Neg()
-					}
-
-					return manifold
-				}
-
-				// fall through b2_normalSnap
-				incidentNormal = ib
-			} else {
-				// Get index of incident polygonB vertex
-				var (
-					dot1 = normal1.Dot(vertices[ib1].Sub(p1))
-					dot2 = normal1.Dot(vertices[ib2].Sub(p2))
-				)
-				if dot1 < dot2 {
-					incidentIndex = ib1
-				} else {
-					incidentIndex = ib2
-				}
-			}
-		}
+		manifold, incidentIndex, incidentNormal, done = features.closestFeatures(output, cache)
 	} else {
-		// SAT edge normal
-		edgeSeparation, incident := minimumNormalSeparation(vertices[:count], p1, normal1)
-		incidentIndex = incident
+		manifold, incidentIndex, done = features.separatingAxes()
+	}
 
-		// Check convex neighbor for edge separation
-		if smoothParams.convex1 {
-			s0, _ := minimumNormalSeparation(vertices[:count], p1, smoothParams.normal0)
+	if done {
+		return manifold
+	}
 
-			if s0 > edgeSeparation {
-				edgeSeparation = s0
+	return features.clipIncidentEdge(incidentIndex, incidentNormal)
+}
 
-				// Indicate neighbor owns edge separation
-				incidentIndex = -1
-			}
-		}
+func clipCapsuleFace(
+	reference *Capsule, incident *Capsule,
+	normal Vec2,
+	fp float32, fq float32, length float32, distance float32, radius float32,
+) LocalManifold {
+	manifold := LocalManifold{Normal: normal}
 
-		// Check convex neighbor for edge separation
-		if smoothParams.convex2 {
-			s2, _ := minimumNormalSeparation(vertices[:count], p2, smoothParams.normal2)
+	var (
+		p1 = reference.Center1
+		p2 = incident.Center1
+		q2 = incident.Center2
+		cp = p2
+		cq = q2
+	)
 
-			if s2 > edgeSeparation {
-				edgeSeparation = s2
+	if fp < 0.0 && fq > 0.0 {
+		cp = p2.Lerp(q2, (0.0-fp)/(fq-fp))
+	} else if fq < 0.0 && fp > 0.0 {
+		cq = q2.Lerp(p2, (0.0-fq)/(fp-fq))
+	}
 
-				// Indicate neighbor owns edge separation
-				incidentIndex = -1
-			}
-		}
+	if fp > length && fq < length {
+		cp = p2.Lerp(q2, (fp-length)/(fp-fq))
+	} else if fq > length && fp < length {
+		cq = q2.Lerp(p2, (fq-length)/(fq-fp))
+	}
 
-		// SAT polygon normals
+	var (
+		sp = cp.Sub(p1).Dot(normal)
+		sq = cq.Sub(p1).Dot(normal)
+	)
+
+	if sp <= distance+LinearSlop() || sq <= distance+LinearSlop() {
 		var (
-			polygonSeparation = -float32(0x1.fffffep127)
-			referenceIndex    = -1
+			radiusA = reference.Radius
+			radiusB = incident.Radius
+			mp      *LocalManifoldPoint
 		)
 
-		for i := range count {
-			n := normals[i]
+		mp = &manifold.Points[0]
+		mp.Point = cp.MulAdd(0.5*(radiusA-radiusB-sp), normal)
+		mp.Separation = sp - radius
+		mp.ID = (uint16(uint8(0))<<8 | uint16(uint8(0)))
 
-			kind := classifyNormal(smoothParams, n.Neg())
-			if kind != normalAdmit {
-				continue
-			}
-
-			// Check the infinite sides of the partial polygon
-			// if ((smoothParams.convex1 && b2Cross(n0, n) > 0.0f) || (smoothParams.convex2 && b2Cross(n, n2) > 0.0f))
-			//{
-			//	continue;
-			//}
-
-			var (
-				p = vertices[i]
-				s = minFloat(n.Dot(p2.Sub(p)), n.Dot(p1.Sub(p)))
-			)
-
-			if s > polygonSeparation {
-				polygonSeparation = s
-				referenceIndex = i
-			}
-		}
-
-		if polygonSeparation > edgeSeparation {
-			var (
-				ia1 = referenceIndex
-				ia2 int
-			)
-			if ia1 < count-1 {
-				ia2 = ia1 + 1
-			} else {
-				ia2 = 0
-			}
-
-			var (
-				a1 = vertices[ia1]
-				a2 = vertices[ia2]
-			)
-
-			n := normals[ia1]
-
-			var (
-				dot1 = n.Dot(p1.Sub(a1))
-				dot2 = n.Dot(p2.Sub(a1))
-			)
-
-			if dot1 < dot2 {
-				if n0.Dot(n) < normal1.Dot(n) {
-					// Neighbor is incident
-					return manifold
-				}
-			} else {
-				if n2.Dot(n) < normal1.Dot(n) {
-					// Neighbor is incident
-					return manifold
-				}
-			}
-
-			manifold = clipSegments(
-				a1,
-				a2,
-				p1,
-				p2,
-				normals[ia1],
-				radiusB,
-				0.0,
-				(uint16(uint8(ia1))<<8 | uint16(uint8(1))),
-				(uint16(uint8(ia2))<<8 | uint16(uint8(0))),
-			)
-
-			core.Assert(
-				manifold.PointCount == 0 || manifold.PointCount == 2,
-				"manifold.pointCount == 0 || manifold.pointCount == 2",
-			)
-
-			if manifold.PointCount == 2 {
-				manifold.Normal = normals[ia1].Neg()
-			}
-
-			return manifold
-		}
-
-		if incidentIndex == -1 {
-			// neighboring segment is the separating axis
-			return manifold
-		}
-
-		// fall through segment normal axis
+		mp = &manifold.Points[1]
+		mp.Point = cq.MulAdd(0.5*(radiusA-radiusB-sq), normal)
+		mp.Separation = sq - radius
+		mp.ID = (uint16(uint8(0))<<8 | uint16(uint8(1)))
+		manifold.PointCount = 2
 	}
+
+	return manifold
+}
+
+func capsulePointContact(
+	closest1 Vec2,
+	closest2 Vec2,
+	axis Vec2,
+	radiusA float32,
+	radiusB float32,
+	radius float32,
+	distanceSquared float32,
+	f1 float32,
+	f2 float32,
+) LocalManifold {
+	manifold := LocalManifold{}
+	epsSqr := float32(0x1p-23) * float32(0x1p-23)
+
+	normal := closest2.Sub(closest1)
+	if normal.Dot(normal) > epsSqr {
+		normal = normal.Normalize()
+	} else {
+		normal = axis.LeftPerp()
+	}
+
+	var (
+		c1 = closest1.MulAdd(radiusA, normal)
+		c2 = closest2.MulAdd(-radiusB, normal)
+	)
+
+	var i1 int
+	if f1 == 0.0 {
+		i1 = 0
+	} else {
+		i1 = 1
+	}
+
+	var i2 int
+	if f2 == 0.0 {
+		i2 = 0
+	} else {
+		i2 = 1
+	}
+
+	manifold.Normal = normal
+	manifold.Points[0].Point = c1.Lerp(c2, 0.5)
+	manifold.Points[0].Separation = float32(math.Sqrt(float64(distanceSquared))) - radius
+	manifold.Points[0].ID = (uint16(uint8(i1))<<8 | uint16(uint8(i2)))
+	manifold.PointCount = 1
+
+	return manifold
+}
+
+func (features *chainPolygonFeatures) closestFeatures(
+	output DistanceOutput, cache *SimplexCache,
+) (LocalManifold, int, int, bool) {
+	manifold := LocalManifold{}
+
+	if cache.Count == 1 {
+		pA := output.PointA
+		pB := output.PointB
+		normal := pB.Sub(pA).Normalize()
+
+		kind := classifyNormal(features.smoothParams, normal)
+		if kind == normalSkip {
+			return manifold, -1, -1, true
+		}
+
+		if kind == normalAdmit {
+			manifold.Normal = normal
+			cp := &manifold.Points[0]
+			cp.Point = pA
+			cp.Separation = output.Distance - features.radius
+			cp.ID = (uint16(cache.IndexA[0])<<8 | uint16(cache.IndexB[0]))
+			manifold.PointCount = 1
+
+			return manifold, -1, -1, true
+		}
+
+		return manifold, int(cache.IndexB[0]), -1, false
+	}
+
+	core.Assert(cache.Count == 2, "cache->count == 2")
+	ia1 := int(cache.IndexA[0])
+	ia2 := int(cache.IndexA[1])
+	ib1 := int(cache.IndexB[0])
+
+	ib2 := int(cache.IndexB[1])
+	if ia1 == ia2 {
+		core.Assert(ib1 != ib2, "ib1 != ib2")
+		return features.closestPolygonEdge(output, ib1, ib2)
+	}
+
+	dot1 := features.normal1.Dot(features.vertices[ib1].Sub(features.p1))
+
+	dot2 := features.normal1.Dot(features.vertices[ib2].Sub(features.p2))
+	if dot1 < dot2 {
+		return manifold, ib1, -1, false
+	}
+
+	return manifold, ib2, -1, false
+}
+
+func (features *chainPolygonFeatures) closestPolygonEdge(
+	output DistanceOutput, ib1 int, ib2 int,
+) (LocalManifold, int, int, bool) {
+	manifold := LocalManifold{}
+	normalB := output.PointA.Sub(output.PointB)
+	dot1 := normalB.Dot(features.normals[ib1])
+	dot2 := normalB.Dot(features.normals[ib2])
+
+	var ib int
+	if dot1 > dot2 {
+		ib = ib1
+	} else {
+		ib = ib2
+	}
+
+	normalB = features.normals[ib]
+
+	kind := classifyNormal(features.smoothParams, normalB.Neg())
+	if kind == normalSkip {
+		return manifold, -1, -1, true
+	}
+
+	if kind == normalAdmit {
+		return features.clipPolygonEdge(ib), -1, -1, true
+	}
+
+	return manifold, -1, ib, false
+}
+
+func (features *chainPolygonFeatures) clipPolygonEdge(index int) LocalManifold {
+	manifold := LocalManifold{}
+	ia1 := index
+
+	var ia2 int
+	if ia1 < len(features.vertices)-1 {
+		ia2 = ia1 + 1
+	} else {
+		ia2 = 0
+	}
+
+	a1 := features.vertices[ia1]
+	a2 := features.vertices[ia2]
+	n := features.normals[ia1]
+	dot1 := n.Dot(features.p1.Sub(a1))
+
+	dot2 := n.Dot(features.p2.Sub(a1))
+	if dot1 < dot2 {
+		if features.n0.Dot(n) < features.normal1.Dot(n) {
+			return manifold
+		}
+	} else {
+		if features.n2.Dot(n) < features.normal1.Dot(n) {
+			return manifold
+		}
+	}
+
+	manifold = clipSegments(
+		a1, a2, features.p1, features.p2, n, features.radius, 0.0,
+		(uint16(uint8(ia1))<<8 | uint16(uint8(1))),
+		(uint16(uint8(ia2))<<8 | uint16(uint8(0))),
+	)
+	core.Assert(
+		manifold.PointCount == 0 || manifold.PointCount == 2,
+		"manifold.pointCount == 0 || manifold.pointCount == 2",
+	)
+
+	if manifold.PointCount == 2 {
+		manifold.Normal = n.Neg()
+	}
+
+	return manifold
+}
+
+func (features *chainPolygonFeatures) separatingAxes() (LocalManifold, int, bool) {
+	edgeSeparation, incidentIndex := minimumNormalSeparation(
+		features.vertices,
+		features.p1,
+		features.normal1,
+	)
+	if features.smoothParams.convex1 {
+		s0, _ := minimumNormalSeparation(
+			features.vertices,
+			features.p1,
+			features.smoothParams.normal0,
+		)
+		if s0 > edgeSeparation {
+			edgeSeparation = s0
+			incidentIndex = -1
+		}
+	}
+
+	if features.smoothParams.convex2 {
+		s2, _ := minimumNormalSeparation(
+			features.vertices,
+			features.p2,
+			features.smoothParams.normal2,
+		)
+		if s2 > edgeSeparation {
+			edgeSeparation = s2
+			incidentIndex = -1
+		}
+	}
+
+	polygonSeparation := -float32(0x1.fffffep127)
+	referenceIndex := -1
+
+	for i := range features.vertices {
+		n := features.normals[i]
+
+		kind := classifyNormal(features.smoothParams, n.Neg())
+		if kind != normalAdmit {
+			continue
+		}
+
+		p := features.vertices[i]
+
+		s := minFloat(n.Dot(features.p2.Sub(p)), n.Dot(features.p1.Sub(p)))
+		if s > polygonSeparation {
+			polygonSeparation = s
+			referenceIndex = i
+		}
+	}
+
+	if polygonSeparation > edgeSeparation {
+		return features.clipPolygonEdge(referenceIndex), incidentIndex, true
+	}
+
+	if incidentIndex == -1 {
+		return LocalManifold{}, incidentIndex, true
+	}
+
+	return LocalManifold{}, incidentIndex, false
+}
+
+func (features *chainPolygonFeatures) clipIncidentEdge(
+	incidentIndex int,
+	incidentNormal int,
+) LocalManifold {
+	var (
+		p1       = features.p1
+		p2       = features.p2
+		normal1  = features.normal1
+		vertices = features.vertices
+		normals  = features.normals
+		count    = len(vertices)
+		radiusB  = features.radius
+	)
 
 	core.Assert(
 		incidentNormal != -1 || incidentIndex != -1,
@@ -1269,7 +1221,7 @@ func CollideChainSegmentAndPolygon(
 		}
 	}
 
-	manifold = clipSegments(
+	manifold := clipSegments(
 		p1,
 		p2,
 		b1,
@@ -1724,4 +1676,32 @@ func chainCircleClosestPoint(segment *ChainSegment, edge Vec2, point Vec2) (Vec2
 	}
 
 	return p1, true
+}
+
+func projectCapsule(
+	origin Vec2,
+	axis Vec2,
+	point1 Vec2,
+	point2 Vec2,
+	length float32,
+) (float32, float32, bool) {
+	fp := point1.Sub(origin).Dot(axis)
+	fq := point2.Sub(origin).Dot(axis)
+	outside := (fp <= 0.0 && fq <= 0.0) || (fp >= length && fq >= length)
+
+	return fp, fq, outside
+}
+
+func (params *chainSegmentParams) adjacentNormals(normal Vec2) (Vec2, Vec2) {
+	n0 := normal
+	if params.convex1 {
+		n0 = params.normal0
+	}
+
+	n2 := normal
+	if params.convex2 {
+		n2 = params.normal2
+	}
+
+	return n0, n2
 }

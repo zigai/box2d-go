@@ -138,13 +138,14 @@ type BenchmarkCast struct {
 	minTime      float32
 	buildTime    float32 //exhaustruct:optional
 
-	rowCount, columnCount int32
-	drawIndex             int //exhaustruct:optional
-	radius                float32
-	fill                  float32
-	ratio                 float32
-	grid                  float32
-	topDown               bool //exhaustruct:optional
+	rowCount    int32
+	columnCount int32
+	drawIndex   int //exhaustruct:optional
+	radius      float32
+	fill        float32
+	ratio       float32
+	grid        float32
+	topDown     bool //exhaustruct:optional
 }
 type castResult struct {
 	point    box2d.Pos

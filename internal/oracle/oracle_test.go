@@ -132,7 +132,8 @@ func TestReaderNaN(t *testing.T) {
 
 func TestReaderUlpDistance(t *testing.T) {
 	tests := []struct {
-		a, b  uint64
+		a     uint64
+		b     uint64
 		width int
 		want  string
 	}{
@@ -569,9 +570,11 @@ func TestReaderRejectsInteriorRecordMutationsWithRepeatedKeys(t *testing.T) {
 
 func TestReaderPositionExactBits(t *testing.T) {
 	tests := []struct {
-		name          string
-		want32, got32 uint32
-		want64, got64 uint64
+		name   string
+		want32 uint32
+		got32  uint32
+		want64 uint64
+		got64  uint64
 	}{
 		{"finite one bit", 0x3f800000, 0x3f800001, 0x3ff0000000000000, 0x3ff0000000000001},
 		{"signed zero", 0, 0x80000000, 0, 0x8000000000000000},

@@ -62,7 +62,8 @@ type VerticalStack struct {
 	bulletType  int32
 }
 type circleStackEvent struct {
-	indexA, indexB int
+	indexA int
+	indexB int
 }
 
 // A simple circle stack that also shows how to collect hit events.

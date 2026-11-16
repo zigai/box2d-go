@@ -31,7 +31,10 @@ func Sort[T any](s []T, less func(a, b T) bool) {
 
 	l, r, sp := 0, len(s)-1, 0
 
-	var stack [48]struct{ l, r int }
+	var stack [48]struct {
+		l int
+		r int
+	}
 	for {
 		if r-l+1 < qThresh {
 			insertionSortRange(s, less, l, r)

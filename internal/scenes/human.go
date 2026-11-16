@@ -39,7 +39,9 @@ type Human struct {
 }
 
 type humanJointSettings struct {
-	maxTorque, hertz, dampingRatio float32
+	maxTorque    float32
+	hertz        float32
+	dampingRatio float32
 }
 
 func CreateHuman( //nolint:maintidx // Straight-line port of C CreateHuman's body table; MI 13 < 20; TestScenes/Human.

@@ -19,7 +19,8 @@ var (
 // This can be used to represent a point or free vector.
 type Vec2 struct {
 	// coordinates
-	X, Y float32
+	X float32
+	Y float32
 }
 
 // Cosine and sine pair
@@ -34,7 +35,8 @@ type CosSin struct {
 // This is similar to using a complex number for rotation.
 type Rot struct {
 	// cosine and sine
-	C, S float32
+	C float32
+	S float32
 }
 
 // A 2D rigid transform.
@@ -46,7 +48,8 @@ type Transform struct {
 // A 2-by-2 Matrix.
 type Mat22 struct {
 	// columns
-	Cx, Cy Vec2
+	Cx Vec2
+	Cy Vec2
 }
 
 // Axis-aligned bounding box.

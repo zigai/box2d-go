@@ -462,11 +462,15 @@ func TestOwnershipConcurrentWorldsAgainstIndependentC(t *testing.T) {
 }
 
 type ownershipHeldTasks struct {
-	release                       <-chan struct{}
-	started, finishing            chan struct{}
-	first, heldCompleted          atomic.Bool
-	enqueued, completed, finished atomic.Int64
-	tasks                         sync.WaitGroup
+	release       <-chan struct{}
+	started       chan struct{}
+	finishing     chan struct{}
+	first         atomic.Bool
+	heldCompleted atomic.Bool
+	enqueued      atomic.Int64
+	completed     atomic.Int64
+	finished      atomic.Int64
+	tasks         sync.WaitGroup
 }
 
 func (work *ownershipHeldTasks) enqueue(task func()) func() {

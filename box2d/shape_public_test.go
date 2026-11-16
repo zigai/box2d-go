@@ -495,10 +495,12 @@ func TestShapePublicShapeCasts(t *testing.T) {
 	polygon := box2d.MakeBox(1, 1)
 	rounded := box2d.MakeRoundedBox(1, 1, 0.25)
 	cases := []struct {
-		name                string
-		origin, translation box2d.Vec2
-		radius, maxFraction float32
-		encroach            bool
+		name        string
+		origin      box2d.Vec2
+		translation box2d.Vec2
+		radius      float32
+		maxFraction float32
+		encroach    bool
 	}{
 		{"hit", box2d.Vec2{-4, 0}, box2d.Vec2{8, 0}, 0.25, 1, false},
 		{"reverse", box2d.Vec2{4, 0}, box2d.Vec2{-8, 0}, 0.25, 1, false},

@@ -6,7 +6,8 @@ package box2d
 // A world position. Double precision in large world mode so coordinates stay accurate far
 // from the origin.
 type Pos struct {
-	X, Y posScalar
+	X posScalar
+	Y posScalar
 }
 
 // A world transform with a world position translation and float rotation. Rotation is frame

@@ -98,10 +98,15 @@ type chainSegmentParams struct {
 }
 
 type chainPolygonFeatures struct {
-	p1, p2, normal1, n0, n2 Vec2
-	smoothParams            chainSegmentParams
-	vertices, normals       []Vec2
-	radius                  float32
+	p1           Vec2
+	p2           Vec2
+	normal1      Vec2
+	n0           Vec2
+	n2           Vec2
+	smoothParams chainSegmentParams
+	vertices     []Vec2
+	normals      []Vec2
+	radius       float32
 }
 
 // Compute the contact manifold between two circles.

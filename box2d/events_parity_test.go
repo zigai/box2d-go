@@ -395,11 +395,14 @@ func TestEventsJointThresholdParity(t *testing.T) {
 
 type evCall struct {
 	kind   int
-	a, b   box2d.Shape
+	a      box2d.Shape
+	b      box2d.Shape
 	p      box2d.Pos
 	n      box2d.Vec2
-	fa, fb float32
-	ma, mb uint64
+	fa     float32
+	fb     float32
+	ma     uint64
+	mb     uint64
 	points int
 }
 

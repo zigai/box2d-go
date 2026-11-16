@@ -15,8 +15,9 @@ func TestContactSolverWideArithmetic(t *testing.T) {
 	b := setW(2, 4, -6, -8)
 
 	cases := []struct {
-		name      string
-		got, want floatW
+		name string
+		got  floatW
+		want floatW
 	}{
 		{"zero", zeroW(), floatW{}},
 		{"splat", splatW(3), floatW{3, 3, 3, 3}},

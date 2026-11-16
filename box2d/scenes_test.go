@@ -315,7 +315,11 @@ func decodeSceneBundle(p []byte, width int) (map[int][]byte, error) {
 	return states, nil
 }
 
-type sceneRecord struct{ Key, Type, Value string }
+type sceneRecord struct {
+	Key   string
+	Type  string
+	Value string
+}
 
 func parseSceneRecord(line []byte) (sceneRecord, error) {
 	var record sceneRecord
@@ -692,7 +696,10 @@ func checkSceneUtilityFixture(t *testing.T, config string, width int) {
 		take := func(suffix, kind string) sceneRecord {
 			return c.utilityRecord(step, suffix, kind)
 		}
-		for _, field := range []struct{ key, kind string }{
+		for _, field := range []struct {
+			key  string
+			kind string
+		}{
 			{"int", "i32"},
 			{"range", "i32"},
 			{"float", "f32"},
@@ -1157,9 +1164,15 @@ func (c *sceneLineCursor) checkPaddleBoundaries() {
 func (c *sceneLineCursor) checkUtilityBoundary() {
 	c.t.Helper()
 
-	boundary := make([]struct{ key, kind string }, 0, 16)
+	boundary := make([]struct {
+		key  string
+		kind string
+	}, 0, 16)
 
-	boundary = append(boundary, []struct{ key, kind string }{
+	boundary = append(boundary, []struct {
+		key  string
+		kind string
+	}{
 		{"equal.int", "i32"},
 		{"equal.float", "f32"},
 		{"equal.vec", "vec2"},
@@ -1172,8 +1185,14 @@ func (c *sceneLineCursor) checkUtilityBoundary() {
 	for range 4 {
 		boundary = append(
 			boundary,
-			struct{ key, kind string }{"fallback.vertex", "vec2"},
-			struct{ key, kind string }{"fallback.normal", "vec2"},
+			struct {
+				key  string
+				kind string
+			}{"fallback.vertex", "vec2"},
+			struct {
+				key  string
+				kind string
+			}{"fallback.normal", "vec2"},
 		)
 	}
 

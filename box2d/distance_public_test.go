@@ -96,8 +96,11 @@ func TestDistancePublic(t *testing.T) {
 
 func testDistancePublicSegments(t *testing.T) {
 	cases := []struct {
-		name           string
-		p1, q1, p2, q2 box2d.Vec2
+		name string
+		p1   box2d.Vec2
+		q1   box2d.Vec2
+		p2   box2d.Vec2
+		q2   box2d.Vec2
 	}{
 		{"intersect", box2d.Vec2{-2, 0}, box2d.Vec2{2, 0}, box2d.Vec2{0, -3}, box2d.Vec2{0, 3}},
 		{"parallel", box2d.Vec2{-2, 0}, box2d.Vec2{2, 0}, box2d.Vec2{-1, 2}, box2d.Vec2{3, 2}},
@@ -205,7 +208,8 @@ func testDistancePublicShapeDistance(t *testing.T) {
 
 	cases := []struct {
 		name  string
-		a, b  box2d.ShapeProxy
+		a     box2d.ShapeProxy
+		b     box2d.ShapeProxy
 		xf    box2d.Transform
 		radii bool
 	}{
@@ -338,7 +342,8 @@ func testDistancePublicShapeCast(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		a, b     box2d.ShapeProxy
+		a        box2d.ShapeProxy
+		b        box2d.ShapeProxy
 		p        box2d.Vec2
 		q        box2d.Rot
 		delta    box2d.Vec2
@@ -515,8 +520,10 @@ func testDistancePublicShapeCast(t *testing.T) {
 func testDistancePublicTimeOfImpact(t *testing.T) {
 	cases := []struct {
 		name        string
-		start, end  box2d.Vec2
-		q1, q2      box2d.Rot
+		start       box2d.Vec2
+		end         box2d.Vec2
+		q1          box2d.Rot
+		q2          box2d.Rot
 		localCenter box2d.Vec2
 		max         float32
 	}{

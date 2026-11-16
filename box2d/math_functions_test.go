@@ -14,7 +14,8 @@ import (
 func TestVectorProductRounding(t *testing.T) {
 	cases := []struct {
 		name string
-		a, b [2]uint32
+		a    [2]uint32
+		b    [2]uint32
 		s    uint32
 		want [2]uint32
 	}{

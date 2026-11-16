@@ -87,8 +87,10 @@ func TestMathPublicVectors(t *testing.T) {
 	r := oracle.Open(t, "math/PublicVectors")
 	negativeZero := math.Float32frombits(0x80000000)
 	cases := []struct {
-		a, b box2d.Vec2
-		s, t float32
+		a box2d.Vec2
+		b box2d.Vec2
+		s float32
+		t float32
 	}{
 		{box2d.Vec2{X: 2.5, Y: -3.75}, box2d.Vec2{X: -4, Y: 0.125}, -1.25, 0.3},
 		{box2d.Vec2{X: 0, Y: negativeZero}, box2d.Vec2{X: negativeZero, Y: 0}, negativeZero, 0},
@@ -160,7 +162,11 @@ func TestMathPublicVectors(t *testing.T) {
 func TestMathPublicRotations(t *testing.T) {
 	r := oracle.Open(t, "math/PublicRotations")
 	cases := []struct {
-		a, b, delta, t, invH float32
+		a     float32
+		b     float32
+		delta float32
+		t     float32
+		invH  float32
 	}{
 		{0, 0, 0, 0, 60},
 		{0.25, -0.7, 0.03, 0.3, 60},
@@ -273,9 +279,13 @@ func TestMathPublicTransforms(t *testing.T) {
 	r := oracle.Open(t, "math/PublicTransforms")
 	negativeZero := math.Float32frombits(0x80000000)
 	cases := []struct {
-		a, b, point    box2d.Vec2
-		angleA, angleB float32
-		worldX, worldY float64
+		a      box2d.Vec2
+		b      box2d.Vec2
+		point  box2d.Vec2
+		angleA float32
+		angleB float32
+		worldX float64
+		worldY float64
 	}{
 		{box2d.Vec2{}, box2d.Vec2{}, box2d.Vec2{Y: negativeZero}, 0, 0, 0, math.Copysign(0, -1)},
 		{
@@ -522,7 +532,8 @@ func TestMathPublicBoundsPlanes(t *testing.T) {
 	r := oracle.Open(t, "math/PublicBoundsPlanes")
 	negativeZero := math.Float32frombits(0x80000000)
 	cases := []struct {
-		a, b box2d.AABB
+		a box2d.AABB
+		b box2d.AABB
 	}{
 		{
 			box2d.AABB{LowerBound: box2d.Vec2{X: -2, Y: -3}, UpperBound: box2d.Vec2{X: 4, Y: 5}},

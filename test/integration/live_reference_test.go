@@ -31,9 +31,10 @@ func TestLiveReferenceProfileRejectsInvalidSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := []struct {
-		name, member string
-		value        json.RawMessage
-		reject       bool
+		name   string
+		member string
+		value  json.RawMessage
+		reject bool
 	}{
 		{name: "designated"},
 		{

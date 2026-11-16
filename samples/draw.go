@@ -81,7 +81,10 @@ type Camera struct {
 }
 
 type rgba8 struct {
-	r, g, b, a uint8
+	r uint8
+	g uint8
+	b uint8
+	a uint8
 }
 type background struct {
 	vaoID             uint32

@@ -177,8 +177,10 @@ type separationFunction struct {
 }
 
 type separationRootBracket struct {
-	lower, upper                     float32
-	lowerSeparation, upperSeparation float32
+	lower           float32
+	upper           float32
+	lowerSeparation float32
+	upperSeparation float32
 }
 
 // Evaluate the transform sweep at a specific time.

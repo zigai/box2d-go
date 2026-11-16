@@ -120,8 +120,9 @@ func checkMeasurementVariants(t *testing.T, precision string, cpus int, goOutput
 	lines := strings.SplitAfter(good, "\n")
 
 	cases := []struct {
-		name, text string
-		valid      bool
+		name  string
+		text  string
+		valid bool
 	}{
 		{
 			"debug-dimensions",
@@ -150,16 +151,19 @@ func checkMeasurementVariants(t *testing.T, precision string, cpus int, goOutput
 	if goOutput {
 		cases = append(cases,
 			struct {
-				name, text string
-				valid      bool
+				name  string
+				text  string
+				valid bool
 			}{"negative-bytes", strings.Replace(good, "0 B/op", "-1 B/op", 1), false},
 			struct {
-				name, text string
-				valid      bool
+				name  string
+				text  string
+				valid bool
 			}{"nan-allocations", strings.Replace(good, "0 allocs/op", "NaN allocs/op", 1), false},
 			struct {
-				name, text string
-				valid      bool
+				name  string
+				text  string
+				valid bool
 			}{"missing-allocations", strings.Replace(good, " 0 B/op 0 allocs/op", "", 1), false})
 	}
 

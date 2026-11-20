@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"math/bits"
+	"runtime"
 
 	"github.com/zigai/box2d-go/internal/array"
 	"github.com/zigai/box2d-go/internal/bitset"
@@ -1004,6 +1005,12 @@ func (w *World) Step(timeStep float32, subStepCount int) {
 	clear(state.solverWorkerScratch[:])
 	clear(state.solverStageScratch)
 	state.locked = false
+
+	// Go on wasm has no preemption, so a garbage collection cycle can only finish
+	// when the running goroutine yields; until then every allocation counts as live.
+	if runtime.GOARCH == "wasm" {
+		timer.Yield()
+	}
 }
 
 func computeWorldBounds(w *World, bounds *AABB) bool {

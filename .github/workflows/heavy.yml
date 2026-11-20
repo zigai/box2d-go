@@ -51,9 +51,9 @@ jobs:
       - name: go vet stress
         run: go vet -tags "box2d_stress ${{ matrix.tags }}" ./...
       - name: go test stress
-        run: ./test/run.sh stress -timeout 60m -tags "box2d_stress ${{ matrix.tags }}"
+        run: ./test/run.sh stress -shuffle=on -timeout 60m -tags "box2d_stress ${{ matrix.tags }}"
       - name: go test stress -race
-        run: ./test/run.sh stress -race -timeout 90m -tags "box2d_stress ${{ matrix.tags }}"
+        run: ./test/run.sh stress -race -shuffle=on -timeout 90m -tags "box2d_stress ${{ matrix.tags }}"
 
   test-wasm:
     name: test (wasm, ${{ matrix.precision }})
@@ -84,7 +84,7 @@ jobs:
       - name: go vet
         run: go vet -tags "${{ matrix.tags }}" ./...
       - name: go test
-        run: ./test/run.sh all -timeout 60m -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" -tags "box2d_stress ${{ matrix.tags }}"
+        run: ./test/run.sh all -shuffle=on -timeout 60m -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" -tags "box2d_stress ${{ matrix.tags }}"
 
   skips:
     runs-on: ubuntu-latest

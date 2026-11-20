@@ -56,9 +56,9 @@ jobs:
       - name: go vet
         run: go vet -tags "${{ matrix.tags }}" ./...
       - name: go test
-        run: go test -timeout 60m -tags "${{ matrix.tags }}" ./...
+        run: go test -shuffle=on -timeout 60m -tags "${{ matrix.tags }}" ./...
       - name: go test -race
-        run: ./test/race.sh 4 "${{ matrix.tags }}" -test.timeout=90m
+        run: ./test/race.sh 4 "${{ matrix.tags }}" -test.shuffle=on -test.timeout=90m
 
   lint:
     runs-on: ubuntu-latest

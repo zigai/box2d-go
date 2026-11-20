@@ -28,7 +28,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            internal/lint/go.sum
+            samples/go.sum
       - uses: extractions/setup-just@v4
       - name: Install benchstat
         run: go install golang.org/x/perf/cmd/benchstat@v0.0.0-20260908200009-22c9c6c9d4da

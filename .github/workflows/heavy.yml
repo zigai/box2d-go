@@ -41,7 +41,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            internal/lint/go.sum
+            samples/go.sum
       - name: Check architecture
         run: test "$(go env GOARCH)" = "${{ matrix.arch }}"
       - name: go vet stress
@@ -69,7 +73,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            internal/lint/go.sum
+            samples/go.sum
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -86,7 +94,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            internal/lint/go.sum
+            samples/go.sum
       - uses: extractions/setup-just@v4
       - name: Count unported skips
         run: just skips | tee -a "$GITHUB_STEP_SUMMARY"

@@ -19,7 +19,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            internal/lint/go.sum
+            samples/go.sum
 
       - name: Install cmake and gcc
         run: |

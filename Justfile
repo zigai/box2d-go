@@ -134,6 +134,23 @@ oracle-check:
 oracle-bench:
     ORACLE_BENCH_ONLY=1 ./oracle/build.sh
 
+# Check formatting, lint and types in the files changed since the base branch
+prepush:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    base=$(git merge-base origin/master HEAD)
+    changed() { git diff -z --name-only --no-renames --diff-filter=d "$base" HEAD -- "$@" ':!**/testdata/**'; }
+    changed '*.go' | xargs -0 -r golangci-lint fmt --diff
+    changed '*.sh' | xargs -0 -r shfmt -d
+    changed '*.yml' '*.yaml' | xargs -0 -r oxfmt --check
+    changed '*.md' | xargs -0 -r just markdown check
+    changed Justfile | xargs -0 -r -n 1 just --fmt --check --justfile
+    mapfile -t packages < <(changed '*.go' | xargs -0 -r -n 1 dirname | sort -u | sed 's|^|./|')
+    if (( ${#packages[@]} )); then
+        go vet -tags box2d_stress "${packages[@]}"
+        golangci-lint run --build-tags box2d_stress "${packages[@]}"
+    fi
+
 # Compare Go and C speed on the benchmark scenes
 bench samples="6" steps="300" cpus="2":
     [ -x oracle/.build/float/bench/bench_scenes ] && [ -x oracle/.build/double/bench/bench_scenes ] || just oracle-bench

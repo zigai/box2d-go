@@ -58,7 +58,7 @@ jobs:
       - name: go test
         run: go test -timeout 60m -tags "${{ matrix.tags }}" ./...
       - name: go test -race
-        run: go test -race -timeout 90m -tags "${{ matrix.tags }}" ./...
+        run: ./test/race.sh 4 "${{ matrix.tags }}" -test.timeout=90m
 
   lint:
     runs-on: ubuntu-latest

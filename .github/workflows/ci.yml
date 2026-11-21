@@ -60,6 +60,42 @@ jobs:
       - name: go test -race
         run: ./test/race.sh 4 "${{ matrix.tags }}" -test.shuffle=on -test.timeout=90m
 
+  simd:
+    name: simd (amd64, ${{ matrix.precision }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GOEXPERIMENT: simd
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { precision: float, tags: "" }
+          - { precision: double, tags: box2d_double }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            internal/lint/go.sum
+            samples/go.sum
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ runner.os }}-amd64-simd-${{ matrix.precision }}-${{ hashFiles('**/go.sum', 'go.work.sum') }}
+          restore-keys: go-build-${{ runner.os }}-amd64-simd-${{ matrix.precision }}-
+      - name: Check architecture
+        run: test "$(go env GOARCH)" = amd64
+      - name: go build
+        run: go build -tags "${{ matrix.tags }}" ./...
+      - name: go vet
+        run: go vet -tags "${{ matrix.tags }}" ./...
+      - name: go test
+        run: go test -shuffle=on -timeout 60m -tags "${{ matrix.tags }}" ./...
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
